@@ -49,11 +49,29 @@
 <div id="todayList" class="today-list"></div>
 </section>
 
+<section class="card analytics-import-card">
+<div>
+<h2 class="section-title">X分析CSVを読み込む</h2>
+<p class="backup-note">Xの「ポスト別アナリティクスCSV」を選ぶと、投稿文・投稿日・Xリンク・表示数・いいね・保存数などをまとめて登録します。</p>
+</div>
+<label class="primary analytics-import-button">CSVを選んで一括登録
+<input id="importAnalyticsCsv" type="file" accept=".csv,text/csv" hidden>
+</label>
+<p id="analyticsImportStatus" class="analytics-import-status"></p>
+</section>
+
 <div class="archive-tools">
 <input id="archiveSearch" type="search" placeholder="商品名・投稿文から検索">
 <div class="filter-row">
 <button class="filter-btn active" data-filter="all">すべて</button>
 <button class="filter-btn" data-filter="ready">30日以上未投稿</button>
+</div>
+<div class="sort-row">
+<span class="sort-label">並び順</span>
+<button class="sort-btn active" data-sort="newest">新しい順</button>
+<button class="sort-btn" data-sort="impressions">表示順</button>
+<button class="sort-btn" data-sort="likes">いいね順</button>
+<button class="sort-btn" data-sort="bookmarks">保存順</button>
 </div>
 </div>
 
