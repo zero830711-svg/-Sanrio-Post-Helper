@@ -85,6 +85,55 @@ function hasRakutenAffiliate(x){
 }
 function hasAffiliate(x){return hasAmazonAffiliate(x)||hasRakutenAffiliate(x)}
 
+function canonicalPostKey(x){
+  if(clean(x.postId))return "post:"+clean(x.postId);
+  const m=String(x.xUrl||"").match(/status\/(\d+)/);
+  if(m)return "post:"+m[1];
+  return "id:"+String(x.id||"");
+}
+function newestIso(...values){
+  let best="",bestT=0;
+  for(const v of values){
+    const t=new Date(v||"").getTime();
+    if(Number.isFinite(t)&&t>bestT){bestT=t;best=v}
+  }
+  return best||undefined;
+}
+function mergedUsageHistory(a,b){
+  return {
+    lastRepostedAt:newestIso(a&&a.lastRepostedAt,b&&b.lastRepostedAt),
+    recommendedAt:newestIso(a&&a.recommendedAt,b&&b.recommendedAt),
+    skippedAt:newestIso(a&&a.skippedAt,b&&b.skippedAt),
+    repostCount:Math.max(Number(a&&a.repostCount)||0,Number(b&&b.repostCount)||0)
+  };
+}
+async function propagateUsageHistory(item){
+  const all=await dbGetAll();
+  const key=canonicalPostKey(item);
+  const matches=all.filter(x=>canonicalPostKey(x)===key);
+  let history={...item};
+  for(const x of matches)history={...history,...mergedUsageHistory(history,x)};
+  for(const x of matches){
+    const merged={...x,...mergedUsageHistory(x,history)};
+    await dbPut(merged);
+  }
+}
+async function reconcileUsageHistory(){
+  const all=await dbGetAll();
+  const groups=new Map();
+  for(const x of all){
+    const key=canonicalPostKey(x);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(x);
+  }
+  for(const group of groups.values()){
+    if(group.length<2)continue;
+    let history={};
+    for(const x of group)history={...history,...mergedUsageHistory(history,x)};
+    for(const x of group)await dbPut({...x,...mergedUsageHistory(x,history)});
+  }
+}
+
 function lastUseTime(x){
   const raw=x.lastRepostedAt||x.postedAt||x.savedAt||"";
   const t=new Date(raw).getTime();
@@ -347,11 +396,12 @@ async function importAnalyticsCSV(file){
   let added=0,updated=0;
   const existing=await dbGetAll();
   const byId=new Map(existing.map(x=>[x.id,x]));
+  const byPostKey=new Map(existing.map(x=>[canonicalPostKey(x),x]));
   for(const r of rows){
     const postId=clean(r["ポストID"]);
     if(!postId)continue;
     const id="xanalytics-"+postId;
-    const prev=byId.get(id);
+    const prev=byId.get(id)||byPostKey.get("post:"+postId);
     const item={
       ...(prev||{}),
       id,
@@ -374,11 +424,14 @@ async function importAnalyticsCSV(file){
       postedAt:parseXAnalyticsDate(r["日付"]),
       savedAt:(prev&&prev.savedAt)||parseXAnalyticsDate(r["日付"]),
       repostCount:(prev&&prev.repostCount)||0,
-      lastRepostedAt:prev&&prev.lastRepostedAt
+      lastRepostedAt:prev&&prev.lastRepostedAt,
+      recommendedAt:prev&&prev.recommendedAt,
+      skippedAt:prev&&prev.skippedAt
     };
     await dbPut(item);
     if(prev)updated++; else added++;
     byId.set(id,item);
+    byPostKey.set("post:"+postId,item);
   }
   return {added,updated,total:added+updated};
 }
@@ -755,6 +808,7 @@ $("revenueToday").addEventListener("click",async e=>{
     item.lastRepostedAt=new Date().toISOString();
     item.repostCount=(item.repostCount||0)+1;
     await dbPut(item);
+    await propagateUsageHistory(item);
     await renderToday();
     await renderRevenuePick();
     await renderRecentUsed();
@@ -777,6 +831,7 @@ $("todayList").addEventListener("click",async e=>{
     item.lastRepostedAt=new Date().toISOString();
     item.repostCount=(item.repostCount||0)+1;
     await dbPut(item);
+    await propagateUsageHistory(item);
     await renderToday();
     await renderRevenuePick();
     await renderRecentUsed();
@@ -785,6 +840,7 @@ $("todayList").addEventListener("click",async e=>{
   if(btn.dataset.todayAction==="skip"){
     item.skippedAt=new Date().toISOString();
     await dbPut(item);
+    await propagateUsageHistory(item);
     await renderToday();
     await renderRevenuePick();
     await renderRecentUsed();
@@ -843,10 +899,19 @@ $("importBackup").addEventListener("change",async e=>{
     const items=Array.isArray(payload)?payload:payload.items;
     if(!Array.isArray(items))throw new Error("invalid");
     if(!confirm(items.length+"件のバックアップを読み込みます。既存データは残したまま追加・更新しますか？")){e.target.value="";return}
-    for(const item of items){
+    const existing=await dbGetAll();
+    const byId=new Map(existing.map(x=>[x.id,x]));
+    const byKey=new Map(existing.map(x=>[canonicalPostKey(x),x]));
+    for(const incoming of items){
+      const item={...incoming};
       if(!item.id)item.id=Date.now().toString()+Math.random().toString(16).slice(2);
-      await dbPut(item);
+      const current=byId.get(item.id)||byKey.get(canonicalPostKey(item));
+      const merged=current?{...current,...item,...mergedUsageHistory(current,item)}:item;
+      await dbPut(merged);
+      byId.set(merged.id,merged);
+      byKey.set(canonicalPostKey(merged),merged);
     }
+    await reconcileUsageHistory();
     await renderArchive();
     await renderToday();
     await renderRevenuePick();
@@ -870,6 +935,7 @@ $("archiveList").addEventListener("click",async e=>{
     item.lastRepostedAt=new Date().toISOString();
     item.repostCount=(item.repostCount||0)+1;
     await dbPut(item);
+    await propagateUsageHistory(item);
     await renderArchive();
     await renderToday();
     await renderRevenuePick();
@@ -894,4 +960,4 @@ $("archiveList").addEventListener("click",async e=>{
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
-(async()=>{await migrateLegacy();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderDataFreshness();await renderAnalytics()})();
+(async()=>{await migrateLegacy();await reconcileUsageHistory();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderDataFreshness();await renderAnalytics()})();
