@@ -4,6 +4,8 @@ const DB_NAME="sanrioPostHelperDB";
 const STORE="popularPosts";
 const LEGACY_KEY="sanrioPopularPostsV1";
 let selectedImages=[];
+let editingId=null;
+let archiveFilter="all";
 
 function build(){
   const title=clean($("title").value)||"気になるサンリオグッズ";
@@ -74,7 +76,17 @@ function renderPreview(){
 async function renderArchive(){
   const q=clean($("archiveSearch").value).toLowerCase();
   const all=await dbGetAll();
-  const items=all.filter(x=>((x.title+" "+x.text+" "+x.memo).toLowerCase().includes(q)));
+  const now=Date.now();
+  const readyCutoff=30*24*60*60*1000;
+  const items=all.filter(x=>{
+    const matches=((x.title+" "+x.text+" "+x.memo).toLowerCase().includes(q));
+    if(!matches)return false;
+    if(archiveFilter==="ready"){
+      const last=x.lastRepostedAt?new Date(x.lastRepostedAt).getTime():0;
+      return !last || (now-last)>=readyCutoff;
+    }
+    return true;
+  });
   const root=$("archiveList");
   if(!items.length){root.innerHTML='<div class="empty">保存した人気投稿はまだありません。</div>';return}
   root.innerHTML=items.map(x=>{
@@ -85,10 +97,13 @@ async function renderArchive(){
         ${imgs.length>1?'<span class="image-count">'+imgs.length+'枚</span>':''}
       </div>
       <div class="archive-body">
-        <h3>${esc(x.title)}</h3>
+        <h3>${esc(x.title)}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
+        <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}</p>
         <p>${esc(x.text)}</p>
         <div class="archive-actions">
           <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
+          <button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button>
+          <button class="small-btn" data-action="edit" data-id="${x.id}">修正</button>
           <button class="small-btn" data-action="copy" data-id="${x.id}">投稿文コピー</button>
           <button class="small-btn" data-action="load" data-id="${x.id}">呼び出す</button>
           ${imgs.length?'<button class="small-btn" data-action="images" data-id="'+x.id+'">画像を見る</button>':''}
@@ -99,7 +114,29 @@ async function renderArchive(){
 }
 function resetArchiveForm(){
   ["archiveTitle","archiveText","archiveAmazon","archiveRakuten","archiveMemo"].forEach(id=>$(id).value="");
-  $("archiveImage").value="";selectedImages=[];renderPreview();
+  $("archiveImage").value="";
+  selectedImages=[];
+  editingId=null;
+  renderPreview();
+  $("archiveFormTitle").textContent="人気投稿を保存";
+  $("saveArchive").textContent="人気投稿に保存";
+  $("cancelEdit").classList.add("hidden");
+}
+
+function startEdit(item){
+  editingId=item.id;
+  $("archiveTitle").value=item.title||"";
+  $("archiveText").value=item.text||"";
+  $("archiveAmazon").value=item.amazon||"";
+  $("archiveRakuten").value=item.rakuten||"";
+  $("archiveMemo").value=item.memo||"";
+  selectedImages=[...(item.images||(item.image?[item.image]:[]))];
+  renderPreview();
+  $("archiveFormTitle").textContent="人気投稿を修正";
+  $("saveArchive").textContent="修正を保存";
+  $("cancelEdit").classList.remove("hidden");
+  document.querySelector('[data-tab="archive"]').click();
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 function showImages(images){
   $("modalImages").innerHTML=images.map(src=>'<img src="'+src+'" alt="保存画像">').join("");
@@ -173,18 +210,49 @@ $("saveArchive").addEventListener("click",async()=>{
   const title=clean($("archiveTitle").value);
   const text=clean($("archiveText").value);
   if(!title&&!text){alert("商品名か投稿文を入れてください");return}
-  await dbPut({
-    id:Date.now().toString(),
-    title,text,images:[...selectedImages],
-    amazon:clean($("archiveAmazon").value),
-    rakuten:clean($("archiveRakuten").value),
-    memo:clean($("archiveMemo").value),
-    savedAt:new Date().toISOString()
-  });
-  resetArchiveForm();await renderArchive();alert("保存しました");
+
+  const now=new Date().toISOString();
+  let item;
+  if(editingId){
+    const current=(await dbGetAll()).find(x=>x.id===editingId);
+    if(!current){alert("修正対象が見つかりません");return}
+    item={
+      ...current,
+      title,text,images:[...selectedImages],
+      amazon:clean($("archiveAmazon").value),
+      rakuten:clean($("archiveRakuten").value),
+      memo:clean($("archiveMemo").value),
+      updatedAt:now
+    };
+  }else{
+    item={
+      id:Date.now().toString(),
+      title,text,images:[...selectedImages],
+      amazon:clean($("archiveAmazon").value),
+      rakuten:clean($("archiveRakuten").value),
+      memo:clean($("archiveMemo").value),
+      savedAt:now,
+      repostCount:0
+    };
+  }
+
+  await dbPut(item);
+  const wasEdit=!!editingId;
+  resetArchiveForm();
+  await renderArchive();
+  alert(wasEdit?"修正を保存しました":"保存しました");
 });
 
+$("cancelEdit").addEventListener("click",resetArchiveForm);
+
 $("archiveSearch").addEventListener("input",renderArchive);
+
+document.querySelectorAll(".filter-btn").forEach(btn=>btn.addEventListener("click",()=>{
+  archiveFilter=btn.dataset.filter;
+  document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));
+  btn.classList.add("active");
+  renderArchive();
+}));
 
 $("exportBackup").addEventListener("click",async()=>{
   const items=await dbGetAll();
@@ -231,6 +299,15 @@ $("archiveList").addEventListener("click",async e=>{
   const items=await dbGetAll();const item=items.find(x=>x.id===btn.dataset.id);if(!item)return;
   if(btn.dataset.action==="sharex"){
     await shareToX(item,btn);
+  }
+  if(btn.dataset.action==="reposted"){
+    item.lastRepostedAt=new Date().toISOString();
+    item.repostCount=(item.repostCount||0)+1;
+    await dbPut(item);
+    await renderArchive();
+  }
+  if(btn.dataset.action==="edit"){
+    startEdit(item);
   }
   if(btn.dataset.action==="copy"){
     await navigator.clipboard.writeText(item.text||"");
