@@ -186,6 +186,46 @@ $("saveArchive").addEventListener("click",async()=>{
 
 $("archiveSearch").addEventListener("input",renderArchive);
 
+$("exportBackup").addEventListener("click",async()=>{
+  const items=await dbGetAll();
+  const payload={version:1,exportedAt:new Date().toISOString(),items};
+  const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
+  const file=new File([blob],"sanrio-post-helper-backup.json",{type:"application/json"});
+  try{
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+      await navigator.share({files:[file],title:"Sanrio Post Helper バックアップ"});
+      return;
+    }
+  }catch(e){
+    if(e && e.name==="AbortError")return;
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="sanrio-post-helper-backup.json";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+
+$("importBackup").addEventListener("change",async e=>{
+  const file=e.target.files[0];if(!file)return;
+  try{
+    const text=await file.text();
+    const payload=JSON.parse(text);
+    const items=Array.isArray(payload)?payload:payload.items;
+    if(!Array.isArray(items))throw new Error("invalid");
+    if(!confirm(items.length+"件のバックアップを読み込みます。既存データは残したまま追加・更新しますか？")){e.target.value="";return}
+    for(const item of items){
+      if(!item.id)item.id=Date.now().toString()+Math.random().toString(16).slice(2);
+      await dbPut(item);
+    }
+    await renderArchive();
+    alert("バックアップを読み込みました");
+  }catch(err){
+    alert("バックアップファイルを読み込めませんでした");
+  }
+  e.target.value="";
+});
+
 $("archiveList").addEventListener("click",async e=>{
   const btn=e.target.closest("[data-action]");if(!btn)return;
   const items=await dbGetAll();const item=items.find(x=>x.id===btn.dataset.id);if(!item)return;
