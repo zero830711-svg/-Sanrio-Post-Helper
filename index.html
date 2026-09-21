@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fff7fb">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260921-2200">
+<link rel="stylesheet" href="./styles.css?v=20260921-2245">
 </head>
 <body>
 <main class="app">
@@ -37,19 +37,29 @@
 <div id="revenueToday"></div>
 </section>
 
-
+<section id="recentUsedCard" class="card recent-used-card hidden">
+<div class="today-head">
+<div>
+<h2 class="section-title">今週使った投稿</h2>
+<p class="backup-note">直近7日で再投稿済みにした投稿です。</p>
+</div>
+</div>
+<div id="recentUsedList" class="recent-used-list"></div>
+</section>
 
 <details class="analytics-dashboard">
 <summary>分析ダッシュボードを開く</summary>
 <div class="analytics-dashboard-body">
 <div id="analyticsSummary" class="analytics-summary"></div>
-<div class="chart-card">
-<h3>クリック率 上位10投稿</h3>
-<canvas id="clickRateChart"></canvas>
+<div class="chart-card ranking-card">
+<h3>クリック率 上位5投稿</h3>
+<p class="ranking-note">表示1,000以上の投稿を対象</p>
+<div id="clickRateRanking" class="rate-ranking"></div>
 </div>
-<div class="chart-card">
-<h3>保存率 上位10投稿</h3>
-<canvas id="saveRateChart"></canvas>
+<div class="chart-card ranking-card">
+<h3>保存率 上位5投稿</h3>
+<p class="ranking-note">表示1,000以上の投稿を対象</p>
+<div id="saveRateRanking" class="rate-ranking"></div>
 </div>
 <div class="chart-card">
 <h3>キャラ別 平均クリック率</h3>
@@ -162,6 +172,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260921-2200"></script>
+<script src="./app.js?v=20260921-2245"></script>
 </body>
 </html>
