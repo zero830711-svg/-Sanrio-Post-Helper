@@ -332,6 +332,26 @@ async function renderToday(){
   }).join("");
 }
 
+async function renderRecentUsed(){
+  const root=$("recentUsedList");
+  const cutoff=Date.now()-7*24*60*60*1000;
+  const items=(await dbGetAll())
+    .filter(x=>{
+      const t=new Date(x.lastRepostedAt||"").getTime();
+      return Number.isFinite(t)&&t>=cutoff;
+    })
+    .sort((a,b)=>new Date(b.lastRepostedAt)-new Date(a.lastRepostedAt))
+    .slice(0,3);
+  if(!items.length){root.innerHTML='<div class="empty compact-empty">今週はまだありません。</div>';return}
+  root.innerHTML=items.map(x=>
+    '<article class="recent-used-item">'+
+      '<div><strong>'+esc(x.title)+'</strong>'+
+      '<div class="today-meta">'+esc(new Date(x.lastRepostedAt).toLocaleDateString("ja-JP"))+' に再投稿</div></div>'+
+      (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
+    '</article>'
+  ).join("");
+}
+
 async function renderRevenuePick(){
   const root=$("revenueToday");
   const x=await getRevenuePick();
@@ -367,6 +387,7 @@ async function renderArchive(){
     if(archiveFilter==="amazon")return hasAmazonAffiliate(x);
     if(archiveFilter==="rakuten")return hasRakutenAffiliate(x);
     if(archiveFilter==="both")return hasAmazonAffiliate(x)&&hasRakutenAffiliate(x);
+    if(archiveFilter==="stale")return isLikelyExpiredNews(x);
     return true;
   });
   if(archiveSort==="impressions")items.sort((a,b)=>metricNumber(b.impressions)-metricNumber(a.impressions));
@@ -494,6 +515,7 @@ $("importAnalyticsCsv").addEventListener("change",async e=>{
     await renderArchive();
     await renderToday();
     await renderRevenuePick();
+    await renderRecentUsed();
   }catch(err){
     status.textContent="";
     alert(err.message||"CSVを読み込めませんでした");
@@ -575,6 +597,7 @@ $("revenueToday").addEventListener("click",async e=>{
     await dbPut(item);
     await renderToday();
     await renderRevenuePick();
+    await renderRecentUsed();
     await renderArchive();
   }
 });
@@ -596,6 +619,7 @@ $("todayList").addEventListener("click",async e=>{
     await dbPut(item);
     await renderToday();
     await renderRevenuePick();
+    await renderRecentUsed();
     await renderArchive();
   }
   if(btn.dataset.todayAction==="skip"){
@@ -603,6 +627,7 @@ $("todayList").addEventListener("click",async e=>{
     await dbPut(item);
     await renderToday();
     await renderRevenuePick();
+    await renderRecentUsed();
     await renderArchive();
   }
 });
@@ -611,6 +636,15 @@ document.querySelectorAll(".filter-btn").forEach(btn=>btn.addEventListener("clic
   archiveFilter=btn.dataset.filter;
   document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));
   btn.classList.add("active");
+  renderArchive();
+}));
+
+document.querySelectorAll(".character-btn").forEach(btn=>btn.addEventListener("click",()=>{
+  const input=$("archiveSearch");
+  const same=input.value===btn.dataset.character;
+  input.value=same?"":btn.dataset.character;
+  document.querySelectorAll(".character-btn").forEach(x=>x.classList.remove("active"));
+  if(!same)btn.classList.add("active");
   renderArchive();
 }));
 
@@ -654,6 +688,9 @@ $("importBackup").addEventListener("change",async e=>{
       await dbPut(item);
     }
     await renderArchive();
+    await renderToday();
+    await renderRevenuePick();
+    await renderRecentUsed();
     alert("バックアップを読み込みました");
   }catch(err){
     alert("バックアップファイルを読み込めませんでした");
@@ -672,6 +709,9 @@ $("archiveList").addEventListener("click",async e=>{
     item.repostCount=(item.repostCount||0)+1;
     await dbPut(item);
     await renderArchive();
+    await renderToday();
+    await renderRevenuePick();
+    await renderRecentUsed();
   }
   if(btn.dataset.action==="edit"){
     startEdit(item);
@@ -692,4 +732,4 @@ $("archiveList").addEventListener("click",async e=>{
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
-(async()=>{await migrateLegacy();await renderArchive();await renderToday();await renderRevenuePick()})();
+(async()=>{await migrateLegacy();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed()})();
