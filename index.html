@@ -54,6 +54,18 @@
 <div class="archive-tools">
 <input id="archiveSearch" type="search" placeholder="商品名・投稿文から検索">
 </div>
+
+<section class="card backup-card">
+<h2 class="section-title">バックアップ</h2>
+<p class="backup-note">保存した人気投稿・写真をまとめて書き出し／復元できます。</p>
+<div class="backup-actions">
+<button id="exportBackup" class="small-btn">バックアップ保存</button>
+<label class="small-btn import-label">バックアップ読込
+<input id="importBackup" type="file" accept="application/json,.json" hidden>
+</label>
+</div>
+</section>
+
 <section id="archiveList" class="archive-list"></section>
 </section>
 
