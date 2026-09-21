@@ -130,6 +130,26 @@ function isLikelyExpiredNews(x){
 }
 function safeReuseItem(x){return isReadyForReuse(x)&&!isLikelyExpiredNews(x)}
 
+function localDayKey(date=new Date()){
+  const y=date.getFullYear();
+  const m=String(date.getMonth()+1).padStart(2,"0");
+  const d=String(date.getDate()).padStart(2,"0");
+  return y+"-"+m+"-"+d;
+}
+function recommendedDay(x){
+  if(!x.recommendedAt)return "";
+  const d=new Date(x.recommendedAt);
+  return Number.isFinite(d.getTime())?localDayKey(d):"";
+}
+function canRecommendToday(x){
+  if(!x.recommendedAt)return true;
+  const d=new Date(x.recommendedAt);
+  const t=d.getTime();
+  if(!Number.isFinite(t))return true;
+  if(recommendedDay(x)===localDayKey())return true;
+  return (Date.now()-t)>=7*24*60*60*1000;
+}
+
 function metricNumber(v){
   const s=String(v??"").trim().replace(/,/g,"");
   if(!s)return 0;
@@ -221,7 +241,23 @@ async function importAnalyticsCSV(file){
 
 async function getReadyItems(){
   const all=await dbGetAll();
-  return all.filter(safeReuseItem).sort((a,b)=>recommendationScore(b)-recommendationScore(a));
+  return all
+    .filter(x=>safeReuseItem(x)&&canRecommendToday(x))
+    .sort((a,b)=>{
+      const at=recommendedDay(a)===localDayKey()?1:0;
+      const bt=recommendedDay(b)===localDayKey()?1:0;
+      if(at!==bt)return bt-at;
+      return recommendationScore(b)-recommendationScore(a);
+    });
+}
+
+async function stampRecommendations(items){
+  const today=localDayKey();
+  for(const item of items){
+    if(recommendedDay(item)===today)continue;
+    item.recommendedAt=new Date().toISOString();
+    await dbPut(item);
+  }
 }
 
 async function getRevenuePick(){
@@ -250,6 +286,7 @@ async function renderToday(){
     root.innerHTML='<div class="empty">今すぐ出せる候補はありません。</div>';
     return;
   }
+  await stampRecommendations(items);
   root.innerHTML=items.map((x,i)=>{
     const imgs=x.images||(x.image?[x.image]:[]);
     return '<article class="today-item featured">'+
