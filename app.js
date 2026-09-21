@@ -142,12 +142,33 @@ function recommendedDay(x){
   return Number.isFinite(d.getTime())?localDayKey(d):"";
 }
 function canRecommendToday(x){
+  if(x.skippedAt){
+    const st=new Date(x.skippedAt).getTime();
+    if(Number.isFinite(st) && (Date.now()-st)<7*24*60*60*1000)return false;
+  }
   if(!x.recommendedAt)return true;
   const d=new Date(x.recommendedAt);
   const t=d.getTime();
   if(!Number.isFinite(t))return true;
   if(recommendedDay(x)===localDayKey())return true;
   return (Date.now()-t)>=7*24*60*60*1000;
+}
+
+function recommendationReasons(x){
+  const reasons=[];
+  const age=Math.max(0,Math.floor((Date.now()-postedTime(x))/(24*60*60*1000)));
+  const clicks=metricNumber(x.urlClicks);
+  const saves=metricNumber(x.bookmarks);
+  const likes=metricNumber(x.likes);
+  const impressions=metricNumber(x.impressions);
+  if(age>=60)reasons.push(age+"日空き");
+  else if(age>=30)reasons.push("30日以上空き");
+  if(clicks>0)reasons.push("クリック実績あり");
+  else if(saves>=100)reasons.push("保存100+");
+  else if(likes>=500)reasons.push("いいね500+");
+  else if(impressions>=50000)reasons.push("表示5万+");
+  if(hasAffiliate(x))reasons.push("アフィリエイト系");
+  return reasons.slice(0,2);
 }
 
 function metricNumber(v){
@@ -294,6 +315,7 @@ async function renderToday(){
       (imgs[0]?'<img src="'+imgs[0]+'" alt="">':'<div class="today-rank">'+(i+1)+'</div>')+
       '<div class="today-main"><div class="today-rank-label">おすすめ '+(i+1)+'</div><h3>'+esc(x.title)+'</h3>'+
       '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
+      '<div class="recommend-reason">選定理由：'+esc(recommendationReasons(x).join("・"))+'</div>'+
       '<p class="today-preview">'+esc(x.text)+'</p>'+
       '<div class="metric-chips">'+
         (x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+
@@ -305,6 +327,7 @@ async function renderToday(){
         (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
         '<button class="small-btn" data-today-action="copy" data-id="'+x.id+'">投稿文コピー</button>'+
         '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
+        '<button class="small-btn skip-btn" data-today-action="skip" data-id="'+x.id+'">見送る</button>'+
       '</div></div></article>';
   }).join("");
 }
@@ -317,6 +340,7 @@ async function renderRevenuePick(){
     '<div class="revenue-label">収益候補</div>'+
     '<h3>'+esc(x.title)+'</h3>'+
     '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
+    '<div class="recommend-reason">選定理由：'+esc(recommendationReasons(x).join("・"))+'</div>'+
     '<p class="today-preview">'+esc(x.text)+'</p>'+
     '<div class="metric-chips">'+
       (x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+
@@ -549,7 +573,6 @@ $("revenueToday").addEventListener("click",async e=>{
     item.lastRepostedAt=new Date().toISOString();
     item.repostCount=(item.repostCount||0)+1;
     await dbPut(item);
-    await renderRevenuePick();
     await renderToday();
     await renderRevenuePick();
     await renderArchive();
@@ -572,6 +595,14 @@ $("todayList").addEventListener("click",async e=>{
     item.repostCount=(item.repostCount||0)+1;
     await dbPut(item);
     await renderToday();
+    await renderRevenuePick();
+    await renderArchive();
+  }
+  if(btn.dataset.todayAction==="skip"){
+    item.skippedAt=new Date().toISOString();
+    await dbPut(item);
+    await renderToday();
+    await renderRevenuePick();
     await renderArchive();
   }
 });
