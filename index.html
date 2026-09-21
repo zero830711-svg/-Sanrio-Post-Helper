@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fff7fb">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260921-1805">
+<link rel="stylesheet" href="./styles.css?v=20260921-1905">
 </head>
 <body>
 <main class="app">
@@ -36,25 +36,7 @@
 <div id="revenueToday"></div>
 </section>
 
-<div class="archive-tools">
-<input id="archiveSearch" type="search" placeholder="商品名・投稿文から検索">
-<div class="filter-row">
-<button class="filter-btn active" data-filter="all">すべて</button>
-<button class="filter-btn" data-filter="ready">30日以上未投稿</button>
-<button class="filter-btn" data-filter="affiliate">アフィリエイトあり</button>
-<button class="filter-btn" data-filter="amazon">Amazonあり</button>
-<button class="filter-btn" data-filter="rakuten">楽天あり</button>
-<button class="filter-btn" data-filter="both">Amazon＋楽天</button>
-</div>
-<div class="sort-row">
-<span class="sort-label">並び順</span>
-<button class="sort-btn active" data-sort="newest">新しい順</button>
-<button class="sort-btn" data-sort="impressions">表示順</button>
-<button class="sort-btn" data-sort="likes">いいね順</button>
-<button class="sort-btn" data-sort="bookmarks">保存順</button>
-<button class="sort-btn" data-sort="clicks">クリック順</button>
-</div>
-</div>
+
 
 <details class="management">
 <summary>管理を開く</summary>
@@ -107,7 +89,31 @@
 </div>
 </details>
 
+<details class="archive-browse">
+<summary>過去投稿一覧を開く</summary>
+<div class="archive-browse-body">
+<div class="archive-tools">
+<input id="archiveSearch" type="search" placeholder="商品名・投稿文から検索">
+<div class="filter-row">
+<button class="filter-btn active" data-filter="all">すべて</button>
+<button class="filter-btn" data-filter="ready">30日以上未投稿</button>
+<button class="filter-btn" data-filter="affiliate">アフィリエイトあり</button>
+<button class="filter-btn" data-filter="amazon">Amazonあり</button>
+<button class="filter-btn" data-filter="rakuten">楽天あり</button>
+<button class="filter-btn" data-filter="both">Amazon＋楽天</button>
+</div>
+<div class="sort-row">
+<span class="sort-label">並び順</span>
+<button class="sort-btn active" data-sort="newest">新しい順</button>
+<button class="sort-btn" data-sort="impressions">表示順</button>
+<button class="sort-btn" data-sort="likes">いいね順</button>
+<button class="sort-btn" data-sort="bookmarks">保存順</button>
+<button class="sort-btn" data-sort="clicks">クリック順</button>
+</div>
+</div>
 <section id="archiveList" class="archive-list"></section>
+</div>
+</details>
 </section>
 
 <p class="note">保存データと写真はこの端末のブラウザ内に保存。GitHubにはアップロードしません。</p>
@@ -122,6 +128,6 @@
 <p class="modal-help">画像を長押しすると、写真へ保存・コピー・共有できます。</p>
 </div>
 
-<script src="./app.js?v=20260921-1840"></script>
+<script src="./app.js?v=20260921-1905"></script>
 </body>
 </html>
