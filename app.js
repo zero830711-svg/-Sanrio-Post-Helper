@@ -109,6 +109,27 @@ function recommendationScore(x){
   return imp+likes+saves+clicks+affiliate+days+stableDayJitter(x)*4;
 }
 
+function postedTime(x){
+  const raw=x.postedAt||x.savedAt||"";
+  const t=new Date(raw).getTime();
+  return Number.isFinite(t)?t:0;
+}
+function formatPostedMeta(x){
+  const t=postedTime(x);
+  if(!t)return "";
+  const d=new Date(t);
+  const days=Math.max(0,Math.floor((Date.now()-t)/(24*60*60*1000)));
+  return d.toLocaleDateString("ja-JP")+" ・ "+days+"日前";
+}
+function isLikelyExpiredNews(x){
+  const t=String(x.text||"");
+  const hot=/(本日|明日|本日発売|本日開始|発売日|予約開始|販売開始|開催決定|開催期間|期間限定|本日より|今日から|\d{1,2}月\d{1,2}日|\d{1,2}\/\d{1,2})/;
+  if(!hot.test(t))return false;
+  const age=(Date.now()-postedTime(x))/(24*60*60*1000);
+  return age>21;
+}
+function safeReuseItem(x){return isReadyForReuse(x)&&!isLikelyExpiredNews(x)}
+
 function metricNumber(v){
   const s=String(v??"").trim().replace(/,/g,"");
   if(!s)return 0;
@@ -200,7 +221,17 @@ async function importAnalyticsCSV(file){
 
 async function getReadyItems(){
   const all=await dbGetAll();
-  return all.filter(isReadyForReuse).sort((a,b)=>recommendationScore(b)-recommendationScore(a));
+  return all.filter(safeReuseItem).sort((a,b)=>recommendationScore(b)-recommendationScore(a));
+}
+
+async function getRevenuePick(){
+  const all=await dbGetAll();
+  return all
+    .filter(x=>safeReuseItem(x)&&hasAffiliate(x))
+    .sort((a,b)=>{
+      const c=metricNumber(b.urlClicks)-metricNumber(a.urlClicks);
+      return c || recommendationScore(b)-recommendationScore(a);
+    })[0]||null;
 }
 
 function itemLinkButtons(x){
@@ -224,6 +255,8 @@ async function renderToday(){
     return '<article class="today-item featured">'+
       (imgs[0]?'<img src="'+imgs[0]+'" alt="">':'<div class="today-rank">'+(i+1)+'</div>')+
       '<div class="today-main"><div class="today-rank-label">おすすめ '+(i+1)+'</div><h3>'+esc(x.title)+'</h3>'+
+      '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
+      '<p class="today-preview">'+esc(x.text)+'</p>'+
       '<div class="metric-chips">'+
         (x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+
         (x.likes?'<span>♥ '+esc(x.likes)+'</span>':'')+
@@ -238,6 +271,27 @@ async function renderToday(){
   }).join("");
 }
 
+async function renderRevenuePick(){
+  const root=$("revenueToday");
+  const x=await getRevenuePick();
+  if(!x){root.innerHTML='<div class="empty">今すぐ出せる収益候補はありません。</div>';return}
+  root.innerHTML='<article class="revenue-pick">'+
+    '<div class="revenue-label">収益候補</div>'+
+    '<h3>'+esc(x.title)+'</h3>'+
+    '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
+    '<p class="today-preview">'+esc(x.text)+'</p>'+
+    '<div class="metric-chips">'+
+      (x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+
+      (x.bookmarks?'<span>保存 '+esc(x.bookmarks)+'</span>':'')+
+      (x.urlClicks?'<span>クリック '+esc(x.urlClicks)+'</span>':'')+
+    '</div>'+
+    '<div class="today-actions">'+
+      (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
+      '<button class="small-btn" data-revenue-action="copy" data-id="'+x.id+'">投稿文コピー</button>'+
+      '<button class="small-btn" data-revenue-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
+    '</div></article>';
+}
+
 async function renderArchive(){
   const q=clean($("archiveSearch").value).toLowerCase();
   const all=await dbGetAll();
@@ -246,7 +300,7 @@ async function renderArchive(){
   let items=all.filter(x=>{
     const matches=((x.title+" "+x.text+" "+x.memo+" "+(x.impressions||"")+" "+(x.likes||"")+" "+(x.bookmarks||"")).toLowerCase().includes(q));
     if(!matches)return false;
-    if(archiveFilter==="ready")return isReadyForReuse(x);
+    if(archiveFilter==="ready")return safeReuseItem(x);
     if(archiveFilter==="affiliate")return hasAffiliate(x);
     if(archiveFilter==="amazon")return hasAmazonAffiliate(x);
     if(archiveFilter==="rakuten")return hasRakutenAffiliate(x);
@@ -377,6 +431,7 @@ $("importAnalyticsCsv").addEventListener("change",async e=>{
     status.textContent=result.total+"件を処理しました（新規 "+result.added+"件 / 更新 "+result.updated+"件）";
     await renderArchive();
     await renderToday();
+    await renderRevenuePick();
   }catch(err){
     status.textContent="";
     alert(err.message||"CSVを読み込めませんでした");
@@ -441,6 +496,26 @@ $("cancelEdit").addEventListener("click",resetArchiveForm);
 
 $("archiveSearch").addEventListener("input",renderArchive);
 
+
+$("revenueToday").addEventListener("click",async e=>{
+  const btn=e.target.closest("[data-revenue-action]");
+  if(!btn)return;
+  const items=await dbGetAll();
+  const item=items.find(x=>x.id===btn.dataset.id);
+  if(!item)return;
+  if(btn.dataset.revenueAction==="copy"){
+    await navigator.clipboard.writeText(item.text||"");
+    btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿文コピー",1200);
+  }
+  if(btn.dataset.revenueAction==="reposted"){
+    item.lastRepostedAt=new Date().toISOString();
+    item.repostCount=(item.repostCount||0)+1;
+    await dbPut(item);
+    await renderRevenuePick();
+    await renderToday();
+    await renderArchive();
+  }
+});
 
 $("todayList").addEventListener("click",async e=>{
   const btn=e.target.closest("[data-today-action]");
@@ -547,4 +622,4 @@ $("archiveList").addEventListener("click",async e=>{
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
-(async()=>{await migrateLegacy();await renderArchive();await renderToday()})();
+(async()=>{await migrateLegacy();await renderArchive();await renderToday();await renderRevenuePick()})();
