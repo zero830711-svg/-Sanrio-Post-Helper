@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260921-2300">
+<link rel="stylesheet" href="./styles.css?v=20260921-2330">
 </head>
 <body>
 <main class="app">
@@ -18,7 +18,7 @@
 <p>開いたらすぐ、今日使う候補を確認。</p>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span>アプリ版 2026.09.21-2300</span>
+<span id="appVersionStatus">アプリ版 2026.09.21-2330</span>
 <button id="forceLatest" type="button">最新版を読み込む</button>
 </div>
 </header>
@@ -140,6 +140,7 @@
 <button class="filter-btn" data-filter="both">Amazon＋楽天</button>
 <button class="filter-btn" data-filter="stale">古い可能性あり</button>
 <button class="filter-btn" data-filter="excluded">候補から除外</button>
+<button class="filter-btn" data-filter="autoexcluded">自動除外</button>
 </div>
 <div class="character-row">
 <span class="sort-label">キャラ</span>
@@ -180,6 +181,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260921-2300"></script>
+<script src="./app.js?v=20260921-2330"></script>
 </body>
 </html>
