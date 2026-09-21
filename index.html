@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fff7fb">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260921-1745">
+<link rel="stylesheet" href="./styles.css?v=20260921-1805">
 </head>
 <body>
 <main class="app">
@@ -26,6 +26,15 @@
 <div id="todayList" class="today-list"></div>
 </section>
 
+<section class="card revenue-card">
+<div class="today-head">
+<div>
+<h2 class="section-title">今日の収益候補</h2>
+<p class="backup-note">Amazon / 楽天系の投稿から、クリック実績が高い1件を表示します。</p>
+</div>
+</div>
+<div id="revenueToday"></div>
+</section>
 
 <div class="archive-tools">
 <input id="archiveSearch" type="search" placeholder="商品名・投稿文から検索">
@@ -101,7 +110,7 @@
 <section id="archiveList" class="archive-list"></section>
 </section>
 
-<p class="note">保存データと写真はこのiPhone内だけに保存。GitHubにはアップロードしません。</p>
+<p class="note">保存データと写真はこの端末のブラウザ内に保存。GitHubにはアップロードしません。</p>
 </main>
 
 <div id="imageModal" class="modal hidden" role="dialog" aria-modal="true">
@@ -113,6 +122,6 @@
 <p class="modal-help">画像を長押しすると、写真へ保存・コピー・共有できます。</p>
 </div>
 
-<script src="./app.js?v=20260921-1745"></script>
+<script src="./app.js?v=20260921-1805"></script>
 </body>
 </html>
