@@ -15,28 +15,7 @@
 <p>スマホだけで「保存 → 呼び出し → Xへ貼り付け」。</p>
 </header>
 
-<nav class="tabs">
-<button class="tab active" data-tab="archive">人気投稿</button>
-<button class="tab" data-tab="create">作る</button>
-</nav>
-
-<section id="create" class="tab-panel">
-<section class="card form-card">
-<label>商品・話題名<input id="title" type="text" placeholder="例：ハローキティ ○○コレクション"></label>
-<label>元ネタ / 過去投稿<textarea id="source" rows="7" placeholder="過去のX投稿、商品説明、メモなどを貼り付け"></textarea></label>
-<label>Amazon URL<input id="amazon" type="url" placeholder="https://..."></label>
-<label>楽天 URL<input id="rakuten" type="url" placeholder="https://..."></label>
-<button id="generate" class="primary">3種類まとめて作る</button>
-</section>
-
-<section class="outputs">
-<article class="card"><div class="head"><h2>X</h2><button class="copy" data-target="xOutput">コピー</button></div><textarea id="xOutput" rows="8" readonly></textarea></article>
-<article class="card"><div class="head"><h2>Threads</h2><button class="copy" data-target="threadsOutput">コピー</button></div><textarea id="threadsOutput" rows="10" readonly></textarea></article>
-<article class="card"><div class="head"><h2>WordPress</h2><button class="copy" data-target="blogOutput">コピー</button></div><textarea id="blogOutput" rows="16" readonly></textarea></article>
-</section>
-</section>
-
-<section id="archive" class="tab-panel active">
+<section id="archive">
 <section class="card form-card">
 <div class="form-title-row">
 <h2 id="archiveFormTitle" class="section-title">人気投稿を保存</h2>
