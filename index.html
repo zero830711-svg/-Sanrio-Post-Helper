@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260921-2400">
+<link rel="stylesheet" href="./styles.css?v=20260921-2430">
 </head>
 <body>
 <main class="app">
@@ -18,7 +18,7 @@
 <p>開いたらすぐ、今日使う候補を確認。</p>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.09.21-2400</span>
+<span id="appVersionStatus">アプリ版 2026.09.21-2430</span>
 <button id="forceLatest" type="button">最新版を読み込む</button>
 </div>
 </header>
@@ -28,7 +28,8 @@
 <div class="today-head">
 <div>
 <h2 class="section-title">今日の候補</h2>
-<p class="backup-note">30日以上あけた投稿から3件自動選定。おすすめに出た投稿は7日間休ませます。</p>
+<p class="backup-note">30日以上あけた投稿から3件自動選定。見送った投稿だけ7日間休ませます。</p>
+<div id="todayProgress" class="today-progress"></div>
 </div>
 </div>
 <div id="todayList" class="today-list"></div>
@@ -82,6 +83,7 @@
 <h2 class="section-title">データ健康診断</h2>
 <p class="backup-note">気になる項目を押すと過去投稿一覧で確認できます。</p>
 <div id="dataHealth" class="health-grid"></div>
+<button id="mergeDuplicates" class="small-btn merge-duplicates hidden" type="button">重複データを統合</button>
 </section>
 
 <section class="card form-card">
@@ -95,12 +97,15 @@
 <div id="archivePreviewGrid" class="preview-grid"></div>
 <label>商品名<input id="archiveTitle" type="text" placeholder="例：サンリオ 金ピカ根付ストラップ"></label>
 <label>過去のX投稿文<textarea id="archiveText" rows="7" placeholder="反応が良かった投稿文をそのまま保存"></textarea></label>
+<label>元X URL<input id="archiveXUrl" type="url" placeholder="https://x.com/.../status/..."></label>
+<label>投稿日<input id="archivePostedAt" type="date"></label>
 <label>Amazon URL<input id="archiveAmazon" type="url" placeholder="https://..."></label>
 <label>楽天 URL<input id="archiveRakuten" type="url" placeholder="https://..."></label>
 <div class="metrics-grid">
 <label>表示数<input id="archiveImpressions" type="text" inputmode="numeric" placeholder="例：1.8万"></label>
 <label>いいね<input id="archiveLikes" type="text" inputmode="numeric" placeholder="例：320"></label>
 <label>保存<input id="archiveBookmarks" type="text" inputmode="numeric" placeholder="例：45"></label>
+<label>URLクリック<input id="archiveUrlClicks" type="text" inputmode="numeric" placeholder="例：120"></label>
 </div>
 <label>メモ<input id="archiveMemo" type="text" placeholder="例：再販時に反応良かった"></label>
 <button id="saveArchive" class="primary">人気投稿に保存</button>
@@ -188,6 +193,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260921-2400"></script>
+<script src="./app.js?v=20260921-2430"></script>
 </body>
 </html>
