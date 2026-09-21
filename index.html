@@ -39,8 +39,10 @@
 <section id="archive" class="tab-panel">
 <section class="card form-card">
 <h2 class="section-title">人気投稿を保存</h2>
-<label>写真<input id="archiveImage" type="file" accept="image/*"></label>
-<img id="archivePreview" class="preview hidden" alt="">
+<label>写真（最大4枚）
+<input id="archiveImage" type="file" accept="image/*" multiple>
+</label>
+<div id="archivePreviewGrid" class="preview-grid"></div>
 <label>商品名<input id="archiveTitle" type="text" placeholder="例：サンリオ 金ピカ根付ストラップ"></label>
 <label>過去のX投稿文<textarea id="archiveText" rows="7" placeholder="反応が良かった投稿文をそのまま保存"></textarea></label>
 <label>Amazon URL<input id="archiveAmazon" type="url" placeholder="https://..."></label>
@@ -57,6 +59,16 @@
 
 <p class="note">保存データと写真はこのiPhone内だけに保存。GitHubにはアップロードしません。</p>
 </main>
+
+<div id="imageModal" class="modal hidden" role="dialog" aria-modal="true">
+<div class="modal-bar">
+<button id="closeModal" class="modal-close">閉じる</button>
+<div id="modalCount" class="modal-count"></div>
+</div>
+<div id="modalImages" class="modal-images"></div>
+<p class="modal-help">画像を長押しすると、写真へ保存・コピー・共有できます。</p>
+</div>
+
 <script src="./app.js"></script>
 </body>
 </html>
