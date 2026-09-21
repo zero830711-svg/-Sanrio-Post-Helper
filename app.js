@@ -5,8 +5,11 @@ const STORE="popularPosts";
 const LEGACY_KEY="sanrioPopularPostsV1";
 const LAST_ANALYTICS_IMPORT_KEY="sanrioLastAnalyticsImportAt";
 const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
+const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
+const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
+const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
 const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.21-2450";
+const APP_VERSION="2026.09.22-2500";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -476,6 +479,126 @@ function rankingRows(items,metric){
       '<div class="ranking-rate">'+percentText(rate)+'</div>'+
     '</div>';
   }).join("");
+}
+
+function loadCloudSettings(){
+  const url=localStorage.getItem(CLOUD_API_URL_KEY)||"";
+  const key=localStorage.getItem(CLOUD_SYNC_KEY_KEY)||"";
+  const urlEl=$("cloudApiUrl"),keyEl=$("cloudSyncKey");
+  if(urlEl&&!urlEl.value)urlEl.value=url;
+  if(keyEl&&!keyEl.value)keyEl.value=key;
+}
+function saveCloudSettings(){
+  const url=clean($("cloudApiUrl")?.value);
+  const key=clean($("cloudSyncKey")?.value);
+  if(url)localStorage.setItem(CLOUD_API_URL_KEY,url); else localStorage.removeItem(CLOUD_API_URL_KEY);
+  if(key)localStorage.setItem(CLOUD_SYNC_KEY_KEY,key); else localStorage.removeItem(CLOUD_SYNC_KEY_KEY);
+  renderCloudStatus("設定をこの端末に保存しました");
+}
+function renderCloudStatus(message,isError=false){
+  const root=$("cloudSyncStatus");
+  if(!root)return;
+  if(message){
+    root.textContent=message;
+    root.classList.toggle("error",!!isError);
+    return;
+  }
+  const last=localStorage.getItem(LAST_CLOUD_SYNC_KEY);
+  root.classList.remove("error");
+  root.textContent=last?"最終同期："+new Date(last).toLocaleString("ja-JP"):"まだ同期していません";
+}
+function cloudSettings(){
+  return {
+    url:clean($("cloudApiUrl")?.value)||localStorage.getItem(CLOUD_API_URL_KEY)||"",
+    key:clean($("cloudSyncKey")?.value)||localStorage.getItem(CLOUD_SYNC_KEY_KEY)||""
+  };
+}
+async function cloudRequest(action,options={}){
+  const {url,key}=cloudSettings();
+  if(!url||!key)throw new Error("API URLと同期キーを入力してください");
+  const target=new URL(url);
+  target.searchParams.set("action",action);
+  const headers={...(options.headers||{}),"Authorization":"Bearer "+key};
+  if(options.body)headers["Content-Type"]="application/json";
+  const res=await fetch(target.toString(),{...options,headers,cache:"no-store"});
+  const text=await res.text();
+  let data={};
+  try{data=text?JSON.parse(text):{}}catch(e){throw new Error("サーバー応答をJSONとして読めません")}
+  if(!res.ok||data.ok===false)throw new Error(data.error||("HTTP "+res.status));
+  return data;
+}
+function cloudSafeItem(x){
+  const copy={...x};
+  delete copy.images;
+  delete copy.image;
+  return copy;
+}
+function itemFreshnessTime(x){
+  const t=new Date(x.updatedAt||x.savedAt||x.postedAt||"").getTime();
+  return Number.isFinite(t)?t:0;
+}
+async function cloudPing(){
+  renderCloudStatus("接続確認中…");
+  try{
+    const data=await cloudRequest("ping");
+    renderCloudStatus("接続OK"+(data.serverTime?" ・ "+data.serverTime:""));
+  }catch(e){renderCloudStatus("接続失敗："+e.message,true)}
+}
+async function cloudPushAll(){
+  renderCloudStatus("クラウドへ保存中…");
+  try{
+    const items=(await dbGetAll()).map(cloudSafeItem);
+    const chunkSize=100;
+    for(let i=0;i<items.length;i+=chunkSize){
+      const chunk=items.slice(i,i+chunkSize);
+      await cloudRequest("push",{method:"POST",body:JSON.stringify({items:chunk})});
+      renderCloudStatus("保存中… "+Math.min(i+chunk.length,items.length)+" / "+items.length+"件");
+    }
+    const now=new Date().toISOString();
+    localStorage.setItem(LAST_CLOUD_SYNC_KEY,now);
+    renderCloudStatus("クラウド保存完了："+items.length+"件");
+  }catch(e){renderCloudStatus("保存失敗："+e.message,true)}
+}
+async function cloudPullMerge(){
+  renderCloudStatus("クラウドから読込中…");
+  try{
+    const data=await cloudRequest("pull");
+    const remote=Array.isArray(data.items)?data.items:[];
+    const local=await dbGetAll();
+    const byId=new Map(local.map(x=>[x.id,x]));
+    const byKey=new Map(local.map(x=>[canonicalPostKey(x),x]));
+    const pending=[];
+    for(const incomingRaw of remote){
+      const incoming={...incomingRaw};
+      const current=byId.get(incoming.id)||byKey.get(canonicalPostKey(incoming));
+      let merged;
+      if(current){
+        const newer=itemFreshnessTime(incoming)>itemFreshnessTime(current)?incoming:current;
+        const older=newer===incoming?current:incoming;
+        merged={...older,...newer,...mergedUsageHistory(current,incoming)};
+        merged.images=current.images||(current.image?[current.image]:[]);
+      }else{
+        merged={...incoming,images:[]};
+      }
+      pending.push(merged);
+      byId.set(merged.id,merged);
+      byKey.set(canonicalPostKey(merged),merged);
+    }
+    await dbPutMany(pending);
+    await reconcileUsageHistory();
+    searchIndex=null;searchIndexSignature="";
+    const now=new Date().toISOString();
+    localStorage.setItem(LAST_CLOUD_SYNC_KEY,now);
+    await renderToday();
+    await renderRevenuePick();
+    await renderRecentUsed();
+    await renderTodayProgress();
+    await renderDataFreshness();
+    await renderDataHealth();
+    await renderAnalytics();
+    await renderArchive();
+    renderCloudStatus("統合完了："+remote.length+"件");
+  }catch(e){renderCloudStatus("読込失敗："+e.message,true)}
 }
 
 function backupAgeDays(){
@@ -1147,6 +1270,13 @@ $("cancelEdit").addEventListener("click",resetArchiveForm);
 $("archiveSearch").addEventListener("input",()=>{archiveLimit=50;renderArchive()});
 
 $("mergeDuplicates")?.addEventListener("click",mergeAllDuplicates);
+$("cloudSaveSettings")?.addEventListener("click",saveCloudSettings);
+$("cloudTest")?.addEventListener("click",cloudPing);
+$("cloudPush")?.addEventListener("click",cloudPushAll);
+$("cloudPull")?.addEventListener("click",async()=>{
+  if(!confirm("ロリポップ上の投稿データをこの端末へ統合します。端末の写真は保持します。よろしいですか？"))return;
+  await cloudPullMerge();
+});
 
 $("dataHealth")?.addEventListener("click",e=>{
   const btn=e.target.closest("[data-health-filter]");
@@ -1178,7 +1308,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260921-2450");
+  url.searchParams.set("v","20260922-2500");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
@@ -1420,6 +1550,8 @@ $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))close
 
 (async()=>{
   checkLatestVersion();
+  loadCloudSettings();
+  renderCloudStatus();
   try{await migrateLegacy()}catch(e){console.error("migrateLegacy",e)}
   try{await reconcileUsageHistory()}catch(e){console.error("reconcileUsageHistory",e)}
   try{await renderToday()}catch(e){
