@@ -6,7 +6,7 @@ const LEGACY_KEY="sanrioPopularPostsV1";
 const LAST_ANALYTICS_IMPORT_KEY="sanrioLastAnalyticsImportAt";
 const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.21-2430";
+const APP_VERSION="2026.09.21-2450";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -1178,6 +1178,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
+  url.searchParams.set("v","20260921-2450");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
@@ -1417,4 +1418,23 @@ $("undoRepost").addEventListener("click",undoLastRepost);
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
-(async()=>{checkLatestVersion();await migrateLegacy();await reconcileUsageHistory();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderTodayProgress();await renderDataFreshness();renderBackupStatus();await renderDataHealth();await renderAnalytics()})();
+(async()=>{
+  checkLatestVersion();
+  try{await migrateLegacy()}catch(e){console.error("migrateLegacy",e)}
+  try{await reconcileUsageHistory()}catch(e){console.error("reconcileUsageHistory",e)}
+  try{await renderToday()}catch(e){
+    console.error("renderToday",e);
+    const root=$("todayList"); if(root)root.innerHTML='<div class="empty">候補の読み込みに失敗しました。最新版を読み込んでも直らない場合は管理画面を確認してください。</div>';
+  }
+  try{await renderRevenuePick()}catch(e){
+    console.error("renderRevenuePick",e);
+    const root=$("revenueToday"); if(root)root.innerHTML='<div class="empty">収益候補の読み込みに失敗しました。</div>';
+  }
+  try{await renderRecentUsed()}catch(e){console.error("renderRecentUsed",e)}
+  try{await renderTodayProgress()}catch(e){console.error("renderTodayProgress",e)}
+  try{await renderDataFreshness()}catch(e){console.error("renderDataFreshness",e)}
+  try{renderBackupStatus()}catch(e){console.error("renderBackupStatus",e)}
+  try{await renderDataHealth()}catch(e){console.error("renderDataHealth",e)}
+  try{await renderAnalytics()}catch(e){console.error("renderAnalytics",e)}
+  try{await renderArchive()}catch(e){console.error("renderArchive",e)}
+})();
