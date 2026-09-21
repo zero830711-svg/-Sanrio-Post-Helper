@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fff7fb">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260921-1935">
+<link rel="stylesheet" href="./styles.css?v=20260921-2010">
 </head>
 <body>
 <main class="app">
@@ -37,6 +37,25 @@
 </section>
 
 
+
+<details class="analytics-dashboard">
+<summary>分析ダッシュボードを開く</summary>
+<div class="analytics-dashboard-body">
+<div id="analyticsSummary" class="analytics-summary"></div>
+<div class="chart-card">
+<h3>表示数 上位10投稿</h3>
+<canvas id="impressionsChart"></canvas>
+</div>
+<div class="chart-card">
+<h3>保存数 上位10投稿</h3>
+<canvas id="bookmarksChart"></canvas>
+</div>
+<div class="chart-card">
+<h3>キャラ別 平均反応</h3>
+<canvas id="characterChart"></canvas>
+</div>
+</div>
+</details>
 
 <details class="management">
 <summary>管理を開く</summary>
@@ -138,6 +157,8 @@
 <p class="modal-help">画像を長押しすると、写真へ保存・コピー・共有できます。</p>
 </div>
 
-<script src="./app.js?v=20260921-1935"></script>
+<script src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<script src="./app.js?v=20260921-2010"></script>
 </body>
 </html>
