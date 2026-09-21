@@ -69,54 +69,6 @@ function normalizedUrl(url){
   return "https://"+v;
 }
 
-function normalizeXPostUrl(value){
-  let v=clean(value);
-  if(!v)return "";
-  if(!/^https?:\/\//i.test(v))v="https://"+v;
-  try{
-    const u=new URL(v);
-    const host=u.hostname.toLowerCase().replace(/^www\./,"");
-    if(!["x.com","twitter.com","mobile.twitter.com"].includes(host))return "";
-    const m=u.pathname.match(/^\/([^/]+)\/status\/(\d+)/);
-    if(!m)return "";
-    return "https://x.com/"+m[1]+"/status/"+m[2];
-  }catch(e){return ""}
-}
-
-function xPostTitle(url){
-  try{
-    const u=new URL(url);
-    const handle=u.pathname.split("/").filter(Boolean)[0]||"";
-    return handle?"X投稿 @"+handle:"X投稿";
-  }catch(e){return "X投稿"}
-}
-
-async function saveXPostUrl(raw){
-  const xUrl=normalizeXPostUrl(raw);
-  if(!xUrl){alert("Xの投稿リンクを貼ってください");return false}
-  const all=await dbGetAll();
-  if(all.some(x=>normalizeXPostUrl(x.xUrl||"")===xUrl)){
-    alert("このX投稿はすでに保存されています");
-    return false;
-  }
-  await dbPut({
-    id:"x-"+Date.now().toString(),
-    title:xPostTitle(xUrl),
-    text:"",
-    images:[],
-    amazon:"",
-    rakuten:"",
-    memo:"",
-    xUrl,
-    savedAt:new Date().toISOString(),
-    repostCount:0
-  });
-  $("xPostUrl").value="";
-  await renderArchive();
-  await renderToday();
-  return true;
-}
-
 async function getReadyItems(){
   const all=await dbGetAll();
   const now=Date.now();
@@ -150,9 +102,9 @@ async function renderToday(){
   root.innerHTML=items.map(x=>{
     const imgs=x.images||(x.image?[x.image]:[]);
     return '<article class="today-item">'+
-      (imgs[0]?'<img src="'+imgs[0]+'" alt="">':(x.xUrl?'<div class="today-x-placeholder">X</div>':'<div class="archive-thumb"></div>'))+
+      (imgs[0]?'<img src="'+imgs[0]+'" alt="">':'<div class="archive-thumb"></div>')+
       '<div><h3>'+esc(x.title)+'</h3><div class="today-actions">'+
-      (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'<button class="small-btn" data-today-action="sharex" data-id="'+x.id+'">Xへ共有</button>')+
+      '<button class="small-btn" data-today-action="sharex" data-id="'+x.id+'">Xへ共有</button>'+
       itemLinkButtons(x)+
       '</div></div></article>';
   }).join("");
@@ -164,7 +116,7 @@ async function renderArchive(){
   const now=Date.now();
   const readyCutoff=30*24*60*60*1000;
   const items=all.filter(x=>{
-    const matches=((x.title+" "+x.text+" "+x.memo+" "+(x.xUrl||"")).toLowerCase().includes(q));
+    const matches=((x.title+" "+x.text+" "+x.memo).toLowerCase().includes(q));
     if(!matches)return false;
     if(archiveFilter==="ready"){
       const last=x.lastRepostedAt?new Date(x.lastRepostedAt).getTime():0;
@@ -178,20 +130,20 @@ async function renderArchive(){
     const imgs=x.images||(x.image?[x.image]:[]);
     return `<article class="archive-item">
       <div class="thumb-wrap">
-        ${imgs[0]?'<img class="archive-thumb" src="'+imgs[0]+'" alt="">':(x.xUrl?'<div class="x-placeholder">X</div>':'<div class="archive-thumb"></div>')}
+        ${imgs[0]?'<img class="archive-thumb" src="'+imgs[0]+'" alt="">':'<div class="archive-thumb"></div>'}
         ${imgs.length>1?'<span class="image-count">'+imgs.length+'枚</span>':''}
       </div>
       <div class="archive-body">
-        <h3>${esc(x.title)}${x.xUrl?'<span class="x-link-badge">Xリンク</span>':''}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
+        <h3>${esc(x.title)}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
         <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}</p>
         <p>${esc(x.text)}</p>
         <div class="archive-actions">
-          ${x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'<button class="small-btn" data-action="sharex" data-id="'+x.id+'">Xへ共有</button>'}
+          <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
           <button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button>
           <button class="small-btn" data-action="edit" data-id="${x.id}">修正</button>
           ${x.amazon?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.amazon))+'" target="_blank" rel="noopener">Amazon</a>':''}
           ${x.rakuten?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.rakuten))+'" target="_blank" rel="noopener">楽天</a>':''}
-          ${x.text?'<button class="small-btn" data-action="copy" data-id="'+x.id+'">投稿文コピー</button>':''}
+          <button class="small-btn" data-action="copy" data-id="${x.id}">投稿文コピー</button>
           ${imgs.length?'<button class="small-btn" data-action="images" data-id="'+x.id+'">画像を見る</button>':''}
           <button class="small-btn danger" data-action="delete" data-id="${x.id}">削除</button>
         </div>
@@ -267,23 +219,6 @@ async function shareToX(item,button){
   alert("投稿文をコピーしました。画像は長押しで保存してXに貼り付けてください。");
 }
 
-
-$("saveXLink").addEventListener("click",async()=>{
-  let value=clean($("xPostUrl").value);
-  if(!value && navigator.clipboard){
-    try{value=await navigator.clipboard.readText();$("xPostUrl").value=value}catch(e){}
-  }
-  if(await saveXPostUrl(value))alert("X投稿リンクを保存しました");
-});
-
-$("xPostUrl").addEventListener("paste",()=>{
-  setTimeout(async()=>{
-    const value=clean($("xPostUrl").value);
-    if(normalizeXPostUrl(value)){
-      if(await saveXPostUrl(value))alert("X投稿リンクを保存しました");
-    }
-  },0);
-});
 
 $("archiveImage").addEventListener("change",async e=>{
   const files=[...e.target.files].slice(0,4);
