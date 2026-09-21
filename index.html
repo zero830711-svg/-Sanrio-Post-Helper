@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#fff7fb">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260921-2010">
+<link rel="stylesheet" href="./styles.css?v=20260921-2045">
 </head>
 <body>
 <main class="app">
@@ -13,6 +13,7 @@
 <div class="badge">Sanrio fan info</div>
 <h1>今日の再利用候補</h1>
 <p>開いたらすぐ、今日使う候補を確認。</p>
+<div id="dataFreshness" class="data-freshness"></div>
 </header>
 
 <section id="archive">
@@ -43,15 +44,15 @@
 <div class="analytics-dashboard-body">
 <div id="analyticsSummary" class="analytics-summary"></div>
 <div class="chart-card">
-<h3>表示数 上位10投稿</h3>
-<canvas id="impressionsChart"></canvas>
+<h3>クリック率 上位10投稿</h3>
+<canvas id="clickRateChart"></canvas>
 </div>
 <div class="chart-card">
-<h3>保存数 上位10投稿</h3>
-<canvas id="bookmarksChart"></canvas>
+<h3>保存率 上位10投稿</h3>
+<canvas id="saveRateChart"></canvas>
 </div>
 <div class="chart-card">
-<h3>キャラ別 平均反応</h3>
+<h3>キャラ別 平均クリック率</h3>
 <canvas id="characterChart"></canvas>
 </div>
 </div>
@@ -127,7 +128,7 @@
 <button class="character-btn" data-character="ハローキティ">キティ</button>
 <button class="character-btn" data-character="クロミ">クロミ</button>
 <button class="character-btn" data-character="マイメロ">マイメロ</button>
-<button class="character-btn" data-character="シナモン">シナモン</button>
+<button class="character-btn" data-character="シナモ">シナモン</button>
 <button class="character-btn" data-character="ポムポムプリン">プリン</button>
 <button class="character-btn" data-character="ポチャッコ">ポチャッコ</button>
 </div>
@@ -159,6 +160,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260921-2010"></script>
+<script src="./app.js?v=20260921-2045"></script>
 </body>
 </html>
