@@ -29,7 +29,12 @@
 <label>過去のX投稿文<textarea id="archiveText" rows="7" placeholder="反応が良かった投稿文をそのまま保存"></textarea></label>
 <label>Amazon URL<input id="archiveAmazon" type="url" placeholder="https://..."></label>
 <label>楽天 URL<input id="archiveRakuten" type="url" placeholder="https://..."></label>
-<label>メモ<input id="archiveMemo" type="text" placeholder="例：1.8万表示 / いいね320"></label>
+<div class="metrics-grid">
+<label>表示数<input id="archiveImpressions" type="text" inputmode="numeric" placeholder="例：1.8万"></label>
+<label>いいね<input id="archiveLikes" type="text" inputmode="numeric" placeholder="例：320"></label>
+<label>保存<input id="archiveBookmarks" type="text" inputmode="numeric" placeholder="例：45"></label>
+</div>
+<label>メモ<input id="archiveMemo" type="text" placeholder="例：再販時に反応良かった"></label>
 <button id="saveArchive" class="primary">人気投稿に保存</button>
 </section>
 
