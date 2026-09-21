@@ -7,6 +7,9 @@ let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
 let archiveSort="newest";
+let searchIndex=null;
+let searchIndexSignature="";
+const analyticsCharts={};
 
 function openDB(){
   return new Promise((resolve,reject)=>{
@@ -178,6 +181,93 @@ function metricNumber(v){
   if(m)return Math.round(Number(m[1])*10000);
   const n=Number(s.replace(/[^\d.-]/g,""));
   return Number.isFinite(n)?n:0;
+}
+
+function buildSearchIndex(items){
+  if(typeof FlexSearch==="undefined")return;
+  const signature=items.length+"|"+items.map(x=>x.id+":"+(x.updatedAt||x.savedAt||"")).join("|");
+  if(searchIndex && signature===searchIndexSignature)return;
+  searchIndex=new FlexSearch.Index({tokenize:"full",cache:100});
+  items.forEach(x=>{
+    const body=[x.title,x.text,x.memo,x.amazon,x.rakuten].filter(Boolean).join(" ");
+    searchIndex.add(String(x.id),body);
+  });
+  searchIndexSignature=signature;
+}
+function searchIds(items,q){
+  if(!q)return null;
+  buildSearchIndex(items);
+  if(searchIndex){
+    try{return new Set(searchIndex.search(q,{limit:items.length}).map(String))}catch(e){}
+  }
+  return null;
+}
+function destroyChart(name){
+  if(analyticsCharts[name]){
+    analyticsCharts[name].destroy();
+    analyticsCharts[name]=null;
+  }
+}
+function shortLabel(x){
+  return String(x.title||x.text||"投稿").replace(/\s+/g," ").slice(0,18);
+}
+async function renderAnalytics(){
+  const summary=$("analyticsSummary");
+  if(!summary)return;
+  const items=await dbGetAll();
+  const total=items.length;
+  const totalImp=items.reduce((s,x)=>s+metricNumber(x.impressions),0);
+  const totalLikes=items.reduce((s,x)=>s+metricNumber(x.likes),0);
+  const totalSaves=items.reduce((s,x)=>s+metricNumber(x.bookmarks),0);
+  const totalClicks=items.reduce((s,x)=>s+metricNumber(x.urlClicks),0);
+  summary.innerHTML=[
+    ["投稿",total.toLocaleString()],
+    ["表示",totalImp.toLocaleString()],
+    ["いいね",totalLikes.toLocaleString()],
+    ["保存",totalSaves.toLocaleString()],
+    ["クリック",totalClicks.toLocaleString()]
+  ].map(([k,v])=>'<div class="analytics-stat"><span>'+k+'</span><strong>'+v+'</strong></div>').join("");
+
+  if(typeof Chart==="undefined")return;
+  const topImp=[...items].sort((a,b)=>metricNumber(b.impressions)-metricNumber(a.impressions)).slice(0,10);
+  const topSave=[...items].sort((a,b)=>metricNumber(b.bookmarks)-metricNumber(a.bookmarks)).slice(0,10);
+
+  destroyChart("impressions");
+  destroyChart("bookmarks");
+  destroyChart("character");
+
+  const impEl=$("impressionsChart");
+  if(impEl)analyticsCharts.impressions=new Chart(impEl,{
+    type:"bar",
+    data:{labels:topImp.map(shortLabel),datasets:[{label:"表示数",data:topImp.map(x=>metricNumber(x.impressions))}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:"y",plugins:{legend:{display:false}}}
+  });
+  const saveEl=$("bookmarksChart");
+  if(saveEl)analyticsCharts.bookmarks=new Chart(saveEl,{
+    type:"bar",
+    data:{labels:topSave.map(shortLabel),datasets:[{label:"保存数",data:topSave.map(x=>metricNumber(x.bookmarks))}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:"y",plugins:{legend:{display:false}}}
+  });
+
+  const chars=[
+    ["キティ",/ハローキティ|キティ/],
+    ["クロミ",/クロミ/],
+    ["マイメロ",/マイメロ/],
+    ["シナモン",/シナモン/],
+    ["プリン",/ポムポムプリン/],
+    ["ポチャッコ",/ポチャッコ/]
+  ];
+  const charData=chars.map(([name,re])=>{
+    const rows=items.filter(x=>re.test(String(x.title||"")+" "+String(x.text||"")));
+    const avg=rows.length?Math.round(rows.reduce((s,x)=>s+metricNumber(x.likes)+metricNumber(x.bookmarks)*2+metricNumber(x.urlClicks)*3,0)/rows.length):0;
+    return {name,avg,count:rows.length};
+  });
+  const charEl=$("characterChart");
+  if(charEl)analyticsCharts.character=new Chart(charEl,{
+    type:"bar",
+    data:{labels:charData.map(x=>x.name),datasets:[{label:"平均反応スコア",data:charData.map(x=>x.avg)}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
+  });
 }
 
 function csvTitle(text){
@@ -377,10 +467,12 @@ async function renderRevenuePick(){
 async function renderArchive(){
   const q=clean($("archiveSearch").value).toLowerCase();
   const all=await dbGetAll();
+  const flexIds=searchIds(all,q);
   const now=Date.now();
   const readyCutoff=30*24*60*60*1000;
   let items=all.filter(x=>{
-    const matches=((x.title+" "+x.text+" "+x.memo+" "+(x.impressions||"")+" "+(x.likes||"")+" "+(x.bookmarks||"")).toLowerCase().includes(q));
+    const hay=((x.title+" "+x.text+" "+x.memo+" "+(x.impressions||"")+" "+(x.likes||"")+" "+(x.bookmarks||"")).toLowerCase());
+    const matches=!q || hay.includes(q) || (flexIds&&flexIds.has(String(x.id)));
     if(!matches)return false;
     if(archiveFilter==="ready")return safeReuseItem(x);
     if(archiveFilter==="affiliate")return hasAffiliate(x);
@@ -516,6 +608,7 @@ $("importAnalyticsCsv").addEventListener("change",async e=>{
     await renderToday();
     await renderRevenuePick();
     await renderRecentUsed();
+    await renderAnalytics();
   }catch(err){
     status.textContent="";
     alert(err.message||"CSVを読み込めませんでした");
@@ -573,6 +666,7 @@ $("saveArchive").addEventListener("click",async()=>{
   const wasEdit=!!editingId;
   resetArchiveForm();
   await renderArchive();
+  await renderAnalytics();
   alert(wasEdit?"修正を保存しました":"保存しました");
 });
 
@@ -691,6 +785,7 @@ $("importBackup").addEventListener("change",async e=>{
     await renderToday();
     await renderRevenuePick();
     await renderRecentUsed();
+    await renderAnalytics();
     alert("バックアップを読み込みました");
   }catch(err){
     alert("バックアップファイルを読み込めませんでした");
@@ -732,4 +827,4 @@ $("archiveList").addEventListener("click",async e=>{
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
-(async()=>{await migrateLegacy();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed()})();
+(async()=>{await migrateLegacy();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderAnalytics()})();
