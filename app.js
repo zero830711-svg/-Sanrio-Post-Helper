@@ -6,6 +6,7 @@ const LEGACY_KEY="sanrioPopularPostsV1";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
+let archiveSort="newest";
 
 function openDB(){
   return new Promise((resolve,reject)=>{
@@ -69,6 +70,95 @@ function normalizedUrl(url){
   return "https://"+v;
 }
 
+function metricNumber(v){
+  const s=String(v??"").trim().replace(/,/g,"");
+  if(!s)return 0;
+  const m=s.match(/^([\d.]+)\s*万$/);
+  if(m)return Math.round(Number(m[1])*10000);
+  const n=Number(s.replace(/[^\d.-]/g,""));
+  return Number.isFinite(n)?n:0;
+}
+
+function csvTitle(text){
+  const first=String(text||"").replace(/\s+/g," ").trim();
+  return first ? first.slice(0,42) : "X投稿";
+}
+
+function parseCSV(text){
+  text=String(text||"").replace(/^\uFEFF/,"");
+  const rows=[]; let row=[], field="", quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(quoted){
+      if(ch==='"' && text[i+1]==='"'){field+='"';i++}
+      else if(ch==='"'){quoted=false}
+      else field+=ch;
+    }else{
+      if(ch==='"')quoted=true;
+      else if(ch===','){row.push(field);field=""}
+      else if(ch==='\n'){row.push(field);rows.push(row);row=[];field=""}
+      else if(ch!=='\r')field+=ch;
+    }
+  }
+  if(field.length||row.length){row.push(field);rows.push(row)}
+  if(!rows.length)return [];
+  const headers=rows.shift().map(x=>x.trim());
+  return rows.filter(r=>r.some(v=>String(v||"").trim())).map(r=>{
+    const obj={}; headers.forEach((h,i)=>obj[h]=r[i]??""); return obj;
+  });
+}
+
+function parseXAnalyticsDate(v){
+  const t=Date.parse(String(v||""));
+  return Number.isFinite(t)?new Date(t).toISOString():new Date().toISOString();
+}
+
+async function importAnalyticsCSV(file){
+  const raw=await file.text();
+  const rows=parseCSV(raw);
+  const required=["ポストID","日付","ポスト本文","ポストのリンク","インプレッション数","いいね","ブックマーク"];
+  if(!rows.length || !required.every(k=>Object.prototype.hasOwnProperty.call(rows[0],k))){
+    throw new Error("このCSVはXのポスト別アナリティクス形式ではありません");
+  }
+  let added=0,updated=0;
+  const existing=await dbGetAll();
+  const byId=new Map(existing.map(x=>[x.id,x]));
+  for(const r of rows){
+    const postId=clean(r["ポストID"]);
+    if(!postId)continue;
+    const id="xanalytics-"+postId;
+    const prev=byId.get(id);
+    const item={
+      ...(prev||{}),
+      id,
+      source:"x-analytics",
+      postId,
+      title:(prev&&prev.title)||csvTitle(r["ポスト本文"]),
+      text:r["ポスト本文"]||"",
+      xUrl:r["ポストのリンク"]||"",
+      images:(prev&&prev.images)||[],
+      amazon:(prev&&prev.amazon)||"",
+      rakuten:(prev&&prev.rakuten)||"",
+      impressions:String(r["インプレッション数"]||""),
+      likes:String(r["いいね"]||""),
+      bookmarks:String(r["ブックマーク"]||""),
+      reposts:String(r["リポスト"]||""),
+      replies:String(r["返信"]||""),
+      urlClicks:String(r["URLのクリック数"]||""),
+      follows:String(r["新しいフォロー"]||""),
+      memo:(prev&&prev.memo)||"",
+      postedAt:parseXAnalyticsDate(r["日付"]),
+      savedAt:(prev&&prev.savedAt)||parseXAnalyticsDate(r["日付"]),
+      repostCount:(prev&&prev.repostCount)||0,
+      lastRepostedAt:prev&&prev.lastRepostedAt
+    };
+    await dbPut(item);
+    if(prev)updated++; else added++;
+    byId.set(id,item);
+  }
+  return {added,updated,total:added+updated};
+}
+
 async function getReadyItems(){
   const all=await dbGetAll();
   const now=Date.now();
@@ -115,7 +205,7 @@ async function renderArchive(){
   const all=await dbGetAll();
   const now=Date.now();
   const readyCutoff=30*24*60*60*1000;
-  const items=all.filter(x=>{
+  let items=all.filter(x=>{
     const matches=((x.title+" "+x.text+" "+x.memo+" "+(x.impressions||"")+" "+(x.likes||"")+" "+(x.bookmarks||"")).toLowerCase().includes(q));
     if(!matches)return false;
     if(archiveFilter==="ready"){
@@ -124,6 +214,10 @@ async function renderArchive(){
     }
     return true;
   });
+  if(archiveSort==="impressions")items.sort((a,b)=>metricNumber(b.impressions)-metricNumber(a.impressions));
+  else if(archiveSort==="likes")items.sort((a,b)=>metricNumber(b.likes)-metricNumber(a.likes));
+  else if(archiveSort==="bookmarks")items.sort((a,b)=>metricNumber(b.bookmarks)-metricNumber(a.bookmarks));
+  else items.sort((a,b)=>String(b.postedAt||b.savedAt||"").localeCompare(String(a.postedAt||a.savedAt||"")));
   const root=$("archiveList");
   if(!items.length){root.innerHTML='<div class="empty">保存した人気投稿はまだありません。</div>';return}
   root.innerHTML=items.map(x=>{
@@ -134,7 +228,7 @@ async function renderArchive(){
         ${imgs.length>1?'<span class="image-count">'+imgs.length+'枚</span>':''}
       </div>
       <div class="archive-body">
-        <h3>${esc(x.title)}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
+        <h3>${esc(x.title)}${x.source==="x-analytics"?'<span class="edited-badge">X分析</span>':''}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
         <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}</p>
         ${(x.impressions||x.likes||x.bookmarks)?'<div class="metric-chips">'+
           (x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+
@@ -143,6 +237,7 @@ async function renderArchive(){
         '</div>':''}
         <p>${esc(x.text)}</p>
         <div class="archive-actions">
+          ${x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':''}
           <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
           <button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button>
           <button class="small-btn" data-action="edit" data-id="${x.id}">修正</button>
@@ -228,6 +323,22 @@ async function shareToX(item,button){
 }
 
 
+$("importAnalyticsCsv").addEventListener("change",async e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const status=$("analyticsImportStatus");
+  status.textContent="読み込み中…";
+  try{
+    const result=await importAnalyticsCSV(file);
+    status.textContent=result.total+"件を処理しました（新規 "+result.added+"件 / 更新 "+result.updated+"件）";
+    await renderArchive();
+    await renderToday();
+  }catch(err){
+    status.textContent="";
+    alert(err.message||"CSVを読み込めませんでした");
+  }
+  e.target.value="";
+});
+
 $("archiveImage").addEventListener("change",async e=>{
   const files=[...e.target.files].slice(0,4);
   if(e.target.files.length>4)alert("写真は最大4枚までです");
@@ -299,6 +410,13 @@ $("todayList").addEventListener("click",async e=>{
 document.querySelectorAll(".filter-btn").forEach(btn=>btn.addEventListener("click",()=>{
   archiveFilter=btn.dataset.filter;
   document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));
+  btn.classList.add("active");
+  renderArchive();
+}));
+
+document.querySelectorAll(".sort-btn").forEach(btn=>btn.addEventListener("click",()=>{
+  archiveSort=btn.dataset.sort;
+  document.querySelectorAll(".sort-btn").forEach(x=>x.classList.remove("active"));
   btn.classList.add("active");
   renderArchive();
 }));
