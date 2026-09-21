@@ -4,6 +4,7 @@ const DB_NAME="sanrioPostHelperDB";
 const STORE="popularPosts";
 const LEGACY_KEY="sanrioPopularPostsV1";
 const LAST_ANALYTICS_IMPORT_KEY="sanrioLastAnalyticsImportAt";
+const APP_VERSION="2026.09.21-2330";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -113,17 +114,28 @@ function newestIso(...values){
   }
   return best||undefined;
 }
+function exclusionSnapshot(x){
+  const changed=(x&&x.candidateExcludedChangedAt)||(x&&x.candidateExcludedAt)||"";
+  const value=(x&&x.candidateExcludedChangedAt)?x.candidateExcluded===true:!!(x&&x.candidateExcludedAt);
+  const t=new Date(changed||"").getTime();
+  return {value,changedAt:changed,time:Number.isFinite(t)?t:0};
+}
+function isCandidateExcluded(x){return exclusionSnapshot(x).value}
 function mergedUsageHistory(a,b){
   const ar=new Date(a&&a.recommendedAt||"").getTime();
   const br=new Date(b&&b.recommendedAt||"").getTime();
   const role=Number.isFinite(br)&&(!Number.isFinite(ar)||br>=ar)?(b&&b.recommendedRole):(a&&a.recommendedRole);
+  const ae=exclusionSnapshot(a),be=exclusionSnapshot(b);
+  const ex=be.time>=ae.time?be:ae;
   return {
     lastRepostedAt:newestIso(a&&a.lastRepostedAt,b&&b.lastRepostedAt),
     recommendedAt:newestIso(a&&a.recommendedAt,b&&b.recommendedAt),
     recommendedRole:role,
     skippedAt:newestIso(a&&a.skippedAt,b&&b.skippedAt),
     revenueRecommendedAt:newestIso(a&&a.revenueRecommendedAt,b&&b.revenueRecommendedAt),
-    candidateExcludedAt:newestIso(a&&a.candidateExcludedAt,b&&b.candidateExcludedAt),
+    candidateExcluded:ex.value,
+    candidateExcludedChangedAt:ex.changedAt,
+    candidateExcludedAt:ex.value?ex.changedAt:"",
     repostCount:Math.max(Number(a&&a.repostCount)||0,Number(b&&b.repostCount)||0)
   };
 }
@@ -203,32 +215,42 @@ function isLikelyExpiredNews(x){
   return age>21;
 }
 function safeReuseItem(x){return isReadyForReuse(x)&&!isLikelyExpiredNews(x)}
-function isLowValueCandidate(x){
+function lowValueReason(x){
   const raw=String(x.text||"").trim();
-  if(!raw)return true;
+  if(!raw)return "本文なし";
+  if(/^https?:\/\/\S+$/i.test(raw))return "URLだけ";
   const body=raw
     .replace(/https?:\/\/\S+/gi," ")
     .replace(/www\.\S+/gi," ")
     .replace(/[#＃][^\s]+/g," ")
     .replace(/[@＠][^\s]+/g," ");
   const meaningful=(body.match(/[A-Za-z0-9ぁ-んァ-ヶ一-龠]/g)||[]).length;
-  if(meaningful<12)return true;
+  if(meaningful<12)return "本文が短すぎる";
   const compact=body.replace(/\s+/g,"").toLowerCase();
-  return /^(詳細はこちら|こちらから|リンクはこちら|続きはこちら|詳細|check|link)$/.test(compact);
+  if(/^(詳細はこちら|こちらから|リンクはこちら|続きはこちら|詳細|check|link)$/.test(compact))return "案内文だけ";
+  return "";
 }
+function isLowValueCandidate(x){return !!lowValueReason(x)}
 function isRecommendationEligible(x){
-  return safeReuseItem(x)&&!x.candidateExcludedAt&&!isLowValueCandidate(x);
+  return safeReuseItem(x)&&!isCandidateExcluded(x)&&!isLowValueCandidate(x);
+}
+function isAnalyticsEligible(x){
+  return metricNumber(x.impressions)>=1000&&!isCandidateExcluded(x)&&!isLowValueCandidate(x)&&!isLikelyExpiredNews(x);
 }
 async function setCandidateExcluded(item,excluded){
   const all=await dbGetAll();
   const key=canonicalPostKey(item);
   const matches=all.filter(x=>canonicalPostKey(x)===key);
+  const now=new Date().toISOString();
   const updates=(matches.length?matches:[item]).map(x=>({
     ...x,
-    candidateExcludedAt:excluded?new Date().toISOString():""
+    candidateExcluded:!!excluded,
+    candidateExcludedChangedAt:now,
+    candidateExcludedAt:excluded?now:""
   }));
   await dbPutMany(updates);
 }
+
 function todayMetricChips(x,role){
   const chips=[];
   if(String(role||"").includes("保存率")){
@@ -439,7 +461,7 @@ async function renderAnalytics(){
   const panel=document.querySelector(".analytics-dashboard");
   if(!panel||!panel.open)return;
 
-  const eligible=items.filter(x=>metricNumber(x.impressions)>=1000);
+  const eligible=items.filter(isAnalyticsEligible);
   const topClick=[...eligible]
     .sort((a,b)=>metricRate(b.urlClicks,b.impressions)-metricRate(a.urlClicks,a.impressions))
     .slice(0,5);
@@ -464,7 +486,7 @@ async function renderAnalytics(){
     ["ポチャッコ",/ポチャッコ/]
   ];
   const charData=chars.map(([name,re])=>{
-    const rows=items.filter(x=>re.test(String(x.title||"")+" "+String(x.text||""))&&metricNumber(x.impressions)>=1000);
+    const rows=items.filter(x=>re.test(String(x.title||"")+" "+String(x.text||""))&&isAnalyticsEligible(x));
     const avg=rows.length?rows.reduce((s,x)=>s+metricRate(x.urlClicks,x.impressions),0)/rows.length:0;
     return {name,avg,count:rows.length};
   });
@@ -609,6 +631,16 @@ async function stampRecommendations(items){
   }
 }
 
+function revenueScore(x){
+  const clicks=metricNumber(x.urlClicks);
+  const rate=metricRate(x.urlClicks,x.impressions);
+  const ageDays=Math.min(180,Math.max(0,(Date.now()-lastUseTime(x))/(24*60*60*1000)));
+  const clickPart=Math.log10(clicks+1)*38;
+  const ratePart=Math.min(rate,0.5)*120;
+  const agePart=ageDays*0.12;
+  const affiliatePart=hasAffiliate(x)?12:0;
+  return clickPart+ratePart+agePart+affiliatePart;
+}
 async function getRevenuePick(){
   const all=await dbGetAll();
   const today=localDayKey();
@@ -618,8 +650,8 @@ async function getRevenuePick(){
       const at=revenueRecommendedDay(a)===today?1:0;
       const bt=revenueRecommendedDay(b)===today?1:0;
       if(at!==bt)return bt-at;
-      const c=metricNumber(b.urlClicks)-metricNumber(a.urlClicks);
-      return c || recommendationScore(b)-recommendationScore(a);
+      const c=revenueScore(b)-revenueScore(a);
+      return c || metricNumber(b.urlClicks)-metricNumber(a.urlClicks);
     })[0]||null;
 }
 
@@ -730,7 +762,8 @@ async function renderArchive(){
     if(archiveFilter==="rakuten")return hasRakutenAffiliate(x);
     if(archiveFilter==="both")return hasAmazonAffiliate(x)&&hasRakutenAffiliate(x);
     if(archiveFilter==="stale")return isLikelyExpiredNews(x);
-    if(archiveFilter==="excluded")return !!x.candidateExcludedAt;
+    if(archiveFilter==="excluded")return isCandidateExcluded(x);
+    if(archiveFilter==="autoexcluded")return isLowValueCandidate(x);
     return true;
   });
   if(archiveSort==="impressions")items.sort((a,b)=>metricNumber(b.impressions)-metricNumber(a.impressions));
@@ -751,7 +784,7 @@ async function renderArchive(){
       </div>
       <div class="archive-body">
         <h3>${esc(x.title)}${x.source==="x-analytics"?'<span class="edited-badge">X分析</span>':''}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
-        <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}${x.candidateExcludedAt?' ・ 候補から除外中':''}</p>
+        <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}${isCandidateExcluded(x)?' ・ 候補から除外中':''}${isLowValueCandidate(x)?' ・ 自動除外：'+lowValueReason(x):''}</p>
         ${(x.impressions||x.likes||x.bookmarks)?'<div class="metric-chips">'+
           (x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+
           (x.likes?'<span>♥ '+esc(x.likes)+'</span>':'')+
@@ -771,7 +804,7 @@ async function renderArchive(){
             ${x.amazon?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.amazon))+'" target="_blank" rel="noopener">Amazon</a>':''}
             ${x.rakuten?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.rakuten))+'" target="_blank" rel="noopener">楽天</a>':''}
             ${imgs.length?'<button class="small-btn" data-action="images" data-id="'+x.id+'">画像を見る</button>':''}
-            <button class="small-btn" data-action="${x.candidateExcludedAt?'restore':'exclude'}" data-id="${x.id}">${x.candidateExcludedAt?'候補に戻す':'候補にしない'}</button>
+            <button class="small-btn" data-action="${isCandidateExcluded(x)?'restore':'exclude'}" data-id="${x.id}">${isCandidateExcluded(x)?'候補に戻す':'候補にしない'}</button>
             <button class="small-btn danger" data-action="delete" data-id="${x.id}">削除</button>
           </div>
         </details>
@@ -932,6 +965,22 @@ $("cancelEdit").addEventListener("click",resetArchiveForm);
 
 $("archiveSearch").addEventListener("input",()=>{archiveLimit=50;renderArchive()});
 
+async function checkLatestVersion(){
+  const status=$("appVersionStatus");
+  const btn=$("forceLatest");
+  try{
+    const res=await fetch("./version.json?ts="+Date.now(),{cache:"no-store"});
+    if(!res.ok)return;
+    const data=await res.json();
+    const latest=String(data.version||"");
+    if(latest&&latest!==APP_VERSION){
+      if(status)status.textContent="新しい版 "+latest+" があります";
+      btn?.classList.add("update-available");
+    }else if(status){
+      status.textContent="アプリ版 "+APP_VERSION+"（最新）";
+    }
+  }catch(e){}
+}
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
   url.searchParams.set("refresh",Date.now().toString());
@@ -1135,4 +1184,4 @@ $("undoRepost").addEventListener("click",undoLastRepost);
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
-(async()=>{await migrateLegacy();await reconcileUsageHistory();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderDataFreshness();await renderAnalytics()})();
+(async()=>{checkLatestVersion();await migrateLegacy();await reconcileUsageHistory();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderDataFreshness();await renderAnalytics()})();
