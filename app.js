@@ -116,7 +116,7 @@ async function renderArchive(){
   const now=Date.now();
   const readyCutoff=30*24*60*60*1000;
   const items=all.filter(x=>{
-    const matches=((x.title+" "+x.text+" "+x.memo).toLowerCase().includes(q));
+    const matches=((x.title+" "+x.text+" "+x.memo+" "+(x.impressions||"")+" "+(x.likes||"")+" "+(x.bookmarks||"")).toLowerCase().includes(q));
     if(!matches)return false;
     if(archiveFilter==="ready"){
       const last=x.lastRepostedAt?new Date(x.lastRepostedAt).getTime():0;
@@ -136,6 +136,11 @@ async function renderArchive(){
       <div class="archive-body">
         <h3>${esc(x.title)}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
         <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}</p>
+        ${(x.impressions||x.likes||x.bookmarks)?'<div class="metric-chips">'+
+          (x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+
+          (x.likes?'<span>♥ '+esc(x.likes)+'</span>':'')+
+          (x.bookmarks?'<span>保存 '+esc(x.bookmarks)+'</span>':'')+
+        '</div>':''}
         <p>${esc(x.text)}</p>
         <div class="archive-actions">
           <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
@@ -151,7 +156,7 @@ async function renderArchive(){
     </article>`}).join("");
 }
 function resetArchiveForm(){
-  ["archiveTitle","archiveText","archiveAmazon","archiveRakuten","archiveMemo"].forEach(id=>$(id).value="");
+  ["archiveTitle","archiveText","archiveAmazon","archiveRakuten","archiveImpressions","archiveLikes","archiveBookmarks","archiveMemo"].forEach(id=>$(id).value="");
   $("archiveImage").value="";
   selectedImages=[];
   editingId=null;
@@ -167,6 +172,9 @@ function startEdit(item){
   $("archiveText").value=item.text||"";
   $("archiveAmazon").value=item.amazon||"";
   $("archiveRakuten").value=item.rakuten||"";
+  $("archiveImpressions").value=item.impressions||"";
+  $("archiveLikes").value=item.likes||"";
+  $("archiveBookmarks").value=item.bookmarks||"";
   $("archiveMemo").value=item.memo||"";
   selectedImages=[...(item.images||(item.image?[item.image]:[]))];
   renderPreview();
@@ -245,6 +253,9 @@ $("saveArchive").addEventListener("click",async()=>{
       title,text,images:[...selectedImages],
       amazon:clean($("archiveAmazon").value),
       rakuten:clean($("archiveRakuten").value),
+      impressions:clean($("archiveImpressions").value),
+      likes:clean($("archiveLikes").value),
+      bookmarks:clean($("archiveBookmarks").value),
       memo:clean($("archiveMemo").value),
       updatedAt:now
     };
@@ -254,6 +265,9 @@ $("saveArchive").addEventListener("click",async()=>{
       title,text,images:[...selectedImages],
       amazon:clean($("archiveAmazon").value),
       rakuten:clean($("archiveRakuten").value),
+      impressions:clean($("archiveImpressions").value),
+      likes:clean($("archiveLikes").value),
+      bookmarks:clean($("archiveBookmarks").value),
       memo:clean($("archiveMemo").value),
       savedAt:now,
       repostCount:0
