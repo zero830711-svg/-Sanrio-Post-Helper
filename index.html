@@ -38,7 +38,10 @@
 
 <section id="archive" class="tab-panel">
 <section class="card form-card">
-<h2 class="section-title">人気投稿を保存</h2>
+<div class="form-title-row">
+<h2 id="archiveFormTitle" class="section-title">人気投稿を保存</h2>
+<button id="cancelEdit" class="small-btn hidden" type="button">修正をやめる</button>
+</div>
 <label>写真（最大4枚）
 <input id="archiveImage" type="file" accept="image/*" multiple>
 </label>
@@ -53,6 +56,10 @@
 
 <div class="archive-tools">
 <input id="archiveSearch" type="search" placeholder="商品名・投稿文から検索">
+<div class="filter-row">
+<button class="filter-btn active" data-filter="all">すべて</button>
+<button class="filter-btn" data-filter="ready">30日以上未投稿</button>
+</div>
 </div>
 
 <section class="card backup-card">
