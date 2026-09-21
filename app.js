@@ -113,9 +113,13 @@ function newestIso(...values){
   return best||undefined;
 }
 function mergedUsageHistory(a,b){
+  const ar=new Date(a&&a.recommendedAt||"").getTime();
+  const br=new Date(b&&b.recommendedAt||"").getTime();
+  const role=Number.isFinite(br)&&(!Number.isFinite(ar)||br>=ar)?(b&&b.recommendedRole):(a&&a.recommendedRole);
   return {
     lastRepostedAt:newestIso(a&&a.lastRepostedAt,b&&b.lastRepostedAt),
     recommendedAt:newestIso(a&&a.recommendedAt,b&&b.recommendedAt),
+    recommendedRole:role,
     skippedAt:newestIso(a&&a.skippedAt,b&&b.skippedAt),
     revenueRecommendedAt:newestIso(a&&a.revenueRecommendedAt,b&&b.revenueRecommendedAt),
     repostCount:Math.max(Number(a&&a.repostCount)||0,Number(b&&b.repostCount)||0)
@@ -351,13 +355,26 @@ function destroyChart(name){
 function shortLabel(x){
   return String(x.title||x.text||"投稿").replace(/\s+/g," ").slice(0,18);
 }
+function rankingRows(items,metric){
+  return items.map((x,i)=>{
+    const rate=metric==="click"?metricRate(x.urlClicks,x.impressions):metricRate(x.bookmarks,x.impressions);
+    const value=metric==="click"?metricNumber(x.urlClicks):metricNumber(x.bookmarks);
+    return '<div class="ranking-row">'+
+      '<div class="ranking-rank">'+(i+1)+'</div>'+
+      '<div class="ranking-main">'+
+        '<strong>'+esc(shortLabel(x))+'</strong>'+
+        '<span>表示 '+metricNumber(x.impressions).toLocaleString()+' ・ '+(metric==="click"?"クリック ":"保存 ")+value.toLocaleString()+'</span>'+
+      '</div>'+
+      '<div class="ranking-rate">'+percentText(rate)+'</div>'+
+    '</div>';
+  }).join("");
+}
 async function renderAnalytics(){
   const summary=$("analyticsSummary");
   if(!summary)return;
   const items=await dbGetAll();
   const total=items.length;
   const totalImp=items.reduce((s,x)=>s+metricNumber(x.impressions),0);
-  const totalLikes=items.reduce((s,x)=>s+metricNumber(x.likes),0);
   const totalSaves=items.reduce((s,x)=>s+metricNumber(x.bookmarks),0);
   const totalClicks=items.reduce((s,x)=>s+metricNumber(x.urlClicks),0);
   const overallSaveRate=totalImp?totalSaves/totalImp:0;
@@ -371,28 +388,23 @@ async function renderAnalytics(){
   ].map(([k,v])=>'<div class="analytics-stat"><span>'+k+'</span><strong>'+v+'</strong></div>').join("");
 
   const panel=document.querySelector(".analytics-dashboard");
-  if(!panel||!panel.open||typeof Chart==="undefined")return;
+  if(!panel||!panel.open)return;
 
-  const eligible=items.filter(x=>metricNumber(x.impressions)>=100);
-  const topClick=[...eligible].sort((a,b)=>metricRate(b.urlClicks,b.impressions)-metricRate(a.urlClicks,a.impressions)).slice(0,10);
-  const topSave=[...eligible].sort((a,b)=>metricRate(b.bookmarks,b.impressions)-metricRate(a.bookmarks,a.impressions)).slice(0,10);
+  const eligible=items.filter(x=>metricNumber(x.impressions)>=1000);
+  const topClick=[...eligible]
+    .sort((a,b)=>metricRate(b.urlClicks,b.impressions)-metricRate(a.urlClicks,a.impressions))
+    .slice(0,5);
+  const topSave=[...eligible]
+    .sort((a,b)=>metricRate(b.bookmarks,b.impressions)-metricRate(a.bookmarks,a.impressions))
+    .slice(0,5);
 
-  destroyChart("clickRate");
-  destroyChart("saveRate");
+  const clickRoot=$("clickRateRanking");
+  const saveRoot=$("saveRateRanking");
+  if(clickRoot)clickRoot.innerHTML=topClick.length?rankingRows(topClick,"click"):'<div class="empty compact-empty">対象データがありません。</div>';
+  if(saveRoot)saveRoot.innerHTML=topSave.length?rankingRows(topSave,"save"):'<div class="empty compact-empty">対象データがありません。</div>';
+
+  if(typeof Chart==="undefined")return;
   destroyChart("character");
-
-  const clickEl=$("clickRateChart");
-  if(clickEl)analyticsCharts.clickRate=new Chart(clickEl,{
-    type:"bar",
-    data:{labels:topClick.map(shortLabel),datasets:[{label:"クリック率 %",data:topClick.map(x=>Number((metricRate(x.urlClicks,x.impressions)*100).toFixed(2)))}]},
-    options:{responsive:true,maintainAspectRatio:false,indexAxis:"y",plugins:{legend:{display:false}}}
-  });
-  const saveEl=$("saveRateChart");
-  if(saveEl)analyticsCharts.saveRate=new Chart(saveEl,{
-    type:"bar",
-    data:{labels:topSave.map(shortLabel),datasets:[{label:"保存率 %",data:topSave.map(x=>Number((metricRate(x.bookmarks,x.impressions)*100).toFixed(2)))}]},
-    options:{responsive:true,maintainAspectRatio:false,indexAxis:"y",plugins:{legend:{display:false}}}
-  });
 
   const chars=[
     ["キティ",/ハローキティ|キティ/],
@@ -403,7 +415,7 @@ async function renderAnalytics(){
     ["ポチャッコ",/ポチャッコ/]
   ];
   const charData=chars.map(([name,re])=>{
-    const rows=items.filter(x=>re.test(String(x.title||"")+" "+String(x.text||""))&&metricNumber(x.impressions)>0);
+    const rows=items.filter(x=>re.test(String(x.title||"")+" "+String(x.text||""))&&metricNumber(x.impressions)>=1000);
     const avg=rows.length?rows.reduce((s,x)=>s+metricRate(x.urlClicks,x.impressions),0)/rows.length:0;
     return {name,avg,count:rows.length};
   });
@@ -518,19 +530,19 @@ async function getRoleBasedPicks(){
   if(!pool.length)return [];
   const today=localDayKey();
   const sameDay=pool.filter(x=>recommendedDay(x)===today);
-  if(sameDay.length>=3)return sameDay.slice(0,3).map((x,i)=>({...x,_role:["総合おすすめ","保存率が強い","クリック率が強い"][i]}));
+  if(sameDay.length>=3)return sameDay.slice(0,3).map((x,i)=>({...x,_role:x.recommendedRole||["総合おすすめ","保存率が強い","クリック率が強い"][i]}));
 
   const picked=[];
   const use=(x,role)=>{if(x&&!picked.some(p=>p.id===x.id))picked.push({...x,_role:role})};
   use(pool[0],"総合おすすめ");
 
   const savePick=[...pool]
-    .filter(x=>metricNumber(x.impressions)>0)
+    .filter(x=>metricNumber(x.impressions)>=1000)
     .sort((a,b)=>metricRate(b.bookmarks,b.impressions)-metricRate(a.bookmarks,a.impressions))[0];
   use(savePick,"保存率が強い");
 
   const clickPick=[...pool]
-    .filter(x=>metricNumber(x.impressions)>0)
+    .filter(x=>metricNumber(x.impressions)>=1000)
     .sort((a,b)=>metricRate(b.urlClicks,b.impressions)-metricRate(a.urlClicks,a.impressions))[0];
   use(clickPick,"クリック率が強い");
 
@@ -543,6 +555,7 @@ async function stampRecommendations(items){
   for(const item of items){
     if(recommendedDay(item)===today)continue;
     item.recommendedAt=new Date().toISOString();
+    item.recommendedRole=item._role||item.recommendedRole||"総合候補";
     await dbPut(item);
   }
 }
@@ -605,6 +618,8 @@ async function renderToday(){
 
 async function renderRecentUsed(){
   const root=$("recentUsedList");
+  const card=$("recentUsedCard");
+  if(!root)return;
   const cutoff=Date.now()-7*24*60*60*1000;
   const items=(await dbGetAll())
     .filter(x=>{
@@ -613,7 +628,12 @@ async function renderRecentUsed(){
     })
     .sort((a,b)=>new Date(b.lastRepostedAt)-new Date(a.lastRepostedAt))
     .slice(0,3);
-  if(!items.length){root.innerHTML='<div class="empty compact-empty">今週はまだありません。</div>';return}
+  if(!items.length){
+    root.innerHTML="";
+    card?.classList.add("hidden");
+    return;
+  }
+  card?.classList.remove("hidden");
   root.innerHTML=items.map(x=>
     '<article class="recent-used-item">'+
       '<div><strong>'+esc(x.title)+'</strong>'+
