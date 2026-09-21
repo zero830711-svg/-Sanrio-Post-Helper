@@ -88,6 +88,7 @@ async function renderArchive(){
         <h3>${esc(x.title)}</h3>
         <p>${esc(x.text)}</p>
         <div class="archive-actions">
+          <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
           <button class="small-btn" data-action="copy" data-id="${x.id}">投稿文コピー</button>
           <button class="small-btn" data-action="load" data-id="${x.id}">呼び出す</button>
           ${imgs.length?'<button class="small-btn" data-action="images" data-id="'+x.id+'">画像を見る</button>':''}
@@ -110,6 +111,38 @@ function closeImages(){
   $("imageModal").classList.add("hidden");
   $("modalImages").innerHTML="";
   document.body.style.overflow="";
+}
+
+async function dataUrlToFile(dataUrl,name){
+  const res=await fetch(dataUrl);
+  const blob=await res.blob();
+  const type=blob.type||"image/jpeg";
+  const ext=type.includes("png")?"png":"jpg";
+  return new File([blob],name+"."+ext,{type});
+}
+
+async function shareToX(item,button){
+  const imgs=item.images||(item.image?[item.image]:[]);
+  const files=[];
+  for(let i=0;i<imgs.length;i++){
+    try{files.push(await dataUrlToFile(imgs[i],"sanrio-"+(i+1)))}catch(e){}
+  }
+
+  const shareData={text:item.text||"",title:item.title||"Sanrio post"};
+  if(files.length)shareData.files=files;
+
+  try{
+    if(navigator.share && (!files.length || !navigator.canShare || navigator.canShare({files}))){
+      await navigator.share(shareData);
+      return;
+    }
+  }catch(e){
+    if(e && e.name==="AbortError")return;
+  }
+
+  try{await navigator.clipboard.writeText(item.text||"")}catch(e){}
+  if(files.length)showImages(imgs);
+  alert("投稿文をコピーしました。画像は長押しで保存してXに貼り付けてください。");
 }
 
 $("generate").addEventListener("click",build);
@@ -156,6 +189,9 @@ $("archiveSearch").addEventListener("input",renderArchive);
 $("archiveList").addEventListener("click",async e=>{
   const btn=e.target.closest("[data-action]");if(!btn)return;
   const items=await dbGetAll();const item=items.find(x=>x.id===btn.dataset.id);if(!item)return;
+  if(btn.dataset.action==="sharex"){
+    await shareToX(item,btn);
+  }
   if(btn.dataset.action==="copy"){
     await navigator.clipboard.writeText(item.text||"");
     btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿文コピー",1200);
