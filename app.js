@@ -4,7 +4,9 @@ const DB_NAME="sanrioPostHelperDB";
 const STORE="popularPosts";
 const LEGACY_KEY="sanrioPopularPostsV1";
 const LAST_ANALYTICS_IMPORT_KEY="sanrioLastAnalyticsImportAt";
-const APP_VERSION="2026.09.21-2330";
+const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
+const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
+const APP_VERSION="2026.09.21-2400";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -295,12 +297,7 @@ function canRecommendToday(x){
     const st=new Date(x.skippedAt).getTime();
     if(Number.isFinite(st) && (Date.now()-st)<7*24*60*60*1000)return false;
   }
-  if(!x.recommendedAt)return true;
-  const d=new Date(x.recommendedAt);
-  const t=d.getTime();
-  if(!Number.isFinite(t))return true;
-  if(recommendedDay(x)===localDayKey())return true;
-  return (Date.now()-t)>=7*24*60*60*1000;
+  return true;
 }
 
 function showUndoToast(records){
@@ -435,10 +432,52 @@ function rankingRows(items,metric){
       '<div class="ranking-main">'+
         '<strong>'+esc(shortLabel(x))+'</strong>'+
         '<span>表示 '+metricNumber(x.impressions).toLocaleString()+' ・ '+(metric==="click"?"クリック ":"保存 ")+value.toLocaleString()+'</span>'+
+        '<div class="ranking-actions">'+
+          (x.xUrl?'<a href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">X</a>':'')+
+          '<button data-analytics-action="copy" data-id="'+x.id+'">コピー</button>'+
+          '<button data-analytics-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
+        '</div>'+
       '</div>'+
       '<div class="ranking-rate">'+percentText(rate)+'</div>'+
     '</div>';
   }).join("");
+}
+
+function backupAgeDays(){
+  const raw=localStorage.getItem(LAST_BACKUP_EXPORT_KEY);
+  const t=new Date(raw||"").getTime();
+  return Number.isFinite(t)?Math.floor((Date.now()-t)/(24*60*60*1000)):null;
+}
+function renderBackupStatus(){
+  const root=$("backupStatus");
+  if(!root)return;
+  const raw=localStorage.getItem(LAST_BACKUP_EXPORT_KEY);
+  const age=backupAgeDays();
+  if(!raw||age===null){
+    root.innerHTML='<strong>まだバックアップ記録がありません</strong>';
+    return;
+  }
+  const d=new Date(raw);
+  root.innerHTML='最終バックアップ：'+esc(d.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}))+
+    (age>=10?' <strong>⚠ '+age+'日経過</strong>':'');
+}
+async function renderDataHealth(){
+  const root=$("dataHealth");
+  if(!root)return;
+  const items=await dbGetAll();
+  const counts=new Map();
+  items.forEach(x=>counts.set(canonicalPostKey(x),(counts.get(canonicalPostKey(x))||0)+1));
+  const duplicateItems=items.filter(x=>(counts.get(canonicalPostKey(x))||0)>1).length;
+  const values=[
+    ["duplicate","重複",duplicateItems],
+    ["missingx","Xリンクなし",items.filter(x=>!clean(x.xUrl)).length],
+    ["autoexcluded","自動除外",items.filter(isLowValueCandidate).length],
+    ["stale","古い可能性",items.filter(isLikelyExpiredNews).length],
+    ["excluded","候補から除外",items.filter(isCandidateExcluded).length]
+  ];
+  root.innerHTML=values.map(([filter,label,count])=>
+    '<button type="button" class="health-item" data-health-filter="'+filter+'"><span>'+label+'</span><strong>'+count.toLocaleString()+'</strong></button>'
+  ).join("");
 }
 async function renderAnalytics(){
   const summary=$("analyticsSummary");
@@ -600,35 +639,49 @@ async function getRoleBasedPicks(){
   const pool=await getReadyItems();
   if(!pool.length)return [];
   const today=localDayKey();
-  const sameDay=pool.filter(x=>recommendedDay(x)===today);
-  if(sameDay.length>=3)return sameDay.slice(0,3).map((x,i)=>({...x,_role:x.recommendedRole||["総合おすすめ","保存率が強い","クリック率が強い"][i]}));
-
   const picked=[];
-  const use=(x,role)=>{if(x&&!picked.some(p=>p.id===x.id))picked.push({...x,_role:role})};
-  use(pool[0],"総合おすすめ");
+  const used=new Set();
 
-  const savePick=[...pool]
-    .filter(x=>metricNumber(x.impressions)>=1000)
-    .sort((a,b)=>metricRate(b.bookmarks,b.impressions)-metricRate(a.bookmarks,a.impressions))[0];
-  use(savePick,"保存率が強い");
+  const keep=(x,role)=>{
+    if(!x||used.has(x.id))return;
+    picked.push({...x,_role:role});
+    used.add(x.id);
+  };
 
-  const clickPick=[...pool]
-    .filter(x=>metricNumber(x.impressions)>=1000)
-    .sort((a,b)=>metricRate(b.urlClicks,b.impressions)-metricRate(a.urlClicks,a.impressions))[0];
-  use(clickPick,"クリック率が強い");
+  const sameDay=pool.filter(x=>recommendedDay(x)===today);
+  for(const role of TODAY_ROLES){
+    const existing=sameDay.find(x=>x.recommendedRole===role&&!used.has(x.id));
+    keep(existing,role);
+  }
 
-  for(const x of pool)use(x,"総合候補");
-  return picked.slice(0,3);
+  const remaining=()=>pool.filter(x=>!used.has(x.id));
+  for(const role of TODAY_ROLES){
+    if(picked.some(x=>x._role===role))continue;
+    let choice=null;
+    const candidates=remaining();
+    if(role==="保存率が強い"){
+      choice=[...candidates].filter(x=>metricNumber(x.impressions)>=1000)
+        .sort((a,b)=>metricRate(b.bookmarks,b.impressions)-metricRate(a.bookmarks,a.impressions))[0]||null;
+    }else if(role==="クリック率が強い"){
+      choice=[...candidates].filter(x=>metricNumber(x.impressions)>=1000)
+        .sort((a,b)=>metricRate(b.urlClicks,b.impressions)-metricRate(a.urlClicks,a.impressions))[0]||null;
+    }else{
+      choice=candidates[0]||null;
+    }
+    if(!choice)choice=candidates[0]||null;
+    keep(choice,role);
+  }
+  return TODAY_ROLES.map(role=>picked.find(x=>x._role===role)).filter(Boolean);
 }
 
 async function stampRecommendations(items){
   const today=localDayKey();
+  const updates=[];
   for(const item of items){
-    if(recommendedDay(item)===today)continue;
-    item.recommendedAt=new Date().toISOString();
-    item.recommendedRole=item._role||item.recommendedRole||"総合候補";
-    await dbPut(item);
+    if(recommendedDay(item)===today&&item.recommendedRole===item._role)continue;
+    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"総合おすすめ"});
   }
+  await dbPutMany(updates);
 }
 
 function revenueScore(x){
@@ -749,6 +802,8 @@ async function renderArchive(){
   const q=clean($("archiveSearch").value).toLowerCase();
   const all=await dbGetAll();
   const flexIds=searchIds(all,q);
+  const keyCounts=new Map();
+  all.forEach(x=>keyCounts.set(canonicalPostKey(x),(keyCounts.get(canonicalPostKey(x))||0)+1));
   const now=Date.now();
   const readyCutoff=30*24*60*60*1000;
   let items=all.filter(x=>{
@@ -764,6 +819,8 @@ async function renderArchive(){
     if(archiveFilter==="stale")return isLikelyExpiredNews(x);
     if(archiveFilter==="excluded")return isCandidateExcluded(x);
     if(archiveFilter==="autoexcluded")return isLowValueCandidate(x);
+    if(archiveFilter==="duplicate")return (keyCounts.get(canonicalPostKey(x))||0)>1;
+    if(archiveFilter==="missingx")return !clean(x.xUrl);
     return true;
   });
   if(archiveSort==="impressions")items.sort((a,b)=>metricNumber(b.impressions)-metricNumber(a.impressions));
@@ -899,6 +956,7 @@ $("importAnalyticsCsv").addEventListener("change",async e=>{
     await renderRecentUsed();
     await renderAnalytics();
     await renderDataFreshness();
+    await renderDataHealth();
   }catch(err){
     status.textContent="";
     alert(err.message||"CSVを読み込めませんでした");
@@ -965,6 +1023,18 @@ $("cancelEdit").addEventListener("click",resetArchiveForm);
 
 $("archiveSearch").addEventListener("input",()=>{archiveLimit=50;renderArchive()});
 
+$("dataHealth")?.addEventListener("click",e=>{
+  const btn=e.target.closest("[data-health-filter]");
+  if(!btn)return;
+  archiveFilter=btn.dataset.healthFilter;
+  archiveLimit=50;
+  document.querySelectorAll(".filter-btn").forEach(x=>x.classList.toggle("active",x.dataset.filter===archiveFilter));
+  const details=document.querySelector(".archive-browse");
+  if(details)details.open=true;
+  renderArchive();
+  details?.scrollIntoView({behavior:"smooth",block:"start"});
+});
+
 async function checkLatestVersion(){
   const status=$("appVersionStatus");
   const btn=$("forceLatest");
@@ -989,6 +1059,27 @@ $("forceLatest")?.addEventListener("click",()=>{
 
 document.querySelector(".analytics-dashboard")?.addEventListener("toggle",e=>{
   if(e.currentTarget.open)requestAnimationFrame(()=>renderAnalytics());
+});
+
+document.querySelector(".analytics-dashboard")?.addEventListener("click",async e=>{
+  const btn=e.target.closest("[data-analytics-action]");
+  if(!btn)return;
+  const items=await dbGetAll();
+  const item=items.find(x=>x.id===btn.dataset.id);
+  if(!item)return;
+  if(btn.dataset.analyticsAction==="copy"){
+    await navigator.clipboard.writeText(item.text||"");
+    btn.textContent="コピー済み";
+    setTimeout(()=>btn.textContent="コピー",1200);
+  }
+  if(btn.dataset.analyticsAction==="exclude"){
+    await setCandidateExcluded(item,true);
+    await renderAnalytics();
+    await renderToday();
+    await renderRevenuePick();
+    await renderArchive();
+    await renderDataHealth();
+  }
 });
 
 
@@ -1080,12 +1171,15 @@ document.querySelectorAll(".sort-btn").forEach(btn=>btn.addEventListener("click"
 
 $("exportBackup").addEventListener("click",async()=>{
   const items=await dbGetAll();
-  const payload={version:1,exportedAt:new Date().toISOString(),items};
+  const exportedAt=new Date().toISOString();
+  const payload={version:1,exportedAt,items};
   const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
   const file=new File([blob],"sanrio-post-helper-backup.json",{type:"application/json"});
   try{
     if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
       await navigator.share({files:[file],title:"Sanrio Post Helper バックアップ"});
+      localStorage.setItem(LAST_BACKUP_EXPORT_KEY,exportedAt);
+      renderBackupStatus();
       return;
     }
   }catch(e){
@@ -1095,6 +1189,8 @@ $("exportBackup").addEventListener("click",async()=>{
   const a=document.createElement("a");
   a.href=url;a.download="sanrio-post-helper-backup.json";
   document.body.appendChild(a);a.click();a.remove();
+  localStorage.setItem(LAST_BACKUP_EXPORT_KEY,exportedAt);
+  renderBackupStatus();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 
@@ -1127,6 +1223,7 @@ $("importBackup").addEventListener("change",async e=>{
     await renderRecentUsed();
     await renderAnalytics();
     await renderDataFreshness();
+    await renderDataHealth();
     alert("バックアップを読み込みました");
   }catch(err){
     alert("バックアップファイルを読み込めませんでした");
@@ -1176,7 +1273,7 @@ $("archiveList").addEventListener("click",async e=>{
   }
   if(btn.dataset.action==="delete"){
     if(!confirm("この保存データを削除しますか？"))return;
-    await dbDelete(item.id);await renderArchive();
+    await dbDelete(item.id);await renderArchive();await renderDataHealth();
   }
 });
 
@@ -1184,4 +1281,4 @@ $("undoRepost").addEventListener("click",undoLastRepost);
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
-(async()=>{checkLatestVersion();await migrateLegacy();await reconcileUsageHistory();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderDataFreshness();await renderAnalytics()})();
+(async()=>{checkLatestVersion();await migrateLegacy();await reconcileUsageHistory();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderDataFreshness();renderBackupStatus();await renderDataHealth();await renderAnalytics()})();
