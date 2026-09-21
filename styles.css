@@ -22,3 +22,4 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .modal-images{display:grid;gap:18px}.modal-images img{width:100%;height:auto;max-height:78vh;object-fit:contain;border-radius:12px;background:#222;-webkit-touch-callout:default}
 .modal-help{text-align:center;color:#bbb;font-size:13px;padding:14px 8px 24px}
 @media(max-width:460px){.archive-item{grid-template-columns:88px 1fr}.archive-thumb{width:88px;height:88px}.preview-grid{grid-template-columns:repeat(4,1fr)}}
+.backup-card{margin:14px 0}.backup-note{margin:0;color:var(--muted);font-size:13px}.backup-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.import-label{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
