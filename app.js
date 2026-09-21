@@ -73,6 +73,54 @@ async function compressFile(file){
 function renderPreview(){
   $("archivePreviewGrid").innerHTML=selectedImages.map(src=>'<img src="'+src+'" alt="">').join("");
 }
+function normalizedUrl(url){
+  const v=clean(url);
+  if(!v)return "";
+  if(/^https?:\/\//i.test(v))return v;
+  return "https://"+v;
+}
+
+async function getReadyItems(){
+  const all=await dbGetAll();
+  const now=Date.now();
+  const cutoff=30*24*60*60*1000;
+  return all.filter(x=>{
+    const last=x.lastRepostedAt?new Date(x.lastRepostedAt).getTime():0;
+    return !last || (now-last)>=cutoff;
+  }).sort((a,b)=>{
+    const al=a.lastRepostedAt?new Date(a.lastRepostedAt).getTime():0;
+    const bl=b.lastRepostedAt?new Date(b.lastRepostedAt).getTime():0;
+    return al-bl;
+  });
+}
+
+function itemLinkButtons(x){
+  const amazon=normalizedUrl(x.amazon);
+  const rakuten=normalizedUrl(x.rakuten);
+  return [
+    amazon?'<a class="small-btn link-btn" href="'+esc(amazon)+'" target="_blank" rel="noopener">Amazon</a>':"",
+    rakuten?'<a class="small-btn link-btn" href="'+esc(rakuten)+'" target="_blank" rel="noopener">楽天</a>':""
+  ].join("");
+}
+
+async function renderToday(){
+  const root=$("todayList");
+  const items=(await getReadyItems()).slice(0,3);
+  if(!items.length){
+    root.innerHTML='<div class="empty">今すぐ出せる候補はありません。</div>';
+    return;
+  }
+  root.innerHTML=items.map(x=>{
+    const imgs=x.images||(x.image?[x.image]:[]);
+    return '<article class="today-item">'+
+      (imgs[0]?'<img src="'+imgs[0]+'" alt="">':'<div class="archive-thumb"></div>')+
+      '<div><h3>'+esc(x.title)+'</h3><div class="today-actions">'+
+      '<button class="small-btn" data-today-action="sharex" data-id="'+x.id+'">Xへ共有</button>'+
+      itemLinkButtons(x)+
+      '</div></div></article>';
+  }).join("");
+}
+
 async function renderArchive(){
   const q=clean($("archiveSearch").value).toLowerCase();
   const all=await dbGetAll();
@@ -104,6 +152,8 @@ async function renderArchive(){
           <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
           <button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button>
           <button class="small-btn" data-action="edit" data-id="${x.id}">修正</button>
+          ${x.amazon?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.amazon))+'" target="_blank" rel="noopener">Amazon</a>':''}
+          ${x.rakuten?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.rakuten))+'" target="_blank" rel="noopener">楽天</a>':''}
           <button class="small-btn" data-action="copy" data-id="${x.id}">投稿文コピー</button>
           <button class="small-btn" data-action="load" data-id="${x.id}">呼び出す</button>
           ${imgs.length?'<button class="small-btn" data-action="images" data-id="'+x.id+'">画像を見る</button>':''}
@@ -247,6 +297,17 @@ $("cancelEdit").addEventListener("click",resetArchiveForm);
 
 $("archiveSearch").addEventListener("input",renderArchive);
 
+$("pickToday").addEventListener("click",renderToday);
+
+$("todayList").addEventListener("click",async e=>{
+  const btn=e.target.closest("[data-today-action]");
+  if(!btn)return;
+  const items=await dbGetAll();
+  const item=items.find(x=>x.id===btn.dataset.id);
+  if(!item)return;
+  if(btn.dataset.todayAction==="sharex")await shareToX(item,btn);
+});
+
 document.querySelectorAll(".filter-btn").forEach(btn=>btn.addEventListener("click",()=>{
   archiveFilter=btn.dataset.filter;
   document.querySelectorAll(".filter-btn").forEach(x=>x.classList.remove("active"));
@@ -329,4 +390,4 @@ $("archiveList").addEventListener("click",async e=>{
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
-(async()=>{await migrateLegacy();await renderArchive()})();
+(async()=>{await migrateLegacy();await renderArchive();await renderToday()})();
