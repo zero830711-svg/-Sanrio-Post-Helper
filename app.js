@@ -80,6 +80,34 @@ function hasRakutenAffiliate(x){
   const t=String(x.text||"");
   return /(楽天|rakuten)/i.test(t) && /(https?:\/\/t\.co\/|rakuten\.)/i.test(t);
 }
+function hasAffiliate(x){return hasAmazonAffiliate(x)||hasRakutenAffiliate(x)}
+
+function lastUseTime(x){
+  const raw=x.lastRepostedAt||x.postedAt||x.savedAt||"";
+  const t=new Date(raw).getTime();
+  return Number.isFinite(t)?t:0;
+}
+function isReadyForReuse(x){
+  const t=lastUseTime(x);
+  if(!t)return true;
+  return (Date.now()-t)>=30*24*60*60*1000;
+}
+function stableDayJitter(x){
+  const key=String(x.postId||x.id||"");
+  const day=new Date().toISOString().slice(0,10);
+  let h=0,s=day+"-"+key;
+  for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
+  return (h%1000)/1000;
+}
+function recommendationScore(x){
+  const imp=Math.log10(metricNumber(x.impressions)+1)*18;
+  const likes=Math.log10(metricNumber(x.likes)+1)*16;
+  const saves=Math.log10(metricNumber(x.bookmarks)+1)*22;
+  const clicks=Math.log10(metricNumber(x.urlClicks)+1)*24;
+  const affiliate=hasAffiliate(x)?18:0;
+  const days=Math.min(180,Math.max(0,(Date.now()-lastUseTime(x))/(24*60*60*1000)))*0.18;
+  return imp+likes+saves+clicks+affiliate+days+stableDayJitter(x)*4;
+}
 
 function metricNumber(v){
   const s=String(v??"").trim().replace(/,/g,"");
@@ -172,16 +200,7 @@ async function importAnalyticsCSV(file){
 
 async function getReadyItems(){
   const all=await dbGetAll();
-  const now=Date.now();
-  const cutoff=30*24*60*60*1000;
-  return all.filter(x=>{
-    const last=x.lastRepostedAt?new Date(x.lastRepostedAt).getTime():0;
-    return !last || (now-last)>=cutoff;
-  }).sort((a,b)=>{
-    const al=a.lastRepostedAt?new Date(a.lastRepostedAt).getTime():0;
-    const bl=b.lastRepostedAt?new Date(b.lastRepostedAt).getTime():0;
-    return al-bl;
-  });
+  return all.filter(isReadyForReuse).sort((a,b)=>recommendationScore(b)-recommendationScore(a));
 }
 
 function itemLinkButtons(x){
@@ -200,13 +219,21 @@ async function renderToday(){
     root.innerHTML='<div class="empty">今すぐ出せる候補はありません。</div>';
     return;
   }
-  root.innerHTML=items.map(x=>{
+  root.innerHTML=items.map((x,i)=>{
     const imgs=x.images||(x.image?[x.image]:[]);
-    return '<article class="today-item">'+
-      (imgs[0]?'<img src="'+imgs[0]+'" alt="">':'<div class="archive-thumb"></div>')+
-      '<div><h3>'+esc(x.title)+'</h3><div class="today-actions">'+
-      '<button class="small-btn" data-today-action="sharex" data-id="'+x.id+'">Xへ共有</button>'+
-      itemLinkButtons(x)+
+    return '<article class="today-item featured">'+
+      (imgs[0]?'<img src="'+imgs[0]+'" alt="">':'<div class="today-rank">'+(i+1)+'</div>')+
+      '<div class="today-main"><div class="today-rank-label">おすすめ '+(i+1)+'</div><h3>'+esc(x.title)+'</h3>'+
+      '<div class="metric-chips">'+
+        (x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+
+        (x.likes?'<span>♥ '+esc(x.likes)+'</span>':'')+
+        (x.bookmarks?'<span>保存 '+esc(x.bookmarks)+'</span>':'')+
+        (x.urlClicks?'<span>クリック '+esc(x.urlClicks)+'</span>':'')+
+      '</div>'+
+      '<div class="today-actions">'+
+        (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
+        '<button class="small-btn" data-today-action="copy" data-id="'+x.id+'">投稿文コピー</button>'+
+        '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
       '</div></div></article>';
   }).join("");
 }
@@ -219,10 +246,8 @@ async function renderArchive(){
   let items=all.filter(x=>{
     const matches=((x.title+" "+x.text+" "+x.memo+" "+(x.impressions||"")+" "+(x.likes||"")+" "+(x.bookmarks||"")).toLowerCase().includes(q));
     if(!matches)return false;
-    if(archiveFilter==="ready"){
-      const last=x.lastRepostedAt?new Date(x.lastRepostedAt).getTime():0;
-      return !last || (now-last)>=readyCutoff;
-    }
+    if(archiveFilter==="ready")return isReadyForReuse(x);
+    if(archiveFilter==="affiliate")return hasAffiliate(x);
     if(archiveFilter==="amazon")return hasAmazonAffiliate(x);
     if(archiveFilter==="rakuten")return hasRakutenAffiliate(x);
     if(archiveFilter==="both")return hasAmazonAffiliate(x)&&hasRakutenAffiliate(x);
@@ -231,6 +256,7 @@ async function renderArchive(){
   if(archiveSort==="impressions")items.sort((a,b)=>metricNumber(b.impressions)-metricNumber(a.impressions));
   else if(archiveSort==="likes")items.sort((a,b)=>metricNumber(b.likes)-metricNumber(a.likes));
   else if(archiveSort==="bookmarks")items.sort((a,b)=>metricNumber(b.bookmarks)-metricNumber(a.bookmarks));
+  else if(archiveSort==="clicks")items.sort((a,b)=>metricNumber(b.urlClicks)-metricNumber(a.urlClicks));
   else items.sort((a,b)=>String(b.postedAt||b.savedAt||"").localeCompare(String(a.postedAt||a.savedAt||"")));
   const root=$("archiveList");
   if(!items.length){root.innerHTML='<div class="empty">保存した人気投稿はまだありません。</div>';return}
@@ -250,17 +276,22 @@ async function renderArchive(){
           (x.bookmarks?'<span>保存 '+esc(x.bookmarks)+'</span>':'')+
         '</div>':''}
         <p>${esc(x.text)}</p>
-        <div class="archive-actions">
+        <div class="archive-actions primary-actions">
           ${x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':''}
-          <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
-          <button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button>
-          <button class="small-btn" data-action="edit" data-id="${x.id}">修正</button>
-          ${x.amazon?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.amazon))+'" target="_blank" rel="noopener">Amazon</a>':''}
-          ${x.rakuten?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.rakuten))+'" target="_blank" rel="noopener">楽天</a>':''}
           <button class="small-btn" data-action="copy" data-id="${x.id}">投稿文コピー</button>
-          ${imgs.length?'<button class="small-btn" data-action="images" data-id="'+x.id+'">画像を見る</button>':''}
-          <button class="small-btn danger" data-action="delete" data-id="${x.id}">削除</button>
+          <button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button>
         </div>
+        <details class="card-more">
+          <summary>その他</summary>
+          <div class="archive-actions more-actions">
+            <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
+            <button class="small-btn" data-action="edit" data-id="${x.id}">修正</button>
+            ${x.amazon?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.amazon))+'" target="_blank" rel="noopener">Amazon</a>':''}
+            ${x.rakuten?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.rakuten))+'" target="_blank" rel="noopener">楽天</a>':''}
+            ${imgs.length?'<button class="small-btn" data-action="images" data-id="'+x.id+'">画像を見る</button>':''}
+            <button class="small-btn danger" data-action="delete" data-id="${x.id}">削除</button>
+          </div>
+        </details>
       </div>
     </article>`}).join("");
 }
@@ -410,7 +441,6 @@ $("cancelEdit").addEventListener("click",resetArchiveForm);
 
 $("archiveSearch").addEventListener("input",renderArchive);
 
-$("pickToday").addEventListener("click",renderToday);
 
 $("todayList").addEventListener("click",async e=>{
   const btn=e.target.closest("[data-today-action]");
@@ -419,6 +449,17 @@ $("todayList").addEventListener("click",async e=>{
   const item=items.find(x=>x.id===btn.dataset.id);
   if(!item)return;
   if(btn.dataset.todayAction==="sharex")await shareToX(item,btn);
+  if(btn.dataset.todayAction==="copy"){
+    await navigator.clipboard.writeText(item.text||"");
+    btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿文コピー",1200);
+  }
+  if(btn.dataset.todayAction==="reposted"){
+    item.lastRepostedAt=new Date().toISOString();
+    item.repostCount=(item.repostCount||0)+1;
+    await dbPut(item);
+    await renderToday();
+    await renderArchive();
+  }
 });
 
 document.querySelectorAll(".filter-btn").forEach(btn=>btn.addEventListener("click",()=>{
