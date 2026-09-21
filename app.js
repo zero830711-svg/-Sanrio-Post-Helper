@@ -6,7 +6,7 @@ const LEGACY_KEY="sanrioPopularPostsV1";
 const LAST_ANALYTICS_IMPORT_KEY="sanrioLastAnalyticsImportAt";
 const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.21-2400";
+const APP_VERSION="2026.09.21-2430";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -58,6 +58,16 @@ async function dbDelete(id){
     tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
   });
 }
+async function dbDeleteMany(ids){
+  if(!ids.length)return;
+  const db=await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORE,"readwrite");
+    const store=tx.objectStore(STORE);
+    ids.forEach(id=>store.delete(id));
+    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+  });
+}
 async function migrateLegacy(){
   const raw=localStorage.getItem(LEGACY_KEY);if(!raw)return;
   try{
@@ -82,6 +92,13 @@ async function compressFile(file){
 }
 function renderPreview(){
   $("archivePreviewGrid").innerHTML=selectedImages.map(src=>'<img src="'+src+'" alt="">').join("");
+}
+function dateInputValue(v){
+  const t=new Date(v||"").getTime();
+  if(!Number.isFinite(t))return "";
+  const d=new Date(t);
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
+  return y+"-"+m+"-"+day;
 }
 function normalizedUrl(url){
   const v=clean(url);
@@ -423,6 +440,23 @@ function destroyChart(name){
 function shortLabel(x){
   return String(x.title||x.text||"投稿").replace(/\s+/g," ").slice(0,18);
 }
+async function pinCandidateForToday(item){
+  if(!isRecommendationEligible(item)){
+    alert("この投稿は30日未満・古い可能性あり・自動除外などの理由で、今日の候補には追加できません。");
+    return false;
+  }
+  const all=await dbGetAll();
+  const today=localDayKey();
+  const usedRoles=new Set(all.filter(x=>recommendedDay(x)===today&&isRecommendationEligible(x)).map(x=>x.recommendedRole).filter(Boolean));
+  const role=TODAY_ROLES.find(r=>!usedRoles.has(r));
+  if(!role){
+    alert("今日の3枠はすでに埋まっています。先に1件を見送るか再投稿済みにしてください。");
+    return false;
+  }
+  const current=all.find(x=>x.id===item.id)||item;
+  await dbPut({...current,recommendedAt:new Date().toISOString(),recommendedRole:role,skippedAt:""});
+  return true;
+}
 function rankingRows(items,metric){
   return items.map((x,i)=>{
     const rate=metric==="click"?metricRate(x.urlClicks,x.impressions):metricRate(x.bookmarks,x.impressions);
@@ -435,6 +469,7 @@ function rankingRows(items,metric){
         '<div class="ranking-actions">'+
           (x.xUrl?'<a href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">X</a>':'')+
           '<button data-analytics-action="copy" data-id="'+x.id+'">コピー</button>'+
+          '<button data-analytics-action="pin" data-id="'+x.id+'">今日の候補にする</button>'+
           '<button data-analytics-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
         '</div>'+
       '</div>'+
@@ -461,6 +496,72 @@ function renderBackupStatus(){
   root.innerHTML='最終バックアップ：'+esc(d.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}))+
     (age>=10?' <strong>⚠ '+age+'日経過</strong>':'');
 }
+function newestItemValue(group,key){
+  return [...group]
+    .sort((a,b)=>new Date(b.updatedAt||b.savedAt||b.postedAt||0)-new Date(a.updatedAt||a.savedAt||a.postedAt||0))
+    .map(x=>x[key]).find(v=>v!==undefined&&v!==null&&String(v)!=="");
+}
+function mergeDuplicateGroup(group){
+  const preferred=[...group].sort((a,b)=>{
+    const aScore=(a.images?.length||0)*10+(a.updatedAt?5:0)+(clean(a.amazon)?3:0)+(clean(a.rakuten)?3:0)+(clean(a.xUrl)?2:0);
+    const bScore=(b.images?.length||0)*10+(b.updatedAt?5:0)+(clean(b.amazon)?3:0)+(clean(b.rakuten)?3:0)+(clean(b.xUrl)?2:0);
+    return bScore-aScore;
+  })[0];
+  let history={};
+  for(const x of group)history={...history,...mergedUsageHistory(history,x)};
+  const metricMax=key=>String(Math.max(...group.map(x=>metricNumber(x[key]))));
+  return {
+    ...preferred,
+    ...history,
+    title:newestItemValue(group,"title")||preferred.title||"",
+    text:newestItemValue(group,"text")||preferred.text||"",
+    xUrl:newestItemValue(group,"xUrl")||preferred.xUrl||"",
+    amazon:newestItemValue(group,"amazon")||preferred.amazon||"",
+    rakuten:newestItemValue(group,"rakuten")||preferred.rakuten||"",
+    memo:newestItemValue(group,"memo")||preferred.memo||"",
+    images:group.reduce((best,x)=>{
+      const imgs=x.images||(x.image?[x.image]:[]);
+      return imgs.length>best.length?imgs:best;
+    },[]),
+    impressions:metricMax("impressions"),
+    likes:metricMax("likes"),
+    bookmarks:metricMax("bookmarks"),
+    urlClicks:metricMax("urlClicks"),
+    reposts:metricMax("reposts"),
+    replies:metricMax("replies"),
+    follows:metricMax("follows"),
+    postedAt:newestIso(...group.map(x=>x.postedAt))||preferred.postedAt,
+    savedAt:newestIso(...group.map(x=>x.savedAt))||preferred.savedAt
+  };
+}
+async function mergeAllDuplicates(){
+  const all=await dbGetAll();
+  const groups=new Map();
+  for(const x of all){
+    const key=canonicalPostKey(x);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(x);
+  }
+  const dupGroups=[...groups.values()].filter(g=>g.length>1);
+  if(!dupGroups.length){alert("重複データはありません。");return}
+  if(!confirm(dupGroups.length+"組の重複投稿を1件ずつに統合します。再投稿履歴・除外状態・画像・指標はできるだけ保持します。よろしいですか？"))return;
+  const puts=[],deletes=[];
+  for(const group of dupGroups){
+    const merged=mergeDuplicateGroup(group);
+    puts.push(merged);
+    group.filter(x=>x.id!==merged.id).forEach(x=>deletes.push(x.id));
+  }
+  await dbPutMany(puts);
+  await dbDeleteMany(deletes);
+  searchIndex=null;searchIndexSignature="";
+  await renderArchive();
+  await renderToday();
+  await renderRevenuePick();
+  await renderRecentUsed();
+  await renderAnalytics();
+  await renderDataHealth();
+  alert(dupGroups.length+"組の重複投稿を統合しました。");
+}
 async function renderDataHealth(){
   const root=$("dataHealth");
   if(!root)return;
@@ -468,6 +569,8 @@ async function renderDataHealth(){
   const counts=new Map();
   items.forEach(x=>counts.set(canonicalPostKey(x),(counts.get(canonicalPostKey(x))||0)+1));
   const duplicateItems=items.filter(x=>(counts.get(canonicalPostKey(x))||0)>1).length;
+  const mergeBtn=$("mergeDuplicates");
+  if(mergeBtn)mergeBtn.classList.toggle("hidden",duplicateItems===0);
   const values=[
     ["duplicate","重複",duplicateItems],
     ["missingx","Xリンクなし",items.filter(x=>!clean(x.xUrl)).length],
@@ -717,6 +820,15 @@ function itemLinkButtons(x){
   ].join("");
 }
 
+async function renderTodayProgress(){
+  const root=$("todayProgress");
+  if(!root)return;
+  const items=await dbGetAll();
+  const today=localDayKey();
+  const reposted=new Set(items.filter(x=>x.lastRepostedAt&&localDayKey(new Date(x.lastRepostedAt))===today).map(canonicalPostKey)).size;
+  const skipped=new Set(items.filter(x=>x.skippedAt&&localDayKey(new Date(x.skippedAt))===today).map(canonicalPostKey)).size;
+  root.innerHTML='<span>今日：再投稿 <strong>'+reposted+'</strong>件</span><span>見送り <strong>'+skipped+'</strong>件</span>';
+}
 async function renderToday(){
   const root=$("todayList");
   const items=await getRoleBasedPicks();
@@ -870,7 +982,7 @@ async function renderArchive(){
     (visible.length<total?'<button class="load-more" data-action="more">さらに50件表示</button>':'');
 }
 function resetArchiveForm(){
-  ["archiveTitle","archiveText","archiveAmazon","archiveRakuten","archiveImpressions","archiveLikes","archiveBookmarks","archiveMemo"].forEach(id=>$(id).value="");
+  ["archiveTitle","archiveText","archiveXUrl","archivePostedAt","archiveAmazon","archiveRakuten","archiveImpressions","archiveLikes","archiveBookmarks","archiveUrlClicks","archiveMemo"].forEach(id=>$(id).value="");
   $("archiveImage").value="";
   selectedImages=[];
   editingId=null;
@@ -884,11 +996,14 @@ function startEdit(item){
   editingId=item.id;
   $("archiveTitle").value=item.title||"";
   $("archiveText").value=item.text||"";
+  $("archiveXUrl").value=item.xUrl||"";
+  $("archivePostedAt").value=dateInputValue(item.postedAt);
   $("archiveAmazon").value=item.amazon||"";
   $("archiveRakuten").value=item.rakuten||"";
   $("archiveImpressions").value=item.impressions||"";
   $("archiveLikes").value=item.likes||"";
   $("archiveBookmarks").value=item.bookmarks||"";
+  $("archiveUrlClicks").value=item.urlClicks||"";
   $("archiveMemo").value=item.memo||"";
   selectedImages=[...(item.images||(item.image?[item.image]:[]))];
   renderPreview();
@@ -987,11 +1102,14 @@ $("saveArchive").addEventListener("click",async()=>{
     item={
       ...current,
       title,text,images:[...selectedImages],
+      xUrl:clean($("archiveXUrl").value),
+      postedAt:clean($("archivePostedAt").value)?new Date($("archivePostedAt").value+"T12:00:00").toISOString():current.postedAt,
       amazon:clean($("archiveAmazon").value),
       rakuten:clean($("archiveRakuten").value),
       impressions:clean($("archiveImpressions").value),
       likes:clean($("archiveLikes").value),
       bookmarks:clean($("archiveBookmarks").value),
+      urlClicks:clean($("archiveUrlClicks").value),
       memo:clean($("archiveMemo").value),
       updatedAt:now
     };
@@ -999,11 +1117,14 @@ $("saveArchive").addEventListener("click",async()=>{
     item={
       id:Date.now().toString(),
       title,text,images:[...selectedImages],
+      xUrl:clean($("archiveXUrl").value),
+      postedAt:clean($("archivePostedAt").value)?new Date($("archivePostedAt").value+"T12:00:00").toISOString():now,
       amazon:clean($("archiveAmazon").value),
       rakuten:clean($("archiveRakuten").value),
       impressions:clean($("archiveImpressions").value),
       likes:clean($("archiveLikes").value),
       bookmarks:clean($("archiveBookmarks").value),
+      urlClicks:clean($("archiveUrlClicks").value),
       memo:clean($("archiveMemo").value),
       savedAt:now,
       repostCount:0
@@ -1016,12 +1137,16 @@ $("saveArchive").addEventListener("click",async()=>{
   await renderArchive();
   await renderAnalytics();
   await renderDataFreshness();
+  await renderDataHealth();
+  await renderTodayProgress();
   alert(wasEdit?"修正を保存しました":"保存しました");
 });
 
 $("cancelEdit").addEventListener("click",resetArchiveForm);
 
 $("archiveSearch").addEventListener("input",()=>{archiveLimit=50;renderArchive()});
+
+$("mergeDuplicates")?.addEventListener("click",mergeAllDuplicates);
 
 $("dataHealth")?.addEventListener("click",e=>{
   const btn=e.target.closest("[data-health-filter]");
@@ -1072,6 +1197,13 @@ document.querySelector(".analytics-dashboard")?.addEventListener("click",async e
     btn.textContent="コピー済み";
     setTimeout(()=>btn.textContent="コピー",1200);
   }
+  if(btn.dataset.analyticsAction==="pin"){
+    if(await pinCandidateForToday(item)){
+      await renderToday();
+      await renderTodayProgress();
+      document.querySelector(".today-card")?.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+  }
   if(btn.dataset.analyticsAction==="exclude"){
     await setCandidateExcluded(item,true);
     await renderAnalytics();
@@ -1099,6 +1231,7 @@ $("revenueToday").addEventListener("click",async e=>{
     await renderRevenuePick();
     await renderRecentUsed();
     await renderArchive();
+    await renderTodayProgress();
   }
   if(btn.dataset.revenueAction==="exclude"){
     await setCandidateExcluded(item,true);
@@ -1125,6 +1258,7 @@ $("todayList").addEventListener("click",async e=>{
     await renderRevenuePick();
     await renderRecentUsed();
     await renderArchive();
+    await renderTodayProgress();
   }
   if(btn.dataset.todayAction==="skip"){
     item.skippedAt=new Date().toISOString();
@@ -1134,6 +1268,7 @@ $("todayList").addEventListener("click",async e=>{
     await renderRevenuePick();
     await renderRecentUsed();
     await renderArchive();
+    await renderTodayProgress();
   }
   if(btn.dataset.todayAction==="exclude"){
     await setCandidateExcluded(item,true);
@@ -1248,6 +1383,7 @@ $("archiveList").addEventListener("click",async e=>{
     await renderToday();
     await renderRevenuePick();
     await renderRecentUsed();
+    await renderTodayProgress();
   }
   if(btn.dataset.action==="edit"){
     startEdit(item);
@@ -1281,4 +1417,4 @@ $("undoRepost").addEventListener("click",undoLastRepost);
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
-(async()=>{checkLatestVersion();await migrateLegacy();await reconcileUsageHistory();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderDataFreshness();renderBackupStatus();await renderDataHealth();await renderAnalytics()})();
+(async()=>{checkLatestVersion();await migrateLegacy();await reconcileUsageHistory();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderTodayProgress();await renderDataFreshness();renderBackupStatus();await renderDataHealth();await renderAnalytics()})();
