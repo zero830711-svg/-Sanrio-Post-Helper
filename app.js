@@ -262,8 +262,9 @@ async function stampRecommendations(items){
 
 async function getRevenuePick(){
   const all=await dbGetAll();
+  const today=localDayKey();
   return all
-    .filter(x=>safeReuseItem(x)&&hasAffiliate(x))
+    .filter(x=>safeReuseItem(x)&&hasAffiliate(x)&&recommendedDay(x)!==today)
     .sort((a,b)=>{
       const c=metricNumber(b.urlClicks)-metricNumber(a.urlClicks);
       return c || recommendationScore(b)-recommendationScore(a);
@@ -550,6 +551,7 @@ $("revenueToday").addEventListener("click",async e=>{
     await dbPut(item);
     await renderRevenuePick();
     await renderToday();
+    await renderRevenuePick();
     await renderArchive();
   }
 });
