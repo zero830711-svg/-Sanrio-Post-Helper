@@ -166,7 +166,11 @@ function recommendationReasons(x){
   const impressions=metricNumber(x.impressions);
   if(age>=60)reasons.push(age+"日空き");
   else if(age>=30)reasons.push("30日以上空き");
-  if(clicks>0)reasons.push("クリック実績あり");
+  const clickRate=metricRate(x.urlClicks,x.impressions);
+  const saveRate=metricRate(x.bookmarks,x.impressions);
+  if(clickRate>=0.01)reasons.push("クリック率 "+percentText(clickRate));
+  else if(saveRate>=0.005)reasons.push("保存率 "+percentText(saveRate));
+  else if(clicks>0)reasons.push("クリック実績あり");
   else if(saves>=100)reasons.push("保存100+");
   else if(likes>=500)reasons.push("いいね500+");
   else if(impressions>=50000)reasons.push("表示5万+");
@@ -181,6 +185,30 @@ function metricNumber(v){
   if(m)return Math.round(Number(m[1])*10000);
   const n=Number(s.replace(/[^\d.-]/g,""));
   return Number.isFinite(n)?n:0;
+}
+
+function metricRate(numerator,denominator){
+  const d=metricNumber(denominator);
+  if(!d)return 0;
+  return metricNumber(numerator)/d;
+}
+function percentText(v){
+  return (v*100).toFixed(v>=0.1?1:2)+"%";
+}
+function freshnessInfo(items){
+  const dates=items.map(postedTime).filter(Boolean);
+  const latest=dates.length?Math.max(...dates):0;
+  if(!latest)return {label:"分析データ日付なし",age:null,latest:0};
+  const age=Math.max(0,Math.floor((Date.now()-latest)/(24*60*60*1000)));
+  return {label:new Date(latest).toLocaleDateString("ja-JP")+"まで",age,latest};
+}
+async function renderDataFreshness(){
+  const root=$("dataFreshness");
+  if(!root)return;
+  const items=await dbGetAll();
+  const f=freshnessInfo(items);
+  root.innerHTML='<span>登録 '+items.length.toLocaleString()+'件</span><span>分析データ：'+esc(f.label)+'</span>'+
+    (f.age!==null&&f.age>=14?'<strong>⚠ '+f.age+'日前のデータ</strong>':'');
 }
 
 function buildSearchIndex(items){
@@ -220,32 +248,37 @@ async function renderAnalytics(){
   const totalLikes=items.reduce((s,x)=>s+metricNumber(x.likes),0);
   const totalSaves=items.reduce((s,x)=>s+metricNumber(x.bookmarks),0);
   const totalClicks=items.reduce((s,x)=>s+metricNumber(x.urlClicks),0);
+  const overallSaveRate=totalImp?totalSaves/totalImp:0;
+  const overallClickRate=totalImp?totalClicks/totalImp:0;
   summary.innerHTML=[
     ["投稿",total.toLocaleString()],
     ["表示",totalImp.toLocaleString()],
-    ["いいね",totalLikes.toLocaleString()],
-    ["保存",totalSaves.toLocaleString()],
+    ["保存率",percentText(overallSaveRate)],
+    ["クリック率",percentText(overallClickRate)],
     ["クリック",totalClicks.toLocaleString()]
   ].map(([k,v])=>'<div class="analytics-stat"><span>'+k+'</span><strong>'+v+'</strong></div>').join("");
 
-  if(typeof Chart==="undefined")return;
-  const topImp=[...items].sort((a,b)=>metricNumber(b.impressions)-metricNumber(a.impressions)).slice(0,10);
-  const topSave=[...items].sort((a,b)=>metricNumber(b.bookmarks)-metricNumber(a.bookmarks)).slice(0,10);
+  const panel=document.querySelector(".analytics-dashboard");
+  if(!panel||!panel.open||typeof Chart==="undefined")return;
 
-  destroyChart("impressions");
-  destroyChart("bookmarks");
+  const eligible=items.filter(x=>metricNumber(x.impressions)>=100);
+  const topClick=[...eligible].sort((a,b)=>metricRate(b.urlClicks,b.impressions)-metricRate(a.urlClicks,a.impressions)).slice(0,10);
+  const topSave=[...eligible].sort((a,b)=>metricRate(b.bookmarks,b.impressions)-metricRate(a.bookmarks,a.impressions)).slice(0,10);
+
+  destroyChart("clickRate");
+  destroyChart("saveRate");
   destroyChart("character");
 
-  const impEl=$("impressionsChart");
-  if(impEl)analyticsCharts.impressions=new Chart(impEl,{
+  const clickEl=$("clickRateChart");
+  if(clickEl)analyticsCharts.clickRate=new Chart(clickEl,{
     type:"bar",
-    data:{labels:topImp.map(shortLabel),datasets:[{label:"表示数",data:topImp.map(x=>metricNumber(x.impressions))}]},
+    data:{labels:topClick.map(shortLabel),datasets:[{label:"クリック率 %",data:topClick.map(x=>Number((metricRate(x.urlClicks,x.impressions)*100).toFixed(2)))}]},
     options:{responsive:true,maintainAspectRatio:false,indexAxis:"y",plugins:{legend:{display:false}}}
   });
-  const saveEl=$("bookmarksChart");
-  if(saveEl)analyticsCharts.bookmarks=new Chart(saveEl,{
+  const saveEl=$("saveRateChart");
+  if(saveEl)analyticsCharts.saveRate=new Chart(saveEl,{
     type:"bar",
-    data:{labels:topSave.map(shortLabel),datasets:[{label:"保存数",data:topSave.map(x=>metricNumber(x.bookmarks))}]},
+    data:{labels:topSave.map(shortLabel),datasets:[{label:"保存率 %",data:topSave.map(x=>Number((metricRate(x.bookmarks,x.impressions)*100).toFixed(2)))}]},
     options:{responsive:true,maintainAspectRatio:false,indexAxis:"y",plugins:{legend:{display:false}}}
   });
 
@@ -253,19 +286,19 @@ async function renderAnalytics(){
     ["キティ",/ハローキティ|キティ/],
     ["クロミ",/クロミ/],
     ["マイメロ",/マイメロ/],
-    ["シナモン",/シナモン/],
+    ["シナモン",/シナモン|シナモロール/],
     ["プリン",/ポムポムプリン/],
     ["ポチャッコ",/ポチャッコ/]
   ];
   const charData=chars.map(([name,re])=>{
-    const rows=items.filter(x=>re.test(String(x.title||"")+" "+String(x.text||"")));
-    const avg=rows.length?Math.round(rows.reduce((s,x)=>s+metricNumber(x.likes)+metricNumber(x.bookmarks)*2+metricNumber(x.urlClicks)*3,0)/rows.length):0;
+    const rows=items.filter(x=>re.test(String(x.title||"")+" "+String(x.text||""))&&metricNumber(x.impressions)>0);
+    const avg=rows.length?rows.reduce((s,x)=>s+metricRate(x.urlClicks,x.impressions),0)/rows.length:0;
     return {name,avg,count:rows.length};
   });
   const charEl=$("characterChart");
   if(charEl)analyticsCharts.character=new Chart(charEl,{
     type:"bar",
-    data:{labels:charData.map(x=>x.name),datasets:[{label:"平均反応スコア",data:charData.map(x=>x.avg)}]},
+    data:{labels:charData.map(x=>x.name),datasets:[{label:"平均クリック率 %",data:charData.map(x=>Number((x.avg*100).toFixed(2)))}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
   });
 }
@@ -361,6 +394,30 @@ async function getReadyItems(){
       return recommendationScore(b)-recommendationScore(a);
     });
 }
+async function getRoleBasedPicks(){
+  const pool=await getReadyItems();
+  if(!pool.length)return [];
+  const today=localDayKey();
+  const sameDay=pool.filter(x=>recommendedDay(x)===today);
+  if(sameDay.length>=3)return sameDay.slice(0,3).map((x,i)=>({...x,_role:["総合おすすめ","保存率が強い","クリック率が強い"][i]}));
+
+  const picked=[];
+  const use=(x,role)=>{if(x&&!picked.some(p=>p.id===x.id))picked.push({...x,_role:role})};
+  use(pool[0],"総合おすすめ");
+
+  const savePick=[...pool]
+    .filter(x=>metricNumber(x.impressions)>0)
+    .sort((a,b)=>metricRate(b.bookmarks,b.impressions)-metricRate(a.bookmarks,a.impressions))[0];
+  use(savePick,"保存率が強い");
+
+  const clickPick=[...pool]
+    .filter(x=>metricNumber(x.impressions)>0)
+    .sort((a,b)=>metricRate(b.urlClicks,b.impressions)-metricRate(a.urlClicks,a.impressions))[0];
+  use(clickPick,"クリック率が強い");
+
+  for(const x of pool)use(x,"総合候補");
+  return picked.slice(0,3);
+}
 
 async function stampRecommendations(items){
   const today=localDayKey();
@@ -393,7 +450,7 @@ function itemLinkButtons(x){
 
 async function renderToday(){
   const root=$("todayList");
-  const items=(await getReadyItems()).slice(0,3);
+  const items=await getRoleBasedPicks();
   if(!items.length){
     root.innerHTML='<div class="empty">今すぐ出せる候補はありません。</div>';
     return;
@@ -403,7 +460,7 @@ async function renderToday(){
     const imgs=x.images||(x.image?[x.image]:[]);
     return '<article class="today-item featured">'+
       (imgs[0]?'<img src="'+imgs[0]+'" alt="">':'<div class="today-rank">'+(i+1)+'</div>')+
-      '<div class="today-main"><div class="today-rank-label">おすすめ '+(i+1)+'</div><h3>'+esc(x.title)+'</h3>'+
+      '<div class="today-main"><div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div><h3>'+esc(x.title)+'</h3>'+
       '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
       '<div class="recommend-reason">選定理由：'+esc(recommendationReasons(x).join("・"))+'</div>'+
       '<p class="today-preview">'+esc(x.text)+'</p>'+
@@ -412,6 +469,8 @@ async function renderToday(){
         (x.likes?'<span>♥ '+esc(x.likes)+'</span>':'')+
         (x.bookmarks?'<span>保存 '+esc(x.bookmarks)+'</span>':'')+
         (x.urlClicks?'<span>クリック '+esc(x.urlClicks)+'</span>':'')+
+        (metricNumber(x.impressions)?'<span>保存率 '+percentText(metricRate(x.bookmarks,x.impressions))+'</span>':'')+
+        (metricNumber(x.impressions)?'<span>クリック率 '+percentText(metricRate(x.urlClicks,x.impressions))+'</span>':'')+
       '</div>'+
       '<div class="today-actions">'+
         (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
@@ -471,7 +530,8 @@ async function renderArchive(){
   const now=Date.now();
   const readyCutoff=30*24*60*60*1000;
   let items=all.filter(x=>{
-    const hay=((x.title+" "+x.text+" "+x.memo+" "+(x.impressions||"")+" "+(x.likes||"")+" "+(x.bookmarks||"")).toLowerCase());
+    let hay=((x.title+" "+x.text+" "+x.memo+" "+(x.impressions||"")+" "+(x.likes||"")+" "+(x.bookmarks||"")).toLowerCase());
+    if(/シナモン|シナモロール/.test(hay))hay+=" シナモン シナモロール";
     const matches=!q || hay.includes(q) || (flexIds&&flexIds.has(String(x.id)));
     if(!matches)return false;
     if(archiveFilter==="ready")return safeReuseItem(x);
@@ -609,6 +669,7 @@ $("importAnalyticsCsv").addEventListener("change",async e=>{
     await renderRevenuePick();
     await renderRecentUsed();
     await renderAnalytics();
+    await renderDataFreshness();
   }catch(err){
     status.textContent="";
     alert(err.message||"CSVを読み込めませんでした");
@@ -667,12 +728,17 @@ $("saveArchive").addEventListener("click",async()=>{
   resetArchiveForm();
   await renderArchive();
   await renderAnalytics();
+  await renderDataFreshness();
   alert(wasEdit?"修正を保存しました":"保存しました");
 });
 
 $("cancelEdit").addEventListener("click",resetArchiveForm);
 
 $("archiveSearch").addEventListener("input",renderArchive);
+
+document.querySelector(".analytics-dashboard")?.addEventListener("toggle",e=>{
+  if(e.currentTarget.open)requestAnimationFrame(()=>renderAnalytics());
+});
 
 
 $("revenueToday").addEventListener("click",async e=>{
@@ -736,7 +802,7 @@ document.querySelectorAll(".filter-btn").forEach(btn=>btn.addEventListener("clic
 document.querySelectorAll(".character-btn").forEach(btn=>btn.addEventListener("click",()=>{
   const input=$("archiveSearch");
   const same=input.value===btn.dataset.character;
-  input.value=same?"":btn.dataset.character;
+  input.value=same?"":(btn.dataset.character==="シナモ"?"シナモン":btn.dataset.character);
   document.querySelectorAll(".character-btn").forEach(x=>x.classList.remove("active"));
   if(!same)btn.classList.add("active");
   renderArchive();
@@ -786,6 +852,7 @@ $("importBackup").addEventListener("change",async e=>{
     await renderRevenuePick();
     await renderRecentUsed();
     await renderAnalytics();
+    await renderDataFreshness();
     alert("バックアップを読み込みました");
   }catch(err){
     alert("バックアップファイルを読み込めませんでした");
@@ -827,4 +894,4 @@ $("archiveList").addEventListener("click",async e=>{
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
-(async()=>{await migrateLegacy();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderAnalytics()})();
+(async()=>{await migrateLegacy();await renderArchive();await renderToday();await renderRevenuePick();await renderRecentUsed();await renderDataFreshness();await renderAnalytics()})();
