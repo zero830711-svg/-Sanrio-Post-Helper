@@ -70,6 +70,17 @@ function normalizedUrl(url){
   return "https://"+v;
 }
 
+function hasAmazonAffiliate(x){
+  if(clean(x.amazon))return true;
+  const t=String(x.text||"");
+  return /(amazon|アマゾン)/i.test(t) && /(https?:\/\/t\.co\/|amazon\.|amzn\.)/i.test(t);
+}
+function hasRakutenAffiliate(x){
+  if(clean(x.rakuten))return true;
+  const t=String(x.text||"");
+  return /(楽天|rakuten)/i.test(t) && /(https?:\/\/t\.co\/|rakuten\.)/i.test(t);
+}
+
 function metricNumber(v){
   const s=String(v??"").trim().replace(/,/g,"");
   if(!s)return 0;
@@ -212,6 +223,9 @@ async function renderArchive(){
       const last=x.lastRepostedAt?new Date(x.lastRepostedAt).getTime():0;
       return !last || (now-last)>=readyCutoff;
     }
+    if(archiveFilter==="amazon")return hasAmazonAffiliate(x);
+    if(archiveFilter==="rakuten")return hasRakutenAffiliate(x);
+    if(archiveFilter==="both")return hasAmazonAffiliate(x)&&hasRakutenAffiliate(x);
     return true;
   });
   if(archiveSort==="impressions")items.sort((a,b)=>metricNumber(b.impressions)-metricNumber(a.impressions));
