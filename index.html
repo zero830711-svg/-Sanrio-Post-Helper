@@ -12,8 +12,15 @@
 <header>
 <div class="badge">Sanrio fan info</div>
 <h1>人気グッズ再利用ツール</h1>
-<p>過去ネタをX・Threads・ブログ向けにすぐ再利用。</p>
+<p>スマホだけで「保存 → 呼び出し → Xへ貼り付け」。</p>
 </header>
+
+<nav class="tabs">
+<button class="tab active" data-tab="create">作る</button>
+<button class="tab" data-tab="archive">人気投稿</button>
+</nav>
+
+<section id="create" class="tab-panel active">
 <section class="card form-card">
 <label>商品・話題名<input id="title" type="text" placeholder="例：ハローキティ ○○コレクション"></label>
 <label>元ネタ / 過去投稿<textarea id="source" rows="7" placeholder="過去のX投稿、商品説明、メモなどを貼り付け"></textarea></label>
@@ -21,12 +28,34 @@
 <label>楽天 URL<input id="rakuten" type="url" placeholder="https://..."></label>
 <button id="generate" class="primary">3種類まとめて作る</button>
 </section>
+
 <section class="outputs">
 <article class="card"><div class="head"><h2>X</h2><button class="copy" data-target="xOutput">コピー</button></div><textarea id="xOutput" rows="8" readonly></textarea></article>
 <article class="card"><div class="head"><h2>Threads</h2><button class="copy" data-target="threadsOutput">コピー</button></div><textarea id="threadsOutput" rows="10" readonly></textarea></article>
 <article class="card"><div class="head"><h2>WordPress</h2><button class="copy" data-target="blogOutput">コピー</button></div><textarea id="blogOutput" rows="16" readonly></textarea></article>
 </section>
-<p class="note">v1：下書き整形専用。自動投稿・ログイン・DBなし。</p>
+</section>
+
+<section id="archive" class="tab-panel">
+<section class="card form-card">
+<h2 class="section-title">人気投稿を保存</h2>
+<label>写真<input id="archiveImage" type="file" accept="image/*"></label>
+<img id="archivePreview" class="preview hidden" alt="">
+<label>商品名<input id="archiveTitle" type="text" placeholder="例：サンリオ 金ピカ根付ストラップ"></label>
+<label>過去のX投稿文<textarea id="archiveText" rows="7" placeholder="反応が良かった投稿文をそのまま保存"></textarea></label>
+<label>Amazon URL<input id="archiveAmazon" type="url" placeholder="https://..."></label>
+<label>楽天 URL<input id="archiveRakuten" type="url" placeholder="https://..."></label>
+<label>メモ<input id="archiveMemo" type="text" placeholder="例：1.8万表示 / いいね320"></label>
+<button id="saveArchive" class="primary">人気投稿に保存</button>
+</section>
+
+<div class="archive-tools">
+<input id="archiveSearch" type="search" placeholder="商品名・投稿文から検索">
+</div>
+<section id="archiveList" class="archive-list"></section>
+</section>
+
+<p class="note">保存データと写真はこのiPhone内だけに保存。GitHubにはアップロードしません。</p>
 </main>
 <script src="./app.js"></script>
 </body>
