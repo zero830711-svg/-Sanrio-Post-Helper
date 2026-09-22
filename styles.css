@@ -83,3 +83,16 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .trend-similar-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#faf7f9;border-radius:9px;padding:7px 8px}
 .trend-similar-row div{min-width:0}.trend-similar-row strong{display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.trend-similar-row span{display:block;margin-top:2px;font-size:9px;color:var(--muted)}
 .trend-similar-row a{font-size:10px;font-weight:800;color:#8c4964;text-decoration:none}
+
+.trend-hero-card{margin:14px 0;border:1px solid #ead4df;background:linear-gradient(180deg,#fff,#fffafd)}
+.trend-hero-item{display:block;border:0;padding:0;background:transparent;box-shadow:none!important}
+.trend-card>summary{font-weight:900;font-size:14px;cursor:pointer;list-style:none}
+.trend-card>summary::-webkit-details-marker{display:none}.trend-card-body{margin-top:12px}
+.trend-filter-row{display:flex;gap:7px;margin:10px 0}.trend-range{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 10px;font-size:10px;font-weight:800}.trend-range.active{background:#2d2530;color:#fff;border-color:#2d2530}
+.trend-category{background:#eef3ff!important;color:#415a8a!important;font-weight:800}.trend-trust{font-weight:800}.trend-trust.official{background:#eef8f1!important;color:#2f6a43!important}.trend-trust.multi{background:#fff3d8!important;color:#8a641e!important}.trend-trust.social{background:#f2f2f2!important;color:#6b6670!important}
+.trend-related{margin-top:7px}.trend-related summary{font-size:10px;font-weight:800;color:var(--muted)}.trend-related div{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.trend-related a{font-size:9px;text-decoration:none;color:#765966;background:#f8f3f6;border-radius:999px;padding:4px 7px}
+.trend-actions .trend-used{background:#eef8f1;border-color:#b9ddc6;color:#2f6a43}.trend-actions .subtle{opacity:.72}
+.trend-source-health{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}.trend-source-health span{font-size:9px;padding:3px 6px;border-radius:999px}.trend-source-health .ok{background:#eef8f1;color:#2f6a43}.trend-source-health .ng{background:#fff0f0;color:#a34242}
+.timing-best{display:grid;grid-template-columns:1fr 1fr;gap:8px}.timing-best>div{background:#faf7f9;border-radius:12px;padding:10px}.timing-best span,.timing-best small{display:block;color:var(--muted);font-size:9px}.timing-best strong{display:block;margin:4px 0;font-size:16px}.timing-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.timing-list span{font-size:9px;padding:4px 7px;border-radius:999px;background:#f5eef2;color:#765966}
+.reuse-risk-analysis{display:grid;gap:7px}.risk-alert,.risk-ok{border-radius:10px;padding:9px 10px;font-size:11px}.risk-alert{background:#fff3d8;color:#765819}.risk-ok{background:#eef8f1;color:#2f6a43}
+@media(max-width:460px){.timing-best{grid-template-columns:1fr}}
