@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3270";
+const APP_VERSION="2026.09.23-3280";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -2280,6 +2280,38 @@ $("importBackup").addEventListener("change",async e=>{
     const payload=JSON.parse(text);
     const items=Array.isArray(payload)?payload:payload.items;
     if(!Array.isArray(items))throw new Error("invalid");
+    if(payload&&payload.type==="archive-text-repair-v1"){
+      if(!confirm("Xアーカイブの本文 "+items.length.toLocaleString()+"件を確認し、この端末に保存済みの同じ投稿だけ修復します。写真・動画・実績はそのままです。続けますか？")){e.target.value="";return}
+      const existing=await dbGetAll(),byKey=new Map();
+      for(const row of existing){
+        const key=canonicalPostKey(row);
+        if(!byKey.has(key))byKey.set(key,[]);
+        byKey.get(key).push(row);
+      }
+      const updates=[];let matched=0,unchanged=0,missing=0;
+      for(const incoming of items){
+        const rows=byKey.get(canonicalPostKey(incoming));
+        if(!rows||!rows.length){missing++;continue}
+        matched++;
+        for(const row of rows){
+          const full=betterPostText(row.text,incoming.text);
+          if(full===String(row.text||"")){unchanged++;continue}
+          updates.push({...row,text:full,updatedAt:new Date().toISOString()});
+        }
+      }
+      await dbPutMany(updates);
+      queueCloudSync(updates,[]);
+      await renderArchive();
+      await renderToday();
+      await renderRevenuePick();
+      await renderRecentUsed();
+      await renderAnalytics();
+      await renderDataFreshness();
+      await renderDataHealth();
+      alert("本文修復完了：更新 "+updates.length.toLocaleString()+"件 / 同じ投稿 "+matched.toLocaleString()+"件 / 変更なし "+unchanged.toLocaleString()+"件 / アプリに未保存 "+missing.toLocaleString()+"件");
+      e.target.value="";
+      return;
+    }
     if(!confirm(items.length+"件のバックアップを読み込みます。既存データは残したまま追加・更新しますか？")){e.target.value="";return}
     const existing=await dbGetAll();
     const byId=new Map(existing.map(x=>[x.id,x]));
