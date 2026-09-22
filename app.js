@@ -10,7 +10,7 @@ const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2560.php";
 const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.22-2560";
+const APP_VERSION="2026.09.22-2570";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -547,8 +547,21 @@ async function cloudRequest(action,options={}){
   }
   return data;
 }
+function sanitizeUnicodeString(str){
+  return String(str).replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,"�");
+}
+function sanitizeForCloud(value){
+  if(typeof value==="string")return sanitizeUnicodeString(value);
+  if(Array.isArray(value))return value.map(sanitizeForCloud);
+  if(value&&typeof value==="object"){
+    const out={};
+    for(const [k,v] of Object.entries(value))out[k]=sanitizeForCloud(v);
+    return out;
+  }
+  return value;
+}
 function cloudSafeItem(x){
-  const copy={...x};
+  const copy=sanitizeForCloud({...x});
   delete copy.images;
   delete copy.image;
   return copy;
@@ -575,7 +588,7 @@ function utf8ToBase64(str){
   return btoa(binary);
 }
 async function cloudPushAll(){
-  renderCloudStatus("クラウドへ保存中…");
+  renderCloudStatus("クラウドへ保存中…（文字データを安全化して送信）");
   try{
     const items=(await dbGetAll()).map(cloudSafeItem);
     const chunkSize=10;
@@ -1342,7 +1355,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2560");
+  url.searchParams.set("v","20260922-2570");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
