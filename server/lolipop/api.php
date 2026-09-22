@@ -58,7 +58,7 @@ $action = $_GET['action'] ?? 'ping';
 if ($action === 'ping') {
     respond([
         'ok' => true,
-        'apiVersion' => '2530',
+        'apiVersion' => '2540',
         'serverTime' => date('Y-m-d H:i:s'),
     ]);
 }
@@ -81,12 +81,18 @@ if ($action === 'push') {
     $raw = file_get_contents('php://input');
     $body = json_decode($raw, true);
 
-    // multipart/form-data / x-www-form-urlencoded
+    // 1) multipart/form-data の通常フィールド
     if (!is_array($body) && isset($_POST['payload'])) {
         $body = json_decode((string)$_POST['payload'], true);
     }
 
-    // 一部環境では $_POST が空でも raw body が urlencoded で届くことがある
+    // 2) multipart/form-data のJSONファイル
+    if (!is_array($body) && isset($_FILES['payload_file']) && is_uploaded_file($_FILES['payload_file']['tmp_name'])) {
+        $uploaded = file_get_contents($_FILES['payload_file']['tmp_name']);
+        $body = json_decode((string)$uploaded, true);
+    }
+
+    // 3) urlencoded raw body のフォールバック
     if (!is_array($body) && $raw !== '') {
         $parsed = [];
         parse_str($raw, $parsed);
@@ -103,7 +109,7 @@ if ($action === 'push') {
             'contentType' => $_SERVER['CONTENT_TYPE'] ?? '',
             'rawLength' => strlen((string)$raw),
             'hasFormPayload' => isset($_POST['payload']),
-            'apiVersion' => '2530',
+            'apiVersion' => '2540',
         ], 400);
     }
     if (count($items) > 200) {
