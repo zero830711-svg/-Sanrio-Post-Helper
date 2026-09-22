@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3200";
+const APP_VERSION="2026.09.23-3210";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -1720,24 +1720,40 @@ async function renderToday(){
   }
   await stampRecommendations(items);
   root.innerHTML=items.map((x,i)=>{
-    const imgs=x.images||(x.image?[x.image]:[]);
-    return '<article class="today-item featured">'+
-      (imgs[0]?'<img src="'+imgs[0]+'" alt="">':'<div class="today-rank">'+(i+1)+'</div>')+
-      '<div class="today-main"><div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div><h3>'+esc(x.title)+'</h3>'+
-      '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
-      '<div class="recommend-reason">選定理由：'+esc([...recommendationReasons(x),x._diverseReason].filter(Boolean).join("・"))+'</div>'+
-      '<p class="today-preview">'+esc(x.text)+'</p>'+
-      '<div class="metric-chips">'+todayMetricChips(x,x._role)+'</div>'+
-      '<div class="today-actions">'+
-        (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
-        '<button class="small-btn" data-today-action="copy" data-id="'+x.id+'">投稿文コピー</button>'+
-        '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
-        '<button class="small-btn skip-btn" data-today-action="skip" data-id="'+x.id+'">見送る</button>'+
-        '<button class="small-btn exclude-btn" data-today-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
-      '</div></div></article>';
+    const imgs=mediaArray(x.images||(x.image?[x.image]:[]));
+    const vids=mediaArray(x.videos);
+    const thumbs=imgs.slice(0,4).map((src,n)=>
+      '<button class="today-media-thumb" type="button" data-today-action="media" data-id="'+x.id+'" aria-label="画像'+(n+1)+'を見る">'+
+      '<img src="'+esc(src)+'" alt="" loading="lazy" onerror="this.closest(\'.today-media-thumb\').classList.add(\'media-load-failed\')">'+
+      '</button>'
+    ).join("");
+    const mediaBox=(thumbs||vids.length)
+      ?'<div class="today-media-grid">'+thumbs+(vids.length?'<button class="today-video-tile" type="button" data-today-action="media" data-id="'+x.id+'">🎬<span>'+vids.length+'動画</span></button>':'')+'</div>'
+      :'<div class="today-rank today-rank-inline">'+(i+1)+'</div>';
+    return '<article class="today-item featured today-item-full">'+
+      '<div class="today-main">'+
+        '<div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div>'+
+        '<h3>'+esc(x.title||shortLabel(x))+'</h3>'+
+        '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
+        '<div class="recommend-reason">選定理由：'+esc([...recommendationReasons(x),x._diverseReason].filter(Boolean).join("・"))+'</div>'+
+        mediaBox+
+        '<details class="today-original" open>'+
+          '<summary>以前の投稿文</summary>'+
+          '<p class="today-preview today-preview-full">'+esc(x.text||"")+'</p>'+
+        '</details>'+
+        '<div class="metric-chips">'+todayMetricChips(x,x._role)+'</div>'+
+        '<div class="today-actions">'+
+          (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
+          '<button class="small-btn" data-today-action="copy" data-id="'+x.id+'">投稿文コピー</button>'+
+          ((imgs.length||vids.length)?'<button class="small-btn" data-today-action="media" data-id="'+x.id+'">写真・動画を見る</button>':'')+
+          '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
+          '<button class="small-btn skip-btn" data-today-action="skip" data-id="'+x.id+'">見送る</button>'+
+          '<button class="small-btn exclude-btn" data-today-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
+        '</div>'+
+      '</div>'+
+    '</article>';
   }).join("");
 }
-
 async function renderRecentUsed(){
   const root=$("recentUsedList");
   const card=$("recentUsedCard");
@@ -1985,7 +2001,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260923-3200");
+  url.searchParams.set("v","20260923-3210");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
@@ -2060,6 +2076,7 @@ $("todayList").addEventListener("click",async e=>{
   const item=items.find(x=>x.id===btn.dataset.id);
   if(!item)return;
   if(btn.dataset.todayAction==="sharex")await shareToX(item,btn);
+  if(btn.dataset.todayAction==="media")showMedia(item.images||(item.image?[item.image]:[]),item.videos||[]);
   if(btn.dataset.todayAction==="copy"){
     await navigator.clipboard.writeText(item.text||"");
     btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿文コピー",1200);
