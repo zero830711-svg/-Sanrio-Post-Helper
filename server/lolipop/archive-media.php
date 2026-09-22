@@ -1,12 +1,13 @@
 <?php
 declare(strict_types=1);
 
-/*
- * X archive media upload endpoint.
- * Configure media_root and media_public_base in config.php.
- * Never commit config.php, uploaded files, or archive data.
- */
 $config = require __DIR__ . '/config.php';
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowedOrigins = $config['allowed_origins'] ?? [];
+if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Vary: Origin');
+}
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Headers: Authorization, Content-Type');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -24,8 +25,8 @@ function token(): string {
 }
 $expected = (string)($config['sync_key'] ?? '');
 if ($expected === '' || !hash_equals($expected, token())) respond(['ok'=>false,'error'=>'Unauthorized'], 401);
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') respond(['ok'=>false,'error'=>'POST required'], 405);
+
 $postId = trim((string)($_POST['post_id'] ?? ''));
 if (!preg_match('/^[0-9]{1,64}$/', $postId)) respond(['ok'=>false,'error'=>'Valid post_id required'], 400);
 if (!isset($_FILES['media']) || !is_uploaded_file($_FILES['media']['tmp_name'])) respond(['ok'=>false,'error'=>'media file required'], 400);
@@ -35,6 +36,7 @@ if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) respond(['ok'=>fal
 $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']) ?: 'application/octet-stream';
 $allowed = ['image/jpeg'=>'image','image/png'=>'image','image/gif'=>'gif','video/mp4'=>'video','video/quicktime'=>'video','video/webm'=>'video'];
 if (!isset($allowed[$mime])) respond(['ok'=>false,'error'=>'Unsupported media type'], 415);
+
 $hash = hash_file('sha256', $file['tmp_name']);
 $ext = strtolower(pathinfo((string)$file['name'], PATHINFO_EXTENSION));
 $ext = preg_match('/^[a-z0-9]{1,8}$/', $ext) ? $ext : 'bin';
@@ -42,6 +44,7 @@ $stored = $hash . '.' . $ext;
 $relative = 'media/' . $postId . '/' . $stored;
 $root = rtrim((string)($config['media_root'] ?? ''), DIRECTORY_SEPARATOR);
 if ($root === '') respond(['ok'=>false,'error'=>'Media storage is not configured'], 500);
+
 $dir = $root . DIRECTORY_SEPARATOR . 'media' . DIRECTORY_SEPARATOR . $postId;
 if (!is_dir($dir) && !mkdir($dir, 0750, true) && !is_dir($dir)) respond(['ok'=>false,'error'=>'Storage unavailable'], 500);
 $target = $dir . DIRECTORY_SEPARATOR . $stored;
