@@ -21,8 +21,15 @@ progress{width:100%}
 <body>
 <main>
 <h1>Xアーカイブ取り込み</h1>
-<p class="build">BUILD 3060</p>
+<p class="build">BUILD 3080</p>
 <p class="muted">解凍済みXアーカイブから投稿・写真・動画を再照合します。既存投稿は消しません。</p>
+
+<section class="card">
+<p><strong>先にこれを試してください：画像URLだけ再同期</strong></p>
+<p class="muted">写真・動画ファイルは再アップロードしません。ロリポップに保存済みのメディア台帳を読み、PC内の2,810件へ画像URLだけ付け直してクラウドへ送ります。</p>
+<button id="linksOnly" class="primary" type="button">画像URLだけ再同期</button>
+<div id="linkPlan" class="muted"></div>
+</section>
 
 <section class="card">
 <p><strong>① 解凍したXアーカイブの一番上のフォルダを選択</strong></p>
@@ -39,7 +46,7 @@ progress{width:100%}
 </section>
 
 <progress id="bar" value="0" max="1"></progress>
-<div id="log">BUILD 3060 準備完了。\n</div>
+<div id="log">BUILD 3080 準備完了。\n</div>
 </main>
 
 <script>
@@ -99,6 +106,57 @@ async function analyze(list,label){
     say("自動解析完了");
   }catch(e){say("解析エラー："+(e?.message||e));$("s").textContent="解析失敗"}
 }
+
+function b64Json(obj){
+  const json=JSON.stringify(obj);
+  const bytes=new TextEncoder().encode(json);
+  let binary="";
+  for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+  return btoa(binary);
+}
+async function pushTiny(u,chunk){
+  const fd=new FormData();fd.append("payload_b64",b64Json({items:chunk}));
+  const q=await fetch(u,{method:"POST",headers:{Authorization:"Bearer "+$("key").value},body:fd});
+  if(q.ok)return {ok:chunk.length,failed:[]};
+  if(chunk.length===1){const body=await q.text();return {ok:0,failed:[{id:chunk[0].postId||chunk[0].id,status:q.status,body:body.slice(0,120)}]}}
+  const mid=Math.ceil(chunk.length/2),a=await pushTiny(u,chunk.slice(0,mid)),b=await pushTiny(u,chunk.slice(mid));
+  return {ok:a.ok+b.ok,failed:[...a.failed,...b.failed]};
+}
+$("linksOnly").onclick=async()=>{
+  $("linksOnly").disabled=true;$("linkPlan").textContent="ロリポップのメディア台帳を確認中…";say("画像URLだけ再同期：開始");
+  try{
+    const mediaUrl=$("api").value,apiUrl=mediaUrl.replace(/archive-media-batch\.php(?:\?.*)?$/,"api2580.php?action=push");
+    const key=$("key").value;localStorage.setItem(KEY,key);
+    const mr=await fetch(mediaUrl+"?action=manifest",{headers:{Authorization:"Bearer "+key},cache:"no-store"});
+    if(!mr.ok)throw Error("manifest HTTP "+mr.status);
+    const md=await mr.json(),rows=Array.isArray(md.items)?md.items:[];
+    say("メディア台帳 "+rows.length+"件");
+    const grouped=new Map();
+    for(const r of rows){const id=String(r.postId||"");if(!id||!r.publicUrl)continue;if(!grouped.has(id))grouped.set(id,{images:[],videos:[]});const g=grouped.get(id);(r.mediaType==="video"?g.videos:g.images).push(r.publicUrl)}
+    const local=await all(),byPost=new Map(local.map(x=>[String(x.postId||""),x]).filter(([id])=>id));
+    let matched=0;const updates=[];
+    for(const [id,g] of grouped){
+      const x=byPost.get(id);if(!x)continue;matched++;
+      const uniq=v=>[...new Set((Array.isArray(v)?v:[]).filter(Boolean))];
+      const images=uniq([...(g.images||[]),...(x.images||[])]);
+      const videos=uniq([...(g.videos||[]),...(x.videos||[])]);
+      const next={...x,images,videos,updatedAt:new Date().toISOString()};
+      await put(next);updates.push(next);
+    }
+    $("linkPlan").textContent="台帳 "+rows.length+"件 / PC投稿と一致 "+matched+"件 / 同期対象 "+updates.length+"件";
+    say("PC投稿と一致 "+matched+"件。クラウドへ画像URLだけ送信…");
+    let ok=0,failed=[];
+    for(let i=0;i<updates.length;i+=5){
+      const r=await pushTiny(apiUrl,updates.slice(i,i+5));ok+=r.ok;failed.push(...r.failed);
+      $("bar").value=(i+5)/Math.max(1,updates.length);
+      if((i%50)===0||i+5>=updates.length)say("URL同期 "+Math.min(i+5,updates.length)+"/"+updates.length);
+    }
+    say("画像URL再同期完了：成功 "+ok+"件 / 失敗 "+failed.length+"件");
+    if(failed.length){say("失敗post ID："+failed.slice(0,20).map(x=>x.id+"("+x.status+")").join(", "))}
+    $("linkPlan").textContent="完了：成功 "+ok+"件 / 失敗 "+failed.length+"件。iPhoneで「クラウドから統合」を押してください。";
+  }catch(e){say("画像URL再同期エラー："+(e?.message||e));$("linkPlan").textContent="失敗："+(e?.message||e)}
+  finally{$("linksOnly").disabled=false}
+};
 
 $("pickdir").onclick=async()=>{
   say("フォルダ選択開始…");
