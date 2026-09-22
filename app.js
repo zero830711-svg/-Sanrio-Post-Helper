@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3100";
+const APP_VERSION="2026.09.23-3110";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -132,6 +132,19 @@ async function renderArchiveCloudStatus(){
     root.innerHTML=['<span>投稿DB '+Number(d.posts||0).toLocaleString()+'件</span>','<span>メディア付き '+Number(d.mediaPosts||0).toLocaleString()+'投稿</span>','<span>写真 '+Number(d.images||0).toLocaleString()+'枚</span>','<span>動画 '+Number(d.videos||0).toLocaleString()+'本</span>','<span>容量 '+byteText(d.bytes||0)+'</span>','<span>端末で表示可能 '+localMedia.toLocaleString()+'投稿</span>'].join("");
   }catch(e){root.innerHTML='<strong>状態取得失敗：'+esc(e.message)+'</strong>'}
 }
+async function repairArchiveMediaPermissions(){
+  const root=$("archiveCloudStatus");
+  if(root)root.textContent="保存画像の公開権限を修復中…";
+  try{
+    const d=await archiveMediaRequest("repair_permissions");
+    if(root)root.textContent="公開権限修復完了：フォルダ "+Number(d.dirs||0).toLocaleString()+" / ファイル "+Number(d.files||0).toLocaleString()+" / 失敗 "+Number(d.failed||0).toLocaleString();
+    return {ok:true,...d};
+  }catch(e){
+    if(root)root.innerHTML='<strong>権限修復失敗：'+esc(e.message)+'</strong>';
+    return {ok:false,error:e};
+  }
+}
+
 async function syncArchiveMediaLinks(options={}){
   if(!cloudConfigured())return {ok:false,count:0};
   const root=$("archiveCloudStatus");if(root&&!options.silent)root.textContent="画像リンクを照合中…";
@@ -1850,7 +1863,13 @@ $("cloudSaveSettings")?.addEventListener("click",saveCloudSettings);
 $("cloudTest")?.addEventListener("click",cloudPing);
 $("cloudPush")?.addEventListener("click",cloudPushAll);
 $("archiveCloudRefresh")?.addEventListener("click",renderArchiveCloudStatus);
-$("archiveMediaRepair")?.addEventListener("click",async()=>{await syncArchiveMediaLinks();await renderArchiveCloudStatus()});
+$("archiveMediaRepair")?.addEventListener("click",async()=>{
+  const perm=await repairArchiveMediaPermissions();
+  if(!perm.ok)return;
+  const links=await syncArchiveMediaLinks();
+  await renderArchiveCloudStatus();
+  if(links.ok)alert("修復完了。保存済みメディアの公開権限と投稿への画像リンクを再チェックしました。");
+});
 $("cloudPull")?.addEventListener("click",async()=>{
   if(!confirm("ロリポップ上の投稿データをこの端末へ統合します。端末の写真は保持します。よろしいですか？"))return;
   await cloudPullMerge();
@@ -1886,7 +1905,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260923-3010");
+  url.searchParams.set("v","20260923-3110");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
