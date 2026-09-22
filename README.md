@@ -44,8 +44,11 @@ GitHub Pages の画面はそのまま使い、投稿データだけをロリポ�
 
 - 画像は同期しません。画像は従来どおり端末の IndexedDB に残ります。
 - API URL と同期キーは端末の localStorage に保存し、GitHub リポジトリには保存しません。
-- 「クラウドへ保存」は端末の投稿データを100件ずつロリポップへ送信します。
-- 「クラウドから統合」はロリポップ側の投稿データと端末データを統合し、端末側の画像を保持します。
+- 初回設定後は起動時にロリポップから自動統合します。
+- 再投稿済み・見送り・候補除外・CSV読込・手動修正などは数秒後に差分だけ自動保存します。
+- 削除と重複統合も削除情報（tombstone）として同期し、別端末で古い投稿が復活しにくい構成です。
+- 手動の「クラウドへ保存」「クラウドから統合」も残しています。
+- 画像は同期せず、端末側の画像を保持します。
 - サーバー側のサンプルは `server/lolipop/` にあります。
 
 ### セットアップ概要
@@ -53,8 +56,8 @@ GitHub Pages の画面はそのまま使い、投稿データだけをロリポ�
 1. ロリポップで専用 MySQL データベースまたは専用テーブルを用意
 2. `server/lolipop/schema.sql` を phpMyAdmin で実行
 3. `config.example.php` を `config.php` にコピーして DB 情報と長い同期キーを設定
-4. `api.php` と `config.php` をロリポップの公開ディレクトリへ配置
+4. `api2580.php` と `config.php` をロリポップの公開ディレクトリへ配置
 5. アプリの「管理 → ロリポップ同期」で同期キーを入力して「接続確認」
-   - API URL は `https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api.php` を初期値として設定済み
+   - API URL は `https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php` を初期値として設定済み
 
 **重要:** `config.php` は GitHub にアップロードしないでください。
