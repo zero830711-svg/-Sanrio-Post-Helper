@@ -8,9 +8,9 @@ const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
 const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
-const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api.php";
+const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2550.php";
 const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.22-2540";
+const APP_VERSION="2026.09.22-2550";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -483,7 +483,8 @@ function rankingRows(items,metric){
 }
 
 function loadCloudSettings(){
-  const url=localStorage.getItem(CLOUD_API_URL_KEY)||DEFAULT_CLOUD_API_URL;
+  const saved=localStorage.getItem(CLOUD_API_URL_KEY)||"";
+  const url=(saved.includes("/api.php")||saved.includes("/api2530.php")||saved.includes("/api2540.php"))?DEFAULT_CLOUD_API_URL:(saved||DEFAULT_CLOUD_API_URL);
   const key=localStorage.getItem(CLOUD_SYNC_KEY_KEY)||"";
   const urlEl=$("cloudApiUrl"),keyEl=$("cloudSyncKey");
   if(urlEl&&!urlEl.value)urlEl.value=url;
@@ -510,7 +511,12 @@ function renderCloudStatus(message,isError=false){
 }
 function cloudSettings(){
   return {
-    url:clean($("cloudApiUrl")?.value)||localStorage.getItem(CLOUD_API_URL_KEY)||DEFAULT_CLOUD_API_URL,
+    url:(()=>{
+      const typed=clean($("cloudApiUrl")?.value);
+      const saved=localStorage.getItem(CLOUD_API_URL_KEY)||"";
+      const v=typed||saved||DEFAULT_CLOUD_API_URL;
+      return (v.includes("/api.php")||v.includes("/api2530.php")||v.includes("/api2540.php"))?DEFAULT_CLOUD_API_URL:v;
+    })(),
     key:clean($("cloudSyncKey")?.value)||localStorage.getItem(CLOUD_SYNC_KEY_KEY)||""
   };
 }
@@ -1323,7 +1329,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2540");
+  url.searchParams.set("v","20260922-2550");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
