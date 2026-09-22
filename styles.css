@@ -60,3 +60,5 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .today-progress{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}.today-progress span{font-size:11px;padding:5px 9px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--muted)}.today-progress strong{color:var(--text)}.merge-duplicates{justify-self:start}.metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:460px){.metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .cloud-sync-card{display:grid;gap:12px}.cloud-sync-actions{display:flex;flex-wrap:wrap;gap:8px}.cloud-sync-status{margin:0;font-size:12px;color:#8c4964;font-weight:700}.cloud-sync-status.error{color:#b42318}.cloud-sync-help{margin:0;color:var(--muted);font-size:11px}
+
+.cloud-sync-status.syncing{opacity:.8}.data-freshness .cloud-ok{background:#eef8f1;color:#386a49}
