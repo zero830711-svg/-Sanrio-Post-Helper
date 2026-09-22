@@ -2113,7 +2113,7 @@ $("closeDetailModal")?.addEventListener("click",closeTodayDetail);
 $("todayDetailModal")?.addEventListener("click",e=>{if(e.target===$("todayDetailModal"))closeTodayDetail()});
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260923-3250");
+  url.searchParams.set("v","20260923-3260");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
