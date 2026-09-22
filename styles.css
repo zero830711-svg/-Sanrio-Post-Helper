@@ -68,3 +68,18 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .trend-card{margin:14px 0}.trend-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.trend-status{margin:10px 0 0;font-size:11px;color:var(--muted)}.trend-list{display:grid;gap:9px;margin-top:10px}.trend-item{display:grid;grid-template-columns:32px 1fr;gap:10px;padding:11px;border:1px solid var(--line);border-radius:14px;background:#fff}.trend-rank{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#eef8f1;color:#386a49;font-weight:900}.trend-main{min-width:0}.trend-main h3{margin:3px 0 5px;font-size:14px;line-height:1.4}.trend-main p{margin:0 0 7px;font-size:11px;line-height:1.5;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.trend-meta,.trend-signals,.trend-actions{display:flex;flex-wrap:wrap;gap:6px}.trend-meta span,.trend-signals span{font-size:10px;padding:3px 6px;border-radius:999px;background:#f5eef2;color:#765966}.trend-actions{margin-top:8px}.trend-actions .small-btn{font-size:11px;padding:6px 9px}
 
 .trend-meta .trend-new{background:#eaf7ef;color:#2f6a43;font-weight:900}
+
+.trend-item.now{border-color:#ef8fb2;box-shadow:0 5px 18px rgba(239,143,178,.12)}
+.trend-item.ahead{border-color:#9dcdb0;background:#fcfffd}
+.trend-meta .trend-opportunity{font-weight:900}
+.trend-meta .trend-opportunity.now{background:#ffe7f0;color:#9a3d62}
+.trend-meta .trend-opportunity.ahead{background:#e5f7eb;color:#25643d}
+.trend-meta .trend-opportunity.good{background:#fff3d8;color:#8a641e}
+.trend-meta .trend-opportunity.watch{background:#f2f2f2;color:#6b6670}
+.trend-meta .trend-ahead{background:#eaf7ef;color:#2f6a43;font-weight:800}
+.trend-similar{margin-top:9px;border-top:1px dashed var(--line);padding-top:7px}
+.trend-similar summary{font-size:10px;font-weight:800;color:#765966;cursor:pointer}
+.trend-similar-list{display:grid;gap:6px;margin-top:7px}
+.trend-similar-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#faf7f9;border-radius:9px;padding:7px 8px}
+.trend-similar-row div{min-width:0}.trend-similar-row strong{display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.trend-similar-row span{display:block;margin-top:2px;font-size:9px;color:var(--muted)}
+.trend-similar-row a{font-size:10px;font-weight:800;color:#8c4964;text-decoration:none}
