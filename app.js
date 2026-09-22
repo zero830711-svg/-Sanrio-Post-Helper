@@ -9,8 +9,8 @@ const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
 const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
-const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.22-2580";
+const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
+const APP_VERSION="2026.09.22-2590";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -217,15 +217,44 @@ function stableDayJitter(x){
   for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
   return (h%1000)/1000;
 }
-function recommendationScore(x){
-  const imp=Math.log10(metricNumber(x.impressions)+1)*18;
-  const likes=Math.log10(metricNumber(x.likes)+1)*16;
-  const saves=Math.log10(metricNumber(x.bookmarks)+1)*22;
-  const clicks=Math.log10(metricNumber(x.urlClicks)+1)*24;
-  const affiliate=hasAffiliate(x)?18:0;
-  const days=Math.min(180,Math.max(0,(Date.now()-lastUseTime(x))/(24*60*60*1000)))*0.18;
-  return imp+likes+saves+clicks+affiliate+days+stableDayJitter(x)*4;
+function engagementRate(x,key){return metricRate(x[key],x.impressions)}
+function spreadScore(x){
+  const imp=metricNumber(x.impressions);
+  const repostRate=engagementRate(x,"reposts");
+  const saveRate=engagementRate(x,"bookmarks");
+  const likeRate=engagementRate(x,"likes");
+  const ageDays=Math.min(180,Math.max(0,(Date.now()-lastUseTime(x))/(24*60*60*1000)));
+  return Math.log10(imp+1)*32 + Math.min(repostRate,0.2)*500 + Math.min(saveRate,0.2)*260 + Math.min(likeRate,0.3)*90 + ageDays*0.08 + stableDayJitter(x)*2;
 }
+function clickScore(x){
+  const imp=metricNumber(x.impressions);
+  const clicks=metricNumber(x.urlClicks);
+  const ctr=metricRate(x.urlClicks,x.impressions);
+  const ageDays=Math.min(180,Math.max(0,(Date.now()-lastUseTime(x))/(24*60*60*1000)));
+  const confidence=imp>=10000?1.12:imp>=3000?1.06:1;
+  return (Math.log10(clicks+1)*42 + Math.min(ctr,0.5)*210 + Math.log10(imp+1)*8 + ageDays*0.08)*confidence;
+}
+function evergreenScore(x){
+  const imp=metricNumber(x.impressions);
+  const clicks=metricNumber(x.urlClicks);
+  const saves=metricNumber(x.bookmarks);
+  const reposts=metricNumber(x.reposts);
+  const ctr=metricRate(x.urlClicks,x.impressions);
+  const saveRate=metricRate(x.bookmarks,x.impressions);
+  const repostRate=metricRate(x.reposts,x.impressions);
+  const ageDays=Math.min(240,Math.max(0,(Date.now()-lastUseTime(x))/(24*60*60*1000)));
+  return Math.log10(imp+1)*20 + Math.log10(clicks+1)*20 + Math.log10(saves+1)*16 + Math.log10(reposts+1)*10 + Math.min(ctr,0.5)*120 + Math.min(saveRate,0.3)*120 + Math.min(repostRate,0.2)*140 + ageDays*0.11;
+}
+function explosionScore(x){
+  const imp=metricNumber(x.impressions);
+  if(imp<1000)return -Infinity;
+  const ctr=metricRate(x.urlClicks,x.impressions);
+  const saveRate=metricRate(x.bookmarks,x.impressions);
+  const repostRate=metricRate(x.reposts,x.impressions);
+  const likeRate=metricRate(x.likes,x.impressions);
+  return Math.log10(imp+1)*30 + Math.min(ctr,0.5)*180 + Math.min(saveRate,0.3)*170 + Math.min(repostRate,0.2)*260 + Math.min(likeRate,0.3)*80;
+}
+function recommendationScore(x){return evergreenScore(x)}
 
 function postedTime(x){
   const raw=x.postedAt||x.savedAt||"";
@@ -285,16 +314,18 @@ async function setCandidateExcluded(item,excluded){
 
 function todayMetricChips(x,role){
   const chips=[];
-  if(String(role||"").includes("保存率")){
-    if(x.bookmarks)chips.push("保存 "+esc(x.bookmarks));
-    if(metricNumber(x.impressions))chips.push("保存率 "+percentText(metricRate(x.bookmarks,x.impressions)));
-  }else if(String(role||"").includes("クリック率")){
-    if(x.urlClicks)chips.push("クリック "+esc(x.urlClicks));
-    if(metricNumber(x.impressions))chips.push("クリック率 "+percentText(metricRate(x.urlClicks,x.impressions)));
+  const imp=metricNumber(x.impressions);
+  if(role==="拡散狙い"){
+    if(imp)chips.push("表示 "+imp.toLocaleString());
+    if(metricNumber(x.reposts))chips.push("リポスト "+metricNumber(x.reposts).toLocaleString());
+    if(imp&&metricNumber(x.reposts))chips.push("拡散率 "+percentText(metricRate(x.reposts,x.impressions)));
+  }else if(role==="クリック狙い"){
+    if(metricNumber(x.urlClicks))chips.push("クリック "+metricNumber(x.urlClicks).toLocaleString());
+    if(imp)chips.push("クリック率 "+percentText(metricRate(x.urlClicks,x.impressions)));
   }else{
-    if(x.impressions)chips.push("表示 "+esc(x.impressions));
-    if(x.likes)chips.push("♥ "+esc(x.likes));
-    if(x.bookmarks)chips.push("保存 "+esc(x.bookmarks));
+    if(imp)chips.push("表示 "+imp.toLocaleString());
+    if(metricNumber(x.bookmarks))chips.push("保存 "+metricNumber(x.bookmarks).toLocaleString());
+    if(metricNumber(x.urlClicks))chips.push("クリック "+metricNumber(x.urlClicks).toLocaleString());
   }
   return chips.map(v=>'<span>'+v+'</span>').join("");
 }
@@ -369,22 +400,19 @@ async function undoLastRepost(){
 
 function recommendationReasons(x){
   const reasons=[];
-  const age=Math.max(0,Math.floor((Date.now()-postedTime(x))/(24*60*60*1000)));
-  const clicks=metricNumber(x.urlClicks);
-  const saves=metricNumber(x.bookmarks);
-  const likes=metricNumber(x.likes);
+  const age=Math.max(0,Math.floor((Date.now()-lastUseTime(x))/(24*60*60*1000)));
   const impressions=metricNumber(x.impressions);
-  if(age>=60)reasons.push(age+"日空き");
-  else if(age>=30)reasons.push("30日以上空き");
   const clickRate=metricRate(x.urlClicks,x.impressions);
   const saveRate=metricRate(x.bookmarks,x.impressions);
+  const repostRate=metricRate(x.reposts,x.impressions);
+  if(impressions>=100000)reasons.push("表示10万+");
+  else if(impressions>=30000)reasons.push("表示3万+");
+  if(repostRate>=0.01)reasons.push("拡散率 "+percentText(repostRate));
   if(clickRate>=0.01)reasons.push("クリック率 "+percentText(clickRate));
-  else if(saveRate>=0.005)reasons.push("保存率 "+percentText(saveRate));
-  else if(clicks>0)reasons.push("クリック実績あり");
-  else if(saves>=100)reasons.push("保存100+");
-  else if(likes>=500)reasons.push("いいね500+");
-  else if(impressions>=50000)reasons.push("表示5万+");
-  if(hasAffiliate(x))reasons.push("アフィリエイト系");
+  else if(metricNumber(x.urlClicks)>=50)reasons.push("クリック "+metricNumber(x.urlClicks));
+  if(saveRate>=0.005)reasons.push("保存率 "+percentText(saveRate));
+  if(age>=60)reasons.push(age+"日空き");
+  else if(age>=30)reasons.push("30日以上空き");
   return reasons.slice(0,2);
 }
 
@@ -894,6 +922,51 @@ async function renderDataHealth(){
     '<button type="button" class="health-item" data-health-filter="'+filter+'"><span>'+label+'</span><strong>'+count.toLocaleString()+'</strong></button>'
   ).join("");
 }
+const POST_PATTERNS=[
+  ["新作",/新作|NEW|new item/i],
+  ["再販・再入荷",/再販|再入荷|再登場|restock/i],
+  ["限定",/限定|数量限定|期間限定/],
+  ["予約",/予約|受注|予約受付/],
+  ["発売・販売開始",/発売|販売開始|登場|本日より/],
+  ["価格訴求",/[¥￥]\s?[\d,]+|\d[\d,]*円/],
+  ["Amazon",/Amazon|アマゾン/i],
+  ["楽天",/楽天|Rakuten/i],
+  ["まとめ・一覧",/まとめ|一覧|全種|ラインナップ|種類/],
+  ["かわいい訴求",/かわいい|可愛い|かわいすぎ|大人かわいい/]
+];
+function patternStats(items){
+  return POST_PATTERNS.map(([label,re])=>{
+    const rows=items.filter(x=>re.test(String(x.title||"")+" "+String(x.text||""))&&metricNumber(x.impressions)>=1000);
+    if(rows.length<2)return null;
+    const totalImp=rows.reduce((s,x)=>s+metricNumber(x.impressions),0);
+    const totalClicks=rows.reduce((s,x)=>s+metricNumber(x.urlClicks),0);
+    const totalSaves=rows.reduce((s,x)=>s+metricNumber(x.bookmarks),0);
+    const totalReposts=rows.reduce((s,x)=>s+metricNumber(x.reposts),0);
+    const avgImp=totalImp/rows.length;
+    const ctr=totalImp?totalClicks/totalImp:0;
+    const saveRate=totalImp?totalSaves/totalImp:0;
+    const repostRate=totalImp?totalReposts/totalImp:0;
+    const score=Math.log10(avgImp+1)*22+Math.min(ctr,.5)*160+Math.min(saveRate,.3)*100+Math.min(repostRate,.2)*220;
+    return {label,count:rows.length,avgImp,ctr,saveRate,repostRate,score};
+  }).filter(Boolean).sort((a,b)=>b.score-a.score);
+}
+function renderPatternAnalysis(items){
+  const root=$("patternAnalysis");
+  if(!root)return;
+  const rows=patternStats(items).slice(0,8);
+  if(!rows.length){
+    root.innerHTML='<div class="empty compact-empty">比較できる投稿がまだ足りません。</div>';
+    return;
+  }
+  root.innerHTML=rows.map((x,i)=>
+    '<div class="pattern-row">'+
+      '<div class="pattern-rank">'+(i+1)+'</div>'+
+      '<div class="pattern-main"><strong>'+esc(x.label)+'</strong><span>'+x.count+'投稿 ・ 平均表示 '+Math.round(x.avgImp).toLocaleString()+'</span></div>'+
+      '<div class="pattern-metrics"><b>CTR '+percentText(x.ctr)+'</b><span>拡散 '+percentText(x.repostRate)+' / 保存 '+percentText(x.saveRate)+'</span></div>'+
+    '</div>'
+  ).join("");
+}
+
 async function renderAnalytics(){
   const summary=$("analyticsSummary");
   if(!summary)return;
@@ -927,6 +1000,7 @@ async function renderAnalytics(){
   const saveRoot=$("saveRateRanking");
   if(clickRoot)clickRoot.innerHTML=topClick.length?rankingRows(topClick,"click"):'<div class="empty compact-empty">対象データがありません。</div>';
   if(saveRoot)saveRoot.innerHTML=topSave.length?rankingRows(topSave,"save"):'<div class="empty compact-empty">対象データがありません。</div>';
+  renderPatternAnalysis(items);
 
   if(typeof Chart==="undefined")return;
   destroyChart("character");
@@ -1072,18 +1146,16 @@ async function getRoleBasedPicks(){
   const remaining=()=>pool.filter(x=>!used.has(x.id));
   for(const role of TODAY_ROLES){
     if(picked.some(x=>x._role===role))continue;
-    let choice=null;
     const candidates=remaining();
-    if(role==="保存率が強い"){
-      choice=[...candidates].filter(x=>metricNumber(x.impressions)>=1000)
-        .sort((a,b)=>metricRate(b.bookmarks,b.impressions)-metricRate(a.bookmarks,a.impressions))[0]||null;
-    }else if(role==="クリック率が強い"){
-      choice=[...candidates].filter(x=>metricNumber(x.impressions)>=1000)
-        .sort((a,b)=>metricRate(b.urlClicks,b.impressions)-metricRate(a.urlClicks,a.impressions))[0]||null;
+    let choice=null;
+    if(role==="拡散狙い"){
+      choice=[...candidates].filter(x=>metricNumber(x.impressions)>=1000).sort((a,b)=>spreadScore(b)-spreadScore(a))[0]||null;
+    }else if(role==="クリック狙い"){
+      choice=[...candidates].filter(x=>metricNumber(x.impressions)>=1000&&metricNumber(x.urlClicks)>0).sort((a,b)=>clickScore(b)-clickScore(a))[0]||null;
     }else{
-      choice=candidates[0]||null;
+      choice=[...candidates].filter(x=>metricNumber(x.impressions)>=1000).sort((a,b)=>evergreenScore(b)-evergreenScore(a))[0]||null;
     }
-    if(!choice)choice=candidates[0]||null;
+    if(!choice)choice=[...candidates].sort((a,b)=>evergreenScore(b)-evergreenScore(a))[0]||null;
     keep(choice,role);
   }
   return TODAY_ROLES.map(role=>picked.find(x=>x._role===role)).filter(Boolean);
@@ -1094,33 +1166,24 @@ async function stampRecommendations(items){
   const updates=[];
   for(const item of items){
     if(recommendedDay(item)===today&&item.recommendedRole===item._role)continue;
-    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"総合おすすめ"});
+    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用"});
   }
   await dbPutMany(updates);
   if(updates.length)queueCloudSync(updates,[]);
 }
 
-function revenueScore(x){
-  const clicks=metricNumber(x.urlClicks);
-  const rate=metricRate(x.urlClicks,x.impressions);
-  const ageDays=Math.min(180,Math.max(0,(Date.now()-lastUseTime(x))/(24*60*60*1000)));
-  const clickPart=Math.log10(clicks+1)*38;
-  const ratePart=Math.min(rate,0.5)*120;
-  const agePart=ageDays*0.12;
-  const affiliatePart=hasAffiliate(x)?12:0;
-  return clickPart+ratePart+agePart+affiliatePart;
-}
+function revenueScore(x){return explosionScore(x)}
 async function getRevenuePick(){
   const all=await dbGetAll();
   const today=localDayKey();
+  const todayKeys=new Set(all.filter(x=>recommendedDay(x)===today).map(canonicalPostKey));
   return all
-    .filter(x=>isRecommendationEligible(x)&&hasAffiliate(x)&&recommendedDay(x)!==today&&canRevenueRecommend(x))
+    .filter(x=>isRecommendationEligible(x)&&metricNumber(x.impressions)>=1000&&!todayKeys.has(canonicalPostKey(x))&&canRevenueRecommend(x))
     .sort((a,b)=>{
       const at=revenueRecommendedDay(a)===today?1:0;
       const bt=revenueRecommendedDay(b)===today?1:0;
       if(at!==bt)return bt-at;
-      const c=revenueScore(b)-revenueScore(a);
-      return c || metricNumber(b.urlClicks)-metricNumber(a.urlClicks);
+      return explosionScore(b)-explosionScore(a);
     })[0]||null;
 }
 
@@ -1199,20 +1262,22 @@ async function renderRecentUsed(){
 async function renderRevenuePick(){
   const root=$("revenueToday");
   const x=await getRevenuePick();
-  if(!x){root.innerHTML='<div class="empty">今すぐ出せる収益候補はありません。</div>';return}
+  if(!x){root.innerHTML='<div class="empty">今すぐ出せる爆発候補はありません。</div>';return}
   if(revenueRecommendedDay(x)!==localDayKey()){
     x.revenueRecommendedAt=new Date().toISOString();
     await dbPut(x);
     await propagateUsageHistory(x);
   }
   root.innerHTML='<article class="revenue-pick">'+
-    '<div class="revenue-label">収益候補</div>'+
+    '<div class="revenue-label">爆発候補</div>'+
     '<h3>'+esc(x.title)+'</h3>'+
     '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
     '<div class="recommend-reason">選定理由：'+esc(recommendationReasons(x).join("・"))+'</div>'+
     '<p class="today-preview">'+esc(x.text)+'</p>'+
     '<div class="metric-chips">'+
-      (x.urlClicks?'<span>クリック '+esc(x.urlClicks)+'</span>':'')+
+      (metricNumber(x.impressions)?'<span>表示 '+metricNumber(x.impressions).toLocaleString()+'</span>':'')+
+      (metricNumber(x.reposts)?'<span>リポスト '+metricNumber(x.reposts).toLocaleString()+'</span>':'')+
+      (metricNumber(x.urlClicks)?'<span>クリック '+metricNumber(x.urlClicks).toLocaleString()+'</span>':'')+
       (metricNumber(x.impressions)?'<span>クリック率 '+percentText(metricRate(x.urlClicks,x.impressions))+'</span>':'')+
     '</div>'+
     '<div class="today-actions">'+
@@ -1500,7 +1565,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2580");
+  url.searchParams.set("v","20260922-2590");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
