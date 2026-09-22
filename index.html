@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260922-2800">
+<link rel="stylesheet" href="./styles.css?v=20260923-3000">
 </head>
 <body>
 <main class="app">
@@ -18,8 +18,8 @@
 <p>開いたらすぐ、今日使う候補を確認。</p>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.09.22-2800</span>
-<button id="forceLatest" type="button" onclick="location.href='./?v=20260922-2800&ts='+Date.now()">最新版を読み込む</button>
+<span id="appVersionStatus">アプリ版 2026.09.23-3000</span>
+<button id="forceLatest" type="button" onclick="location.href='./?v=20260923-3000&ts='+Date.now()">最新版を読み込む</button>
 </div>
 </header>
 
@@ -125,6 +125,19 @@
 
 
 
+<section class="card archive-cloud-card">
+<div>
+<h2 class="section-title">Xアーカイブ保管庫</h2>
+<p class="backup-note">Xアーカイブの投稿・写真・動画をロリポップに保管。既存データは消さず、同じpost IDは補完します。</p>
+</div>
+<div id="archiveCloudStatus" class="archive-cloud-status">状態を確認中…</div>
+<div class="cloud-sync-actions">
+<a class="small-btn link-btn" href="./archive-import-batch.html" target="_blank" rel="noopener">Xアーカイブ取り込みを開く</a>
+<button id="archiveCloudRefresh" class="small-btn" type="button">状態更新</button>
+<button id="archiveMediaRepair" class="small-btn" type="button">画像リンクを修復</button>
+</div>
+</section>
+
 <section class="card analytics-import-card">
 <div>
 <h2 class="section-title">X分析CSVを読み込む</h2>
@@ -186,6 +199,7 @@
 <button class="filter-btn" data-filter="stale">古い可能性あり</button>
 <button class="filter-btn" data-filter="excluded">候補から除外</button>
 <button class="filter-btn" data-filter="autoexcluded">自動除外</button>
+<button class="filter-btn" data-filter="media">写真・動画あり</button>
 </div>
 <div class="character-row">
 <span class="sort-label">キャラ</span>
@@ -210,7 +224,7 @@
 </details>
 </section>
 
-<p class="note">写真はこの端末内に保存。投稿データはロリポップ同期を設定した場合のみクラウドにも保存され、GitHubにはアップロードしません。</p>
+<p class="note">投稿データとXアーカイブの写真・動画はロリポップへ保管できます。GitHubには投稿データ・画像・同期キーを保存しません。</p>
 </main>
 
 <div id="undoToast" class="undo-toast hidden">再投稿済みにしました <button id="undoRepost" type="button">取り消す</button></div>
@@ -221,11 +235,11 @@
 <div id="modalCount" class="modal-count"></div>
 </div>
 <div id="modalImages" class="modal-images"></div>
-<p class="modal-help">画像を長押しすると、写真へ保存・コピー・共有できます。</p>
+<p class="modal-help">写真は長押し、動画は再生・共有して利用できます。</p>
 </div>
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260922-2800"></script>
+<script src="./app.js?v=20260923-3000"></script>
 </body>
 </html>
