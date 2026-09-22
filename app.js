@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3000";
+const APP_VERSION="2026.09.23-3010";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -828,6 +828,11 @@ async function cloudPullMerge(options={}){
     await dbPutMany(pending);
     await dbDeleteMany(deletes);
     await reconcileUsageHistory();
+    try{
+      await syncArchiveMediaLinks({silent:true});
+    }catch(e){
+      console.error("archive media repair after cloud pull",e);
+    }
     searchIndex=null;searchIndexSignature="";
     const now=new Date().toISOString();
     localStorage.setItem(LAST_CLOUD_SYNC_KEY,now);
@@ -840,6 +845,7 @@ async function cloudPullMerge(options={}){
       await renderDataHealth();
       await renderAnalytics();
       await renderArchive();
+      await renderArchiveCloudStatus();
     }
     if(!silent)renderCloudStatus("統合完了："+remote.filter(x=>!x._deleted).length+"件"+(deletes.length?" / 削除反映 "+deletes.length+"件":""));
     return {ok:true,count:remote.length,deletes};
@@ -1875,7 +1881,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260923-3000");
+  url.searchParams.set("v","20260923-3010");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
