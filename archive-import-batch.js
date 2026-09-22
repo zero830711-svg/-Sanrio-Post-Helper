@@ -1,10 +1,39 @@
-(()=>{const $=x=>document.getElementById(x),say=x=>{$('l').textContent+=x+'\n';$('l').scrollTop=$('l').scrollHeight},rel=f=>(f.webkitRelativePath||f.name).replace(/\\/g,'/');let fs=[],tw=[],md=[],plan={};
+(()=>{const $=x=>document.getElementById(x),say=x=>{$('l').textContent+=x+'\n';$('l').scrollTop=$('l').scrollHeight},rel=f=>(f.webkitRelativePath||f._relativePath||f.name).replace(/\\/g,'/');let fs=[],tw=[],md=[],plan={};
 const KEY='sanrioCloudSyncKey';if(!$('k').value)$('k').value=localStorage.getItem(KEY)||'';
 function acceptFiles(list,label){
   fs=[...list];
   $('p').disabled=!fs.length;$('r').disabled=true;$('plan').textContent='';
   $('s').textContent=fs.length?(fs.length+'ファイルを選択（'+label+'）'):'ファイルを取得できませんでした。ZIPのままではなく、解凍した中身を選んでください。';
 }
+async function readDirectory(handle,prefix=""){
+  const out=[];
+  for await(const [name,entry] of handle.entries()){
+    const p=prefix?prefix+"/"+name:name;
+    if(entry.kind==="file"){
+      const file=await entry.getFile();
+      try{Object.defineProperty(file,"webkitRelativePath",{value:p,configurable:true})}catch(e){file._relativePath=p}
+      out.push(file);
+    }else if(entry.kind==="directory"){
+      out.push(...await readDirectory(entry,p));
+    }
+  }
+  return out;
+}
+$('pickdir').onclick=async()=>{
+  if(!window.showDirectoryPicker){
+    say('このChromeでは新しいフォルダ選択が使えません。下の「予備：従来方式でフォルダ選択」を使ってください。');
+    return;
+  }
+  try{
+    $('pickdir').disabled=true;$('s').textContent='フォルダを読み込み中…';$('plan').textContent='';
+    const dir=await window.showDirectoryPicker({mode:"read"});
+    const list=await readDirectory(dir,dir.name);
+    acceptFiles(list,'Chromeフォルダ');
+    say('フォルダ読込完了：'+list.length+'ファイル');
+  }catch(e){
+    if(e&&e.name!=="AbortError")say('フォルダ読込失敗：'+(e.message||e));
+  }finally{$('pickdir').disabled=false}
+};
 $('f').onchange=()=>acceptFiles($('f').files,'フォルダ');
 $('ff').onchange=()=>acceptFiles($('ff').files,'直接選択');
 $('p').onclick=async()=>{const x=fs.find(f=>/data\/tweets\.js$/i.test(rel(f))||/^tweets\.js$/i.test(f.name));if(!x){say('tweets.js が見つかりません。ZIPを解凍し、data/tweets.js が含まれるフォルダを選んでください。');return}const m=(await x.text()).match(/=\s*(\[.*\])\s*;?\s*$/s);try{tw=JSON.parse(m?.[1]||'[]')}catch{tw=[]}md=fs.filter(f=>/data\/tweets_media\/.+\.(jpe?g|png|gif|mp4|mov|webm)$/i.test(rel(f))||/\.(jpe?g|png|gif|mp4|mov|webm)$/i.test(f.name));const old=await all(),ids=new Set(old.map(x=>String(x.postId||'')));let same=0,newCount=0;for(const w of tw){const id=String((w.tweet||w).id||'');if(!id)continue;ids.has(id)?same++:newCount++}const imgs=md.filter(f=>/\.(jpe?g|png|gif)$/i.test(f.name)).length,vids=md.length-imgs;plan={same,newCount,imgs,vids};$('s').textContent='投稿 '+tw.length+'件 / 写真 '+imgs+'枚 / 動画 '+vids+'本';$('plan').textContent='既存と一致 '+same+'件 / 新規追加予定 '+newCount+'件';$('r').disabled=!tw.length;say('解析完了。既存の分析値・再投稿履歴・除外状態は保持します。')};
