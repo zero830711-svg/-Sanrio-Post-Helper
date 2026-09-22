@@ -125,3 +125,7 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .detail-media{display:grid;grid-template-columns:1fr;gap:14px}
 .detail-media img,.detail-media video{width:100%;height:auto;max-height:none;object-fit:contain;border-radius:12px;background:#f4eef1}
 @media(max-width:460px){.detail-sheet{padding:14px}.detail-media{gap:10px}}
+
+/* Build 3230: AI-agnostic rewrite prompt */
+.rewrite-btn{background:#fff3d8;border-color:#ead29a;color:#7a5a13}
+.detail-sheet>.rewrite-btn{margin:2px 0 10px}
