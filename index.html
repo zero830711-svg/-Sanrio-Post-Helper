@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260923-3210">
+<link rel="stylesheet" href="./styles.css?v=20260923-3220">
 </head>
 <body>
 <main class="app">
@@ -18,8 +18,8 @@
 <p>開いたらすぐ、今日使う候補を確認。</p>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.09.23-3210</span>
-<button id="forceLatest" type="button" onclick="location.href='./?v=20260923-3210&ts='+Date.now()">最新版を読み込む</button>
+<span id="appVersionStatus">アプリ版 2026.09.23-3220</span>
+<button id="forceLatest" type="button" onclick="location.href='./?v=20260923-3220&ts='+Date.now()">最新版を読み込む</button>
 </div>
 </header>
 
@@ -229,6 +229,25 @@
 
 <div id="undoToast" class="undo-toast hidden">再投稿済みにしました <button id="undoRepost" type="button">取り消す</button></div>
 
+<div id="todayDetailModal" class="modal detail-modal hidden" role="dialog" aria-modal="true">
+<div class="modal-bar">
+<button id="closeDetailModal" class="modal-close">閉じる</button>
+<div id="detailMediaCount" class="modal-count"></div>
+</div>
+<div class="detail-sheet">
+<h2 id="detailTitle"></h2>
+<div id="detailMeta" class="detail-meta"></div>
+<section class="detail-text-section">
+<h3>以前の投稿文</h3>
+<p id="detailText"></p>
+</section>
+<section class="detail-media-section">
+<h3>投稿した写真・動画</h3>
+<div id="detailMedia" class="detail-media"></div>
+</section>
+</div>
+</div>
+
 <div id="imageModal" class="modal hidden" role="dialog" aria-modal="true">
 <div class="modal-bar">
 <button id="closeModal" class="modal-close">閉じる</button>
@@ -240,6 +259,6 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260923-3210"></script>
+<script src="./app.js?v=20260923-3220"></script>
 </body>
 </html>
