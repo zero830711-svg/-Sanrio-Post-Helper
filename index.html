@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260922-2720">
+<link rel="stylesheet" href="./styles.css?v=20260922-2800">
 </head>
 <body>
 <main class="app">
@@ -18,12 +18,23 @@
 <p>開いたらすぐ、今日使う候補を確認。</p>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.09.22-2720</span>
-<button id="forceLatest" type="button" onclick="location.href='./?v=20260922-2720&ts='+Date.now()">最新版を読み込む</button>
+<span id="appVersionStatus">アプリ版 2026.09.22-2800</span>
+<button id="forceLatest" type="button" onclick="location.href='./?v=20260922-2800&ts='+Date.now()">最新版を読み込む</button>
 </div>
 </header>
 
 <section id="archive">
+
+<section id="trendHeroCard" class="card trend-hero-card">
+<div class="trend-head">
+<div>
+<h2 class="section-title">今日の新規ネタ 🌍</h2>
+<p class="backup-note">Trend Radarから、今いちばん投稿価値が高い1件だけ表示。</p>
+</div>
+</div>
+<div id="trendHero"></div>
+</section>
+
 <section class="card today-card">
 <div class="today-head">
 <div>
@@ -35,28 +46,26 @@
 <div id="todayList" class="today-list"></div>
 </section>
 
-<section class="card revenue-card">
-<div class="today-head">
-<div>
-<h2 class="section-title">今日の爆発候補</h2>
-<p class="backup-note">表示・保存・クリック・リポストをまとめて見て、もう一度大きく伸びる可能性が高い過去投稿を1件選びます。</p>
-</div>
-</div>
-<div id="revenueToday"></div>
-</section>
-
-
-<section class="card trend-card">
+<details class="card trend-card">
+<summary>Trend Radarを開く</summary>
+<div class="trend-card-body">
 <div class="trend-head">
 <div>
 <h2 class="section-title">Trend Radar 🌍</h2>
-<p class="backup-note">「今すぐ投稿 / 先取り候補」を判定し、過去に強かった類似投稿も一緒に表示。</p>
+<p class="backup-note">24時間 / 72時間 / 7日を切替。使用済み・不要ネタは自動で除外。</p>
 </div>
 <button id="trendRefresh" class="small-btn" type="button">更新</button>
 </div>
+<div class="trend-filter-row">
+<button class="trend-range active" data-trend-range="24">24時間</button>
+<button class="trend-range" data-trend-range="72">72時間</button>
+<button class="trend-range" data-trend-range="168">7日</button>
+</div>
 <div id="trendStatus" class="trend-status"></div>
+<div id="trendSourceHealth" class="trend-source-health"></div>
 <div id="trendList" class="trend-list"></div>
-</section>
+</div>
+</details>
 
 <section id="recentUsedCard" class="card recent-used-card hidden">
 <div class="today-head">
@@ -81,6 +90,16 @@
 <h3>保存率 上位5投稿</h3>
 <p class="ranking-note">表示1,000以上の投稿を対象</p>
 <div id="saveRateRanking" class="rate-ranking"></div>
+</div>
+<div class="chart-card pattern-card">
+<h3>投稿タイミング分析</h3>
+<p class="ranking-note">表示1,000以上の投稿を対象に曜日・時間帯ごとの傾向を比較。</p>
+<div id="timingAnalysis" class="timing-analysis"></div>
+</div>
+<div class="chart-card pattern-card">
+<h3>焼き直し注意</h3>
+<p class="ranking-note">最近使った文章・キャラの偏りを確認。</p>
+<div id="reuseRiskAnalysis" class="reuse-risk-analysis"></div>
 </div>
 <div class="chart-card pattern-card">
 <h3>投稿文パターン分析</h3>
@@ -138,7 +157,7 @@
 
 <section class="card backup-card">
 <h2 class="section-title">バックアップ</h2>
-<p class="backup-note">保存した人気投稿・写真をまとめて書き出し／復元できます。</p>
+<p class="backup-note">保存した投稿データ・写真をまとめて書き出し／復元できます。</p>
 <p id="backupStatus" class="backup-status"></p>
 <div class="backup-actions">
 <button id="exportBackup" class="small-btn">バックアップ保存</button>
@@ -207,6 +226,6 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260922-2720"></script>
+<script src="./app.js?v=20260922-2800"></script>
 </body>
 </html>
