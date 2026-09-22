@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<title>Xアーカイブ取り込み 3050</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
+.card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
+button,label{display:inline-block;padding:.7rem 1rem;border-radius:10px;border:1px solid #d6bfd0;background:#fff;cursor:pointer;margin:.25rem}
+button.primary{background:#e85d9e;color:#fff;border:0}
+button:disabled{opacity:.45;cursor:not-allowed}
+progress{width:100%}
+#log{white-space:pre-wrap;background:#271f29;color:#f5e9f2;padding:1rem;border-radius:10px;min-height:8rem;max-height:260px;overflow:auto}
+.muted{color:#756775}.build{font-size:.8rem;color:#8a7484}
+#s,#plan{margin:.5rem 0}.ok{color:#2f6a43}.err{color:#a34242}
+</style>
+</head>
+<body>
+<main>
+<h1>Xアーカイブ取り込み</h1>
+<p class="build">BUILD 3050</p>
+<p class="muted">解凍済みXアーカイブから投稿と写真・動画を再照合します。既存投稿は消しません。</p>
+
+<section class="card">
+<p><strong>① ピンクのボタンで解凍済みアーカイブの一番上のフォルダを選択</strong></p>
+<button id="pickdir" class="primary" type="button">アーカイブフォルダを開く</button>
+<label>予備：従来方式<input id="f" type="file" webkitdirectory multiple hidden></label>
+<div id="s">未選択</div>
+<div id="plan" class="muted"></div>
+<button id="p" class="primary" type="button" disabled>解析する</button>
+<button id="r" type="button" disabled>取り込み開始</button>
+</section>
+
+<section class="card">
+<label>API URL<br><input id="a" value="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/archive-media-batch.php" style="width:95%"></label>
+<label>同期キー<br><input id="k" type="password" style="width:95%"></label>
+</section>
+
+<progress id="g" value="0" max="1"></progress>
+<div id="log">3050 JavaScript 読み込み待ち…</div>
+</main>
+<script src="./archive-import-3050.js"></script>
+<script>
+setTimeout(()=>{const el=document.getElementById('log');if(el&&el.textContent.includes('読み込み待ち'))el.textContent='JavaScriptが読み込めていません。ページを再読み込みしてください。';},1500);
+</script>
+</body></html>
