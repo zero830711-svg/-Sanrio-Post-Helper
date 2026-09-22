@@ -1607,6 +1607,7 @@ async function renderRecentUsed(){
 
 async function renderRevenuePick(){
   const root=$("revenueToday");
+  if(!root)return;
   const x=await getRevenuePick();
   if(!x){root.innerHTML='<div class="empty">今すぐ出せる爆発候補はありません。</div>';return}
   if(revenueRecommendedDay(x)!==localDayKey()){
