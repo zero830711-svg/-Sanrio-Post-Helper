@@ -10,7 +10,7 @@ const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api.php";
 const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.22-2530";
+const APP_VERSION="2026.09.22-2540";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -524,7 +524,17 @@ async function cloudRequest(action,options={}){
   const text=await res.text();
   let data={};
   try{data=text?JSON.parse(text):{}}catch(e){throw new Error("サーバー応答をJSONとして読めません")}
-  if(!res.ok||data.ok===false)throw new Error(data.error||("HTTP "+res.status));
+  if(!res.ok||data.ok===false){
+    const diag=[
+      data.error||("HTTP "+res.status),
+      data.apiVersion?("API "+data.apiVersion):"",
+      data.contentType?("type "+data.contentType):"",
+      data.rawLength!==undefined?("raw "+data.rawLength):"",
+      data.hasFormPayload!==undefined?("form "+String(data.hasFormPayload)):"",
+      data.hasUpload!==undefined?("file "+String(data.hasUpload)):""
+    ].filter(Boolean).join(" / ");
+    throw new Error(diag);
+  }
   return data;
 }
 function cloudSafeItem(x){
@@ -553,7 +563,9 @@ async function cloudPushAll(){
     for(let i=0;i<items.length;i+=chunkSize){
       const chunk=items.slice(i,i+chunkSize);
       const form=new FormData();
-      form.append("payload",JSON.stringify({items:chunk}));
+      const payload=JSON.stringify({items:chunk});
+      form.append("payload_file",new Blob([payload],{type:"application/json"}),"payload.json");
+      form.append("payload",payload);
       await cloudRequest("push",{method:"POST",body:form});
       renderCloudStatus("保存中… "+Math.min(i+chunk.length,items.length)+" / "+items.length+"件");
     }
@@ -1311,7 +1323,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2530");
+  url.searchParams.set("v","20260922-2540");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
