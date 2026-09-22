@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Xアーカイブ修復 3240</title>
+<title>Xアーカイブ修復 3250</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
 .card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
@@ -21,7 +21,7 @@ progress{width:100%;margin:1rem 0}
 <body>
 <main>
 <h1>Xアーカイブ修復</h1>
-<p class="build">BUILD 3240</p>
+<p class="build">BUILD 3250</p>
 <p class="muted">写真・動画は再アップロードしません。Xアーカイブの <strong>tweets.js</strong> から元投稿全文だけを復元できます。</p>
 
 <section class="card">
@@ -29,8 +29,10 @@ progress{width:100%;margin:1rem 0}
 <p class="muted">前回Xアーカイブ取り込みをした同じPC・同じChromeで実行してください。</p>
 <label>tweets.js を選択
 <input id="tweetFile" type="file" accept=".js,text/javascript"></label>
-<button id="repairText" class="primary" type="button" disabled>投稿本文だけ修復</button>
-<p id="textStatus" class="muted">data フォルダ内の tweets.js を選んでください。</p>
+<label>note-tweet.js を選択（長文投稿の全文用）
+<input id="noteFile" type="file" accept=".js,text/javascript"></label>
+<button id="repairText" class="primary" type="button" disabled>投稿本文を完全修復</button>
+<p id="textStatus" class="muted">data フォルダ内の tweets.js と note-tweet.js を選んでください。note-tweet.js がない場合は通常投稿だけ修復します。</p>
 </section>
 
 <section class="card">
@@ -45,18 +47,54 @@ progress{width:100%;margin:1rem 0}
 </section>
 
 <progress id="bar" value="0" max="1"></progress>
-<pre id="log">BUILD 3240 準備完了。</pre>
+<pre id="log">BUILD 3250 準備完了。</pre>
 </main>
 <script>
 (()=>{"use strict";
 const $=id=>document.getElementById(id),log=$("log"),bar=$("bar"),KEY="sanrioCloudSyncKey";
 $("key").value=localStorage.getItem(KEY)||"";
-let parsedTweets=[];
+let parsedTweets=[],parsedNotes=[];
 const say=s=>{log.textContent+="\n"+s;log.scrollTop=log.scrollHeight};
-function parseTweetJs(text){
+function parseArchiveArray(text,label){
   const m=text.match(/=\s*(\[[\s\S]*\])\s*;?\s*$/);
-  if(!m)throw new Error("tweets.js を解析できません");
-  return JSON.parse(m[1]).map(x=>x.tweet||x).filter(x=>x&&x.id);
+  if(!m)throw new Error(label+" を解析できません");
+  return JSON.parse(m[1]);
+}
+function parseTweetJs(text){
+  return parseArchiveArray(text,"tweets.js").map(x=>x.tweet||x).filter(x=>x&&x.id);
+}
+function parseNoteJs(text){
+  return parseArchiveArray(text,"note-tweet.js").map(x=>x.noteTweet||x).filter(x=>x&&x.core&&x.core.text);
+}
+function normalizeForMatch(s){
+  return String(s||"")
+    .replace(/https?:\/\/t\.co\/\S+/g," ")
+    .replace(/[.…]+\s*$/g,"")
+    .replace(/\s+/g," ")
+    .trim();
+}
+function attachNoteFullText(tweets,notes){
+  if(!notes.length)return {matched:0};
+  const pool=notes.map(n=>({n,text:String(n.core?.text||""),norm:normalizeForMatch(n.core?.text||"")}));
+  let matched=0;
+  for(const t of tweets){
+    const short=normalizeForMatch(t.full_text||t.text||"");
+    if(!short)continue;
+    let best=-1,bestScore=0;
+    for(let i=0;i<pool.length;i++){
+      const p=pool[i]; if(!p)continue;
+      let score=0;
+      if(p.norm.startsWith(short))score=short.length+1000;
+      else if(short.length>=30&&p.norm.includes(short.slice(0,Math.min(short.length,120))))score=Math.min(short.length,120);
+      if(score>bestScore){best=i;bestScore=score}
+    }
+    if(best>=0){
+      t.__fullText=pool[best].text;
+      pool[best]=null;
+      matched++;
+    }
+  }
+  return {matched};
 }
 function openDb(){return new Promise((resolve,reject)=>{const q=indexedDB.open("sanrioPostHelperDB",1);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})}
 async function getAll(){const db=await openDb();return new Promise((resolve,reject)=>{const q=db.transaction("popularPosts").objectStore("popularPosts").getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)})}
@@ -71,17 +109,24 @@ async function sendChunk(url,token,items){
   const mid=Math.ceil(items.length/2),a=await sendChunk(url,token,items.slice(0,mid)),b=await sendChunk(url,token,items.slice(mid));
   return {ok:a.ok+b.ok,failed:a.failed.concat(b.failed)};
 }
-$("tweetFile").onchange=async e=>{
-  const f=e.target.files&&e.target.files[0];
-  parsedTweets=[];$("repairText").disabled=true;
-  if(!f)return;
+async function refreshArchiveFiles(){
+  parsedTweets=[];parsedNotes=[];$("repairText").disabled=true;
+  const tf=$("tweetFile").files&&$("tweetFile").files[0];
+  const nf=$("noteFile").files&&$("noteFile").files[0];
+  if(!tf){$("textStatus").textContent="まず tweets.js を選んでください。";return}
   try{
-    parsedTweets=parseTweetJs(await f.text());
-    $("textStatus").textContent="tweets.js 読込完了："+parsedTweets.length.toLocaleString()+"投稿";
+    parsedTweets=parseTweetJs(await tf.text());
+    if(nf)parsedNotes=parseNoteJs(await nf.text());
+    const m=attachNoteFullText(parsedTweets,parsedNotes);
+    $("textStatus").textContent="読込完了：通常投稿 "+parsedTweets.length.toLocaleString()+"件 / 長文データ "+parsedNotes.length.toLocaleString()+"件 / 長文一致 "+m.matched.toLocaleString()+"件";
     $("repairText").disabled=!parsedTweets.length;
     say("tweets.js："+parsedTweets.length+"投稿");
+    if(nf)say("note-tweet.js："+parsedNotes.length+"件 / 一致 "+m.matched+"件");
+    else say("note-tweet.js 未選択：長文投稿は tweets.js 側の短い本文のままです");
   }catch(err){$("textStatus").textContent="読込失敗："+err.message;say("エラー："+err.message)}
-};
+}
+$("tweetFile").onchange=refreshArchiveFiles;
+$("noteFile").onchange=refreshArchiveFiles;
 $("repairText").onclick=async()=>{
   const btn=$("repairText");btn.disabled=true;
   try{
@@ -90,7 +135,7 @@ $("repairText").onclick=async()=>{
     const local=await getAll(),byPost=new Map(local.map(x=>[String(x.postId||""),x]).filter(([k])=>k));
     const updates=[];let matched=0,improved=0,missing=0;
     for(const t of parsedTweets){
-      const id=String(t.id||""),full=String(t.full_text||t.text||"");
+      const id=String(t.id||""),full=String(t.__fullText||t.full_text||t.text||"");
       if(!id||!full)continue;
       const old=byPost.get(id);
       if(!old){missing++;continue}
