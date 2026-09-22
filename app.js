@@ -8,10 +8,10 @@ const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
 const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
-const TREND_CACHE_KEY="sanrioTrendRadarCacheV2";
+const TREND_CACHE_KEY="sanrioTrendRadarCacheV3";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
-const APP_VERSION="2026.09.22-2710";
+const APP_VERSION="2026.09.22-2720";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -799,7 +799,7 @@ async function cloudPullMerge(options={}){
 
 function trendApiUrl(){
   const base=cloudSettings().url||DEFAULT_CLOUD_API_URL;
-  return base.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/trend2710.php");
+  return base.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/trend2720.php");
 }
 async function trendRequest(force=false){
   const {key}=cloudSettings();
@@ -871,14 +871,78 @@ function trendLocalScore(item,history){
   return freshness+social+sourceBonus+affinityBonus+corroboration+newBonus+trendUsefulnessBonus(item);
 }
 
+function trendOpportunity(item,history){
+  const score=trendLocalScore(item,history);
+  const age=trendAgeHours(item.publishedAt||item.firstSeenAt);
+  const jp=Number(item.jpCount)||0;
+  const foreign=Number(item.foreignCount)||0;
+  const related=Math.max(1,Number(item.relatedCount)||1);
+  const ahead=jp===0&&foreign>=1&&related>=2&&age<=72;
+  if(ahead)return {label:"先取り候補",className:"ahead",score};
+  if(age<=36&&score>=115)return {label:"今すぐ投稿",className:"now",score};
+  if(age<=72&&score>=88)return {label:"投稿候補",className:"good",score};
+  return {label:"様子見",className:"watch",score};
+}
+function trendKeywordTokens(item){
+  const raw=((item.title||"")+" "+(item.summary||"")).toLowerCase()
+    .replace(/https?:\/\/\S+/g," ")
+    .replace(/[^\p{L}\p{N}]+/gu," ");
+  const stop=new Set(["sanrio","サンリオ","hello","kitty","ハローキティ","news","new","the","and","with","for","from","official","characters"]);
+  return [...new Set(raw.split(/\s+/).filter(x=>x.length>=3&&!stop.has(x)))].slice(0,14);
+}
+function trendSimilarPosts(history,item){
+  const char=trendCharacter((item.title||"")+" "+(item.summary||""));
+  const charRes={
+    "クロミ":/クロミ|KUROMI/i,
+    "キティ":/ハローキティ|Hello Kitty|キティ/i,
+    "マイメロ":/マイメロ|My Melody/i,
+    "シナモン":/シナモン|Cinnamoroll/i,
+    "プリン":/ポムポムプリン|Pompompurin/i,
+    "ポチャッコ":/ポチャッコ|Pochacco/i
+  };
+  const re=charRes[char];
+  const tokens=trendKeywordTokens(item);
+  return history
+    .filter(x=>metricNumber(x.impressions)>=1000)
+    .map(x=>{
+      const body=((x.title||"")+" "+(x.text||"")).toLowerCase();
+      let relevance=0;
+      if(re&&re.test(body))relevance+=5;
+      for(const token of tokens)if(body.includes(token))relevance+=1;
+      const ctr=metricRate(x.urlClicks,x.impressions);
+      const spread=metricRate(x.reposts,x.impressions);
+      const perf=Math.log10(metricNumber(x.impressions)+1)+ctr*120+spread*80;
+      return {...x,_trendRelevance:relevance,_trendPerf:perf};
+    })
+    .filter(x=>x._trendRelevance>0)
+    .sort((a,b)=>(b._trendRelevance-a._trendRelevance)||(b._trendPerf-a._trendPerf))
+    .slice(0,2);
+}
+function trendSimilarHtml(history,item){
+  const rows=trendSimilarPosts(history,item);
+  if(!rows.length)return "";
+  return '<details class="trend-similar"><summary>過去の強い類似投稿 '+rows.length+'件</summary>'+
+    '<div class="trend-similar-list">'+rows.map(x=>
+      '<div class="trend-similar-row"><div><strong>'+esc(shortLabel(x))+'</strong>'+
+      '<span>表示 '+metricNumber(x.impressions).toLocaleString()+
+      (metricNumber(x.urlClicks)?' ・ CTR '+percentText(metricRate(x.urlClicks,x.impressions)):'')+
+      '</span></div>'+
+      (x.xUrl?'<a href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">X</a>':'')+
+      '</div>'
+    ).join("")+'</div></details>';
+}
+
 function trendPrompt(item){
   const char=trendCharacter((item.title||"")+" "+(item.summary||""));
+  const jp=Number(item.jpCount)||0;
+  const foreign=Number(item.foreignCount)||0;
   return [
     "Sanrio fan infoのX投稿案を作成してください。",
     "話題："+(item.title||""),
     item.url?("参考URL："+item.url):"",
     item.source?("情報源："+item.source):"",
     item.relatedCount>1?("同一話題の確認媒体数："+item.relatedCount):"",
+    (jp===0&&foreign>0)?"日本語ニュースではまだ薄い可能性がある先取り候補です。":"",
     char?("関連キャラ："+char):"",
     "条件：280字以内。事実確認できる内容だけ。最初の1〜2行で興味を引き、宣伝口調を避ける。必要ならAmazon・楽天へ自然につなげる。未確認情報は断定しない。"
   ].filter(Boolean).join("\n");
@@ -931,15 +995,18 @@ async function renderTrendRadar(force=false){
       const affinity=characterAffinity(history,char);
       const age=Math.round(trendAgeHours(x.publishedAt||x.firstSeenAt));
       const related=Math.max(1,Number(x.relatedCount)||1);
-      return '<article class="trend-item">'+
+      const opportunity=trendOpportunity(x,history);
+      return '<article class="trend-item '+opportunity.className+'">'+
         '<div class="trend-rank">'+(i+1)+'</div>'+
         '<div class="trend-main">'+
           '<div class="trend-meta">'+
+            '<span class="trend-opportunity '+opportunity.className+'">'+opportunity.label+'</span>'+
             (x.isNew?'<span class="trend-new">NEW 今日初検知</span>':'')+
             '<span>'+esc(trendSourceLabel(x))+'</span>'+
             (char?'<span>'+esc(char)+'</span>':'')+
             (age<240?'<span>'+age+'時間前</span>':'')+
             (related>1?'<span>関連 '+related+'媒体</span>':'')+
+            ((Number(x.jpCount)||0)===0&&(Number(x.foreignCount)||0)>0?'<span class="trend-ahead">日本語記事 0</span>':'')+
           '</div>'+
           '<h3>'+esc(x.title||"話題")+'</h3>'+
           (x.summary?'<p>'+esc(String(x.summary).slice(0,180))+'</p>':'')+
@@ -948,6 +1015,7 @@ async function renderTrendRadar(force=false){
             (x.comments?'<span>💬 '+Number(x.comments).toLocaleString()+'</span>':'')+
             (affinity?'<span>自分のCTR '+percentText(affinity)+'</span>':'')+
           '</div>'+
+          trendSimilarHtml(history,x)+
           '<div class="trend-actions">'+
             (x.url?'<a class="small-btn link-btn" href="'+esc(x.url)+'" target="_blank" rel="noopener">元情報</a>':'')+
             '<button class="small-btn" data-trend-action="prompt" data-trend-id="'+esc(String(x.id||i))+'">投稿プロンプト</button>'+
@@ -1612,7 +1680,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2710");
+  url.searchParams.set("v","20260922-2720");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
