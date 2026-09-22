@@ -8,8 +8,9 @@ const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
 const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
+const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api.php";
 const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.22-2500";
+const APP_VERSION="2026.09.22-2510";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -482,7 +483,7 @@ function rankingRows(items,metric){
 }
 
 function loadCloudSettings(){
-  const url=localStorage.getItem(CLOUD_API_URL_KEY)||"";
+  const url=localStorage.getItem(CLOUD_API_URL_KEY)||DEFAULT_CLOUD_API_URL;
   const key=localStorage.getItem(CLOUD_SYNC_KEY_KEY)||"";
   const urlEl=$("cloudApiUrl"),keyEl=$("cloudSyncKey");
   if(urlEl&&!urlEl.value)urlEl.value=url;
@@ -509,7 +510,7 @@ function renderCloudStatus(message,isError=false){
 }
 function cloudSettings(){
   return {
-    url:clean($("cloudApiUrl")?.value)||localStorage.getItem(CLOUD_API_URL_KEY)||"",
+    url:clean($("cloudApiUrl")?.value)||localStorage.getItem(CLOUD_API_URL_KEY)||DEFAULT_CLOUD_API_URL,
     key:clean($("cloudSyncKey")?.value)||localStorage.getItem(CLOUD_SYNC_KEY_KEY)||""
   };
 }
@@ -541,6 +542,7 @@ async function cloudPing(){
   renderCloudStatus("接続確認中…");
   try{
     const data=await cloudRequest("ping");
+    saveCloudSettings();
     renderCloudStatus("接続OK"+(data.serverTime?" ・ "+data.serverTime:""));
   }catch(e){renderCloudStatus("接続失敗："+e.message,true)}
 }
@@ -1308,7 +1310,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2500");
+  url.searchParams.set("v","20260922-2510");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
