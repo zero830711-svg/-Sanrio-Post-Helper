@@ -10,9 +10,9 @@ const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
 const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
-const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
+const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3110";
+const APP_VERSION="2026.09.23-3200";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -344,6 +344,44 @@ function isLowValueCandidate(x){return !!lowValueReason(x)}
 function isRecommendationEligible(x){
   return safeReuseItem(x)&&!isCandidateExcluded(x)&&!isLowValueCandidate(x);
 }
+function reuseTopicKey(x){
+  const t=(" "+String(x.title||"")+" "+String(x.text||"")+" ").toLowerCase();
+  const chars=[
+    ["キティ",/キティ|hello kitty/],
+    ["クロミ",/クロミ|kuromi/],
+    ["マイメロ",/マイメロ|my melody/],
+    ["シナモン",/シナモン|シナモロール|cinnamoroll/],
+    ["プリン",/ポムポムプリン|pompompurin/],
+    ["ポチャッコ",/ポチャッコ|pochacco/],
+    ["ぐでたま",/ぐでたま|gudetama/]
+  ];
+  const char=(chars.find(([,re])=>re.test(t))||["その他"])[0];
+  let theme="一般";
+  if(/コラボ|collab/.test(t))theme="コラボ";
+  else if(/海外|韓国|香港|中国|台湾|korea|hong kong/.test(t))theme="海外";
+  else if(/pop.?up|ポップアップ|店舗|ショップ/.test(t))theme="店舗";
+  else if(/新作|新商品|発売|登場|予約/.test(t))theme="新商品";
+  else if(/rt\s*@|リポスト/.test(t))theme="RT";
+  else if(/ガチャ|くじ|一番くじ/.test(t))theme="ガチャ";
+  return char+"|"+theme;
+}
+function isEvergreenPost(x){
+  const t=String(x.title||"")+" "+String(x.text||"");
+  if(isLikelyExpiredNews(x))return false;
+  return !/(本日|明日|今日から|予約開始|発売日|開催期間|期間限定|\d{1,2}月\d{1,2}日|\d{1,2}\/\d{1,2})/.test(t);
+}
+function diversityPenalty(x,recentTopics,pickedTopics){
+  const k=reuseTopicKey(x);
+  let p=0;
+  if(recentTopics.has(k))p+=120;
+  if(pickedTopics.has(k))p+=180;
+  const char=k.split("|")[0];
+  if(char!=="その他"){
+    if([...recentTopics].some(v=>v.startsWith(char+"|")))p+=40;
+    if([...pickedTopics].some(v=>v.startsWith(char+"|")))p+=70;
+  }
+  return p;
+}
 function isAnalyticsEligible(x){
   return metricNumber(x.impressions)>=1000&&!isCandidateExcluded(x)&&!isLowValueCandidate(x)&&!isLikelyExpiredNews(x);
 }
@@ -364,17 +402,23 @@ async function setCandidateExcluded(item,excluded){
 function todayMetricChips(x,role){
   const chips=[];
   const imp=metricNumber(x.impressions);
-  if(role==="拡散狙い"){
+  if(role==="過去最強"){
     if(imp)chips.push("表示 "+imp.toLocaleString());
-    if(metricNumber(x.reposts))chips.push("リポスト "+metricNumber(x.reposts).toLocaleString());
-    if(imp&&metricNumber(x.reposts))chips.push("拡散率 "+percentText(metricRate(x.reposts,x.impressions)));
+    if(metricNumber(x.likes))chips.push("♥ "+metricNumber(x.likes).toLocaleString());
+    if(metricNumber(x.bookmarks))chips.push("保存 "+metricNumber(x.bookmarks).toLocaleString());
   }else if(role==="クリック狙い"){
     if(metricNumber(x.urlClicks))chips.push("クリック "+metricNumber(x.urlClicks).toLocaleString());
     if(imp)chips.push("クリック率 "+percentText(metricRate(x.urlClicks,x.impressions)));
-  }else{
-    if(imp)chips.push("表示 "+imp.toLocaleString());
+  }else if(role==="保存狙い"){
     if(metricNumber(x.bookmarks))chips.push("保存 "+metricNumber(x.bookmarks).toLocaleString());
-    if(metricNumber(x.urlClicks))chips.push("クリック "+metricNumber(x.urlClicks).toLocaleString());
+    if(imp)chips.push("保存率 "+percentText(metricRate(x.bookmarks,x.impressions)));
+  }else if(role==="久しぶり"){
+    const age=Math.max(0,Math.floor((Date.now()-lastUseTime(x))/(24*60*60*1000)));
+    chips.push(age+"日空き");
+    if(isEvergreenPost(x))chips.push("長く使える");
+  }else{
+    chips.push("テーマ "+reuseTopicKey(x).replace("|"," / "));
+    if(imp)chips.push("表示 "+imp.toLocaleString());
   }
   return chips.map(v=>'<span>'+v+'</span>').join("");
 }
@@ -462,7 +506,8 @@ function recommendationReasons(x){
   if(saveRate>=0.005)reasons.push("保存率 "+percentText(saveRate));
   if(age>=60)reasons.push(age+"日空き");
   else if(age>=30)reasons.push("30日以上空き");
-  return reasons.slice(0,2);
+  if(isEvergreenPost(x))reasons.push("長く使える内容");
+  return reasons.slice(0,3);
 }
 
 function metricNumber(v){
@@ -552,7 +597,7 @@ async function pinCandidateForToday(item){
   const usedRoles=new Set(all.filter(x=>recommendedDay(x)===today&&isRecommendationEligible(x)).map(x=>x.recommendedRole).filter(Boolean));
   const role=TODAY_ROLES.find(r=>!usedRoles.has(r));
   if(!role){
-    alert("今日の3枠はすでに埋まっています。先に1件を見送るか再投稿済みにしてください。");
+    alert("今日の5枠はすでに埋まっています。先に1件を見送るか再投稿済みにしてください。");
     return false;
   }
   const current=all.find(x=>x.id===item.id)||item;
@@ -1553,14 +1598,26 @@ async function getReadyItems(){
 async function getRoleBasedPicks(){
   const pool=await getReadyItems();
   if(!pool.length)return [];
+  const all=await dbGetAll();
   const today=localDayKey();
   const picked=[];
   const used=new Set();
+  const recentCutoff=Date.now()-14*24*60*60*1000;
+  const recentTopics=new Set(
+    all.filter(x=>{
+      const t=new Date(x.lastRepostedAt||"").getTime();
+      return Number.isFinite(t)&&t>=recentCutoff;
+    }).map(reuseTopicKey)
+  );
+  const pickedTopics=new Set();
 
   const keep=(x,role)=>{
     if(!x||used.has(x.id))return;
-    picked.push({...x,_role:role});
+    const topic=reuseTopicKey(x);
+    const recentSame=recentTopics.has(topic);
+    picked.push({...x,_role:role,_topic:topic,_diverseReason:recentSame?"似たテーマを最近使用":"同テーマを最近使っていない"});
     used.add(x.id);
+    pickedTopics.add(topic);
   };
 
   const sameDay=pool.filter(x=>recommendedDay(x)===today);
@@ -1570,23 +1627,46 @@ async function getRoleBasedPicks(){
   }
 
   const remaining=()=>pool.filter(x=>!used.has(x.id));
+  const scored=(list,scoreFn)=>[...list].sort((a,b)=>
+    (scoreFn(b)-diversityPenalty(b,recentTopics,pickedTopics))-
+    (scoreFn(a)-diversityPenalty(a,recentTopics,pickedTopics))
+  );
+
   for(const role of TODAY_ROLES){
     if(picked.some(x=>x._role===role))continue;
     const candidates=remaining();
     let choice=null;
-    if(role==="拡散狙い"){
-      choice=[...candidates].filter(x=>metricNumber(x.impressions)>=1000).sort((a,b)=>spreadScore(b)-spreadScore(a))[0]||null;
+
+    if(role==="過去最強"){
+      choice=scored(
+        candidates.filter(x=>metricNumber(x.impressions)>=1000),
+        x=>evergreenScore(x)+Math.log10(metricNumber(x.impressions)+1)*35
+      )[0]||null;
     }else if(role==="クリック狙い"){
-      choice=[...candidates].filter(x=>metricNumber(x.impressions)>=1000&&metricNumber(x.urlClicks)>0).sort((a,b)=>clickScore(b)-clickScore(a))[0]||null;
-    }else{
-      choice=[...candidates].filter(x=>metricNumber(x.impressions)>=1000).sort((a,b)=>evergreenScore(b)-evergreenScore(a))[0]||null;
+      choice=scored(
+        candidates.filter(x=>metricNumber(x.impressions)>=1000&&metricNumber(x.urlClicks)>0),
+        clickScore
+      )[0]||null;
+    }else if(role==="保存狙い"){
+      choice=scored(
+        candidates.filter(x=>metricNumber(x.impressions)>=1000&&metricNumber(x.bookmarks)>0),
+        x=>Math.log10(metricNumber(x.bookmarks)+1)*55+metricRate(x.bookmarks,x.impressions)*450+Math.log10(metricNumber(x.impressions)+1)*8
+      )[0]||null;
+    }else if(role==="久しぶり"){
+      choice=scored(
+        candidates.filter(isEvergreenPost),
+        x=>Math.min(365,Math.max(0,(Date.now()-lastUseTime(x))/(24*60*60*1000)))*1.4+evergreenScore(x)*0.35
+      )[0]||null;
+    }else if(role==="別テーマ"){
+      const unusedTheme=candidates.filter(x=>!recentTopics.has(reuseTopicKey(x))&&!pickedTopics.has(reuseTopicKey(x)));
+      choice=scored(unusedTheme.length?unusedTheme:candidates,evergreenScore)[0]||null;
     }
-    if(!choice)choice=[...candidates].sort((a,b)=>evergreenScore(b)-evergreenScore(a))[0]||null;
+
+    if(!choice)choice=scored(candidates,evergreenScore)[0]||null;
     keep(choice,role);
   }
   return TODAY_ROLES.map(role=>picked.find(x=>x._role===role)).filter(Boolean);
 }
-
 async function stampRecommendations(items){
   const today=localDayKey();
   const updates=[];
@@ -1645,7 +1725,7 @@ async function renderToday(){
       (imgs[0]?'<img src="'+imgs[0]+'" alt="">':'<div class="today-rank">'+(i+1)+'</div>')+
       '<div class="today-main"><div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div><h3>'+esc(x.title)+'</h3>'+
       '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
-      '<div class="recommend-reason">選定理由：'+esc(recommendationReasons(x).join("・"))+'</div>'+
+      '<div class="recommend-reason">選定理由：'+esc([...recommendationReasons(x),x._diverseReason].filter(Boolean).join("・"))+'</div>'+
       '<p class="today-preview">'+esc(x.text)+'</p>'+
       '<div class="metric-chips">'+todayMetricChips(x,x._role)+'</div>'+
       '<div class="today-actions">'+
@@ -1905,7 +1985,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260923-3110");
+  url.searchParams.set("v","20260923-3200");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
