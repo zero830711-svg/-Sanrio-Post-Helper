@@ -10,7 +10,7 @@ const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api.php";
 const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.22-2520";
+const APP_VERSION="2026.09.22-2530";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -542,7 +542,7 @@ async function cloudPing(){
   try{
     const data=await cloudRequest("ping");
     saveCloudSettings();
-    renderCloudStatus("接続OK"+(data.serverTime?" ・ "+data.serverTime:""));
+    renderCloudStatus("接続OK"+(data.apiVersion?" ・ API "+data.apiVersion:"")+(data.serverTime?" ・ "+data.serverTime:""));
   }catch(e){renderCloudStatus("接続失敗："+e.message,true)}
 }
 async function cloudPushAll(){
@@ -552,9 +552,9 @@ async function cloudPushAll(){
     const chunkSize=25;
     for(let i=0;i<items.length;i+=chunkSize){
       const chunk=items.slice(i,i+chunkSize);
-      const form=new URLSearchParams();
-      form.set("payload",JSON.stringify({items:chunk}));
-      await cloudRequest("push",{method:"POST",body:form,headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"}});
+      const form=new FormData();
+      form.append("payload",JSON.stringify({items:chunk}));
+      await cloudRequest("push",{method:"POST",body:form});
       renderCloudStatus("保存中… "+Math.min(i+chunk.length,items.length)+" / "+items.length+"件");
     }
     const now=new Date().toISOString();
@@ -1311,7 +1311,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2520");
+  url.searchParams.set("v","20260922-2530");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
