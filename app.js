@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.22-2800";
+const APP_VERSION="2026.09.23-3000";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -96,6 +96,61 @@ function normalizedUrl(url){
   if(/^https?:\/\//i.test(v))return v;
   return "https://"+v;
 }
+function mediaArray(v){
+  return Array.isArray(v)?v.filter(x=>typeof x==="string"&&x):[];
+}
+function cloudMediaFirst(remote,local){
+  const all=[...mediaArray(remote),...mediaArray(local)];
+  return [...new Set(all)].sort((a,b)=>{
+    const ah=/^https?:\/\//i.test(a)?0:1,bh=/^https?:\/\//i.test(b)?0:1;
+    return ah-bh;
+  });
+}
+function archiveMediaApiUrl(){
+  const base=cloudSettings().url||DEFAULT_CLOUD_API_URL;
+  return base.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/archive-media-batch.php");
+}
+async function archiveMediaRequest(action="stats"){
+  const {key}=cloudSettings();
+  if(!key)throw new Error("同期キーを設定してください");
+  const u=new URL(archiveMediaApiUrl());u.searchParams.set("action",action);
+  const r=await fetch(u.toString(),{headers:{Authorization:"Bearer "+key},cache:"no-store"});
+  const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(e){throw new Error("アーカイブAPIの応答を読めません")}
+  if(!r.ok||d.ok===false)throw new Error(d.error||("HTTP "+r.status));
+  return d;
+}
+function byteText(n){
+  const v=Number(n)||0;if(v>=1024**3)return (v/1024**3).toFixed(1)+" GB";if(v>=1024**2)return (v/1024**2).toFixed(1)+" MB";if(v>=1024)return (v/1024).toFixed(1)+" KB";return v.toLocaleString()+" B";
+}
+async function renderArchiveCloudStatus(){
+  const root=$("archiveCloudStatus");if(!root)return;
+  const local=await dbGetAll();const localMedia=local.filter(x=>mediaArray(x.images).length||mediaArray(x.videos).length).length;
+  if(!cloudConfigured()){root.innerHTML='<span>端末 '+local.length.toLocaleString()+'投稿</span><strong>同期キー未設定</strong>';return}
+  root.textContent="ロリポップを確認中…";
+  try{
+    const d=await archiveMediaRequest("stats");
+    root.innerHTML=['<span>投稿DB '+Number(d.posts||0).toLocaleString()+'件</span>','<span>メディア付き '+Number(d.mediaPosts||0).toLocaleString()+'投稿</span>','<span>写真 '+Number(d.images||0).toLocaleString()+'枚</span>','<span>動画 '+Number(d.videos||0).toLocaleString()+'本</span>','<span>容量 '+byteText(d.bytes||0)+'</span>','<span>端末で表示可能 '+localMedia.toLocaleString()+'投稿</span>'].join("");
+  }catch(e){root.innerHTML='<strong>状態取得失敗：'+esc(e.message)+'</strong>'}
+}
+async function syncArchiveMediaLinks(options={}){
+  if(!cloudConfigured())return {ok:false,count:0};
+  const root=$("archiveCloudStatus");if(root&&!options.silent)root.textContent="画像リンクを照合中…";
+  try{
+    const d=await archiveMediaRequest("manifest"),rows=Array.isArray(d.items)?d.items:[],local=await dbGetAll();
+    const byPost=new Map(local.map(x=>[String(x.postId||""),x]).filter(([k])=>k)),grouped=new Map();
+    for(const r of rows){const id=String(r.postId||"");if(!id||!r.publicUrl)continue;if(!grouped.has(id))grouped.set(id,{images:[],videos:[]});const g=grouped.get(id);if(r.mediaType==="video")g.videos.push(r.publicUrl);else g.images.push(r.publicUrl)}
+    const updates=[];
+    for(const [postId,g] of grouped){const x=byPost.get(postId);if(!x)continue;const next={...x,images:cloudMediaFirst(g.images,x.images),videos:cloudMediaFirst(g.videos,x.videos)};if(JSON.stringify(next.images)!==JSON.stringify(mediaArray(x.images))||JSON.stringify(next.videos)!==JSON.stringify(mediaArray(x.videos)))updates.push(next)}
+    if(updates.length){await dbPutMany(updates);queueCloudSync(updates,[]);searchIndex=null;searchIndexSignature="";await renderArchive()}
+    localStorage.setItem("sanrioArchiveMediaManifestAt",new Date().toISOString());
+    if(root&&!options.silent)root.textContent="画像リンク修復完了："+updates.length+"投稿更新";
+    return {ok:true,count:updates.length,total:rows.length};
+  }catch(e){if(root&&!options.silent)root.innerHTML='<strong>修復失敗：'+esc(e.message)+'</strong>';return {ok:false,count:0,error:e}}
+}
+async function maybeSyncArchiveMediaLinks(){
+  if(!cloudConfigured())return;const t=new Date(localStorage.getItem("sanrioArchiveMediaManifestAt")||0).getTime();if(Number.isFinite(t)&&Date.now()-t<12*60*60*1000)return;await syncArchiveMediaLinks({silent:true});
+}
+
 
 function hasAmazonAffiliate(x){
   if(clean(x.amazon))return true;
@@ -761,9 +816,10 @@ async function cloudPullMerge(options={}){
         const newer=itemFreshnessTime(incoming)>itemFreshnessTime(current)?incoming:current;
         const older=newer===incoming?current:incoming;
         merged={...older,...newer,...mergedUsageHistory(current,incoming)};
-        merged.images=current.images||(current.image?[current.image]:[]);
+        merged.images=cloudMediaFirst(incoming.images,current.images||(current.image?[current.image]:[]));
+        merged.videos=cloudMediaFirst(incoming.videos,current.videos);
       }else{
-        merged={...incoming,images:[]};
+        merged={...incoming,images:mediaArray(incoming.images),videos:mediaArray(incoming.videos)};
       }
       pending.push(merged);
       byId.set(String(merged.id),merged);
@@ -1656,6 +1712,7 @@ async function renderArchive(){
     if(archiveFilter==="stale")return isLikelyExpiredNews(x);
     if(archiveFilter==="excluded")return isCandidateExcluded(x);
     if(archiveFilter==="autoexcluded")return isLowValueCandidate(x);
+    if(archiveFilter==="media")return mediaArray(x.images).length>0||mediaArray(x.videos).length>0;
     if(archiveFilter==="duplicate")return (keyCounts.get(canonicalPostKey(x))||0)>1;
     if(archiveFilter==="missingx")return !clean(x.xUrl);
     return true;
@@ -1670,14 +1727,15 @@ async function renderArchive(){
   const total=items.length;
   const visible=items.slice(0,archiveLimit);
   root.innerHTML='<div class="archive-count">'+visible.length+' / '+total+'件を表示</div>'+visible.map(x=>{
-    const imgs=x.images||(x.image?[x.image]:[]);
+    const imgs=mediaArray(x.images||(x.image?[x.image]:[]));
+    const vids=mediaArray(x.videos);
     return `<article class="archive-item">
       <div class="thumb-wrap">
-        ${imgs[0]?'<img class="archive-thumb" src="'+imgs[0]+'" alt="">':'<div class="archive-thumb"></div>'}
-        ${imgs.length>1?'<span class="image-count">'+imgs.length+'枚</span>':''}
+        ${imgs[0]?'<img class="archive-thumb" src="'+esc(imgs[0])+'" alt="" loading="lazy">':(vids.length?'<div class="archive-thumb archive-video-thumb">🎬</div>':'<div class="archive-thumb"></div>')}
+        ${(imgs.length||vids.length)?'<span class="image-count">'+(imgs.length?imgs.length+'枚':'')+(imgs.length&&vids.length?' / ':'')+(vids.length?vids.length+'動画':'')+'</span>':''}
       </div>
       <div class="archive-body">
-        <h3>${esc(x.title)}${x.source==="x-analytics"?'<span class="edited-badge">X分析</span>':''}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
+        <h3>${esc(x.title||shortLabel(x))}${x.source==="x-analytics"?'<span class="edited-badge">X分析</span>':''}${x.source==="x-archive"?'<span class="edited-badge">Xアーカイブ</span>':''}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
         <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}${isCandidateExcluded(x)?' ・ 候補から除外中':''}${isLowValueCandidate(x)?' ・ 自動除外：'+lowValueReason(x):''}</p>
         ${(x.impressions||x.likes||x.bookmarks)?'<div class="metric-chips">'+
           (x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+
@@ -1696,7 +1754,7 @@ async function renderArchive(){
             <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
             ${x.amazon?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.amazon))+'" target="_blank" rel="noopener">Amazon</a>':''}
             ${x.rakuten?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.rakuten))+'" target="_blank" rel="noopener">楽天</a>':''}
-            ${imgs.length?'<button class="small-btn" data-action="images" data-id="'+x.id+'">画像を見る</button>':''}
+            ${(imgs.length||vids.length)?'<button class="small-btn" data-action="media" data-id="'+x.id+'">メディアを見る</button>':''}
             <button class="small-btn" data-action="${isCandidateExcluded(x)?'restore':'exclude'}" data-id="${x.id}">${isCandidateExcluded(x)?'候補に戻す':'候補にしない'}</button>
             <button class="small-btn danger" data-action="delete" data-id="${x.id}">削除</button>
           </div>
@@ -1705,12 +1763,13 @@ async function renderArchive(){
     </article>`}).join("")+
     (visible.length<total?'<button class="load-more" data-action="more">さらに50件表示</button>':'');
 }
-function showImages(images){
-  $("modalImages").innerHTML=images.map(src=>'<img src="'+src+'" alt="保存画像">').join("");
-  $("modalCount").textContent=images.length+"枚";
-  $("imageModal").classList.remove("hidden");
-  document.body.style.overflow="hidden";
+function showMedia(images=[],videos=[]){
+  const imgs=mediaArray(images),vids=mediaArray(videos);
+  $("modalImages").innerHTML=imgs.map(src=>'<img src="'+esc(src)+'" alt="保存画像">').join("")+vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
+  $("modalCount").textContent=(imgs.length?imgs.length+"枚":"")+(imgs.length&&vids.length?" / ":"")+(vids.length?vids.length+"動画":"");
+  $("imageModal").classList.remove("hidden");document.body.style.overflow="hidden";
 }
+function showImages(images){showMedia(images,[])}
 function closeImages(){
   $("imageModal").classList.add("hidden");
   $("modalImages").innerHTML="";
@@ -1779,6 +1838,8 @@ $("mergeDuplicates")?.addEventListener("click",mergeAllDuplicates);
 $("cloudSaveSettings")?.addEventListener("click",saveCloudSettings);
 $("cloudTest")?.addEventListener("click",cloudPing);
 $("cloudPush")?.addEventListener("click",cloudPushAll);
+$("archiveCloudRefresh")?.addEventListener("click",renderArchiveCloudStatus);
+$("archiveMediaRepair")?.addEventListener("click",async()=>{await syncArchiveMediaLinks();await renderArchiveCloudStatus()});
 $("cloudPull")?.addEventListener("click",async()=>{
   if(!confirm("ロリポップ上の投稿データをこの端末へ統合します。端末の写真は保持します。よろしいですか？"))return;
   await cloudPullMerge();
@@ -1814,7 +1875,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2800");
+  url.searchParams.set("v","20260923-3000");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
@@ -2032,8 +2093,8 @@ $("archiveList").addEventListener("click",async e=>{
     await navigator.clipboard.writeText(item.text||"");
     btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿文コピー",1200);
   }
-  if(btn.dataset.action==="images"){
-    const imgs=item.images||(item.image?[item.image]:[]);showImages(imgs);
+  if(btn.dataset.action==="images"||btn.dataset.action==="media"){
+    const imgs=item.images||(item.image?[item.image]:[]);showMedia(imgs,item.videos||[]);
   }
   if(btn.dataset.action==="exclude"){
     await setCandidateExcluded(item,true);
@@ -2069,6 +2130,8 @@ $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))close
     try{await cloudPullMerge({silent:true,refresh:false})}catch(e){console.error("startup cloud pull",e)}
   }
   try{await reconcileUsageHistory()}catch(e){console.error("reconcileUsageHistory",e)}
+  try{await maybeSyncArchiveMediaLinks()}catch(e){console.error("archive media sync",e)}
+  try{await renderArchiveCloudStatus()}catch(e){console.error("archive cloud status",e)}
   try{await renderTrendRadar(false)}catch(e){console.error("renderTrendRadar",e)}
   try{await renderToday()}catch(e){
     console.error("renderToday",e);
