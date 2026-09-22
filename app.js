@@ -8,9 +8,9 @@ const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
 const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
-const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2560.php";
+const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.22-2570";
+const APP_VERSION="2026.09.22-2580";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -20,6 +20,11 @@ let undoState=null;
 let searchIndex=null;
 let searchIndexSignature="";
 const analyticsCharts={};
+let cloudSyncTimer=null;
+let cloudSyncBusy=false;
+let cloudApplyingRemote=false;
+const cloudDirtyIds=new Set();
+const cloudDeletedIds=new Set();
 
 function openDB(){
   return new Promise((resolve,reject)=>{
@@ -168,10 +173,13 @@ async function propagateUsageHistory(item){
   const matches=all.filter(x=>canonicalPostKey(x)===key);
   let history={...item};
   for(const x of matches)history={...history,...mergedUsageHistory(history,x)};
+  const updates=[];
   for(const x of matches){
     const merged={...x,...mergedUsageHistory(x,history)};
+    updates.push(merged);
     await dbPut(merged);
   }
+  if(updates.length)queueCloudSync(updates,[]);
 }
 async function reconcileUsageHistory(){
   const all=await dbGetAll();
@@ -189,6 +197,7 @@ async function reconcileUsageHistory(){
     for(const x of group)updates.push({...x,...mergedUsageHistory(x,history)});
   }
   await dbPutMany(updates);
+  queueCloudSync(updates,[]);
 }
 
 function lastUseTime(x){
@@ -341,6 +350,7 @@ async function applyReposted(item){
   const now=new Date().toISOString();
   const updated=records.map(x=>({...x,lastRepostedAt:now,repostCount:base}));
   await dbPutMany(updated);
+  queueCloudSync(updated,[]);
   showUndoToast(records);
 }
 async function undoLastRepost(){
@@ -350,6 +360,7 @@ async function undoLastRepost(){
   undoState=null;
   $("undoToast")?.classList.add("hidden");
   await dbPutMany(records);
+  queueCloudSync(records,[]);
   await renderToday();
   await renderRevenuePick();
   await renderRecentUsed();
@@ -412,7 +423,17 @@ async function renderDataFreshness(){
     const d=new Date(lastImport);
     if(Number.isFinite(d.getTime()))importChip='<span>CSV読込：'+esc(d.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}))+'</span>';
   }
-  root.innerHTML='<span>登録 '+items.length.toLocaleString()+'件</span><span>最新投稿：'+esc(f.label)+'</span>'+importChip+
+  let cloudChip="";
+  if(cloudConfigured()){
+    const pending=cloudPendingCount();
+    const last=localStorage.getItem(LAST_CLOUD_SYNC_KEY);
+    if(pending)cloudChip='<strong>☁ 未同期 '+pending+'件</strong>';
+    else if(last){
+      const d=new Date(last);
+      cloudChip='<span>☁ 同期済 '+esc(d.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}))+'</span>';
+    }else cloudChip='<span>☁ 同期設定済</span>';
+  }
+  root.innerHTML='<span>登録 '+items.length.toLocaleString()+'件</span><span>最新投稿：'+esc(f.label)+'</span>'+importChip+cloudChip+
     (f.age!==null&&f.age>=14?'<strong>⚠ 最新投稿 '+f.age+'日前</strong>':'');
 }
 
@@ -458,7 +479,9 @@ async function pinCandidateForToday(item){
     return false;
   }
   const current=all.find(x=>x.id===item.id)||item;
-  await dbPut({...current,recommendedAt:new Date().toISOString(),recommendedRole:role,skippedAt:""});
+  const updated={...current,recommendedAt:new Date().toISOString(),recommendedRole:role,skippedAt:""};
+  await dbPut(updated);
+  queueCloudSync([updated],[]);
   return true;
 }
 function rankingRows(items,metric){
@@ -484,8 +507,9 @@ function rankingRows(items,metric){
 
 function loadCloudSettings(){
   const saved=localStorage.getItem(CLOUD_API_URL_KEY)||"";
-  const oldApi=/\/api(?:2530|2540|2550)?\.php(?:$|\?)/.test(saved);
+  const oldApi=/\/api(?:2530|2540|2550|2560)?\.php(?:$|\?)/.test(saved);
   const url=oldApi?DEFAULT_CLOUD_API_URL:(saved||DEFAULT_CLOUD_API_URL);
+  if(oldApi)localStorage.setItem(CLOUD_API_URL_KEY,DEFAULT_CLOUD_API_URL);
   const key=localStorage.getItem(CLOUD_SYNC_KEY_KEY)||"";
   const urlEl=$("cloudApiUrl"),keyEl=$("cloudSyncKey");
   if(urlEl&&!urlEl.value)urlEl.value=url;
@@ -516,7 +540,7 @@ function cloudSettings(){
       const typed=clean($("cloudApiUrl")?.value);
       const saved=localStorage.getItem(CLOUD_API_URL_KEY)||"";
       const v=typed||saved||DEFAULT_CLOUD_API_URL;
-      return /\/api(?:2530|2540|2550)?\.php(?:$|\?)/.test(v)?DEFAULT_CLOUD_API_URL:v;
+      return /\/api(?:2530|2540|2550|2560)?\.php(?:$|\?)/.test(v)?DEFAULT_CLOUD_API_URL:v;
     })(),
     key:clean($("cloudSyncKey")?.value)||localStorage.getItem(CLOUD_SYNC_KEY_KEY)||""
   };
@@ -567,8 +591,103 @@ function cloudSafeItem(x){
   return copy;
 }
 function itemFreshnessTime(x){
-  const t=new Date(x.updatedAt||x.savedAt||x.postedAt||"").getTime();
-  return Number.isFinite(t)?t:0;
+  const fields=["updatedAt","lastRepostedAt","candidateExcludedChangedAt","skippedAt","revenueRecommendedAt","recommendedAt","savedAt","postedAt","deletedAt"];
+  let best=0;
+  for(const key of fields){
+    const t=new Date(x&&x[key]||"").getTime();
+    if(Number.isFinite(t)&&t>best)best=t;
+  }
+  return best;
+}
+function cloudConfigured(){
+  return !!clean(localStorage.getItem(CLOUD_SYNC_KEY_KEY)||"");
+}
+function cloudPendingCount(){
+  return cloudDirtyIds.size+cloudDeletedIds.size;
+}
+function markCloudStatusChip(){
+  renderDataFreshness().catch(()=>{});
+}
+function queueCloudSync(items=[],deletedIds=[]){
+  if(cloudApplyingRemote||!cloudConfigured())return;
+  for(const item of items){
+    if(item&&item.id){
+      cloudDeletedIds.delete(String(item.id));
+      cloudDirtyIds.add(String(item.id));
+    }
+  }
+  for(const id of deletedIds){
+    if(id){
+      cloudDirtyIds.delete(String(id));
+      cloudDeletedIds.add(String(id));
+    }
+  }
+  if(!cloudPendingCount())return;
+  renderCloudStatus("未同期 "+cloudPendingCount()+"件（まもなく自動保存）");
+  markCloudStatusChip();
+  if(cloudSyncTimer)clearTimeout(cloudSyncTimer);
+  cloudSyncTimer=setTimeout(()=>flushCloudChanges(),2500);
+}
+async function sendCloudItems(items,{progress=false}={}){
+  const safe=items.map(cloudSafeItem);
+  const chunkSize=10;
+  for(let i=0;i<safe.length;i+=chunkSize){
+    const chunk=safe.slice(i,i+chunkSize);
+    const form=new FormData();
+    const payload=JSON.stringify({items:chunk});
+    form.append("payload_b64",utf8ToBase64(payload));
+    await cloudRequest("push",{method:"POST",body:form});
+    if(progress)renderCloudStatus("保存中… "+Math.min(i+chunk.length,safe.length)+" / "+safe.length+"件");
+  }
+}
+async function sendCloudDeletes(ids){
+  if(!ids.length)return;
+  const chunkSize=50;
+  for(let i=0;i<ids.length;i+=chunkSize){
+    const chunk=ids.slice(i,i+chunkSize);
+    const form=new FormData();
+    const payload=JSON.stringify({ids:chunk,deletedAt:new Date().toISOString()});
+    form.append("payload_b64",utf8ToBase64(payload));
+    await cloudRequest("delete",{method:"POST",body:form});
+  }
+}
+async function flushCloudChanges(){
+  if(!cloudConfigured()||cloudApplyingRemote)return;
+  if(cloudSyncBusy){
+    if(cloudSyncTimer)clearTimeout(cloudSyncTimer);
+    cloudSyncTimer=setTimeout(()=>flushCloudChanges(),1800);
+    return;
+  }
+  const dirty=[...cloudDirtyIds];
+  const deleted=[...cloudDeletedIds];
+  if(!dirty.length&&!deleted.length)return;
+  dirty.forEach(id=>cloudDirtyIds.delete(id));
+  deleted.forEach(id=>cloudDeletedIds.delete(id));
+  cloudSyncBusy=true;
+  renderCloudStatus("自動同期中…");
+  try{
+    if(deleted.length)await sendCloudDeletes(deleted);
+    if(dirty.length){
+      const all=await dbGetAll();
+      const wanted=new Set(dirty);
+      const items=all.filter(x=>wanted.has(String(x.id)));
+      if(items.length)await sendCloudItems(items);
+    }
+    const now=new Date().toISOString();
+    localStorage.setItem(LAST_CLOUD_SYNC_KEY,now);
+    renderCloudStatus("自動同期済み："+new Date(now).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}));
+  }catch(e){
+    dirty.forEach(id=>cloudDirtyIds.add(id));
+    deleted.forEach(id=>cloudDeletedIds.add(id));
+    renderCloudStatus("自動同期失敗："+e.message,true);
+  }finally{
+    cloudSyncBusy=false;
+    markCloudStatusChip();
+    if(cloudPendingCount()){
+      if(cloudSyncTimer)clearTimeout(cloudSyncTimer);
+      cloudSyncTimer=setTimeout(()=>flushCloudChanges(),5000);
+    }
+  }
 }
 async function cloudPing(){
   renderCloudStatus("接続確認中…");
@@ -588,36 +707,46 @@ function utf8ToBase64(str){
   return btoa(binary);
 }
 async function cloudPushAll(){
-  renderCloudStatus("クラウドへ保存中…（文字データを安全化して送信）");
+  renderCloudStatus("クラウドへ保存中…");
   try{
-    const items=(await dbGetAll()).map(cloudSafeItem);
-    const chunkSize=10;
-    for(let i=0;i<items.length;i+=chunkSize){
-      const chunk=items.slice(i,i+chunkSize);
-      const form=new FormData();
-      const payload=JSON.stringify({items:chunk});
-      form.append("payload_b64",utf8ToBase64(payload));
-      form.append("payload",payload);
-      await cloudRequest("push",{method:"POST",body:form});
-      renderCloudStatus("保存中… "+Math.min(i+chunk.length,items.length)+" / "+items.length+"件");
-    }
+    const items=await dbGetAll();
+    await sendCloudItems(items,{progress:true});
+    cloudDirtyIds.clear();
+    cloudDeletedIds.clear();
     const now=new Date().toISOString();
     localStorage.setItem(LAST_CLOUD_SYNC_KEY,now);
     renderCloudStatus("クラウド保存完了："+items.length+"件");
+    markCloudStatusChip();
   }catch(e){renderCloudStatus("保存失敗："+e.message,true)}
 }
-async function cloudPullMerge(){
-  renderCloudStatus("クラウドから読込中…");
+async function cloudPullMerge(options={}){
+  const silent=!!options.silent;
+  const refresh=options.refresh!==false;
+  if(!cloudConfigured())return {ok:false,count:0};
+  if(!silent)renderCloudStatus("クラウドから読込中…");
+  cloudApplyingRemote=true;
+  const pushBack=[];
   try{
     const data=await cloudRequest("pull");
     const remote=Array.isArray(data.items)?data.items:[];
     const local=await dbGetAll();
-    const byId=new Map(local.map(x=>[x.id,x]));
+    const byId=new Map(local.map(x=>[String(x.id),x]));
     const byKey=new Map(local.map(x=>[canonicalPostKey(x),x]));
     const pending=[];
+    const deletes=[];
     for(const incomingRaw of remote){
       const incoming={...incomingRaw};
-      const current=byId.get(incoming.id)||byKey.get(canonicalPostKey(incoming));
+      const current=byId.get(String(incoming.id))||byKey.get(canonicalPostKey(incoming));
+      if(incoming._deleted){
+        const deletedT=itemFreshnessTime(incoming);
+        const localT=itemFreshnessTime(current);
+        if(!current||deletedT>=localT){
+          if(incoming.id)deletes.push(String(incoming.id));
+        }else if(current){
+          pushBack.push(current);
+        }
+        continue;
+      }
       let merged;
       if(current){
         const newer=itemFreshnessTime(incoming)>itemFreshnessTime(current)?incoming:current;
@@ -628,24 +757,36 @@ async function cloudPullMerge(){
         merged={...incoming,images:[]};
       }
       pending.push(merged);
-      byId.set(merged.id,merged);
+      byId.set(String(merged.id),merged);
       byKey.set(canonicalPostKey(merged),merged);
     }
     await dbPutMany(pending);
+    await dbDeleteMany(deletes);
     await reconcileUsageHistory();
     searchIndex=null;searchIndexSignature="";
     const now=new Date().toISOString();
     localStorage.setItem(LAST_CLOUD_SYNC_KEY,now);
-    await renderToday();
-    await renderRevenuePick();
-    await renderRecentUsed();
-    await renderTodayProgress();
-    await renderDataFreshness();
-    await renderDataHealth();
-    await renderAnalytics();
-    await renderArchive();
-    renderCloudStatus("統合完了："+remote.length+"件");
-  }catch(e){renderCloudStatus("読込失敗："+e.message,true)}
+    if(refresh){
+      await renderToday();
+      await renderRevenuePick();
+      await renderRecentUsed();
+      await renderTodayProgress();
+      await renderDataFreshness();
+      await renderDataHealth();
+      await renderAnalytics();
+      await renderArchive();
+    }
+    if(!silent)renderCloudStatus("統合完了："+remote.filter(x=>!x._deleted).length+"件"+(deletes.length?" / 削除反映 "+deletes.length+"件":""));
+    return {ok:true,count:remote.length,deletes};
+  }catch(e){
+    if(!silent)renderCloudStatus("読込失敗："+e.message,true);
+    else console.error("auto cloud pull",e);
+    return {ok:false,count:0,error:e};
+  }finally{
+    cloudApplyingRemote=false;
+    if(pushBack.length)queueCloudSync(pushBack,[]);
+    markCloudStatusChip();
+  }
 }
 
 function backupAgeDays(){
@@ -723,6 +864,7 @@ async function mergeAllDuplicates(){
   }
   await dbPutMany(puts);
   await dbDeleteMany(deletes);
+  queueCloudSync(puts,deletes);
   searchIndex=null;searchIndexSignature="";
   await renderArchive();
   await renderToday();
@@ -894,7 +1036,7 @@ async function importAnalyticsCSV(file){
     byPostKey.set("post:"+postId,item);
   }
   await dbPutMany(pending);
-  return {added,updated,total:added+updated};
+  return {added,updated,total:added+updated,items:pending};
 }
 
 async function getReadyItems(){
@@ -955,6 +1097,7 @@ async function stampRecommendations(items){
     updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"総合おすすめ"});
   }
   await dbPutMany(updates);
+  if(updates.length)queueCloudSync(updates,[]);
 }
 
 function revenueScore(x){
@@ -1235,6 +1378,7 @@ $("importAnalyticsCsv").addEventListener("change",async e=>{
     const result=await importAnalyticsCSV(file);
     localStorage.setItem(LAST_ANALYTICS_IMPORT_KEY,new Date().toISOString());
     status.textContent=result.total+"件を処理しました（新規 "+result.added+"件 / 更新 "+result.updated+"件）";
+    queueCloudSync(result.items||[],[]);
     await renderArchive();
     await renderToday();
     await renderRevenuePick();
@@ -1302,6 +1446,7 @@ $("saveArchive").addEventListener("click",async()=>{
   }
 
   await dbPut(item);
+  queueCloudSync([item],[]);
   const wasEdit=!!editingId;
   resetArchiveForm();
   await renderArchive();
@@ -1355,7 +1500,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2570");
+  url.searchParams.set("v","20260922-2580");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
@@ -1441,6 +1586,7 @@ $("todayList").addEventListener("click",async e=>{
   if(btn.dataset.todayAction==="skip"){
     item.skippedAt=new Date().toISOString();
     await dbPut(item);
+    queueCloudSync([item],[]);
     await propagateUsageHistory(item);
     await renderToday();
     await renderRevenuePick();
@@ -1529,6 +1675,7 @@ $("importBackup").addEventListener("change",async e=>{
       byKey.set(canonicalPostKey(merged),merged);
     }
     await dbPutMany(pending);
+    queueCloudSync(pending,[]);
     await reconcileUsageHistory();
     await renderArchive();
     await renderToday();
@@ -1587,7 +1734,9 @@ $("archiveList").addEventListener("click",async e=>{
   }
   if(btn.dataset.action==="delete"){
     if(!confirm("この保存データを削除しますか？"))return;
-    await dbDelete(item.id);await renderArchive();await renderDataHealth();
+    await dbDelete(item.id);
+    queueCloudSync([],[item.id]);
+    await renderArchive();await renderDataHealth();
   }
 });
 
@@ -1600,6 +1749,10 @@ $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))close
   loadCloudSettings();
   renderCloudStatus();
   try{await migrateLegacy()}catch(e){console.error("migrateLegacy",e)}
+  if(cloudConfigured()){
+    renderCloudStatus("起動時にクラウド確認中…");
+    try{await cloudPullMerge({silent:true,refresh:false})}catch(e){console.error("startup cloud pull",e)}
+  }
   try{await reconcileUsageHistory()}catch(e){console.error("reconcileUsageHistory",e)}
   try{await renderToday()}catch(e){
     console.error("renderToday",e);
@@ -1616,4 +1769,8 @@ $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))close
   try{await renderDataHealth()}catch(e){console.error("renderDataHealth",e)}
   try{await renderAnalytics()}catch(e){console.error("renderAnalytics",e)}
   try{await renderArchive()}catch(e){console.error("renderArchive",e)}
+  if(cloudConfigured()){
+    const last=localStorage.getItem(LAST_CLOUD_SYNC_KEY);
+    if(last)renderCloudStatus("自動同期済み："+new Date(last).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}));
+  }
 })();
