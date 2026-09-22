@@ -4,204 +4,94 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Xアーカイブ取り込み 3060</title>
+<title>Xアーカイブ画像URL再同期 3090</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
 .card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
-button,label{display:inline-block;padding:.7rem 1rem;border-radius:10px;border:1px solid #d6bfd0;background:#fff;cursor:pointer;margin:.25rem}
-button.primary{background:#e85d9e;color:#fff;border:0}
-button:disabled{opacity:.45;cursor:not-allowed}
-input[type=text],input[type=password]{width:95%;padding:.55rem}
-progress{width:100%}
-#log{white-space:pre-wrap;background:#271f29;color:#f5e9f2;padding:1rem;border-radius:10px;min-height:8rem;max-height:260px;overflow:auto}
-.muted{color:#756775}.build{font-size:.85rem;color:#8a7484;font-weight:700}
-#s,#plan{margin:.5rem 0}.err{color:#a34242}
+button{padding:.8rem 1.1rem;border-radius:10px;border:1px solid #d6bfd0;background:#fff;cursor:pointer}
+.primary{background:#e85d9e;color:#fff;border:0;font-weight:700}
+button:disabled{opacity:.5}
+input{width:95%;padding:.6rem}
+label{display:block;margin:.7rem 0}
+progress{width:100%;margin:1rem 0}
+#log{white-space:pre-wrap;background:#271f29;color:#fff;padding:1rem;border-radius:10px;min-height:9rem;max-height:330px;overflow:auto}
+.muted{color:#756775}.build{font-size:.85rem;font-weight:700;color:#8a7484}
 </style>
 </head>
 <body>
 <main>
-<h1>Xアーカイブ取り込み</h1>
-<p class="build">BUILD 3080</p>
-<p class="muted">解凍済みXアーカイブから投稿・写真・動画を再照合します。既存投稿は消しません。</p>
-
+<h1>Xアーカイブ画像URL再同期</h1>
+<p class="build">BUILD 3090</p>
+<p class="muted">写真・動画そのものは再アップロードしません。前回取り込み済みのPCブラウザ内データから、画像URLだけをロリポップへ再送します。</p>
 <section class="card">
-<p><strong>先にこれを試してください：画像URLだけ再同期</strong></p>
-<p class="muted">写真・動画ファイルは再アップロードしません。ロリポップに保存済みのメディア台帳を読み、PC内の2,810件へ画像URLだけ付け直してクラウドへ送ります。</p>
-<button id="linksOnly" class="primary" type="button">画像URLだけ再同期</button>
-<div id="linkPlan" class="muted"></div>
+<button id="run" class="primary" type="button">画像URLだけ再同期</button>
+<p id="status" class="muted">前回取り込みを行った同じPC・同じChromeで実行してください。</p>
 </section>
-
 <section class="card">
-<p><strong>① 解凍したXアーカイブの一番上のフォルダを選択</strong></p>
-<button id="pickdir" class="primary" type="button">フォルダ選択 → 自動解析</button>
-<label>予備：従来方式<input id="fallback" type="file" webkitdirectory multiple hidden></label>
-<div id="s">未選択</div>
-<div id="plan" class="muted"></div>
-<button id="run" type="button" disabled>取り込み開始</button>
+<label>API URL<input id="api" value="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/archive-media-batch.php"></label>
+<label>同期キー<input id="key" type="password"></label>
 </section>
-
-<section class="card">
-<label>API URL<br><input id="api" type="text" value="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/archive-media-batch.php"></label>
-<label>同期キー<br><input id="key" type="password"></label>
-</section>
-
 <progress id="bar" value="0" max="1"></progress>
-<div id="log">BUILD 3080 準備完了。\n</div>
+<pre id="log">BUILD 3090 準備完了。</pre>
 </main>
-
 <script>
-(()=>{"use strict";
-const $=id=>document.getElementById(id),log=$("log");
-const say=s=>{log.textContent+=s+"\n";log.scrollTop=log.scrollHeight};
-const rel=f=>(f.webkitRelativePath||f._relativePath||f.name||"").replace(/\\/g,"/");
-let files=[],tweets=[],media=[],plan={};
-const KEY="sanrioCloudSyncKey";$("key").value=localStorage.getItem(KEY)||"";
-
-async function readDir(handle,prefix=""){
-  const out=[];
-  for await(const [name,entry] of handle.entries()){
-    const p=prefix?prefix+"/"+name:name;
-    if(entry.kind==="file"){
-      const file=await entry.getFile();
-      try{Object.defineProperty(file,"_relativePath",{value:p,configurable:true})}catch(e){}
-      out.push(file);
-    }else if(entry.kind==="directory"){
-      out.push(...await readDir(entry,p));
+(function(){
+"use strict";
+var run=document.getElementById("run");
+var status=document.getElementById("status");
+var api=document.getElementById("api");
+var key=document.getElementById("key");
+var bar=document.getElementById("bar");
+var log=document.getElementById("log");
+var KEY="sanrioCloudSyncKey";
+key.value=localStorage.getItem(KEY)||"";
+function say(s){log.textContent+="\n"+s;log.scrollTop=log.scrollHeight}
+function openDb(){return new Promise(function(resolve,reject){var q=indexedDB.open("sanrioPostHelperDB",1);q.onsuccess=function(){resolve(q.result)};q.onerror=function(){reject(q.error)}})}
+async function getAll(){var db=await openDb();return new Promise(function(resolve,reject){var q=db.transaction("popularPosts").objectStore("popularPosts").getAll();q.onsuccess=function(){resolve(q.result||[])};q.onerror=function(){reject(q.error)}})}
+function urlList(v){if(!Array.isArray(v))return [];var out=[];for(var i=0;i<v.length;i++){var x=v[i];if(typeof x==="string"&&(x.indexOf("https://")===0||x.indexOf("http://")===0)&&out.indexOf(x)<0)out.push(x)}return out}
+function toB64(obj){var bytes=new TextEncoder().encode(JSON.stringify(obj));var binary="";for(var i=0;i<bytes.length;i+=32768){binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+32768))}return btoa(binary)}
+async function sendChunk(url,token,items){
+  var fd=new FormData();fd.append("payload_b64",toB64({items:items}));
+  var r=await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+token},body:fd,cache:"no-store"});
+  if(r.ok)return {ok:items.length,failed:[]};
+  var body=await r.text();
+  if(items.length===1)return {ok:0,failed:[{id:items[0].postId||items[0].id,status:r.status,body:body.substring(0,120)}]};
+  var mid=Math.ceil(items.length/2);
+  var a=await sendChunk(url,token,items.slice(0,mid));
+  var b=await sendChunk(url,token,items.slice(mid));
+  return {ok:a.ok+b.ok,failed:a.failed.concat(b.failed)}
+}
+run.onclick=async function(){
+  run.disabled=true;status.textContent="PC内の画像URLを確認中…";
+  try{
+    var token=key.value.trim();if(!token)throw new Error("同期キーが空です");
+    localStorage.setItem(KEY,token);
+    var local=await getAll();
+    var posts=[];
+    for(var i=0;i<local.length;i++){
+      var x=local[i],images=urlList(x.images),videos=urlList(x.videos);
+      if(images.length||videos.length)posts.push(Object.assign({},x,{images:images,videos:videos}));
     }
-  }
-  return out;
-}
-function parseTweetJs(text){
-  const m=text.match(/=\s*(\[[\s\S]*\])\s*;?\s*$/);
-  if(!m)return [];
-  return JSON.parse(m[1]);
-}
-function mediaPostId(f){
-  let m=rel(f).match(/tweets_media\/(\d+)-/i);
-  if(!m)m=f.name.match(/^(\d+)-/);
-  return m?m[1]:"";
-}
-const isMedia=f=>/\.(jpe?g|png|gif|mp4|mov|webm)$/i.test(f.name);
-
-const db=()=>new Promise((res,rej)=>{const q=indexedDB.open("sanrioPostHelperDB",1);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)});
-const all=()=>db().then(d=>new Promise((res,rej)=>{const q=d.transaction("popularPosts").objectStore("popularPosts").getAll();q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)}));
-const put=x=>db().then(d=>new Promise((res,rej)=>{const t=d.transaction("popularPosts","readwrite");t.objectStore("popularPosts").put(x);t.oncomplete=res;t.onerror=()=>rej(t.error)}));
-
-async function analyze(list,label){
-  try{
-    files=[...list];$("s").textContent=files.length+"ファイル読込中（"+label+"）";say("フォルダ読込："+files.length+"ファイル");
-    const tweetFile=files.find(f=>/data\/tweets\.js$/i.test(rel(f))||/^tweets\.js$/i.test(f.name));
-    if(!tweetFile){$("s").textContent="tweets.js が見つかりません";say("エラー：data/tweets.js が見つかりません");return}
-    say("tweets.js 発見："+rel(tweetFile));
-    tweets=parseTweetJs(await tweetFile.text());
-    media=files.filter(isMedia).filter(f=>mediaPostId(f));
-    const old=await all(),ids=new Set(old.map(v=>String(v.postId||"")));
-    let same=0,newCount=0;
-    for(const w of tweets){const id=String((w.tweet||w).id||"");if(!id)continue;ids.has(id)?same++:newCount++}
-    const imgs=media.filter(f=>/\.(jpe?g|png|gif)$/i.test(f.name)).length,vids=media.length-imgs;
-    plan={same,newCount,imgs,vids};
-    $("s").textContent="投稿 "+tweets.length+"件 / 写真 "+imgs+"枚 / 動画 "+vids+"本";
-    $("plan").textContent="既存一致 "+same+"件 / 新規 "+newCount+"件";
-    $("run").disabled=!tweets.length;
-    say("自動解析完了");
-  }catch(e){say("解析エラー："+(e?.message||e));$("s").textContent="解析失敗"}
-}
-
-function b64Json(obj){
-  const json=JSON.stringify(obj);
-  const bytes=new TextEncoder().encode(json);
-  let binary="";
-  for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
-  return btoa(binary);
-}
-async function pushTiny(u,chunk){
-  const fd=new FormData();fd.append("payload_b64",b64Json({items:chunk}));
-  const q=await fetch(u,{method:"POST",headers:{Authorization:"Bearer "+$("key").value},body:fd});
-  if(q.ok)return {ok:chunk.length,failed:[]};
-  if(chunk.length===1){const body=await q.text();return {ok:0,failed:[{id:chunk[0].postId||chunk[0].id,status:q.status,body:body.slice(0,120)}]}}
-  const mid=Math.ceil(chunk.length/2),a=await pushTiny(u,chunk.slice(0,mid)),b=await pushTiny(u,chunk.slice(mid));
-  return {ok:a.ok+b.ok,failed:[...a.failed,...b.failed]};
-}
-$("linksOnly").onclick=async()=>{
-  $("linksOnly").disabled=true;$("linkPlan").textContent="ロリポップのメディア台帳を確認中…";say("画像URLだけ再同期：開始");
-  try{
-    const mediaUrl=$("api").value,apiUrl=mediaUrl.replace(/archive-media-batch\.php(?:\?.*)?$/,"api2580.php?action=push");
-    const key=$("key").value;localStorage.setItem(KEY,key);
-    const mr=await fetch(mediaUrl+"?action=manifest",{headers:{Authorization:"Bearer "+key},cache:"no-store"});
-    if(!mr.ok)throw Error("manifest HTTP "+mr.status);
-    const md=await mr.json(),rows=Array.isArray(md.items)?md.items:[];
-    say("メディア台帳 "+rows.length+"件");
-    const grouped=new Map();
-    for(const r of rows){const id=String(r.postId||"");if(!id||!r.publicUrl)continue;if(!grouped.has(id))grouped.set(id,{images:[],videos:[]});const g=grouped.get(id);(r.mediaType==="video"?g.videos:g.images).push(r.publicUrl)}
-    const local=await all(),byPost=new Map(local.map(x=>[String(x.postId||""),x]).filter(([id])=>id));
-    let matched=0;const updates=[];
-    for(const [id,g] of grouped){
-      const x=byPost.get(id);if(!x)continue;matched++;
-      const uniq=v=>[...new Set((Array.isArray(v)?v:[]).filter(Boolean))];
-      const images=uniq([...(g.images||[]),...(x.images||[])]);
-      const videos=uniq([...(g.videos||[]),...(x.videos||[])]);
-      const next={...x,images,videos,updatedAt:new Date().toISOString()};
-      await put(next);updates.push(next);
+    var urlCount=0;for(var j=0;j<posts.length;j++)urlCount+=posts[j].images.length+posts[j].videos.length;
+    say("PC内投稿 "+local.length+"件");
+    say("メディア付き "+posts.length+"投稿 / URL "+urlCount+"件");
+    if(!posts.length)throw new Error("このChromeの端末DBに画像URLがありません");
+    var pushUrl=api.value.replace("archive-media-batch.php","api2580.php?action=push");
+    var ok=0,failed=[];
+    for(var p=0;p<posts.length;p+=5){
+      var part=posts.slice(p,p+5);
+      var rr=await sendChunk(pushUrl,token,part);
+      ok+=rr.ok;failed=failed.concat(rr.failed);
+      bar.value=Math.min(1,(p+part.length)/posts.length);
+      if(p===0||p+part.length>=posts.length||((p+part.length)%100)<5)say("URL同期 "+Math.min(p+part.length,posts.length)+"/"+posts.length);
     }
-    $("linkPlan").textContent="台帳 "+rows.length+"件 / PC投稿と一致 "+matched+"件 / 同期対象 "+updates.length+"件";
-    say("PC投稿と一致 "+matched+"件。クラウドへ画像URLだけ送信…");
-    let ok=0,failed=[];
-    for(let i=0;i<updates.length;i+=5){
-      const r=await pushTiny(apiUrl,updates.slice(i,i+5));ok+=r.ok;failed.push(...r.failed);
-      $("bar").value=(i+5)/Math.max(1,updates.length);
-      if((i%50)===0||i+5>=updates.length)say("URL同期 "+Math.min(i+5,updates.length)+"/"+updates.length);
-    }
-    say("画像URL再同期完了：成功 "+ok+"件 / 失敗 "+failed.length+"件");
-    if(failed.length){say("失敗post ID："+failed.slice(0,20).map(x=>x.id+"("+x.status+")").join(", "))}
-    $("linkPlan").textContent="完了：成功 "+ok+"件 / 失敗 "+failed.length+"件。iPhoneで「クラウドから統合」を押してください。";
-  }catch(e){say("画像URL再同期エラー："+(e?.message||e));$("linkPlan").textContent="失敗："+(e?.message||e)}
-  finally{$("linksOnly").disabled=false}
-};
-
-$("pickdir").onclick=async()=>{
-  say("フォルダ選択開始…");
-  if(!window.showDirectoryPicker){say("このChromeでは新方式が使えません。予備：従来方式を使ってください。");return}
-  try{
-    const dir=await window.showDirectoryPicker({mode:"read"});
-    $("s").textContent="フォルダを読み込み中…";
-    const list=await readDir(dir,dir.name);
-    await analyze(list,"Chrome");
-  }catch(e){if(e?.name==="AbortError")say("選択をキャンセル");else say("フォルダ読込失敗："+(e?.message||e))}
-};
-$("fallback").onchange=()=>analyze($("fallback").files,"従来方式");
-
-function merge(o,t,id){return {...o,id:o.id||"xarchive-"+id,postId:id,xUrl:"https://x.com/i/web/status/"+id,text:t.full_text||t.text||o.text||"",postedAt:t.created_at||o.postedAt||"",source:o.source==="x-analytics"?"x-analytics":"x-archive",updatedAt:new Date().toISOString()}}
-async function sendMedia(c){
-  const fd=new FormData();c.forEach(x=>{fd.append("post_ids[]",x.id);fd.append("media[]",x.f,x.f.name)});
-  const q=await fetch($("api").value,{method:"POST",headers:{Authorization:"Bearer "+$("key").value},body:fd});
-  if(!q.ok)throw Error("media HTTP "+q.status);return q.json();
-}
-async function pushPosts(items){
-  const u=$("api").value.replace(/archive-media-batch\.php(?:\?.*)?$/,"api2580.php?action=push");
-  for(let i=0;i<items.length;i+=100){
-    const q=await fetch(u,{method:"POST",headers:{Authorization:"Bearer "+$("key").value,"Content-Type":"application/json"},body:JSON.stringify({items:items.slice(i,i+100)})});
-    if(!q.ok)throw Error("post sync HTTP "+q.status);
-    say("投稿同期 "+Math.min(i+100,items.length)+"/"+items.length);
-  }
-}
-$("run").onclick=async()=>{
-  $("run").disabled=true;localStorage.setItem(KEY,$("key").value);say("取り込み開始…");
-  try{
-    const old=await all(),by=new Map(old.map(x=>[String(x.postId||x.id),x]));
-    for(const w of tweets){const t=w.tweet||w,id=String(t.id||"");if(!id)continue;const x=merge(by.get(id)||{},t,id);await put(x);by.set(id,x)}
-    say("投稿データ "+tweets.length+"件を端末DBへ統合");
-    const jobs=media.map(f=>({f,id:mediaPostId(f)})).filter(x=>x.id),chunks=[];for(let i=0;i<jobs.length;i+=20)chunks.push(jobs.slice(i,i+20));
-    const doneKey="xArchiveBatchDoneV6",done=new Set(JSON.parse(localStorage.getItem(doneKey)||"[]"));const pending=chunks.map((c,i)=>({c,i})).filter(x=>!done.has(x.i));
-    say("メディア対象 "+jobs.length+"件 / 未処理 "+pending.length+"バッチ");
-    let next=0,ok=0,fail=0;
-    async function worker(){while(true){const n=next++;if(n>=pending.length)return;const {c,i}=pending[n];try{const z=await sendMedia(c);for(const r of z.results||[]){if(!r.ok||!r.publicUrl)continue;const j=c[r.index],item=by.get(j.id);if(!item)continue;const k=/\.(mp4|mov|webm)$/i.test(j.f.name)?"videos":"images",list=Array.isArray(item[k])?item[k]:[];if(!list.includes(r.publicUrl)){item[k]=[...list,r.publicUrl];await put(item);by.set(j.id,item)}}done.add(i);localStorage.setItem(doneKey,JSON.stringify([...done]));ok+=c.length;$("bar").value=(ok+fail)/Math.max(1,jobs.length);say("メディア "+Math.min(ok,jobs.length)+"/"+jobs.length)}catch(e){fail+=c.length;say("失敗バッチ "+(i+1)+"："+e.message)}}}
-    await Promise.all([worker(),worker(),worker()]);
-    say("メディア完了 成功 "+ok+" / 失敗 "+fail);
-    const ids=new Set(tweets.map(w=>String((w.tweet||w).id||""))),final=[...by.values()].filter(x=>ids.has(String(x.postId||"")));
-    try{await pushPosts(final);say("投稿＋メディアURLをクラウド同期完了")}catch(e){say("投稿同期失敗："+e.message)}
-    say("完了：既存 "+plan.same+" / 新規 "+plan.newCount+" / 写真 "+plan.imgs+" / 動画 "+plan.vids);
-  }catch(e){say("取り込みエラー："+(e?.message||e))}
-  $("run").disabled=false;
+    say("完了：成功 "+ok+"件 / 失敗 "+failed.length+"件");
+    if(failed.length)say("失敗例 "+failed.slice(0,10).map(function(x){return String(x.id)+" HTTP"+x.status}).join(", "));
+    status.textContent="完了：成功 "+ok+"件 / 失敗 "+failed.length+"件。iPhoneで「クラウドから統合」を押してください。";
+  }catch(e){
+    say("エラー："+(e&&e.message?e.message:String(e)));
+    status.textContent="失敗："+(e&&e.message?e.message:String(e));
+  }finally{run.disabled=false}
 };
 })();
 </script>
