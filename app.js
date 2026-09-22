@@ -8,10 +8,10 @@ const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
 const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
-const TREND_CACHE_KEY="sanrioTrendRadarCacheV1";
+const TREND_CACHE_KEY="sanrioTrendRadarCacheV2";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
-const APP_VERSION="2026.09.22-2700";
+const APP_VERSION="2026.09.22-2710";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -799,7 +799,7 @@ async function cloudPullMerge(options={}){
 
 function trendApiUrl(){
   const base=cloudSettings().url||DEFAULT_CLOUD_API_URL;
-  return base.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/trend2700.php");
+  return base.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/trend2710.php");
 }
 async function trendRequest(force=false){
   const {key}=cloudSettings();
@@ -851,16 +851,26 @@ function trendAgeHours(date){
   const t=new Date(date||"").getTime();
   return Number.isFinite(t)?Math.max(0,(Date.now()-t)/(60*60*1000)):9999;
 }
+function trendUsefulnessBonus(item){
+  const t=((item.title||"")+" "+(item.summary||"")).toLowerCase();
+  let bonus=0;
+  if(/collab|collaboration|コラボ|新作|new collection|plush|ぬい|goods|グッズ|限定|limited|pop.?up|ポップアップ|発売|release|再販|restock|キャンペーン|campaign/.test(t))bonus+=24;
+  if(/game|rhythm|mobile game|ゲーム|決算|earnings|financial|corporate|人事|株主/.test(t))bonus-=16;
+  return bonus;
+}
 function trendLocalScore(item,history){
-  const age=trendAgeHours(item.publishedAt);
-  const freshness=Math.max(0,60-Math.min(age,120)*0.5);
+  const age=trendAgeHours(item.publishedAt||item.firstSeenAt);
+  const freshness=Math.max(0,72-Math.min(age,144)*0.75);
   const social=Math.min(35,Math.log10((Number(item.votes)||0)+(Number(item.comments)||0)*3+1)*11);
-  const sourceBonus=item.sourceType==="official"?24:item.sourceType==="reddit"?12:8;
+  const sourceBonus=item.sourceType==="official"?28:item.region==="JP"?18:item.sourceType==="reddit"?10:12;
   const char=trendCharacter((item.title||"")+" "+(item.summary||""));
   const affinity=characterAffinity(history,char);
-  const affinityBonus=Math.min(35,affinity*700);
-  return freshness+social+sourceBonus+affinityBonus;
+  const affinityBonus=Math.min(32,affinity*650);
+  const corroboration=Math.min(20,Math.max(0,(Number(item.relatedCount)||1)-1)*6);
+  const newBonus=item.isNew?14:0;
+  return freshness+social+sourceBonus+affinityBonus+corroboration+newBonus+trendUsefulnessBonus(item);
 }
+
 function trendPrompt(item){
   const char=trendCharacter((item.title||"")+" "+(item.summary||""));
   return [
@@ -868,6 +878,7 @@ function trendPrompt(item){
     "話題："+(item.title||""),
     item.url?("参考URL："+item.url):"",
     item.source?("情報源："+item.source):"",
+    item.relatedCount>1?("同一話題の確認媒体数："+item.relatedCount):"",
     char?("関連キャラ："+char):"",
     "条件：280字以内。事実確認できる内容だけ。最初の1〜2行で興味を引き、宣伝口調を避ける。必要ならAmazon・楽天へ自然につなげる。未確認情報は断定しない。"
   ].filter(Boolean).join("\n");
@@ -875,7 +886,7 @@ function trendPrompt(item){
 function trendSourceLabel(item){
   if(item.sourceType==="official")return "公式";
   if(item.sourceType==="reddit")return "Reddit";
-  return item.region==="JP"?"国内ニュース":item.region==="KR"?"韓国":"海外ニュース";
+  return item.region==="JP"?"国内ニュース":item.region==="KR"?"韓国ニュース":"海外ニュース";
 }
 async function renderTrendRadar(force=false){
   const root=$("trendList"),status=$("trendStatus");
@@ -904,9 +915,13 @@ async function renderTrendRadar(force=false){
     const history=await dbGetAll();
     const rows=(Array.isArray(data.items)?data.items:[])
       .map(x=>({...x,_localScore:trendLocalScore(x,history)}))
+      .filter(x=>{
+        const age=trendAgeHours(x.publishedAt||x.firstSeenAt);
+        return age<=168;
+      })
       .sort((a,b)=>b._localScore-a._localScore)
-      .slice(0,8);
-    status.textContent=(data.cached?"キャッシュ":"最新取得")+" ・ "+rows.length+"件表示"+(data.fetchedAt?" ・ "+new Date(data.fetchedAt).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"");
+      .slice(0,5);
+    status.textContent=(data.cached?"キャッシュ":"最新取得")+" ・ 厳選 "+rows.length+"件"+(data.groupedCount?(" / "+data.groupedCount+"話題から選別"):"")+(data.fetchedAt?" ・ "+new Date(data.fetchedAt).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"");
     if(!rows.length){
       root.innerHTML='<div class="empty compact-empty">今表示できるトレンドがありません。</div>';
       return;
@@ -914,11 +929,18 @@ async function renderTrendRadar(force=false){
     root.innerHTML=rows.map((x,i)=>{
       const char=trendCharacter((x.title||"")+" "+(x.summary||""));
       const affinity=characterAffinity(history,char);
-      const age=Math.round(trendAgeHours(x.publishedAt));
+      const age=Math.round(trendAgeHours(x.publishedAt||x.firstSeenAt));
+      const related=Math.max(1,Number(x.relatedCount)||1);
       return '<article class="trend-item">'+
         '<div class="trend-rank">'+(i+1)+'</div>'+
         '<div class="trend-main">'+
-          '<div class="trend-meta"><span>'+esc(trendSourceLabel(x))+'</span>'+(char?'<span>'+esc(char)+'</span>':'')+(age<240?'<span>'+age+'時間前</span>':'')+'</div>'+
+          '<div class="trend-meta">'+
+            (x.isNew?'<span class="trend-new">NEW 今日初検知</span>':'')+
+            '<span>'+esc(trendSourceLabel(x))+'</span>'+
+            (char?'<span>'+esc(char)+'</span>':'')+
+            (age<240?'<span>'+age+'時間前</span>':'')+
+            (related>1?'<span>関連 '+related+'媒体</span>':'')+
+          '</div>'+
           '<h3>'+esc(x.title||"話題")+'</h3>'+
           (x.summary?'<p>'+esc(String(x.summary).slice(0,180))+'</p>':'')+
           '<div class="trend-signals">'+
@@ -1590,7 +1612,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2700");
+  url.searchParams.set("v","20260922-2710");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
