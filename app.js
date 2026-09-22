@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3010";
+const APP_VERSION="2026.09.23-3100";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -650,7 +650,12 @@ function sanitizeForCloud(value){
 }
 function cloudSafeItem(x){
   const copy=sanitizeForCloud({...x});
-  delete copy.images;
+  // Archive media is stored on Lolipop and represented here only by public URLs.
+  // Keep those URLs in cloud payloads so iPhone/other devices can render every
+  // media-linked archive post. Never sync local blobs/data URLs.
+  copy.images=mediaArray(copy.images).filter(v=>/^https?:\/\//i.test(v));
+  copy.videos=mediaArray(copy.videos).filter(v=>/^https?:\/\//i.test(v));
+  if(!copy.images.length && typeof copy.image==="string" && /^https?:\/\//i.test(copy.image))copy.images=[copy.image];
   delete copy.image;
   return copy;
 }
