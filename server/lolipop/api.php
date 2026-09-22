@@ -77,10 +77,24 @@ if ($action === 'push') {
         respond(['ok' => false, 'error' => 'POST required'], 405);
     }
 
-    $body = json_decode(file_get_contents('php://input'), true);
-    $items = $body['items'] ?? null;
+    $raw = file_get_contents('php://input');
+    $body = json_decode($raw, true);
+
+    // ロリポップ環境で application/json の本文が取得できない場合に備え、
+    // application/x-www-form-urlencoded の payload も受け付ける。
+    if (!is_array($body) && isset($_POST['payload'])) {
+        $body = json_decode((string)$_POST['payload'], true);
+    }
+
+    $items = is_array($body) ? ($body['items'] ?? null) : null;
     if (!is_array($items)) {
-        respond(['ok' => false, 'error' => 'items array required'], 400);
+        respond([
+            'ok' => false,
+            'error' => 'items array required',
+            'contentType' => $_SERVER['CONTENT_TYPE'] ?? '',
+            'rawLength' => strlen((string)$raw),
+            'hasFormPayload' => isset($_POST['payload']),
+        ], 400);
     }
     if (count($items) > 200) {
         respond(['ok' => false, 'error' => 'Maximum 200 items per request'], 400);
