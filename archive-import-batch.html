@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Xアーカイブ修復 3250</title>
+<title>Xアーカイブ修復 3260</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
 .card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
@@ -21,7 +21,7 @@ progress{width:100%;margin:1rem 0}
 <body>
 <main>
 <h1>Xアーカイブ修復</h1>
-<p class="build">BUILD 3250</p>
+<p class="build">BUILD 3260</p>
 <p class="muted">写真・動画は再アップロードしません。Xアーカイブの <strong>tweets.js</strong> から元投稿全文だけを復元できます。</p>
 
 <section class="card">
@@ -47,7 +47,7 @@ progress{width:100%;margin:1rem 0}
 </section>
 
 <progress id="bar" value="0" max="1"></progress>
-<pre id="log">BUILD 3250 準備完了。</pre>
+<pre id="log">BUILD 3260 準備完了。</pre>
 </main>
 <script>
 (()=>{"use strict";
@@ -61,7 +61,7 @@ function parseArchiveArray(text,label){
   return JSON.parse(m[1]);
 }
 function parseTweetJs(text){
-  return parseArchiveArray(text,"tweets.js").map(x=>x.tweet||x).filter(x=>x&&x.id);
+  return parseArchiveArray(text,"tweets.js").map(x=>x.tweet||x).filter(x=>x&&(x.id||x.id_str));
 }
 function parseNoteJs(text){
   return parseArchiveArray(text,"note-tweet.js").map(x=>x.noteTweet||x).filter(x=>x&&x.core&&x.core.text);
@@ -95,6 +95,24 @@ function attachNoteFullText(tweets,notes){
     }
   }
   return {matched};
+}
+function archiveTweetId(t){return String(t?.id_str||t?.id||"").trim()}
+function statusIdFromUrl(url){const m=String(url||"").match(/status\/(\d+)/);return m?m[1]:""}
+function localPostId(item){return String(item?.postId||statusIdFromUrl(item?.xUrl)||"").trim()}
+function textQuality(value){
+  const s=String(value||"").trim();
+  if(!s)return -1;
+  let score=s.length;
+  score+=(s.match(/\n/g)||[]).length*8;
+  score+=(s.match(/https?:\/\/\S+/g)||[]).length*6;
+  if(/[。！？!?)）】」』]$/.test(s))score+=8;
+  if(/(?:…|\.\.\.)\s*(?:https?:\/\/\S+)?$/.test(s))score-=80;
+  if(s.length<80)score-=20;
+  return score;
+}
+function chooseFullerText(existing,candidate){
+  const a=String(existing||""),b=String(candidate||"");
+  return textQuality(b)>textQuality(a)?b:a;
 }
 function openDb(){return new Promise((resolve,reject)=>{const q=indexedDB.open("sanrioPostHelperDB",1);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})}
 async function getAll(){const db=await openDb();return new Promise((resolve,reject)=>{const q=db.transaction("popularPosts").objectStore("popularPosts").getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)})}
@@ -132,23 +150,33 @@ $("repairText").onclick=async()=>{
   try{
     const token=$("key").value.trim();if(!token)throw new Error("同期キーが空です");
     localStorage.setItem(KEY,token);
-    const local=await getAll(),byPost=new Map(local.map(x=>[String(x.postId||""),x]).filter(([k])=>k));
-    const updates=[];let matched=0,improved=0,missing=0;
+    const local=await getAll(),byPost=new Map();
+    for(const item of local){const id=localPostId(item);if(id)byPost.set(id,item)}
+    const updates=[];let matched=0,improved=0,protectedCount=0,unchanged=0,missing=0;
     for(const t of parsedTweets){
-      const id=String(t.id||""),full=String(t.__fullText||t.full_text||t.text||"");
-      if(!id||!full)continue;
+      const id=archiveTweetId(t),candidate=String(t.__fullText||t.full_text||t.text||"");
+      if(!id||!candidate)continue;
       const old=byPost.get(id);
       if(!old){missing++;continue}
       matched++;
-      const prev=String(old.text||"");
+      const prev=String(old.text||""),full=chooseFullerText(prev,candidate);
+      if(full===prev){
+        if(candidate!==prev)protectedCount++;else unchanged++;
+        continue;
+      }
       const next={...old,text:full,title:old.title||full.replace(/\s+/g," ").slice(0,60),updatedAt:new Date().toISOString()};
-      if(prev!==full)improved++;
+      improved++;
       updates.push(next);
       byPost.set(id,next);
     }
-    if(!updates.length)throw new Error("このChromeの投稿DBとtweets.jsが一致しません。同じPC・同じChromeで実行してください");
+    say("照合："+matched+"投稿 / 本文改善 "+improved+" / 短い本文から保護 "+protectedCount+" / 変更なし "+unchanged+" / DB未一致 "+missing);
+    if(!updates.length){
+      bar.value=1;
+      $("textStatus").textContent="確認完了：本文の改善対象はありません。保存済みの長い本文は保持しました。";
+      return;
+    }
     await putMany(updates);
-    say("端末本文修復："+updates.length+"投稿（本文変更 "+improved+" / 未一致 "+missing+"）");
+    say("端末本文修復："+updates.length+"投稿（本文改善 "+improved+"）");
     const pushUrl=$("api").value.replace(/archive-media-batch\.php(?:\?.*)?$/,"api2580.php?action=push");
     let ok=0,failed=[];
     for(let i=0;i<updates.length;i+=5){
@@ -157,8 +185,8 @@ $("repairText").onclick=async()=>{
       bar.value=Math.min(1,(i+part.length)/updates.length);
       if(i===0||i+part.length>=updates.length||((i+part.length)%100)<5)say("クラウド同期 "+Math.min(i+part.length,updates.length)+"/"+updates.length);
     }
-    $("textStatus").innerHTML='<span class="ok">修復完了：'+ok+'投稿</span> / 失敗 '+failed.length+'。iPhoneで「クラウドから統合」を押してください。';
-    say("完了：成功 "+ok+" / 失敗 "+failed.length);
+    $("textStatus").innerHTML='<span class="ok">本文改善完了：'+ok+'投稿</span> / 失敗 '+failed.length+'。';
+    say("クラウド反映：成功 "+ok+" / 失敗 "+failed.length);
     if(failed.length)say("失敗例："+failed.slice(0,10).map(x=>x.id+" HTTP"+x.status).join(", "));
   }catch(err){$("textStatus").textContent="失敗："+err.message;say("エラー："+err.message)}
   finally{btn.disabled=false}
