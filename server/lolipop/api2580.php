@@ -38,6 +38,15 @@ function readPayload(): array {
     }
     return is_array($body) ? $body : [];
 }
+function safeMediaUrls($value): array {
+    if (!is_array($value)) return [];
+    $out=[];
+    foreach($value as $url){
+        if(!is_string($url))continue;$url=trim($url);
+        if($url!=='' && preg_match('~^https?://~i',$url))$out[]=$url;
+    }
+    return array_values(array_unique($out));
+}
 function newestClientDate(array $item): ?string {
     $keys = ['updatedAt','lastRepostedAt','candidateExcludedChangedAt','skippedAt','revenueRecommendedAt','recommendedAt','savedAt','postedAt','deletedAt'];
     $best = 0;
@@ -124,7 +133,11 @@ if ($action === 'push') {
     try{
         foreach($items as $item){
             if(!is_array($item)||empty($item['id']))continue;
-            unset($item['images'],$item['image']);
+            $images=safeMediaUrls($item['images'] ?? []);
+            if(empty($images) && !empty($item['image']) && is_string($item['image']) && preg_match('~^https?://~i',$item['image']))$images[]=$item['image'];
+            $item['images']=$images;
+            $item['videos']=safeMediaUrls($item['videos'] ?? []);
+            unset($item['image']);
             $canonicalKey=null;
             if(!empty($item['postId']))$canonicalKey='post:'.(string)$item['postId'];
             elseif(!empty($item['xUrl'])&&preg_match('~/status/(\\d+)~',(string)$item['xUrl'],$m))$canonicalKey='post:'.$m[1];
