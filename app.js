@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3230";
+const APP_VERSION="2026.09.23-3240";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -98,6 +98,21 @@ function normalizedUrl(url){
 }
 function mediaArray(v){
   return Array.isArray(v)?v.filter(x=>typeof x==="string"&&x):[];
+}
+function postTextScore(v){
+  const s=String(v||"").trim();
+  if(!s)return -1;
+  let score=s.length;
+  score+=(s.match(/\n/g)||[]).length*8;
+  score+=(s.match(/https?:\/\/\S+/g)||[]).length*6;
+  if(/[。！？!?)）】」』]$/.test(s))score+=8;
+  if(/(?:…|\.\.\.)\s*(?:https?:\/\/\S+)?$/.test(s))score-=80;
+  if(s.length<80)score-=20;
+  return score;
+}
+function betterPostText(a,b){
+  const aa=String(a||""),bb=String(b||"");
+  return postTextScore(bb)>postTextScore(aa)?bb:aa;
 }
 function cloudMediaFirst(remote,local){
   const all=[...mediaArray(remote),...mediaArray(local)];
@@ -879,6 +894,7 @@ async function cloudPullMerge(options={}){
         const newer=itemFreshnessTime(incoming)>itemFreshnessTime(current)?incoming:current;
         const older=newer===incoming?current:incoming;
         merged={...older,...newer,...mergedUsageHistory(current,incoming)};
+        merged.text=betterPostText(current.text,incoming.text);
         merged.images=cloudMediaFirst(incoming.images,current.images||(current.image?[current.image]:[]));
         merged.videos=cloudMediaFirst(incoming.videos,current.videos);
       }else{
@@ -1258,7 +1274,7 @@ function mergeDuplicateGroup(group){
     ...preferred,
     ...history,
     title:newestItemValue(group,"title")||preferred.title||"",
-    text:newestItemValue(group,"text")||preferred.text||"",
+    text:group.reduce((best,x)=>betterPostText(best,x.text),"")||preferred.text||"",
     xUrl:newestItemValue(group,"xUrl")||preferred.xUrl||"",
     amazon:newestItemValue(group,"amazon")||preferred.amazon||"",
     rakuten:newestItemValue(group,"rakuten")||preferred.rakuten||"",
@@ -1554,7 +1570,7 @@ async function importAnalyticsCSV(file){
       source:"x-analytics",
       postId,
       title:(prev&&prev.title)||csvTitle(r["ポスト本文"]),
-      text:r["ポスト本文"]||"",
+      text:betterPostText(prev&&prev.text,r["ポスト本文"]),
       xUrl:r["ポストのリンク"]||"",
       images:(prev&&prev.images)||[],
       amazon:(prev&&prev.amazon)||"",
@@ -2097,7 +2113,7 @@ $("closeDetailModal")?.addEventListener("click",closeTodayDetail);
 $("todayDetailModal")?.addEventListener("click",e=>{if(e.target===$("todayDetailModal"))closeTodayDetail()});
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260923-3230");
+  url.searchParams.set("v","20260923-3240");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
