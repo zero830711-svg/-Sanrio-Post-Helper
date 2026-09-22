@@ -38,6 +38,10 @@ function readPayload(): array {
     }
     return is_array($body) ? $body : [];
 }
+function jsonErrorMessage(): string {
+    $msg = json_last_error_msg();
+    return $msg === 'No error' ? 'invalid JSON payload' : 'invalid JSON payload: '.$msg;
+}
 function safeMediaUrls($value): array {
     if (!is_array($value)) return [];
     $out=[];
@@ -119,7 +123,7 @@ if ($action === 'push') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') respond(['ok'=>false,'error'=>'POST required'],405);
     $body=readPayload();
     $items=$body['items'] ?? null;
-    if(!is_array($items))respond(['ok'=>false,'error'=>'items array required','apiVersion'=>'2580'],400);
+    if(!is_array($items))respond(['ok'=>false,'error'=>'items array required','detail'=>jsonErrorMessage(),'apiVersion'=>'2580'],400);
     if(count($items)>200)respond(['ok'=>false,'error'=>'Maximum 200 items per request'],400);
 
     $sql='INSERT INTO sanrio_post_sync (id, canonical_key, payload, client_updated_at)
@@ -131,8 +135,8 @@ if ($action === 'push') {
     $stmt=$pdo->prepare($sql);
     $pdo->beginTransaction();
     try{
-        foreach($items as $item){
-            if(!is_array($item)||empty($item['id']))continue;
+        foreach($items as $itemIndex=>$item){
+            if(!is_array($item)||empty($item['id']))respond(['ok'=>false,'error'=>'Invalid item: id is required','itemIndex'=>$itemIndex,'apiVersion'=>'2580'],400);
             $images=safeMediaUrls($item['images'] ?? []);
             if(empty($images) && !empty($item['image']) && is_string($item['image']) && preg_match('~^https?://~i',$item['image']))$images[]=$item['image'];
             $item['images']=$images;
@@ -142,17 +146,18 @@ if ($action === 'push') {
             if(!empty($item['postId']))$canonicalKey='post:'.(string)$item['postId'];
             elseif(!empty($item['xUrl'])&&preg_match('~/status/(\\d+)~',(string)$item['xUrl'],$m))$canonicalKey='post:'.$m[1];
             $clientUpdatedAt=newestClientDate($item);
+            $payload=json_encode($item,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             $stmt->execute([
                 ':id'=>(string)$item['id'],
                 ':canonical_key'=>$canonicalKey,
-                ':payload'=>json_encode($item,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),
+                ':payload'=>$payload,
                 ':client_updated_at'=>$clientUpdatedAt,
             ]);
         }
         $pdo->commit();
     }catch(Throwable $e){
         if($pdo->inTransaction())$pdo->rollBack();
-        respond(['ok'=>false,'error'=>'Save failed'],500);
+        respond(['ok'=>false,'error'=>'Save failed','detail'=>$e->getMessage(),'apiVersion'=>'2580'],500);
     }
     respond(['ok'=>true,'apiVersion'=>'2580','count'=>count($items)]);
 }

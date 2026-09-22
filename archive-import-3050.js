@@ -89,11 +89,28 @@ async function sendMedia(c){
 }
 async function pushPosts(items){
   const u=$("a").value.replace(/archive-media-batch\.php(?:\?.*)?$/,"api2580.php?action=push");
-  for(let i=0;i<items.length;i+=100){
-    const q=await fetch(u,{method:"POST",headers:{Authorization:"Bearer "+$("k").value,"Content-Type":"application/json"},body:JSON.stringify({items:items.slice(i,i+100)})});
-    if(!q.ok)throw Error("post sync HTTP "+q.status);
-    say("投稿同期 "+Math.min(i+100,items.length)+"/"+items.length);
-  }
+  let completed=0,failed=[];
+  const preview=x=>String(x?.text||"").replace(/\s+/g," ").slice(0,80);
+  const send=async batch=>{
+    const q=await fetch(u,{method:"POST",headers:{Authorization:"Bearer "+$("k").value,"Content-Type":"application/json"},body:JSON.stringify({items:batch})});
+    let detail="",body=null; try{body=await q.json();detail=body?.error||""}catch(e){detail="応答をJSONとして読めません"}
+    if(!q.ok || body?.ok===false){
+      const e=new Error(`HTTP ${q.status}${detail?"："+detail:""}`); e.status=q.status;e.detail=body;throw e;
+    }
+  };
+  const save=async(batch,offset)=>{
+    try{await send(batch);completed+=batch.length;say(`投稿同期 ${completed}/${items.length}`)}
+    catch(e){
+      if(batch.length>1){
+        const mid=Math.ceil(batch.length/2);say(`投稿バッチ失敗（${batch.length}件）：${e.message} → 分割して再試行`);
+        await save(batch.slice(0,mid),offset);await save(batch.slice(mid),offset+mid);return;
+      }
+      const item=batch[0];failed.push(item);
+      say(`投稿をスキップ（他は継続）: id=${item?.id||""}, postId=${item?.postId||""}, 本文=${preview(item)} / ${e.message}`);
+    }
+  };
+  for(let i=0;i<items.length;i+=25)await save(items.slice(i,i+25),i);
+  if(failed.length)say(`投稿同期完了（一部失敗 ${failed.length}件）。失敗ID: ${failed.map(x=>x.postId||x.id).join(", ")}`);
 }
 
 $("r").onclick=async()=>{
