@@ -172,7 +172,9 @@ $("repairText").onclick=async()=>{
     say("照合："+matched+"投稿 / 本文改善 "+improved+" / 短い本文から保護 "+protectedCount+" / 変更なし "+unchanged+" / DB未一致 "+missing);
     if(!updates.length){
       bar.value=1;
-      $("textStatus").textContent="確認完了：本文の改善対象はありません。保存済みの長い本文は保持しました。";
+      $("textStatus").textContent=matched
+        ?"確認完了：本文の改善対象はありません。保存済みの長い本文は保持しました。"
+        :"一致する投稿がありません。PCの投稿データとアーカイブのIDを照合できませんでした。";
       return;
     }
     await putMany(updates);
