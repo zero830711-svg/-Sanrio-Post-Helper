@@ -54,6 +54,7 @@ GitHub Pages の画面はそのまま使い、投稿データだけをロリポ�
 2. `server/lolipop/schema.sql` を phpMyAdmin で実行
 3. `config.example.php` を `config.php` にコピーして DB 情報と長い同期キーを設定
 4. `api.php` と `config.php` をロリポップの公開ディレクトリへ配置
-5. アプリの「管理 → ロリポップ同期」で API URL と同期キーを入力し「接続確認」
+5. アプリの「管理 → ロリポップ同期」で同期キーを入力して「接続確認」
+   - API URL は `https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api.php` を初期値として設定済み
 
 **重要:** `config.php` は GitHub にアップロードしないでください。
