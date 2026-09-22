@@ -8,9 +8,9 @@ const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
 const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
-const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2550.php";
+const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2560.php";
 const TODAY_ROLES=["総合おすすめ","保存率が強い","クリック率が強い"];
-const APP_VERSION="2026.09.22-2550";
+const APP_VERSION="2026.09.22-2560";
 let selectedImages=[];
 let editingId=null;
 let archiveFilter="all";
@@ -484,7 +484,8 @@ function rankingRows(items,metric){
 
 function loadCloudSettings(){
   const saved=localStorage.getItem(CLOUD_API_URL_KEY)||"";
-  const url=(saved.includes("/api.php")||saved.includes("/api2530.php")||saved.includes("/api2540.php"))?DEFAULT_CLOUD_API_URL:(saved||DEFAULT_CLOUD_API_URL);
+  const oldApi=/\/api(?:2530|2540|2550)?\.php(?:$|\?)/.test(saved);
+  const url=oldApi?DEFAULT_CLOUD_API_URL:(saved||DEFAULT_CLOUD_API_URL);
   const key=localStorage.getItem(CLOUD_SYNC_KEY_KEY)||"";
   const urlEl=$("cloudApiUrl"),keyEl=$("cloudSyncKey");
   if(urlEl&&!urlEl.value)urlEl.value=url;
@@ -515,7 +516,7 @@ function cloudSettings(){
       const typed=clean($("cloudApiUrl")?.value);
       const saved=localStorage.getItem(CLOUD_API_URL_KEY)||"";
       const v=typed||saved||DEFAULT_CLOUD_API_URL;
-      return (v.includes("/api.php")||v.includes("/api2530.php")||v.includes("/api2540.php"))?DEFAULT_CLOUD_API_URL:v;
+      return /\/api(?:2530|2540|2550)?\.php(?:$|\?)/.test(v)?DEFAULT_CLOUD_API_URL:v;
     })(),
     key:clean($("cloudSyncKey")?.value)||localStorage.getItem(CLOUD_SYNC_KEY_KEY)||""
   };
@@ -537,7 +538,10 @@ async function cloudRequest(action,options={}){
       data.contentType?("type "+data.contentType):"",
       data.rawLength!==undefined?("raw "+data.rawLength):"",
       data.hasFormPayload!==undefined?("form "+String(data.hasFormPayload)):"",
-      data.hasUpload!==undefined?("file "+String(data.hasUpload)):""
+      data.hasUpload!==undefined?("file "+String(data.hasUpload)):"",
+      data.postPayloadLength!==undefined?("postLen "+data.postPayloadLength):"",
+      data.b64Length!==undefined?("b64Len "+data.b64Length):"",
+      data.jsonError?("json "+data.jsonError):""
     ].filter(Boolean).join(" / ");
     throw new Error(diag);
   }
@@ -561,16 +565,25 @@ async function cloudPing(){
     renderCloudStatus("接続OK"+(data.apiVersion?" ・ API "+data.apiVersion:"")+(data.serverTime?" ・ "+data.serverTime:""));
   }catch(e){renderCloudStatus("接続失敗："+e.message,true)}
 }
+function utf8ToBase64(str){
+  const bytes=new TextEncoder().encode(str);
+  let binary="";
+  const step=0x8000;
+  for(let i=0;i<bytes.length;i+=step){
+    binary+=String.fromCharCode(...bytes.subarray(i,i+step));
+  }
+  return btoa(binary);
+}
 async function cloudPushAll(){
   renderCloudStatus("クラウドへ保存中…");
   try{
     const items=(await dbGetAll()).map(cloudSafeItem);
-    const chunkSize=25;
+    const chunkSize=10;
     for(let i=0;i<items.length;i+=chunkSize){
       const chunk=items.slice(i,i+chunkSize);
       const form=new FormData();
       const payload=JSON.stringify({items:chunk});
-      form.append("payload_file",new Blob([payload],{type:"application/json"}),"payload.json");
+      form.append("payload_b64",utf8ToBase64(payload));
       form.append("payload",payload);
       await cloudRequest("push",{method:"POST",body:form});
       renderCloudStatus("保存中… "+Math.min(i+chunk.length,items.length)+" / "+items.length+"件");
@@ -1329,7 +1342,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2550");
+  url.searchParams.set("v","20260922-2560");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
