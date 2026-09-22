@@ -58,6 +58,7 @@ $action = $_GET['action'] ?? 'ping';
 if ($action === 'ping') {
     respond([
         'ok' => true,
+        'apiVersion' => '2530',
         'serverTime' => date('Y-m-d H:i:s'),
     ]);
 }
@@ -80,10 +81,18 @@ if ($action === 'push') {
     $raw = file_get_contents('php://input');
     $body = json_decode($raw, true);
 
-    // ロリポップ環境で application/json の本文が取得できない場合に備え、
-    // application/x-www-form-urlencoded の payload も受け付ける。
+    // multipart/form-data / x-www-form-urlencoded
     if (!is_array($body) && isset($_POST['payload'])) {
         $body = json_decode((string)$_POST['payload'], true);
+    }
+
+    // 一部環境では $_POST が空でも raw body が urlencoded で届くことがある
+    if (!is_array($body) && $raw !== '') {
+        $parsed = [];
+        parse_str($raw, $parsed);
+        if (isset($parsed['payload'])) {
+            $body = json_decode((string)$parsed['payload'], true);
+        }
     }
 
     $items = is_array($body) ? ($body['items'] ?? null) : null;
@@ -94,6 +103,7 @@ if ($action === 'push') {
             'contentType' => $_SERVER['CONTENT_TYPE'] ?? '',
             'rawLength' => strlen((string)$raw),
             'hasFormPayload' => isset($_POST['payload']),
+            'apiVersion' => '2530',
         ], 400);
     }
     if (count($items) > 200) {
