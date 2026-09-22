@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260922-2580">
+<link rel="stylesheet" href="./styles.css?v=20260922-2590">
 </head>
 <body>
 <main class="app">
@@ -18,8 +18,8 @@
 <p>開いたらすぐ、今日使う候補を確認。</p>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.09.22-2580</span>
-<button id="forceLatest" type="button" onclick="location.href='./?v=20260922-2580&ts='+Date.now()">最新版を読み込む</button>
+<span id="appVersionStatus">アプリ版 2026.09.22-2590</span>
+<button id="forceLatest" type="button" onclick="location.href='./?v=20260922-2590&ts='+Date.now()">最新版を読み込む</button>
 </div>
 </header>
 
@@ -28,7 +28,7 @@
 <div class="today-head">
 <div>
 <h2 class="section-title">今日の候補</h2>
-<p class="backup-note">30日以上あけた投稿から3件自動選定。見送った投稿だけ7日間休ませます。</p>
+<p class="backup-note">30日以上あけた投稿から「拡散狙い / クリック狙い / 鉄板再利用」の3件を自動選定。</p>
 <div id="todayProgress" class="today-progress"></div>
 </div>
 </div>
@@ -38,8 +38,8 @@
 <section class="card revenue-card">
 <div class="today-head">
 <div>
-<h2 class="section-title">今日の収益候補</h2>
-<p class="backup-note">今日の候補3件とは重ならない収益候補。表示後は7日間休ませます。</p>
+<h2 class="section-title">今日の爆発候補</h2>
+<p class="backup-note">表示・保存・クリック・リポストをまとめて見て、もう一度大きく伸びる可能性が高い過去投稿を1件選びます。</p>
 </div>
 </div>
 <div id="revenueToday"></div>
@@ -68,6 +68,11 @@
 <h3>保存率 上位5投稿</h3>
 <p class="ranking-note">表示1,000以上の投稿を対象</p>
 <div id="saveRateRanking" class="rate-ranking"></div>
+</div>
+<div class="chart-card pattern-card">
+<h3>投稿文パターン分析</h3>
+<p class="ranking-note">表示1,000以上の投稿を対象。よく使う訴求ごとの拡散・クリック傾向です。</p>
+<div id="patternAnalysis" class="pattern-analysis"></div>
 </div>
 <div class="chart-card">
 <h3>キャラ別 平均クリック率</h3>
@@ -196,7 +201,7 @@
 </details>
 </section>
 
-<p class="note">保存データと写真はこの端末のブラウザ内に保存。GitHubにはアップロードしません。</p>
+<p class="note">写真はこの端末内に保存。投稿データはロリポップ同期を設定した場合のみクラウドにも保存され、GitHubにはアップロードしません。</p>
 </main>
 
 <div id="undoToast" class="undo-toast hidden">再投稿済みにしました <button id="undoRepost" type="button">取り消す</button></div>
@@ -212,6 +217,6 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260922-2580"></script>
+<script src="./app.js?v=20260922-2590"></script>
 </body>
 </html>
