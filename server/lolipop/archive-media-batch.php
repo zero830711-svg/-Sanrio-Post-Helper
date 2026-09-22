@@ -21,6 +21,26 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
     $items=array_map(fn($r)=>['postId'=>(string)$r['post_id'],'mediaType'=>(string)$r['media_type'],'publicUrl'=>(string)$r['public_url']],$rows);
     out(['ok'=>true,'count'=>count($items),'items'=>$items]);
   }
+  if($action==='repair_permissions'){
+    $root=rtrim((string)($config['media_root']??''),DIRECTORY_SEPARATOR);
+    $base=$root.DIRECTORY_SEPARATOR.'media';
+    if($root===''||!is_dir($base))out(['ok'=>false,'error'=>'Media directory not found'],404);
+    $dirs=0;$files=0;$failed=0;
+    $it=new RecursiveIteratorIterator(
+      new RecursiveDirectoryIterator($base,FilesystemIterator::SKIP_DOTS),
+      RecursiveIteratorIterator::SELF_FIRST
+    );
+    @chmod($base,0755);
+    foreach($it as $item){
+      $path=$item->getPathname();
+      if($item->isDir()){
+        if(@chmod($path,0755))$dirs++;else $failed++;
+      }elseif($item->isFile()){
+        if(@chmod($path,0644))$files++;else $failed++;
+      }
+    }
+    out(['ok'=>true,'dirs'=>$dirs,'files'=>$files,'failed'=>$failed]);
+  }
   out(['ok'=>false,'error'=>'Unknown action'],404);
 }
 if($_SERVER['REQUEST_METHOD']!=='POST')out(['ok'=>false,'error'=>'POST required'],405);
@@ -35,6 +55,7 @@ foreach($uploads['tmp_name'] as $i=>$tmp){
   $stored=$hash.'.'.$ext;$relative='media/'.$id.'/'.$stored;$root=rtrim((string)($config['media_root']??''),DIRECTORY_SEPARATOR);if($root===''){$results[]=['ok'=>false,'index'=>$i,'error'=>'Media storage not configured'];continue;}
   $dir=$root.DIRECTORY_SEPARATOR.'media'.DIRECTORY_SEPARATOR.$id;if(!is_dir($dir)&&!mkdir($dir,0750,true)&&!is_dir($dir)){$results[]=['ok'=>false,'index'=>$i,'error'=>'Storage unavailable'];continue;}
   $target=$dir.DIRECTORY_SEPARATOR.$stored;if(!is_file($target)&&!move_uploaded_file($tmp,$target)){$results[]=['ok'=>false,'index'=>$i,'error'=>'Store failed'];continue;}
+  @chmod($dir,0755);@chmod($target,0644);
   $base=rtrim((string)($config['media_public_base']??''),'/');$url=$base!==''?$base.'/'.$relative:null;
   $stmt->execute([':post_id'=>$id,':media_type'=>$allowed[$mime],':original_name'=>basename((string)$uploads['name'][$i]),':stored_name'=>$stored,':storage_path'=>$relative,':public_url'=>$url,':mime_type'=>$mime,':byte_size'=>(int)$uploads['size'][$i],':sha256'=>$hash]);
   $results[]=['ok'=>true,'index'=>$i,'postId'=>$id,'publicUrl'=>$url,'mediaType'=>$allowed[$mime]];
