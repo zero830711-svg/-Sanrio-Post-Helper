@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260923-3000">
+<link rel="stylesheet" href="./styles.css?v=20260923-3010">
 </head>
 <body>
 <main class="app">
@@ -18,8 +18,8 @@
 <p>開いたらすぐ、今日使う候補を確認。</p>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.09.23-3000</span>
-<button id="forceLatest" type="button" onclick="location.href='./?v=20260923-3000&ts='+Date.now()">最新版を読み込む</button>
+<span id="appVersionStatus">アプリ版 2026.09.23-3010</span>
+<button id="forceLatest" type="button" onclick="location.href='./?v=20260923-3010&ts='+Date.now()">最新版を読み込む</button>
 </div>
 </header>
 
@@ -128,13 +128,13 @@
 <section class="card archive-cloud-card">
 <div>
 <h2 class="section-title">Xアーカイブ保管庫</h2>
-<p class="backup-note">Xアーカイブの投稿・写真・動画をロリポップに保管。既存データは消さず、同じpost IDは補完します。</p>
+<p class="backup-note">Xアーカイブの投稿・写真・動画をロリポップに保管。クラウド統合後は画像リンクも自動で再チェックします。</p>
 </div>
 <div id="archiveCloudStatus" class="archive-cloud-status">状態を確認中…</div>
 <div class="cloud-sync-actions">
 <a class="small-btn link-btn" href="./archive-import-batch.html" target="_blank" rel="noopener">Xアーカイブ取り込みを開く</a>
 <button id="archiveCloudRefresh" class="small-btn" type="button">状態更新</button>
-<button id="archiveMediaRepair" class="small-btn" type="button">画像リンクを修復</button>
+<button id="archiveMediaRepair" class="small-btn" type="button">画像リンクを再チェック</button>
 </div>
 </section>
 
@@ -240,6 +240,6 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260923-3000"></script>
+<script src="./app.js?v=20260923-3010"></script>
 </body>
 </html>
