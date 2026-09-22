@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3220";
+const APP_VERSION="2026.09.23-3230";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -1745,6 +1745,7 @@ async function renderToday(){
         '<div class="today-actions">'+
           (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
           '<button class="small-btn detail-btn" data-today-action="detail" data-id="'+x.id+'">内容を全部見る</button>'+
+          '<button class="small-btn rewrite-btn" data-today-action="rewrite" data-role="'+esc(x._role||"")+'" data-id="'+x.id+'">焼き直しプロンプト</button>'+
           '<button class="small-btn" data-today-action="copy" data-id="'+x.id+'">投稿文コピー</button>'+
           ((imgs.length||vids.length)?'<button class="small-btn" data-today-action="media" data-id="'+x.id+'">写真・動画を見る</button>':'')+
           '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
@@ -1896,6 +1897,72 @@ function closeImages(){
   $("modalImages").innerHTML="";
   document.body.style.overflow="";
 }
+function rewriteGoalForRole(role){
+  if(role==="クリック狙い")return "リンクを押したくなる導入にしつつ、煽りすぎず内容がすぐ分かる投稿";
+  if(role==="保存狙い")return "あとで見返したくなる、情報が整理された保存向け投稿";
+  if(role==="久しぶり")return "懐かしさや再発見感を出し、古い投稿のコピペに見えない投稿";
+  if(role==="別テーマ")return "最近の投稿と雰囲気が被らず、タイムラインに変化が出る投稿";
+  return "過去に反応が良かった要素を残しつつ、同じ文章に見えない再投稿";
+}
+function buildRewritePrompt(item,role,recent=[]){
+  const metrics=[
+    item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",
+    item.likes?("いいね "+metricNumber(item.likes).toLocaleString()):"",
+    item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):"",
+    item.urlClicks?("クリック "+metricNumber(item.urlClicks).toLocaleString()):""
+  ].filter(Boolean).join(" / ");
+  const recentText=recent.slice(0,5).map((x,i)=>(i+1)+". "+(x.title||shortLabel(x))).join("\n");
+  return [
+    "X（Sanrio fan info）向けに、下の過去投稿を『焼き直し投稿』として1案作ってください。",
+    "",
+    "【今回の狙い】",
+    rewriteGoalForRole(role||item.recommendedRole||"過去最強"),
+    "",
+    "【重要ルール】",
+    "・元投稿の事実関係は変えない",
+    "・元投稿と同じ書き出し、同じ文順、同じ言い回しを避ける",
+    "・古い投稿なので、現在も販売中・開催中・予約受付中などは確認できない限り断定しない",
+    "・確認できない新情報、価格、在庫、日程、販売状況は追加しない",
+    "・宣伝臭を強くしすぎず、ファン向けの自然な日本語",
+    "・280字以内",
+    "・ハッシュタグは必要なら0〜2個",
+    "・絵文字は使いすぎない",
+    "・URLが元投稿にある場合、必要なら最後に残す",
+    "",
+    "【候補の役割】 "+(role||item.recommendedRole||"過去最強"),
+    "【テーマ】 "+reuseTopicKey(item).replace("|"," / "),
+    "【投稿日】 "+formatPostedMeta(item),
+    metrics?("【過去実績】 "+metrics):"",
+    "",
+    "【元投稿】",
+    String(item.text||""),
+    recentText?("\n【最近使った投稿（表現・テーマの重複を避ける）】\n"+recentText):"",
+    "",
+    "出力は完成した投稿文だけにしてください。"
+  ].filter(Boolean).join("\n");
+}
+async function copyRewritePrompt(item,role,button){
+  const all=await dbGetAll();
+  const cutoff=Date.now()-14*24*60*60*1000;
+  const recent=all.filter(x=>{
+    const t=new Date(x.lastRepostedAt||"").getTime();
+    return x.id!==item.id&&Number.isFinite(t)&&t>=cutoff;
+  }).sort((a,b)=>new Date(b.lastRepostedAt)-new Date(a.lastRepostedAt));
+  const prompt=buildRewritePrompt(item,role,recent);
+  try{
+    await navigator.clipboard.writeText(prompt);
+    if(button){const old=button.textContent;button.textContent="プロンプトコピー済み";setTimeout(()=>button.textContent=old,1500)}
+  }catch(e){
+    promptWindow(prompt);
+  }
+}
+function promptWindow(prompt){
+  const w=window.open("","_blank");
+  if(!w){alert(prompt);return}
+  w.document.write("<pre style='white-space:pre-wrap;font-family:system-ui;padding:20px'>"+esc(prompt)+"</pre>");
+  w.document.close();
+}
+
 function showTodayDetail(item){
   if(!item)return;
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
@@ -1907,6 +1974,8 @@ function showTodayDetail(item){
     imgs.map(src=>'<img src="'+esc(src)+'" alt="投稿画像" loading="lazy">').join("")+
     vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
   $("detailMediaCount").textContent=(imgs.length?imgs.length+"枚":"")+(imgs.length&&vids.length?" / ":"")+(vids.length?vids.length+"動画":"");
+  const rewrite=$("detailRewritePrompt");
+  if(rewrite){rewrite.dataset.id=item.id;rewrite.dataset.role=item.recommendedRole||""}
   $("todayDetailModal").classList.remove("hidden");
   document.body.style.overflow="hidden";
 }
@@ -2019,11 +2088,16 @@ async function checkLatestVersion(){
     }
   }catch(e){}
 }
+$("detailRewritePrompt")?.addEventListener("click",async e=>{
+  const items=await dbGetAll();
+  const item=items.find(x=>x.id===e.currentTarget.dataset.id);
+  if(item)await copyRewritePrompt(item,e.currentTarget.dataset.role||item.recommendedRole||"",e.currentTarget);
+});
 $("closeDetailModal")?.addEventListener("click",closeTodayDetail);
 $("todayDetailModal")?.addEventListener("click",e=>{if(e.target===$("todayDetailModal"))closeTodayDetail()});
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260923-3220");
+  url.searchParams.set("v","20260923-3230");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
@@ -2100,6 +2174,7 @@ $("todayList").addEventListener("click",async e=>{
   if(btn.dataset.todayAction==="sharex")await shareToX(item,btn);
   if(btn.dataset.todayAction==="media")showMedia(item.images||(item.image?[item.image]:[]),item.videos||[]);
   if(btn.dataset.todayAction==="detail")showTodayDetail(item);
+  if(btn.dataset.todayAction==="rewrite")await copyRewritePrompt(item,btn.dataset.role||item.recommendedRole||"",btn);
   if(btn.dataset.todayAction==="copy"){
     await navigator.clipboard.writeText(item.text||"");
     btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿文コピー",1200);
