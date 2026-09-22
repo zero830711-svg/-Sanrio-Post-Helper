@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3210";
+const APP_VERSION="2026.09.23-3220";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -1744,6 +1744,7 @@ async function renderToday(){
         '<div class="metric-chips">'+todayMetricChips(x,x._role)+'</div>'+
         '<div class="today-actions">'+
           (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
+          '<button class="small-btn detail-btn" data-today-action="detail" data-id="'+x.id+'">内容を全部見る</button>'+
           '<button class="small-btn" data-today-action="copy" data-id="'+x.id+'">投稿文コピー</button>'+
           ((imgs.length||vids.length)?'<button class="small-btn" data-today-action="media" data-id="'+x.id+'">写真・動画を見る</button>':'')+
           '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
@@ -1895,6 +1896,25 @@ function closeImages(){
   $("modalImages").innerHTML="";
   document.body.style.overflow="";
 }
+function showTodayDetail(item){
+  if(!item)return;
+  const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
+  const vids=mediaArray(item.videos);
+  $("detailTitle").textContent=item.title||shortLabel(item);
+  $("detailMeta").textContent=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):""].filter(Boolean).join(" ・ ");
+  $("detailText").textContent=item.text||"";
+  $("detailMedia").innerHTML=
+    imgs.map(src=>'<img src="'+esc(src)+'" alt="投稿画像" loading="lazy">').join("")+
+    vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
+  $("detailMediaCount").textContent=(imgs.length?imgs.length+"枚":"")+(imgs.length&&vids.length?" / ":"")+(vids.length?vids.length+"動画":"");
+  $("todayDetailModal").classList.remove("hidden");
+  document.body.style.overflow="hidden";
+}
+function closeTodayDetail(){
+  $("todayDetailModal").classList.add("hidden");
+  $("detailMedia").innerHTML="";
+  document.body.style.overflow="";
+}
 
 async function dataUrlToFile(dataUrl,name){
   const res=await fetch(dataUrl);
@@ -1999,9 +2019,11 @@ async function checkLatestVersion(){
     }
   }catch(e){}
 }
+$("closeDetailModal")?.addEventListener("click",closeTodayDetail);
+$("todayDetailModal")?.addEventListener("click",e=>{if(e.target===$("todayDetailModal"))closeTodayDetail()});
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260923-3210");
+  url.searchParams.set("v","20260923-3220");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
@@ -2077,6 +2099,7 @@ $("todayList").addEventListener("click",async e=>{
   if(!item)return;
   if(btn.dataset.todayAction==="sharex")await shareToX(item,btn);
   if(btn.dataset.todayAction==="media")showMedia(item.images||(item.image?[item.image]:[]),item.videos||[]);
+  if(btn.dataset.todayAction==="detail")showTodayDetail(item);
   if(btn.dataset.todayAction==="copy"){
     await navigator.clipboard.writeText(item.text||"");
     btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿文コピー",1200);
