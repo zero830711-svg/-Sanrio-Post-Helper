@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xアーカイブ取り込み</title>
+<style>body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}.card{background:white;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}button,label{display:inline-block;padding:.65rem 1rem;border-radius:10px;border:1px solid #d6bfd0;background:#fff;cursor:pointer;margin:.25rem 0}button.primary{background:#e85d9e;color:#fff;border:0}progress{width:100%}.muted{color:#756775}#log{white-space:pre-wrap;background:#271f29;color:#f5e9f2;padding:1rem;border-radius:10px;min-height:6rem}</style>
+<main><h1>Xアーカイブ取り込み</h1><p class="muted">解凍したXアーカイブのフォルダを選択します。GitHubへデータは送信しません。</p>
+<section class="card"><label>アーカイブフォルダを選択<input id="folder" type="file" webkitdirectory directory multiple hidden></label>
+<div id="summary">未選択</div><button id="preview" class="primary" disabled>解析する</button><button id="run" disabled>取り込み開始</button></section>
+<section class="card"><label>ロリポップメディアAPI<input id="api" type="url" value="./server/lolipop/archive-media.php" style="width:95%"></label><label>同期キー<input id="key" type="password" autocomplete="off" style="width:95%"></label><p class="muted">同期キーはブラウザ内だけで使用し、保存しません。</p></section>
+<progress id="progress" value="0" max="1"></progress><div id="log"></div></main><script src="./archive-import.js?v=20260922-2800"></script>
