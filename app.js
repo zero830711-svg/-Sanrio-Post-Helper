@@ -8,10 +8,11 @@ const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
 const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
-const TREND_CACHE_KEY="sanrioTrendRadarCacheV3";
+const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
-const APP_VERSION="2026.09.22-2720";
+let trendRangeHours=24;
+const APP_VERSION="2026.09.22-2800";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -799,7 +800,7 @@ async function cloudPullMerge(options={}){
 
 function trendApiUrl(){
   const base=cloudSettings().url||DEFAULT_CLOUD_API_URL;
-  return base.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/trend2720.php");
+  return base.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/trend.php");
 }
 async function trendRequest(force=false){
   const {key}=cloudSettings();
@@ -807,9 +808,7 @@ async function trendRequest(force=false){
   const target=new URL(trendApiUrl());
   if(force)target.searchParams.set("refresh","1");
   const res=await fetch(target.toString(),{
-    method:"GET",
-    headers:{"Authorization":"Bearer "+key},
-    cache:"no-store"
+    method:"GET",headers:{"Authorization":"Bearer "+key},cache:"no-store"
   });
   const text=await res.text();
   let data={};
@@ -817,6 +816,22 @@ async function trendRequest(force=false){
   if(!res.ok||data.ok===false)throw new Error(data.error||("HTTP "+res.status));
   return data;
 }
+async function trendStateRequest(topicKey,state){
+  const {key}=cloudSettings();
+  if(!key)throw new Error("同期キーを設定してください");
+  const form=new FormData();
+  form.append("topic_key",String(topicKey||""));
+  form.append("state",String(state||""));
+  const res=await fetch(trendApiUrl()+"?action=state",{
+    method:"POST",headers:{"Authorization":"Bearer "+key},body:form,cache:"no-store"
+  });
+  const text=await res.text();
+  let data={};
+  try{data=text?JSON.parse(text):{}}catch(e){}
+  if(!res.ok||data.ok===false)throw new Error(data.error||("HTTP "+res.status));
+  return data;
+}
+
 function trendCharacter(text){
   const t=String(text||"");
   const pairs=[
@@ -932,6 +947,35 @@ function trendSimilarHtml(history,item){
     ).join("")+'</div></details>';
 }
 
+function trendCategory(item){
+  const t=((item.title||"")+" "+(item.summary||"")).toLowerCase();
+  if(/collab|collaboration|コラボ/.test(t))return "コラボ";
+  if(/restock|再販|再入荷/.test(t))return "再販";
+  if(/limited|限定/.test(t))return "限定";
+  if(/pop.?up|ポップアップ|event|イベント/.test(t))return "イベント";
+  if(/new collection|新作|発売|release|goods|グッズ|plush|ぬい/.test(t))return "新商品";
+  if((Number(item.jpCount)||0)===0&&(Number(item.foreignCount)||0)>0)return "海外先行";
+  return "話題";
+}
+function trendTrust(item){
+  if(item.sourceType==="official")return {label:"公式確認",className:"official"};
+  if((Number(item.relatedCount)||0)>=2)return {label:"複数媒体確認",className:"multi"};
+  if(item.sourceType==="reddit")return {label:"SNS情報",className:"social"};
+  return {label:"ニュース1媒体",className:"single"};
+}
+function renderTrendSourceHealth(data){
+  const root=$("trendSourceHealth");
+  if(!root)return;
+  const rows=Array.isArray(data.sourceHealth)?data.sourceHealth:[];
+  if(!rows.length){root.innerHTML="";return}
+  root.innerHTML=rows.map(x=>
+    '<span class="'+(x.ok?'ok':'ng')+'">'+esc(x.label||x.source||"source")+' '+(x.ok?'✓':'×')+'</span>'
+  ).join("");
+}
+function trendTopicState(item){
+  return String(item.userState||"");
+}
+
 function trendPrompt(item){
   const char=trendCharacter((item.title||"")+" "+(item.summary||""));
   const jp=Number(item.jpCount)||0;
@@ -944,6 +988,7 @@ function trendPrompt(item){
     item.relatedCount>1?("同一話題の確認媒体数："+item.relatedCount):"",
     (jp===0&&foreign>0)?"日本語ニュースではまだ薄い可能性がある先取り候補です。":"",
     char?("関連キャラ："+char):"",
+    "話題分類："+trendCategory(item),
     "条件：280字以内。事実確認できる内容だけ。最初の1〜2行で興味を引き、宣伝口調を避ける。必要ならAmazon・楽天へ自然につなげる。未確認情報は断定しない。"
   ].filter(Boolean).join("\n");
 }
@@ -954,11 +999,12 @@ function trendSourceLabel(item){
 }
 async function renderTrendRadar(force=false){
   const root=$("trendList"),status=$("trendStatus");
-  if(!root||!status)return;
+  if(!root||!status)return [];
   if(!cloudConfigured()){
     status.textContent="管理で同期キーを設定すると使えます。";
     root.innerHTML="";
-    return;
+    $("trendHero")&&( $("trendHero").innerHTML='<div class="empty compact-empty">同期キー設定後に表示されます。</div>' );
+    return [];
   }
   status.textContent=force?"最新情報を更新中…":"Trend Radarを読み込み中…";
   try{
@@ -968,7 +1014,7 @@ async function renderTrendRadar(force=false){
       if(cached){
         try{
           const parsed=JSON.parse(cached);
-          if(parsed&&Array.isArray(parsed.items)&&(Date.now()-new Date(parsed.savedAt||0).getTime())<30*60*1000)data=parsed;
+          if(parsed&&Array.isArray(parsed.items)&&(Date.now()-new Date(parsed.savedAt||0).getTime())<20*60*1000)data=parsed;
         }catch(e){}
       }
     }
@@ -976,37 +1022,40 @@ async function renderTrendRadar(force=false){
       data=await trendRequest(force);
       localStorage.setItem(TREND_CACHE_KEY,JSON.stringify({...data,savedAt:new Date().toISOString()}));
     }
+    renderTrendSourceHealth(data);
     const history=await dbGetAll();
-    const rows=(Array.isArray(data.items)?data.items:[])
+    const allRows=(Array.isArray(data.items)?data.items:[])
+      .filter(x=>!["used","skip","dislike"].includes(trendTopicState(x)))
       .map(x=>({...x,_localScore:trendLocalScore(x,history)}))
-      .filter(x=>{
-        const age=trendAgeHours(x.publishedAt||x.firstSeenAt);
-        return age<=168;
-      })
-      .sort((a,b)=>b._localScore-a._localScore)
-      .slice(0,5);
-    status.textContent=(data.cached?"キャッシュ":"最新取得")+" ・ 厳選 "+rows.length+"件"+(data.groupedCount?(" / "+data.groupedCount+"話題から選別"):"")+(data.fetchedAt?" ・ "+new Date(data.fetchedAt).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"");
-    if(!rows.length){
-      root.innerHTML='<div class="empty compact-empty">今表示できるトレンドがありません。</div>';
-      return;
-    }
-    root.innerHTML=rows.map((x,i)=>{
+      .filter(x=>trendAgeHours(x.publishedAt||x.firstSeenAt)<=trendRangeHours)
+      .sort((a,b)=>b._localScore-a._localScore);
+
+    const rows=allRows.slice(0,5);
+    status.textContent=(data.cached?"キャッシュ":"最新取得")+" ・ "+trendRangeHours+"時間以内 "+rows.length+"件"+
+      (data.groupedCount?(" / "+data.groupedCount+"話題から選別"):"")+
+      (data.fetchedAt?" ・ "+new Date(data.fetchedAt).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"");
+
+    const cardHtml=(x,i,hero=false)=>{
       const char=trendCharacter((x.title||"")+" "+(x.summary||""));
       const affinity=characterAffinity(history,char);
       const age=Math.round(trendAgeHours(x.publishedAt||x.firstSeenAt));
       const related=Math.max(1,Number(x.relatedCount)||1);
       const opportunity=trendOpportunity(x,history);
-      return '<article class="trend-item '+opportunity.className+'">'+
-        '<div class="trend-rank">'+(i+1)+'</div>'+
+      const trust=trendTrust(x);
+      const category=trendCategory(x);
+      return '<article class="trend-item '+opportunity.className+(hero?' trend-hero-item':'')+'">'+
+        (hero?'':'<div class="trend-rank">'+(i+1)+'</div>')+
         '<div class="trend-main">'+
           '<div class="trend-meta">'+
             '<span class="trend-opportunity '+opportunity.className+'">'+opportunity.label+'</span>'+
+            '<span class="trend-category">'+esc(category)+'</span>'+
+            '<span class="trend-trust '+trust.className+'">'+trust.label+'</span>'+
             (x.isNew?'<span class="trend-new">NEW 今日初検知</span>':'')+
             '<span>'+esc(trendSourceLabel(x))+'</span>'+
             (char?'<span>'+esc(char)+'</span>':'')+
             (age<240?'<span>'+age+'時間前</span>':'')+
             (related>1?'<span>関連 '+related+'媒体</span>':'')+
-            ((Number(x.jpCount)||0)===0&&(Number(x.foreignCount)||0)>0?'<span class="trend-ahead">日本語記事 0</span>':'')+
+            ((Number(x.jpCount)||0)===0&&(Number(x.foreignCount)||0)>0?'<span class="trend-ahead">日本語記事 未検出</span>':'')+
           '</div>'+
           '<h3>'+esc(x.title||"話題")+'</h3>'+
           (x.summary?'<p>'+esc(String(x.summary).slice(0,180))+'</p>':'')+
@@ -1016,17 +1065,35 @@ async function renderTrendRadar(force=false){
             (affinity?'<span>自分のCTR '+percentText(affinity)+'</span>':'')+
           '</div>'+
           trendSimilarHtml(history,x)+
+          (Array.isArray(x.relatedItems)&&x.relatedItems.length>1?
+            '<details class="trend-related"><summary>関連媒体 '+x.relatedItems.length+'件を見る</summary>'+
+            '<div>'+x.relatedItems.slice(0,6).map(r=>'<a href="'+esc(r.url||"#")+'" target="_blank" rel="noopener">'+esc(r.source||"情報源")+'</a>').join("")+'</div></details>':'')+
           '<div class="trend-actions">'+
             (x.url?'<a class="small-btn link-btn" href="'+esc(x.url)+'" target="_blank" rel="noopener">元情報</a>':'')+
             '<button class="small-btn" data-trend-action="prompt" data-trend-id="'+esc(String(x.id||i))+'">投稿プロンプト</button>'+
+            '<button class="small-btn trend-used" data-trend-action="used" data-trend-id="'+esc(String(x.id||i))+'">投稿した</button>'+
+            '<button class="small-btn" data-trend-action="skip" data-trend-id="'+esc(String(x.id||i))+'">今回は使わない</button>'+
+            '<button class="small-btn subtle" data-trend-action="dislike" data-trend-id="'+esc(String(x.id||i))+'">興味なし</button>'+
           '</div>'+
         '</div>'+
       '</article>';
-    }).join("");
+    };
+
+    root.innerHTML=rows.length?rows.map((x,i)=>cardHtml(x,i,false)).join(""):'<div class="empty compact-empty">条件に合う新しいトレンドはありません。</div>';
     root._trendRows=rows;
+
+    const hero=$("trendHero");
+    if(hero){
+      const best=allRows.find(x=>["ahead","now","good"].includes(trendOpportunity(x,history).className))||allRows[0];
+      hero.innerHTML=best?cardHtml(best,0,true):'<div class="empty compact-empty">今すぐ使う新規ネタはありません。</div>';
+      hero._trendRows=best?[best]:[];
+    }
+    return rows;
   }catch(e){
     status.textContent="取得失敗："+e.message;
     root.innerHTML='<div class="empty compact-empty">Trend Radarを取得できませんでした。</div>';
+    $("trendHero")&&( $("trendHero").innerHTML='<div class="empty compact-empty">新規ネタを取得できませんでした。</div>' );
+    return [];
   }
 }
 
@@ -1180,6 +1247,70 @@ function renderPatternAnalysis(items){
   ).join("");
 }
 
+
+function timingStats(items){
+  const eligible=items.filter(isAnalyticsEligible).filter(x=>postedTime(x));
+  const days=["日","月","火","水","木","金","土"];
+  const dayGroups=days.map((label,d)=>({label,rows:eligible.filter(x=>new Date(postedTime(x)).getDay()===d)}));
+  const bands=[
+    ["0-5時",0,6],["6-8時",6,9],["9-11時",9,12],["12-14時",12,15],
+    ["15-17時",15,18],["18-20時",18,21],["21-23時",21,24]
+  ].map(([label,a,b])=>({label,rows:eligible.filter(x=>{const h=new Date(postedTime(x)).getHours();return h>=a&&h<b})}));
+  const calc=g=>{
+    if(g.rows.length<3)return null;
+    const imp=g.rows.reduce((s,x)=>s+metricNumber(x.impressions),0);
+    const clicks=g.rows.reduce((s,x)=>s+metricNumber(x.urlClicks),0);
+    return {...g,count:g.rows.length,avgImp:imp/g.rows.length,ctr:imp?clicks/imp:0};
+  };
+  return {days:dayGroups.map(calc).filter(Boolean).sort((a,b)=>b.avgImp-a.avgImp),bands:bands.map(calc).filter(Boolean).sort((a,b)=>b.avgImp-a.avgImp)};
+}
+function renderTimingAnalysis(items){
+  const root=$("timingAnalysis");if(!root)return;
+  const s=timingStats(items);
+  const bestDay=s.days[0],bestBand=s.bands[0];
+  if(!bestDay&&!bestBand){root.innerHTML='<div class="empty compact-empty">分析できる投稿がまだ足りません。</div>';return}
+  root.innerHTML=
+    '<div class="timing-best">'+
+      (bestDay?'<div><span>表示に強い曜日</span><strong>'+bestDay.label+'曜</strong><small>'+bestDay.count+'投稿・平均 '+Math.round(bestDay.avgImp).toLocaleString()+'</small></div>':'')+
+      (bestBand?'<div><span>表示に強い時間</span><strong>'+bestBand.label+'</strong><small>'+bestBand.count+'投稿・CTR '+percentText(bestBand.ctr)+'</small></div>':'')+
+    '</div>'+
+    '<div class="timing-list">'+
+      s.days.slice(0,3).map(x=>'<span>'+x.label+'曜 '+Math.round(x.avgImp).toLocaleString()+'</span>').join("")+
+      s.bands.slice(0,3).map(x=>'<span>'+x.label+' '+Math.round(x.avgImp).toLocaleString()+'</span>').join("")+
+    '</div>';
+}
+function normalizedPostText(x){
+  return String(x.text||"").toLowerCase()
+    .replace(/https?:\/\/\S+/g," ").replace(/[#＃@＠][^\s]+/g," ")
+    .replace(/[^\p{L}\p{N}]+/gu,"").slice(0,140);
+}
+function reuseRisk(items){
+  const recent=items.filter(x=>{
+    const t=lastUseTime(x);return t&&(Date.now()-t)<21*24*60*60*1000;
+  });
+  const groups=new Map();
+  for(const x of recent){
+    const key=normalizedPostText(x);
+    if(key.length<20)continue;
+    const k=key.slice(0,60);
+    if(!groups.has(k))groups.set(k,[]);
+    groups.get(k).push(x);
+  }
+  const repeated=[...groups.values()].filter(g=>g.length>1).sort((a,b)=>b.length-a.length);
+  const chars=["クロミ","キティ","マイメロ","シナモン","プリン","ポチャッコ"].map(c=>({
+    char:c,count:recent.filter(x=>trendCharacter((x.title||"")+" "+(x.text||""))===c).length
+  })).sort((a,b)=>b.count-a.count);
+  return {repeated,topChar:chars[0]};
+}
+function renderReuseRisk(items){
+  const root=$("reuseRiskAnalysis");if(!root)return;
+  const r=reuseRisk(items);
+  const bits=[];
+  if(r.repeated.length)bits.push('<div class="risk-alert">似た文章を直近21日で繰り返している候補：'+r.repeated.length+'組</div>');
+  if(r.topChar&&r.topChar.count>=4)bits.push('<div class="risk-alert">最近は「'+esc(r.topChar.char)+'」が'+r.topChar.count+'件で多め</div>');
+  if(!bits.length)bits.push('<div class="risk-ok">大きな偏りは見つかりません。</div>');
+  root.innerHTML=bits.join("");
+}
 async function renderAnalytics(){
   const summary=$("analyticsSummary");
   if(!summary)return;
@@ -1214,6 +1345,8 @@ async function renderAnalytics(){
   if(clickRoot)clickRoot.innerHTML=topClick.length?rankingRows(topClick,"click"):'<div class="empty compact-empty">対象データがありません。</div>';
   if(saveRoot)saveRoot.innerHTML=topSave.length?rankingRows(topSave,"save"):'<div class="empty compact-empty">対象データがありません。</div>';
   renderPatternAnalysis(items);
+  renderTimingAnalysis(items);
+  renderReuseRisk(items);
 
   if(typeof Chart==="undefined")return;
   destroyChart("character");
@@ -1680,24 +1813,39 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2720");
+  url.searchParams.set("v","20260922-2800");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
 
 $("trendRefresh")?.addEventListener("click",()=>renderTrendRadar(true));
-$("trendList")?.addEventListener("click",async e=>{
-  const btn=e.target.closest("[data-trend-action]");
-  if(!btn)return;
-  const rows=$("trendList")._trendRows||[];
-  const item=rows.find((x,i)=>String(x.id||i)===String(btn.dataset.trendId));
-  if(!item)return;
-  if(btn.dataset.trendAction==="prompt"){
+document.querySelectorAll(".trend-range").forEach(btn=>btn.addEventListener("click",()=>{
+  trendRangeHours=Number(btn.dataset.trendRange)||24;
+  document.querySelectorAll(".trend-range").forEach(x=>x.classList.toggle("active",x===btn));
+  renderTrendRadar(false);
+}));
+async function handleTrendAction(e,root){
+  const btn=e.target.closest("[data-trend-action]");if(!btn)return;
+  const rows=root._trendRows||[];
+  const item=rows.find((x,i)=>String(x.id||i)===String(btn.dataset.trendId));if(!item)return;
+  const action=btn.dataset.trendAction;
+  if(action==="prompt"){
     const prompt=trendPrompt(item);
     try{await navigator.clipboard.writeText(prompt);btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿プロンプト",1200)}
     catch(err){alert(prompt)}
+    return;
   }
-});
+  if(["used","skip","dislike"].includes(action)){
+    btn.disabled=true;
+    try{
+      await trendStateRequest(item.topicKey||item.id,action);
+      localStorage.removeItem(TREND_CACHE_KEY);
+      await renderTrendRadar(true);
+    }catch(err){alert("保存できませんでした："+err.message);btn.disabled=false}
+  }
+}
+$("trendList")?.addEventListener("click",e=>handleTrendAction(e,$("trendList")));
+$("trendHero")?.addEventListener("click",e=>handleTrendAction(e,$("trendHero")));
 
 document.querySelector(".analytics-dashboard")?.addEventListener("toggle",e=>{
   if(e.currentTarget.open)requestAnimationFrame(()=>renderAnalytics());
@@ -1732,31 +1880,6 @@ document.querySelector(".analytics-dashboard")?.addEventListener("click",async e
 });
 
 
-$("revenueToday").addEventListener("click",async e=>{
-  const btn=e.target.closest("[data-revenue-action]");
-  if(!btn)return;
-  const items=await dbGetAll();
-  const item=items.find(x=>x.id===btn.dataset.id);
-  if(!item)return;
-  if(btn.dataset.revenueAction==="copy"){
-    await navigator.clipboard.writeText(item.text||"");
-    btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿文コピー",1200);
-  }
-  if(btn.dataset.revenueAction==="reposted"){
-    await applyReposted(item);
-    await renderToday();
-    await renderRevenuePick();
-    await renderRecentUsed();
-    await renderArchive();
-    await renderTodayProgress();
-  }
-  if(btn.dataset.revenueAction==="exclude"){
-    await setCandidateExcluded(item,true);
-    await renderToday();
-    await renderRevenuePick();
-    await renderArchive();
-  }
-});
 
 $("todayList").addEventListener("click",async e=>{
   const btn=e.target.closest("[data-today-action]");
