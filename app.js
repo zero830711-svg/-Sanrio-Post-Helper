@@ -8,9 +8,10 @@ const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
 const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
+const TREND_CACHE_KEY="sanrioTrendRadarCacheV1";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
-const APP_VERSION="2026.09.22-2600";
+const APP_VERSION="2026.09.22-2700";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -796,6 +797,149 @@ async function cloudPullMerge(options={}){
   }
 }
 
+function trendApiUrl(){
+  const base=cloudSettings().url||DEFAULT_CLOUD_API_URL;
+  return base.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/trend2700.php");
+}
+async function trendRequest(force=false){
+  const {key}=cloudSettings();
+  if(!key)throw new Error("同期キーを設定してください");
+  const target=new URL(trendApiUrl());
+  if(force)target.searchParams.set("refresh","1");
+  const res=await fetch(target.toString(),{
+    method:"GET",
+    headers:{"Authorization":"Bearer "+key},
+    cache:"no-store"
+  });
+  const text=await res.text();
+  let data={};
+  try{data=text?JSON.parse(text):{}}catch(e){throw new Error("Trend APIの応答を読めません")}
+  if(!res.ok||data.ok===false)throw new Error(data.error||("HTTP "+res.status));
+  return data;
+}
+function trendCharacter(text){
+  const t=String(text||"");
+  const pairs=[
+    ["クロミ",/クロミ|KUROMI/i],
+    ["キティ",/ハローキティ|Hello Kitty|キティ/i],
+    ["マイメロ",/マイメロ|My Melody/i],
+    ["シナモン",/シナモン|Cinnamoroll/i],
+    ["プリン",/ポムポムプリン|Pompompurin/i],
+    ["ポチャッコ",/ポチャッコ|Pochacco/i]
+  ];
+  return (pairs.find(([,re])=>re.test(t))||[])[0]||"";
+}
+function characterAffinity(items,character){
+  if(!character)return 0;
+  const map={
+    "クロミ":/クロミ|KUROMI/i,
+    "キティ":/ハローキティ|Hello Kitty|キティ/i,
+    "マイメロ":/マイメロ|My Melody/i,
+    "シナモン":/シナモン|Cinnamoroll/i,
+    "プリン":/ポムポムプリン|Pompompurin/i,
+    "ポチャッコ":/ポチャッコ|Pochacco/i
+  };
+  const re=map[character];
+  if(!re)return 0;
+  const rows=items.filter(x=>metricNumber(x.impressions)>=1000&&re.test(String(x.title||"")+" "+String(x.text||"")));
+  if(!rows.length)return 0;
+  const imp=rows.reduce((s,x)=>s+metricNumber(x.impressions),0);
+  const clicks=rows.reduce((s,x)=>s+metricNumber(x.urlClicks),0);
+  return imp?clicks/imp:0;
+}
+function trendAgeHours(date){
+  const t=new Date(date||"").getTime();
+  return Number.isFinite(t)?Math.max(0,(Date.now()-t)/(60*60*1000)):9999;
+}
+function trendLocalScore(item,history){
+  const age=trendAgeHours(item.publishedAt);
+  const freshness=Math.max(0,60-Math.min(age,120)*0.5);
+  const social=Math.min(35,Math.log10((Number(item.votes)||0)+(Number(item.comments)||0)*3+1)*11);
+  const sourceBonus=item.sourceType==="official"?24:item.sourceType==="reddit"?12:8;
+  const char=trendCharacter((item.title||"")+" "+(item.summary||""));
+  const affinity=characterAffinity(history,char);
+  const affinityBonus=Math.min(35,affinity*700);
+  return freshness+social+sourceBonus+affinityBonus;
+}
+function trendPrompt(item){
+  const char=trendCharacter((item.title||"")+" "+(item.summary||""));
+  return [
+    "Sanrio fan infoのX投稿案を作成してください。",
+    "話題："+(item.title||""),
+    item.url?("参考URL："+item.url):"",
+    item.source?("情報源："+item.source):"",
+    char?("関連キャラ："+char):"",
+    "条件：280字以内。事実確認できる内容だけ。最初の1〜2行で興味を引き、宣伝口調を避ける。必要ならAmazon・楽天へ自然につなげる。未確認情報は断定しない。"
+  ].filter(Boolean).join("\n");
+}
+function trendSourceLabel(item){
+  if(item.sourceType==="official")return "公式";
+  if(item.sourceType==="reddit")return "Reddit";
+  return item.region==="JP"?"国内ニュース":item.region==="KR"?"韓国":"海外ニュース";
+}
+async function renderTrendRadar(force=false){
+  const root=$("trendList"),status=$("trendStatus");
+  if(!root||!status)return;
+  if(!cloudConfigured()){
+    status.textContent="管理で同期キーを設定すると使えます。";
+    root.innerHTML="";
+    return;
+  }
+  status.textContent=force?"最新情報を更新中…":"Trend Radarを読み込み中…";
+  try{
+    let data;
+    if(!force){
+      const cached=localStorage.getItem(TREND_CACHE_KEY);
+      if(cached){
+        try{
+          const parsed=JSON.parse(cached);
+          if(parsed&&Array.isArray(parsed.items)&&(Date.now()-new Date(parsed.savedAt||0).getTime())<30*60*1000)data=parsed;
+        }catch(e){}
+      }
+    }
+    if(!data){
+      data=await trendRequest(force);
+      localStorage.setItem(TREND_CACHE_KEY,JSON.stringify({...data,savedAt:new Date().toISOString()}));
+    }
+    const history=await dbGetAll();
+    const rows=(Array.isArray(data.items)?data.items:[])
+      .map(x=>({...x,_localScore:trendLocalScore(x,history)}))
+      .sort((a,b)=>b._localScore-a._localScore)
+      .slice(0,8);
+    status.textContent=(data.cached?"キャッシュ":"最新取得")+" ・ "+rows.length+"件表示"+(data.fetchedAt?" ・ "+new Date(data.fetchedAt).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"");
+    if(!rows.length){
+      root.innerHTML='<div class="empty compact-empty">今表示できるトレンドがありません。</div>';
+      return;
+    }
+    root.innerHTML=rows.map((x,i)=>{
+      const char=trendCharacter((x.title||"")+" "+(x.summary||""));
+      const affinity=characterAffinity(history,char);
+      const age=Math.round(trendAgeHours(x.publishedAt));
+      return '<article class="trend-item">'+
+        '<div class="trend-rank">'+(i+1)+'</div>'+
+        '<div class="trend-main">'+
+          '<div class="trend-meta"><span>'+esc(trendSourceLabel(x))+'</span>'+(char?'<span>'+esc(char)+'</span>':'')+(age<240?'<span>'+age+'時間前</span>':'')+'</div>'+
+          '<h3>'+esc(x.title||"話題")+'</h3>'+
+          (x.summary?'<p>'+esc(String(x.summary).slice(0,180))+'</p>':'')+
+          '<div class="trend-signals">'+
+            (x.votes?'<span>▲ '+Number(x.votes).toLocaleString()+'</span>':'')+
+            (x.comments?'<span>💬 '+Number(x.comments).toLocaleString()+'</span>':'')+
+            (affinity?'<span>自分のCTR '+percentText(affinity)+'</span>':'')+
+          '</div>'+
+          '<div class="trend-actions">'+
+            (x.url?'<a class="small-btn link-btn" href="'+esc(x.url)+'" target="_blank" rel="noopener">元情報</a>':'')+
+            '<button class="small-btn" data-trend-action="prompt" data-trend-id="'+esc(String(x.id||i))+'">投稿プロンプト</button>'+
+          '</div>'+
+        '</div>'+
+      '</article>';
+    }).join("");
+    root._trendRows=rows;
+  }catch(e){
+    status.textContent="取得失敗："+e.message;
+    root.innerHTML='<div class="empty compact-empty">Trend Radarを取得できませんでした。</div>';
+  }
+}
+
 function backupAgeDays(){
   const raw=localStorage.getItem(LAST_BACKUP_EXPORT_KEY);
   const t=new Date(raw||"").getTime();
@@ -1446,9 +1590,23 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2600");
+  url.searchParams.set("v","20260922-2700");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
+});
+
+$("trendRefresh")?.addEventListener("click",()=>renderTrendRadar(true));
+$("trendList")?.addEventListener("click",async e=>{
+  const btn=e.target.closest("[data-trend-action]");
+  if(!btn)return;
+  const rows=$("trendList")._trendRows||[];
+  const item=rows.find((x,i)=>String(x.id||i)===String(btn.dataset.trendId));
+  if(!item)return;
+  if(btn.dataset.trendAction==="prompt"){
+    const prompt=trendPrompt(item);
+    try{await navigator.clipboard.writeText(prompt);btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿プロンプト",1200)}
+    catch(err){alert(prompt)}
+  }
 });
 
 document.querySelector(".analytics-dashboard")?.addEventListener("toggle",e=>{
@@ -1697,6 +1855,7 @@ $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))close
     try{await cloudPullMerge({silent:true,refresh:false})}catch(e){console.error("startup cloud pull",e)}
   }
   try{await reconcileUsageHistory()}catch(e){console.error("reconcileUsageHistory",e)}
+  try{await renderTrendRadar(false)}catch(e){console.error("renderTrendRadar",e)}
   try{await renderToday()}catch(e){
     console.error("renderToday",e);
     const root=$("todayList"); if(root)root.innerHTML='<div class="empty">候補の読み込みに失敗しました。最新版を読み込んでも直らない場合は管理画面を確認してください。</div>';
