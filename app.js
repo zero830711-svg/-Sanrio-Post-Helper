@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3240";
+const APP_VERSION="2026.09.23-3250";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -2113,7 +2113,7 @@ $("closeDetailModal")?.addEventListener("click",closeTodayDetail);
 $("todayDetailModal")?.addEventListener("click",e=>{if(e.target===$("todayDetailModal"))closeTodayDetail()});
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260923-3240");
+  url.searchParams.set("v","20260923-3250");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
