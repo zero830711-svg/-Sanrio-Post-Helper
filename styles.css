@@ -98,3 +98,18 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 @media(max-width:460px){.timing-best{grid-template-columns:1fr}}
 
 .archive-cloud-card{margin-top:12px}.archive-cloud-status{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.archive-cloud-status span,.archive-cloud-status strong{font-size:10px;padding:5px 8px;border-radius:999px;background:#f5eef2;color:#765966}.archive-cloud-status strong{background:#fff0f0;color:#9a3d4b}.archive-video-thumb{display:flex;align-items:center;justify-content:center;font-size:24px;background:#2d2530;color:white}.modal-images video{display:block;width:100%;max-height:72vh;margin:0 auto 14px;background:#000;border-radius:12px}
+
+/* Build 3210: richer today candidate review */
+.today-item-full{display:block}
+.today-item-full .today-main{width:100%}
+.today-media-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0}
+.today-media-thumb,.today-video-tile{border:0;padding:0;background:#f4eef1;border-radius:11px;overflow:hidden;aspect-ratio:1/1;min-width:0}
+.today-media-thumb img{width:100%;height:100%;display:block;object-fit:cover}
+.today-media-thumb.media-load-failed{display:none}
+.today-video-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:22px;color:var(--text)}
+.today-video-tile span{font-size:10px;font-weight:800}
+.today-original{margin:8px 0 10px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 0}
+.today-original summary{cursor:pointer;color:#8c4964;font-size:12px;font-weight:800}
+.today-preview-full{display:block!important;-webkit-line-clamp:unset!important;overflow:visible!important;white-space:pre-wrap;margin:8px 0 0;line-height:1.65;color:var(--text)}
+.today-rank-inline{width:58px;height:58px;margin:10px 0}
+@media(max-width:460px){.today-media-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.today-original{margin-top:7px}}
