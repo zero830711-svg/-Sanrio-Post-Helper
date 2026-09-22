@@ -10,9 +10,7 @@ const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
 const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["拡散狙い","クリック狙い","鉄板再利用"];
-const APP_VERSION="2026.09.22-2590";
-let selectedImages=[];
-let editingId=null;
+const APP_VERSION="2026.09.22-2600";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -90,25 +88,6 @@ async function migrateLegacy(){
 }
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 
-async function compressFile(file){
-  const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)});
-  const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=data});
-  const max=1400;let w=img.width,h=img.height;
-  if(Math.max(w,h)>max){const s=max/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s)}
-  const c=document.createElement("canvas");c.width=w;c.height=h;
-  c.getContext("2d").drawImage(img,0,0,w,h);
-  return c.toDataURL("image/jpeg",0.78);
-}
-function renderPreview(){
-  $("archivePreviewGrid").innerHTML=selectedImages.map(src=>'<img src="'+src+'" alt="">').join("");
-}
-function dateInputValue(v){
-  const t=new Date(v||"").getTime();
-  if(!Number.isFinite(t))return "";
-  const d=new Date(t);
-  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
-  return y+"-"+m+"-"+day;
-}
 function normalizedUrl(url){
   const v=clean(url);
   if(!v)return "";
@@ -1347,7 +1326,6 @@ async function renderArchive(){
           <summary>その他</summary>
           <div class="archive-actions more-actions">
             <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
-            <button class="small-btn" data-action="edit" data-id="${x.id}">修正</button>
             ${x.amazon?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.amazon))+'" target="_blank" rel="noopener">Amazon</a>':''}
             ${x.rakuten?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.rakuten))+'" target="_blank" rel="noopener">楽天</a>':''}
             ${imgs.length?'<button class="small-btn" data-action="images" data-id="'+x.id+'">画像を見る</button>':''}
@@ -1358,37 +1336,6 @@ async function renderArchive(){
       </div>
     </article>`}).join("")+
     (visible.length<total?'<button class="load-more" data-action="more">さらに50件表示</button>':'');
-}
-function resetArchiveForm(){
-  ["archiveTitle","archiveText","archiveXUrl","archivePostedAt","archiveAmazon","archiveRakuten","archiveImpressions","archiveLikes","archiveBookmarks","archiveUrlClicks","archiveMemo"].forEach(id=>$(id).value="");
-  $("archiveImage").value="";
-  selectedImages=[];
-  editingId=null;
-  renderPreview();
-  $("archiveFormTitle").textContent="人気投稿を保存";
-  $("saveArchive").textContent="人気投稿に保存";
-  $("cancelEdit").classList.add("hidden");
-}
-
-function startEdit(item){
-  editingId=item.id;
-  $("archiveTitle").value=item.title||"";
-  $("archiveText").value=item.text||"";
-  $("archiveXUrl").value=item.xUrl||"";
-  $("archivePostedAt").value=dateInputValue(item.postedAt);
-  $("archiveAmazon").value=item.amazon||"";
-  $("archiveRakuten").value=item.rakuten||"";
-  $("archiveImpressions").value=item.impressions||"";
-  $("archiveLikes").value=item.likes||"";
-  $("archiveBookmarks").value=item.bookmarks||"";
-  $("archiveUrlClicks").value=item.urlClicks||"";
-  $("archiveMemo").value=item.memo||"";
-  selectedImages=[...(item.images||(item.image?[item.image]:[]))];
-  renderPreview();
-  $("archiveFormTitle").textContent="人気投稿を修正";
-  $("saveArchive").textContent="修正を保存";
-  $("cancelEdit").classList.remove("hidden");
-  window.scrollTo({top:0,behavior:"smooth"});
 }
 function showImages(images){
   $("modalImages").innerHTML=images.map(src=>'<img src="'+src+'" alt="保存画像">').join("");
@@ -1458,72 +1405,6 @@ $("importAnalyticsCsv").addEventListener("change",async e=>{
   e.target.value="";
 });
 
-$("archiveImage").addEventListener("change",async e=>{
-  const files=[...e.target.files].slice(0,4);
-  if(e.target.files.length>4)alert("写真は最大4枚までです");
-  selectedImages=[];
-  for(const f of files){
-    try{selectedImages.push(await compressFile(f))}catch(err){alert("画像の読み込みに失敗しました")}
-  }
-  renderPreview();
-});
-
-$("saveArchive").addEventListener("click",async()=>{
-  const title=clean($("archiveTitle").value);
-  const text=clean($("archiveText").value);
-  if(!title&&!text){alert("商品名か投稿文を入れてください");return}
-
-  const now=new Date().toISOString();
-  let item;
-  if(editingId){
-    const current=(await dbGetAll()).find(x=>x.id===editingId);
-    if(!current){alert("修正対象が見つかりません");return}
-    item={
-      ...current,
-      title,text,images:[...selectedImages],
-      xUrl:clean($("archiveXUrl").value),
-      postedAt:clean($("archivePostedAt").value)?new Date($("archivePostedAt").value+"T12:00:00").toISOString():current.postedAt,
-      amazon:clean($("archiveAmazon").value),
-      rakuten:clean($("archiveRakuten").value),
-      impressions:clean($("archiveImpressions").value),
-      likes:clean($("archiveLikes").value),
-      bookmarks:clean($("archiveBookmarks").value),
-      urlClicks:clean($("archiveUrlClicks").value),
-      memo:clean($("archiveMemo").value),
-      updatedAt:now
-    };
-  }else{
-    item={
-      id:Date.now().toString(),
-      title,text,images:[...selectedImages],
-      xUrl:clean($("archiveXUrl").value),
-      postedAt:clean($("archivePostedAt").value)?new Date($("archivePostedAt").value+"T12:00:00").toISOString():now,
-      amazon:clean($("archiveAmazon").value),
-      rakuten:clean($("archiveRakuten").value),
-      impressions:clean($("archiveImpressions").value),
-      likes:clean($("archiveLikes").value),
-      bookmarks:clean($("archiveBookmarks").value),
-      urlClicks:clean($("archiveUrlClicks").value),
-      memo:clean($("archiveMemo").value),
-      savedAt:now,
-      repostCount:0
-    };
-  }
-
-  await dbPut(item);
-  queueCloudSync([item],[]);
-  const wasEdit=!!editingId;
-  resetArchiveForm();
-  await renderArchive();
-  await renderAnalytics();
-  await renderDataFreshness();
-  await renderDataHealth();
-  await renderTodayProgress();
-  alert(wasEdit?"修正を保存しました":"保存しました");
-});
-
-$("cancelEdit").addEventListener("click",resetArchiveForm);
-
 $("archiveSearch").addEventListener("input",()=>{archiveLimit=50;renderArchive()});
 
 $("mergeDuplicates")?.addEventListener("click",mergeAllDuplicates);
@@ -1565,7 +1446,7 @@ async function checkLatestVersion(){
 }
 $("forceLatest")?.addEventListener("click",()=>{
   const url=new URL(location.href);
-  url.searchParams.set("v","20260922-2590");
+  url.searchParams.set("v","20260922-2600");
   url.searchParams.set("refresh",Date.now().toString());
   location.replace(url.toString());
 });
@@ -1774,9 +1655,6 @@ $("archiveList").addEventListener("click",async e=>{
     await renderRevenuePick();
     await renderRecentUsed();
     await renderTodayProgress();
-  }
-  if(btn.dataset.action==="edit"){
-    startEdit(item);
   }
   if(btn.dataset.action==="copy"){
     await navigator.clipboard.writeText(item.text||"");
