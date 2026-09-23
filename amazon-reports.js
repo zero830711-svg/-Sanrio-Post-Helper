@@ -4,7 +4,7 @@
   const card = document.getElementById("amazonReportsCard");
   if (!card) return;
   const versionLabel = document.getElementById("appVersionStatus");
-  if (versionLabel) versionLabel.textContent = "アプリ版 2026.09.23-3312（最新）";
+  if (versionLabel) setTimeout(() => { versionLabel.textContent = "アプリ版 2026.09.23-3313（最新）"; }, 1500);
 
   const input = document.getElementById("importAmazonReports");
   const status = document.getElementById("amazonReportsStatus");
@@ -294,9 +294,10 @@
       const byKey = new Map(existing.map(x => [x.key, x]));
       function mergeReport(old, next) {
         if (!old) return next;
-        const out = {...old, ...next,
+        const out = {...old,
           start: [old.start,next.start].filter(Boolean).sort()[0] || "",
           end: [old.end,next.end].filter(Boolean).sort().slice(-1)[0] || "",
+          importedAt: next.importedAt || old.importedAt,
           sourceTypes: Array.from(new Set([...(old.sourceTypes || []), ...(next.sourceTypes || [])]))};
         for (const type of next.sourceTypes || []) {
           if (type === "tracking") out.trackingIds = next.trackingIds;
@@ -304,20 +305,15 @@
           if (type === "categories") out.categories = next.categories;
           if (type === "topSellers") out.topSellers = next.topSellers;
         }
-        const tracking = (next.sourceTypes || []).includes("tracking") ? next :
-          ((old.sourceTypes || []).includes("tracking") ? old : null);
-        if (tracking) {
+        const tracking = out.sourceTypes.includes("tracking") ? out.trackingIds : [];
+        if (tracking.length) {
           for (const field of ["clicks","orderedItems","orderedSales","shippedItems","shippedSales","returns","commission"])
-            out[field] = tracking.trackingIds.reduce((sum,row) => sum + (Number(row[field]) || 0),0);
-        } else {
-          const category = (next.sourceTypes || []).includes("categories") ? next :
-            ((old.sourceTypes || []).includes("categories") ? old : null);
-          if (category) {
-            out.clicks = category.categories.reduce((sum,row) => sum + (Number(row.clicks) || 0),0);
-            out.shippedItems = category.categories.reduce((sum,row) => sum + (Number(row.shippedItems) || 0),0);
-            out.shippedSales = category.categories.reduce((sum,row) => sum + (Number(row.shippedSales) || 0),0);
-            out.commission = category.categories.reduce((sum,row) => sum + (Number(row.commission) || 0),0);
-          }
+            out[field] = tracking.reduce((sum,row) => sum + (Number(row[field]) || 0),0);
+        } else if (out.sourceTypes.includes("categories")) {
+          out.clicks = out.categories.reduce((sum,row) => sum + (Number(row.clicks) || 0),0);
+          out.shippedItems = out.categories.reduce((sum,row) => sum + (Number(row.shippedItems) || 0),0);
+          out.shippedSales = out.categories.reduce((sum,row) => sum + (Number(row.shippedSales) || 0),0);
+          out.commission = out.categories.reduce((sum,row) => sum + (Number(row.commission) || 0),0);
         }
         return out;
       }
