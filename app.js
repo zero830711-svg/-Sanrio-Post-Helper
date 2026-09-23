@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3280";
+const APP_VERSION="2026.09.23-3290";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -2294,7 +2294,12 @@ $("importBackup").addEventListener("change",async e=>{
         if(!rows||!rows.length){missing++;continue}
         matched++;
         for(const row of rows){
-          const full=betterPostText(row.text,incoming.text);
+          let currentText=String(row.text||"");
+          for(const url of incoming.urlReplacements||[]){
+            const from=String(url.from||""),to=String(url.to||"");
+            if(from&&to)currentText=currentText.split(from).join(to);
+          }
+          const full=betterPostText(currentText,incoming.text);
           if(full===String(row.text||"")){unchanged++;continue}
           updates.push({...row,text:full,updatedAt:new Date().toISOString()});
         }
