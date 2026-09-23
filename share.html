@@ -24,6 +24,7 @@ p{line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
 .media img{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;background:#f5f2f4;border-radius:12px}
 .media a{color:#5548a7;overflow-wrap:anywhere}
 .metrics{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;color:#77717a;font-size:13px}
+.freshness-review{margin:8px 0;padding:9px 11px;border:1px solid #e8d18c;border-radius:10px;background:#fff7df;color:#795b20;font-size:12px;font-weight:700;line-height:1.5}
 .metrics span{padding:5px 9px;border-radius:99px;background:#f7f3f6}
 #search{width:100%;padding:12px 14px;border:1px solid #ddd2dc;border-radius:12px;font-size:16px;margin-top:10px}
 @media(max-width:520px){body{padding:12px 10px 32px}.post,header,.state{padding:14px}.media{grid-template-columns:1fr 1fr}h1{font-size:20px}}
@@ -50,6 +51,25 @@ const state=document.getElementById("state"),root=document.getElementById("posts
 let records=[];
 const add=(parent,tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=String(text);parent.appendChild(el);return el};
 const metric=(label,value)=>value===null||value===undefined||value===""?null:label+" "+Number(value).toLocaleString("ja-JP");
+function ageDays(value){
+ const raw=String(value||"");
+ const oldAge=raw.match(/([0-9]+) *日前/);
+ if(oldAge)return Number(oldAge[1]);
+ const time=Date.parse(raw);
+ return Number.isFinite(time)?Math.max(0,Math.floor((Date.now()-time)/86400000)):null;
+}
+function freshnessReviewReason(p){
+ const age=ageDays(p.postedAt);
+ if(age===null||age<30)return "";
+ const text=String(p.title||"")+" "+String(p.text||"");
+ const dated=/(?:20[0-9]{2}[-.][0-9]{1,2}|[0-9]{1,2}月(?:上旬|中旬|下旬|第? *[0-9]{1,2}週|[0-9]{1,2}日))/.test(text);
+ const timeSensitive=/(?:発売|予約|販売|開催|受付|入荷|受注|順次)/.test(text);
+ if(dated&&timeSensitive)return "投稿内の日付・発売・開催情報を確認してください。";
+ if(age>=45&&/(?:新商品|商品|グッズ|フィギュア|書籍|雑貨|文房具|発売|販売|取扱店舗|価格|税込|[0-9,]+円|ショップ|予約)/.test(text)){
+  return "価格・販売状況などが変わっている可能性があります。公式情報を確認してください。";
+ }
+ return "";
+}
 function render(){
  const q=search.value.trim().toLocaleLowerCase();
  root.replaceChildren();
@@ -58,8 +78,9 @@ function render(){
   const card=add(root,"article","post");
   add(card,"h2","",p.title||"投稿");
   add(card,"div","meta",p.postedAt||"");
+  const review=freshnessReviewReason(p);
+  if(review)add(card,"p","freshness-review", "⚠️ "+review);
   if(p.text)add(card,"p","post-text",p.text);
-  if(p.xUrl){try{const x=new URL(p.xUrl);if(x.protocol==="https:"){const a=add(card,"a","","Xで投稿を見る");a.href=x.href;a.target="_blank";a.rel="noopener noreferrer"}}catch(e){}}
   if(p.xUrl){try{const x=new URL(p.xUrl);if(x.protocol==="https:"){const a=add(card,"a","","Xで投稿を見る");a.href=x.href;a.target="_blank";a.rel="noopener noreferrer"}}catch(e){}}
   const stats=[metric("表示",p.impressions),metric("いいね",p.likes),metric("保存",p.bookmarks),metric("クリック",p.clicks)].filter(Boolean);
   if(stats.length){const m=add(card,"div","metrics");stats.forEach(s=>add(m,"span","",s))}

@@ -155,3 +155,5 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .codex-share-link-wrap{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;width:100%}
 .codex-share-link-wrap input{min-width:0;width:100%;font-size:13px}
 @media(max-width:600px){.codex-share-bar{grid-template-columns:1fr}.codex-share-bar .small-btn{width:100%}.codex-share-link-wrap{grid-template-columns:1fr}}
+
+.freshness-review{margin:8px 0;padding:9px 11px;border:1px solid #e8d18c;border-radius:10px;background:#fff7df;color:#795b20;font-size:12px;font-weight:700;line-height:1.5}

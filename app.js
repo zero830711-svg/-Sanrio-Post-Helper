@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3298";
+const APP_VERSION="2026.09.23-3300";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -165,7 +165,7 @@ async function createCodexReviewLink(button){
     const posts=selected.map(x=>({
       title:String(x.title||shortLabel(x)||"投稿").slice(0,240),
       text:String(x.text||"").slice(0,16000),
-      postedAt:formatPostedMeta(x),
+      postedAt:String(x.postedAt||x.savedAt||formatPostedMeta(x)),
       xUrl:String(x.xUrl||x.tweetUrl||x.url||"").slice(0,2048),
       images:mediaArray(x.images||(x.image?[x.image]:[])).slice(0,20),
       videos:mediaArray(x.videos).slice(0,10),
@@ -399,6 +399,18 @@ function formatPostedMeta(x){
   const d=new Date(t);
   const days=Math.max(0,Math.floor((Date.now()-t)/(24*60*60*1000)));
   return d.toLocaleDateString("ja-JP")+" ・ "+days+"日前";
+}
+function freshnessReviewReason(x){
+  const age=(Date.now()-postedTime(x))/(24*60*60*1000);
+  if(!Number.isFinite(age)||age<30)return "";
+  const text=String(x.title||"")+" "+String(x.text||"");
+  const dated=/(?:20[0-9]{2}[-.][0-9]{1,2}|[0-9]{1,2}月(?:上旬|中旬|下旬|第? *[0-9]{1,2}週|[0-9]{1,2}日))/.test(text);
+  const timeSensitive=/(?:発売|予約|販売|開催|受付|入荷|受注|順次)/.test(text);
+  if(dated&&timeSensitive)return "投稿内の日付・発売・開催情報を確認してください。";
+  if(age>=45&&/(?:新商品|商品|グッズ|フィギュア|書籍|雑貨|文房具|発売|販売|取扱店舗|価格|税込|[0-9,]+円|ショップ|予約)/.test(text)){
+    return "価格・販売状況などが変わっている可能性があります。公式情報を確認してください。";
+  }
+  return "";
 }
 function isLikelyExpiredNews(x){
   const t=String(x.text||"");
@@ -1821,6 +1833,7 @@ async function renderToday(){
         '<div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div>'+
         '<h3>'+esc(x.title||shortLabel(x))+'</h3>'+
         '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
+        (freshnessReviewReason(x)?'<div class="freshness-review" role="note">⚠️ '+esc(freshnessReviewReason(x))+'</div>':'')+
         '<div class="recommend-reason">選定理由：'+esc([...recommendationReasons(x),x._diverseReason].filter(Boolean).join("・"))+'</div>'+
         mediaBox+
         '<details class="today-original" open>'+
