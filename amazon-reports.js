@@ -247,7 +247,7 @@
     if (latest) {
       html += '<div class="amazon-primary-report"><strong>主アカウント ' + safe(main) + '</strong><span>' +
         safe(latest.start) + (latest.end !== latest.start ? "〜" + safe(latest.end) : "") +
-        "・" + safe(latest.reportId) + '</span><div class="amazon-metrics">' +
+        '</span><div class="amazon-metrics">' +
         metrics.map(x => '<div><span>' + x[0] + '</span><b>' + x[1] + '</b></div>').join("") +
         '</div></div>';
       const top = latest.products.filter(p => p.shippedItems > 0 || p.commission > 0)
@@ -258,8 +258,12 @@
             number(p.shippedItems) + '点・' + money(p.commission) + '・' +
             '<a href="https://www.amazon.co.jp/dp/' + encodeURIComponent(p.asin) + '" target="_blank" rel="noopener">商品</a></small></li>').join("") +
           '</ol>';
+      } else if (latest.topSellers && latest.topSellers.length) {
+        html += '<h3>主アカウント 商品ランキング</h3><ol class="amazon-product-list">' +
+          latest.topSellers.slice(0,5).map(p => '<li><span>' + safe(p.title || p.asin) + '</span><small>' +
+            safe(p.category) + '・' + safe(p.type) + '</small></li>').join("") + '</ol>';
       } else {
-        html += '<p class="amazon-empty">この期間の商品別発送実績はありません。Top-Sellers ZIPの商品名も保存済みです。</p>';
+        html += '<p class="amazon-empty">この期間の商品別実績はありません。</p>';
       }
     }
     if (others.length) {
@@ -317,12 +321,28 @@
         }
         return out;
       }
-      for (const report of usable) byKey.set(report.key, mergeReport(byKey.get(report.key), report));
+      const grouped = new Map();
+      for (const report of usable) grouped.set(report.key, mergeReport(grouped.get(report.key), report));
+      const selectedNames = new Map();
+      for (const file of files) {
+        const id = accountFromName(file.name);
+        if (!selectedNames.has(id)) selectedNames.set(id, new Set());
+        selectedNames.get(id).add(file.name);
+      }
+      for (const [key, report] of grouped) {
+        let combined = report;
+        const matchingOld = existing.filter(old => old.accountId === report.accountId &&
+          ((report.start && report.end && old.start === report.start && old.end === report.end) ||
+           (selectedNames.get(report.accountId) && selectedNames.get(report.accountId).has(old.reportId))));
+        for (const old of matchingOld) combined = mergeReport(old, combined);
+        for (const old of matchingOld) if (old.key !== key) byKey.delete(old.key);
+        byKey.set(key, mergeReport(byKey.get(key), combined));
+      }
       const updated = Array.from(byKey.values()).sort((a,b) =>
         (a.start || "").localeCompare(b.start || "") || a.accountId.localeCompare(b.accountId));
       localStorage.setItem(STORE_KEY, JSON.stringify(updated));
-      status.textContent = files.length + "件のZIPを確認し、" + usable.length +
-        "レポートを取り込みました。同じレポートは更新し、他の記録は保持しました。端末内だけに保存しています。";
+      status.textContent = files.length + "件のZIPを確認し、" + grouped.size +
+        "アカウント・期間レポートに統合しました。同じレポートは更新し、他の記録は保持しました。端末内だけに保存しています。";
       render();
     } catch (error) {
       status.textContent = "取り込みできませんでした：" + (error && error.message ? error.message : String(error));
