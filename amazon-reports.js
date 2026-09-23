@@ -3,6 +3,8 @@
   const PRIMARY_KEY = "sanrioAmazonPrimaryAccountV1";
   const card = document.getElementById("amazonReportsCard");
   if (!card) return;
+  const versionLabel = document.getElementById("appVersionStatus");
+  if (versionLabel) versionLabel.textContent = "アプリ版 2026.09.23-3310（最新）";
 
   const input = document.getElementById("importAmazonReports");
   const status = document.getElementById("amazonReportsStatus");
@@ -113,7 +115,8 @@
     const days = Array.from(daySet).sort();
     const start = days[0] || "";
     const end = days[days.length - 1] || "";
-    const stampMatch = file.name.match(/^(\d{10,})-/);
+    const archiveName = parsed[0]?.name || file.name;
+    const stampMatch = archiveName.match(/^(\d{10,})-/) || file.name.match(/^(\d{10,})-/);
     const reportId = stampMatch ? stampMatch[1] : (start && end ? start + "_" + end : file.name);
     const result = blankReport(accountId, start, end, reportId);
     const productMap = new Map();
@@ -151,7 +154,7 @@
         };
         for (const r of rows.slice(1)) {
           const asin = ix.asin >= 0 ? String(r[ix.asin] || "").trim() : "";
-          if (!asin) continue;
+          if (!asin || asin === "Other" || asin === "None") continue;
           const key = asin + "|" + dateIso(r[ix.date]);
           const p = productMap.get(key) || {
             asin, date: dateIso(r[ix.date]),
