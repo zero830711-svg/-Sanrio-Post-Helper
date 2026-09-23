@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3302";
+const APP_VERSION="2026.09.23-3303";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -2064,6 +2064,54 @@ function buildRewritePrompt(item,role,recent=[]){
     "出力形式は厳守：完成した投稿文だけを、必ず ```text で始まり ``` で終わるコードブロック1つに入れてください。コードブロック外に説明・前置き・補足を書かず、ブロック内には投稿文だけを入れてください。"
   ].filter(Boolean).join("\n");
 }
+function buildBlogPrompt(item){
+  const images=mediaArray(item.images||(item.image?[item.image]:[]));
+  const videos=mediaArray(item.videos);
+  const source=[
+    "投稿タイトル："+String(item.title||shortLabel(item)||"").trim(),
+    "投稿日："+formatPostedMeta(item),
+    "X投稿URL："+String(item.xUrl||item.tweetUrl||item.url||"なし"),
+    "投稿本文：",
+    String(item.text||"（本文なし）"),
+    "写真URL（参考。画像そのものを見られない場合、見たふりをしない）：",
+    images.length?images.map((u,i)=>(i+1)+". "+u).join("\n"):"なし",
+    videos.length?("動画URL：\n"+videos.map((u,i)=>(i+1)+". "+u).join("\n")):"動画：なし",
+    "商品リンク：",
+    item.amazon?("Amazon："+String(item.amazon)):"",
+    item.rakuten?("楽天："+String(item.rakuten)):""
+  ].filter(Boolean).join("\n");
+  return [
+    "あなたはSanrioファン向けWordPressサイトの記事編集者です。下のXアーカイブ投稿を出発点に、検索ユーザーに役立つ記事にする価値があるか判断し、必要な場合だけ記事案を作ってください。X投稿を言い換えただけの薄い記事や、文字数を増やすための水増しは作らないでください。",
+    "",
+    "【最初にすること】",
+    "記事化の判定を「単独記事にする」「関連情報を加えてまとめ記事にする」「記事化を見送る」のいずれかで最初に示す。理由を短く説明する。元投稿の情報だけでは独自の価値が足りない場合は、記事を無理に書かず、不足している確認情報と、まとめ記事にする場合のテーマ案を示す。",
+    "",
+    "【調査と正確性】",
+    "・必要な最新情報は、メーカー・ブランド・公式販売店などの一次情報を優先して確認し、確認できた事実には出典URLと確認日を付ける。",
+    "・販売状況、予約期間、発売日、価格、内容量、取扱店、仕様は公式情報で確認できたものだけ書く。古い情報は現在も有効と決めつけない。",
+    "・確認できない情報は推測で補わず「公式情報では確認できない」と明記する。レビュー、成分、効果、使用感を実際に確認していないのに体験談として書かない。",
+    "・Xの写真URLが示されていても、画像自体を閲覧できなければ画像内容を推測しない。提供画像が見える場合だけ説明・配置案を作る。",
+    "・アフィリエイトを含める場合は、実際に確認できる商品リンクだけを使い、広告・アフィリエイトであることが分かる表示を提案する。購入を急かす表現は避ける。",
+    "",
+    "【SEOと読者価値】",
+    "・検索意図に合う具体的なタイトル案、想定検索語、メタディスクリプションを簡潔に提案する。キーワードを不自然に詰め込まない。",
+    "・読者が知りたい発売・予約情報、商品概要、購入前の注意点など、一次情報で確認できる実用情報を優先する。情報が少なければ短くまとめるか、記事化を見送る。",
+    "・関連する既存記事への内部リンク案は、URLが入力にある場合だけ具体的に提示する。存在しない記事やURLを作らない。",
+    "",
+    "【Search Consoleの参考メモ】",
+    "ユーザーが以前共有した画面では、サイト全体の直近3か月がクリック25、表示214、CTR 11.7%、平均掲載順位6.6と表示され、「コスメキッチン マイメロ」は表示15回だった。これは少数の過去データで、今回の投稿や個別記事の需要を証明するものではない。テーマが一致する場合だけ弱い手掛かりとして扱い、検索需要があると断定しない。より新しいSearch Consoleデータが与えられた場合はそちらを優先する。",
+    "",
+    "【出力】",
+    "1. 記事化判定と理由（短く）",
+    "2. 単独記事にできる場合のみ、SEOタイトル案・想定検索語・メタディスクリプション",
+    "3. WordPressに貼り付ける本文を、HTMLの ```html コードブロック1つで出力。見出しはh2/h3、段落はp、箇条書きはul/liを使い、装飾過多にしない。単独記事にする価値がなければ本文コードブロックは出さない。",
+    "4. 出典URLと確認日（確認できた場合のみ）、画像の配置案、公開前に人が確認すべき点",
+    "コードブロック内外とも、事実の捏造・未確認の断定・同じ内容の繰り返しは禁止。",
+    "",
+    "【Xアーカイブ情報】",
+    source
+  ].join("\n");
+}
 function copyPromptFallback(text,title){
   let panel=$("copyFallbackPanel");
   if(!panel){
@@ -2596,6 +2644,9 @@ $("detailMedia")?.addEventListener("click",e=>{
 });
 $("detailRewritePrompt")?.addEventListener("click",e=>{
   if(detailCurrentItem)copyRewritePrompt(detailCurrentItem,e.currentTarget.dataset.role||detailCurrentItem.recommendedRole||"",e.currentTarget);
+});
+$("detailBlogPrompt")?.addEventListener("click",e=>{
+  if(detailCurrentItem)copyTextFromClick(buildBlogPrompt(detailCurrentItem),e.currentTarget,"ブログ用プロンプトをコピーしました");
 });
 $("closeDetailModal")?.addEventListener("click",closeTodayDetail);
 $("todayDetailModal")?.addEventListener("click",e=>{if(e.target===$("todayDetailModal"))closeTodayDetail()});
