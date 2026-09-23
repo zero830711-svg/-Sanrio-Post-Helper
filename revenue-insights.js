@@ -102,148 +102,43 @@
       prompt: buildClickImprovementPrompt(winner, winner.ctr, baseline, winner.gap)
     };
   }
-  function buildProductPrompt(data) {
-    const fence = String.fromCharCode(96).repeat(3);
-    const linkInstruction = data.link
-      ? "指定のアフィリエイトURLを変更せず投稿末尾に付ける。"
-      : "URLやトラッキングIDは捏造せず、投稿本文だけ作る。";
-    return [
-      "Sanrio fan infoのX向けに、下の商品レポートを参考に紹介投稿を1案作ってください。",
-      "",
-      "【必ず守ること】",
-      "・レポートは商品候補選びの参考です。X投稿が売上を生んだとは断定しない",
-      "・商品名を手掛かりにメーカーや公式販売店をウェブ検索し、確認できた商品情報だけ使う",
-      "・価格、在庫、発売日、販売中など変動する情報は、現在の公式情報を確認できた場合だけ書く",
-      "・確認できない情報は推測で補わず、時期に左右されない紹介にする",
-      "・過度な煽りや根拠のない人気表現を使わない",
-      "・アフィリエイト投稿と分かる表示（例：#PR）を自然に含める",
-      "・280字以内、ハッシュタグ0〜2個、絵文字は控えめ",
-      "・" + linkInstruction,
-      "・完成した投稿文だけを " + fence + "text コードブロック1つで出す",
-      "",
-      "【商品・実績】",
-      "販売先: " + data.channel,
-      "商品名: " + data.title,
-      data.shop ? "ショップ: " + data.shop : "",
-      data.category ? "カテゴリー: " + data.category : "",
-      "対象期間: " + data.period,
-      data.status ? "成果状態: " + data.status : "",
-      data.clicks !== undefined ? "商品クリック: " + count(data.clicks) : "",
-      data.shipped !== undefined ? "発送商品数: " + count(data.shipped) : "",
-      data.sales !== undefined ? "発送売上: " + yen(data.sales) : "",
-      data.reward !== undefined ? "紹介報酬: " + yen(data.reward) : "",
-      data.link ? "使用するアフィリエイトURL: " + data.link : ""
-    ].filter(Boolean).join("\n");
-  }
   function reportDate(report) {
     const start = String(report.start || "");
     const end = String(report.end || "");
     return start && end && start !== end ? start + "〜" + end : (start || end || "期間不明");
   }
-  function amazonLink(product, report) {
-    const asin = String(product.asin || "").trim().toUpperCase();
-    if (!/^[A-Z0-9]{10}$/.test(asin)) return "";
-    const tags = (Array.isArray(report.trackingIds) ? report.trackingIds : []).slice()
-      .sort((a, b) => n(b.commission) - n(a.commission) || n(b.clicks) - n(a.clicks));
-    const tag = String(tags[0]?.id || "").trim();
-    if (!/^[A-Za-z0-9._-]{1,64}$/.test(tag)) return "";
-    return "https://www.amazon.co.jp/dp/" + asin + "?tag=" + encodeURIComponent(tag);
-  }
-  function amazonRecommendation() {
+  function amazonRevenueSummary() {
     const reports = readJson(AMAZON_KEY, []);
-    if (!Array.isArray(reports) || !reports.length) return null;
     const primary = localStorage.getItem(AMAZON_PRIMARY_KEY) || "";
-    if (!primary) return null;
-    const accountReports = reports.filter(report => report.accountId === primary);
-    if (!accountReports.length) return null;
-
-    const products = new Map();
-    for (const report of accountReports) {
-      for (const row of (Array.isArray(report.products) ? report.products : [])) {
-        const asin = String(row.asin || "").trim().toUpperCase();
-        if (!/^[A-Z0-9]{10}$/.test(asin)) continue;
-        const product = products.get(asin) || {
-          asin, title: String(row.title || asin), category: String(row.category || ""),
-          clicks: 0, shipped: 0, sales: 0, commission: 0, periods: []
-        };
-        product.title = product.title === asin && row.title ? String(row.title) : product.title;
-        product.category = product.category || String(row.category || "");
-        product.clicks += n(row.clicks);
-        product.shipped += n(row.shippedItems);
-        product.sales += n(row.shippedSales);
-        product.commission += n(row.commission);
-        if (report.start) product.periods.push(String(report.start));
-        if (report.end && report.end !== report.start) product.periods.push(String(report.end));
-        products.set(asin, product);
-      }
-    }
-    const winner = [...products.values()]
-      .filter(product => product.commission > 0 || product.shipped > 0)
-      .sort((a, b) => b.commission - a.commission || b.shipped - a.shipped)[0];
-    if (!winner) return null;
-
-    const tagReports = accountReports.slice().sort((a, b) =>
-      String(b.end || b.start || "").localeCompare(String(a.end || a.start || ""))
-    );
-    const linkReport = tagReports.find(report => amazonLink(winner, report)) || tagReports[0];
-    const link = linkReport ? amazonLink(winner, linkReport) : "";
-    const periods = winner.periods.sort();
-    const period = periods.length ? periods[0] + (periods[periods.length - 1] !== periods[0] ? "〜" + periods[periods.length - 1] : "") : "期間不明";
+    if (!primary || !Array.isArray(reports)) return null;
+    const latest = reports.filter(report => report.accountId === primary)
+      .sort((a, b) => String(b.end || b.start || "").localeCompare(String(a.end || a.start || "")))[0];
+    if (!latest) return null;
+    const clicks = n(latest.clicks);
+    const commission = n(latest.commission);
     return {
-      source: "Amazon主アカウント・商品別累計",
-      title: winner.title,
-      metric: count(winner.shipped) + "点発送 ・ 紹介料 " + yen(winner.commission) +
-        " ・ 商品クリック " + count(winner.clicks) + " ・ " + period,
-      action: link
-        ? "主アカウントの商品別成果上位です。商品情報を公式確認し、投稿案を作れます。"
-        : "主アカウントの商品別成果上位です。投稿案は作れますが、使用するアフィリエイトURLは別途確認してください。",
-      button: "この商品のX投稿プロンプトをコピー",
-      prompt: buildProductPrompt({
-        channel: "Amazonアソシエイト（主アカウント " + primary + "）",
-        title: winner.title,
-        category: winner.category,
-        period,
-        clicks: winner.clicks,
-        shipped: winner.shipped,
-        sales: winner.sales,
-        reward: winner.commission,
-        link
-      })
+      source: "Amazon・主アカウントの最新レポート",
+      title: reportDate(latest),
+      metric: "リンククリック " + count(clicks) + " ・ 発送商品 " + count(latest.shippedItems) + "点 ・ 紹介料 " + yen(commission) +
+        (clicks > 0 ? " ・ 1クリック当たり " + yen(commission / clicks) : ""),
+      action: "この期間の集計です。重なる期間のレポートは足しません。購入商品が投稿で紹介した商品と異なる場合もあります。"
     };
   }
-  function rakutenRecommendation() {
+  function rakutenRevenueSummary() {
     const reports = readJson(RAKUTEN_KEY, {});
-    if (!reports || typeof reports !== "object") return null;
-    const rows = Object.entries(reports).flatMap(([month, report]) =>
-      Array.isArray(report?.rows) ? report.rows.map(row => ({ ...row, reportMonth: month })) : []
-    );
-    const confirmed = rows.filter(row => n(row.status) === 1 && row.item);
-    const provisional = rows.filter(row => n(row.status) === 0 && row.item);
-    const selected = confirmed.length ? confirmed : provisional;
-    if (!selected.length) return null;
-    const products = new Map();
-    selected.forEach(row => {
-      const key = String(row.shop || "") + "\u0000" + String(row.item || "");
-      const product = products.get(key) || {shop:row.shop||"",item:row.item||"",reward:0,amount:0,rows:0,months:new Set(),confirmed:0};
-      product.reward += n(row.reward);
-      product.amount += n(row.amount);
-      product.rows++;
-      product.months.add(String(row.reportMonth || ""));
-      if (n(row.status) === 1) product.confirmed++;
-      products.set(key, product);
-    });
-    const winner = [...products.values()].sort((a,b)=>b.reward-a.reward||b.rows-a.rows)[0];
-    if (!winner) return null;
-    const confirmedWinner=winner.confirmed>0;
-    const status=confirmedWinner?"確定":"未確定";
-    const period=[...winner.months].filter(Boolean).sort().join("、")||"期間不明";
+    if (!reports || typeof reports !== "object" || Array.isArray(reports)) return null;
+    const entries = Object.entries(reports).filter(([, report]) => Array.isArray(report?.rows));
+    if (!entries.length) return null;
+    const rows = entries.flatMap(([, report]) => report.rows);
+    const confirmed = rows.filter(row => n(row.status) === 1);
+    const provisional = rows.filter(row => n(row.status) === 0);
+    const months = entries.map(([month]) => month).sort();
     return {
-      source:"楽天注文別レポート ・ "+status+"実績",
-      title:String(winner.item),
-      metric:status+"報酬 "+yen(winner.reward)+" ・ 注文 "+count(winner.rows)+"明細 ・ "+period+(winner.shop?" ・ "+winner.shop:""),
-      action:confirmedWinner?"確定報酬につながった商品から投稿案を作れます。":"未確定の参考値です。投稿前に成果確定と現在の商品情報を確認してください。",
-      button:"この商品のX投稿プロンプトをコピー",
-      prompt:buildProductPrompt({channel:"楽天アフィリエイト",title:String(winner.item),shop:String(winner.shop||""),period,status,sales:winner.amount,reward:winner.reward,link:""})
+      source: "楽天・注文別レポート",
+      title: months[0] === months[months.length - 1] ? months[0] : months[0] + "〜" + months[months.length - 1],
+      metric: "確定 " + yen(confirmed.reduce((sum, row) => sum + n(row.reward), 0)) + "（" + count(confirmed.length) + "明細） ・ 未確定 " +
+        yen(provisional.reduce((sum, row) => sum + n(row.reward), 0)) + "（" + count(provisional.length) + "明細）",
+      action: "確定と未確定を分けて表示します。注文別レポートにリンククリック数はないため、1クリック当たりの報酬は計算しません。"
     };
   }
   let busy = false;
@@ -253,18 +148,26 @@
     busy = true;
     try {
       const posts = await getPosts();
-      currentIdeas = [xClickOpportunity(posts), amazonRecommendation(), rakutenRecommendation()].filter(Boolean).slice(0, 3);
-      if (!currentIdeas.length) {
-        root.innerHTML = '<p class="revenue-insights-empty">候補を出すには、X分析CSVまたはAmazon・楽天レポートをこの端末に読み込んでください。</p>';
-        return;
-      }
-      root.innerHTML = '<div class="revenue-insights-list">' + currentIdeas.map((idea, index) =>
-        '<article class="revenue-insight"><span class="revenue-insight-source">' + esc(idea.source) + '</span>' +
-        '<strong class="revenue-insight-title">' + (index + 1) + '. ' + esc(idea.title) + '</strong>' +
-        '<span class="revenue-insight-metric">' + esc(idea.metric) + '</span>' +
-        '<p>' + esc(idea.action) + '</p>' +
-        '<button class="small-btn revenue-insight-copy" type="button" data-copy-idea="' + index + '">' + esc(idea.button) + '</button></article>'
-      ).join("") + '</div><p class="revenue-insights-note">Xはアフィリエイト投稿内のクリック率中央値と比較します。Amazonは主アカウントを使用し、楽天は確定報酬を優先します。レポートからX投稿別の売上は判断しません。楽天の注文別レポートに商品URLがない場合、リンクを捏造せず投稿本文のプロンプトだけを作ります。データはこのブラウザー内だけで集計します。</p>';
+      const clickIdea = xClickOpportunity(posts);
+      const revenue = [amazonRevenueSummary(), rakutenRevenueSummary()].filter(Boolean);
+      currentIdeas = clickIdea ? [clickIdea] : [];
+      root.innerHTML =
+        '<h4>X投稿のクリック改善</h4>' +
+        (clickIdea
+          ? '<div class="revenue-insights-list"><article class="revenue-insight"><span class="revenue-insight-source">' + esc(clickIdea.source) + '</span>' +
+            '<strong class="revenue-insight-title">' + esc(clickIdea.title) + '</strong>' +
+            '<span class="revenue-insight-metric">' + esc(clickIdea.metric) + '</span><p>' + esc(clickIdea.action) + '</p>' +
+            '<button class="small-btn revenue-insight-copy" type="button" data-copy-idea="0">' + esc(clickIdea.button) + '</button></article></div>'
+          : '<p class="revenue-insights-empty">改善対象がありません。X分析CSVを取り込むと、表示数とクリック率から探します。</p>') +
+        '<h4>リンク経由の収益</h4>' +
+        (revenue.length
+          ? '<div class="revenue-insights-list">' + revenue.map(item =>
+              '<article class="revenue-insight"><span class="revenue-insight-source">' + esc(item.source) + '</span>' +
+              '<strong class="revenue-insight-title">' + esc(item.title) + '</strong>' +
+              '<span class="revenue-insight-metric">' + esc(item.metric) + '</span><p>' + esc(item.action) + '</p></article>'
+            ).join("") + '</div>'
+          : '<p class="revenue-insights-empty">この端末にAmazon・楽天レポートがまだありません。</p>') +
+        '<p class="revenue-insights-note">XのURLクリックとAmazon・楽天の紹介料は別々の集計です。購入商品から特定のX投稿の売上は判断できません。端末内のデータを表示します。</p>';
     } catch (error) {
       root.innerHTML = '<p class="revenue-insights-empty">改善候補を読み込めませんでした。ページを再読み込みしてください。</p>';
     } finally {
