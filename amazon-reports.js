@@ -4,7 +4,7 @@
   const card = document.getElementById("amazonReportsCard");
   if (!card) return;
   const versionLabel = document.getElementById("appVersionStatus");
-  if (versionLabel) setTimeout(() => { versionLabel.textContent = "アプリ版 2026.09.23-3316（最新）"; }, 1500);
+  if (versionLabel) setTimeout(() => { versionLabel.textContent = "アプリ版 2026.09.23-3317（最新）"; }, 1500);
 
   const input = document.getElementById("importAmazonReports");
   const status = document.getElementById("amazonReportsStatus");
