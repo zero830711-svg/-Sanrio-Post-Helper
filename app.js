@@ -13,7 +13,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3318";
+const APP_VERSION="2026.09.23-3319";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -138,6 +138,15 @@ async function archiveMediaRequest(action="stats"){
 function byteText(n){
   const v=Number(n)||0;if(v>=1024**3)return (v/1024**3).toFixed(1)+" GB";if(v>=1024**2)return (v/1024**2).toFixed(1)+" MB";if(v>=1024)return (v/1024).toFixed(1)+" KB";return v.toLocaleString()+" B";
 }
+function sharedPostText(item,withReasons){
+  const original=String(item.text||"");
+  if(!withReasons)return original.slice(0,16000);
+  const role=String(item._role||item.recommendedRole||"").slice(0,40);
+  const reason=[...recommendationReasons(item),item._diverseReason].filter(Boolean).join("・").slice(0,320);
+  if(!role&&!reason)return original.slice(0,16000);
+  const prefix="SPH_META_V1:"+JSON.stringify({role,reason})+"\n";
+  return prefix+original.slice(0,Math.max(0,16000-prefix.length));
+}
 async function createCodexReviewLink(button){
   const status=$("codexShareStatus");
   const linkWrap=$("codexShareLinkWrap");
@@ -165,7 +174,7 @@ async function createCodexReviewLink(button){
     if(!selected.length)throw new Error("共有できる保存投稿がありません。");
     const posts=selected.map(x=>({
       title:String(x.title||shortLabel(x)||"投稿").slice(0,240),
-      text:String(x.text||"").slice(0,16000),
+      text:sharedPostText(x,scope==="今日の候補"),
       postedAt:String(x.postedAt||x.savedAt||formatPostedMeta(x)),
       xUrl:String(x.xUrl||x.tweetUrl||x.url||"").slice(0,2048),
       images:mediaArray(x.images||(x.image?[x.image]:[])).slice(0,20),
@@ -187,6 +196,7 @@ async function createCodexReviewLink(button){
     try{result=await response.json()}catch(e){}
     if(!response.ok||!result.ok||!result.token)throw new Error(result.error||("共有リンクの作成に失敗しました（HTTP "+response.status+"）"));
     const shareUrl=new URL("./share.html",location.href);
+    shareUrl.searchParams.set("v",APP_VERSION.replaceAll(".",""));
     shareUrl.hash="token="+encodeURIComponent(result.token);
     const input=$("codexShareUrl");
     if(input)input.value=shareUrl.href;
