@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3301";
+const APP_VERSION="2026.09.23-3302";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -172,7 +172,7 @@ async function createCodexReviewLink(button){
       impressions:x.impressions??null,
       likes:x.likes??null,
       bookmarks:x.bookmarks??null,
-      clicks:x.clicks??null
+      clicks:x.urlClicks??x.clicks??null
     }));
     const api=new URL(archiveMediaApiUrl());
     api.searchParams.set("action","share");
