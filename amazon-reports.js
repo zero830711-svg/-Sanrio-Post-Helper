@@ -81,11 +81,11 @@
   }
   function blankReport(accountId, start, end, reportId) {
     return {
-      key: accountId + "|" + start + "|" + end,
+      key: accountId + "|" + reportId,
       accountId, start, end, reportId,
       clicks: 0, orderedItems: 0, orderedSales: 0, shippedItems: 0,
       shippedSales: 0, commission: 0, returns: 0, trackingIds: [],
-      products: [], categories: [], importedAt: new Date().toISOString()
+      products: [], categories: [], topSellers: [], sourceTypes: [], importedAt: new Date().toISOString()
     };
   }
 
@@ -113,10 +113,8 @@
     const days = Array.from(daySet).sort();
     const start = days[0] || "";
     const end = days[days.length - 1] || "";
-    if (!start || !end) throw new Error(file.name + "：期間（日付）を含むCategoryまたはLinked-Productレポートがありません");
-
     const stampMatch = file.name.match(/^(\d{10,})-/);
-    const reportId = stampMatch ? stampMatch[1] : start + "_" + end;
+    const reportId = stampMatch ? stampMatch[1] : (start && end ? start + "_" + end : file.name);
     const result = blankReport(accountId, start, end, reportId);
     const productMap = new Map();
     const categoryMap = new Map();
@@ -125,6 +123,7 @@
       const name = item.name.toLowerCase();
       const rows = item.rows, h = rows[0];
       if (name.includes("tracking-id")) {
+        result.sourceTypes.push("tracking");
         const ix = {
           id: col(h, ["トラッキングID"]), clicks: col(h, ["クリック数"]),
           orders: col(h, ["注文済み商品"]), orderedSales: col(h, ["注文商品売上"]),
@@ -143,6 +142,7 @@
           });
         }
       } else if (name.includes("linked-product")) {
+        result.sourceTypes.push("products");
         const ix = {
           date: h.indexOf("日付"), category: h.indexOf("カテゴリー"),
           title: h.indexOf("商品名"), asin: h.indexOf("ASIN"),
@@ -166,6 +166,7 @@
           productMap.set(key, p);
         }
       } else if (name.includes("category")) {
+        result.sourceTypes.push("categories");
         const ix = {
           date: h.indexOf("日付"), category: h.indexOf("カテゴリー"),
           clicks: h.indexOf("クリック数"), shipped: h.indexOf("発送済み商品"),
@@ -189,6 +190,14 @@
     }
     result.products = Array.from(productMap.values());
     result.categories = Array.from(categoryMap.values());
+    const topFile = parsed.find(x => x.name.toLowerCase().includes("top-sellers"));
+    if (topFile) {
+      result.sourceTypes.push("topSellers");
+      const h = topFile.rows[0];
+      const ix = {rank: h.indexOf("順位"), asin: h.indexOf("ASIN"), title: h.indexOf("商品名"), category: h.indexOf("カテゴリー"), type: h.indexOf("購入タイプ")};
+      result.topSellers = topFile.rows.slice(1).map(r => ({rank: numeric(r[ix.rank]), asin: String(r[ix.asin] || ""), title: String(r[ix.title] || ""), category: String(r[ix.category] || ""), type: String(r[ix.type] || "")})).filter(x => x.asin || x.title);
+    }
+    if (!result.sourceTypes.length) return null;
     if (result.trackingIds.length) {
       result.clicks = result.trackingIds.reduce((s, x) => s + x.clicks, 0);
       result.orderedItems = result.trackingIds.reduce((s, x) => s + x.orderedItems, 0);
@@ -273,16 +282,44 @@
       const JSZip = await loadZipLibrary();
       const parsed = [];
       for (const file of files) parsed.push(await readArchive(file, JSZip));
+      const usable = parsed.filter(Boolean);
       const existing = loadReports();
       const byKey = new Map(existing.map(x => [x.key, x]));
-      for (const report of parsed) byKey.set(report.key, report);
+      function mergeReport(old, next) {
+        if (!old) return next;
+        const out = {...old, ...next,
+          start: [old.start,next.start].filter(Boolean).sort()[0] || "",
+          end: [old.end,next.end].filter(Boolean).sort().slice(-1)[0] || "",
+          sourceTypes: Array.from(new Set([...(old.sourceTypes || []), ...(next.sourceTypes || [])]))};
+        for (const type of next.sourceTypes || []) {
+          if (type === "tracking") out.trackingIds = next.trackingIds;
+          if (type === "products") out.products = next.products;
+          if (type === "categories") out.categories = next.categories;
+          if (type === "topSellers") out.topSellers = next.topSellers;
+        }
+        const tracking = (next.sourceTypes || []).includes("tracking") ? next :
+          ((old.sourceTypes || []).includes("tracking") ? old : null);
+        if (tracking) {
+          for (const field of ["clicks","orderedItems","orderedSales","shippedItems","shippedSales","returns","commission"])
+            out[field] = tracking.trackingIds.reduce((sum,row) => sum + (Number(row[field]) || 0),0);
+        } else {
+          const category = (next.sourceTypes || []).includes("categories") ? next :
+            ((old.sourceTypes || []).includes("categories") ? old : null);
+          if (category) {
+            out.clicks = category.categories.reduce((sum,row) => sum + (Number(row.clicks) || 0),0);
+            out.shippedItems = category.categories.reduce((sum,row) => sum + (Number(row.shippedItems) || 0),0);
+            out.shippedSales = category.categories.reduce((sum,row) => sum + (Number(row.shippedSales) || 0),0);
+            out.commission = category.categories.reduce((sum,row) => sum + (Number(row.commission) || 0),0);
+          }
+        }
+        return out;
+      }
+      for (const report of usable) byKey.set(report.key, mergeReport(byKey.get(report.key), report));
       const updated = Array.from(byKey.values()).sort((a,b) =>
         (a.start || "").localeCompare(b.start || "") || a.accountId.localeCompare(b.accountId));
       localStorage.setItem(STORE_KEY, JSON.stringify(updated));
-      const main = localStorage.getItem(PRIMARY_KEY);
-      
-      status.textContent = parsed.length + "件のZIPから " + parsed.length +
-        "期間レポートを取り込みました。同じアカウント・期間のデータは更新し、他の記録は保持しました。端末内だけに保存しています。";
+      status.textContent = files.length + "件のZIPを確認し、" + usable.length +
+        "レポートを取り込みました。同じレポートは更新し、他の記録は保持しました。端末内だけに保存しています。";
       render();
     } catch (error) {
       status.textContent = "取り込みできませんでした：" + (error && error.message ? error.message : String(error));
