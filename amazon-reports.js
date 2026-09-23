@@ -359,6 +359,32 @@
     render();
   });
 
+  async function importFromLink() {
+    const match = location.hash.match(/(?:^#|&)amazon-import=([^&]+)/);
+    if (!match) return;
+    try {
+      const binary = atob(match[1].replace(/-/g, "+").replace(/_/g, "/"));
+      const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+      if (!("DecompressionStream" in window)) throw new Error("このブラウザーはリンク取り込みに対応していません");
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+      const payload = JSON.parse(await new Response(stream).text());
+      if (payload.version !== 1 || !Array.isArray(payload.reports)) throw new Error("レポート形式が違います");
+      const byKey = new Map(loadReports().map(item => [item.key, item]));
+      for (const report of payload.reports) {
+        if (!report || !report.accountId || !report.key) throw new Error("アカウント情報がありません");
+        byKey.set(report.key, report);
+      }
+      localStorage.setItem(STORE_KEY, JSON.stringify(Array.from(byKey.values())));
+      if (payload.primaryAccountId) localStorage.setItem(PRIMARY_KEY, String(payload.primaryAccountId));
+      history.replaceState(null, "", location.pathname + location.search);
+      status.textContent = payload.reports.length + "件のAmazonレポートをこの端末に保存しました。既存の別期間データは残しています。";
+      render();
+    } catch (error) {
+      status.textContent = "リンクからの取り込みに失敗しました：" + (error && error.message ? error.message : String(error));
+    }
+  }
+  importFromLink();
+
   const style = document.createElement("style");
   style.textContent = ".amazon-import-card .amazon-import-label{display:inline-flex;align-items:center;justify-content:center;margin-top:10px}.amazon-import-card .amazon-primary-select{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:.9rem}.amazon-import-card select{max-width:190px;padding:9px;border:1px solid #ddd;border-radius:10px;background:#fff}.amazon-import-card .amazon-primary-report{margin:14px 0;padding:14px;border-radius:14px;background:#fff7fb;border:1px solid #f0dce7}.amazon-import-card .amazon-primary-report>span{display:block;color:#7d7480;font-size:.85rem;margin-top:4px}.amazon-import-card .amazon-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}.amazon-import-card .amazon-metrics div{background:#fff;border-radius:10px;padding:10px}.amazon-import-card .amazon-metrics span,.amazon-import-card .amazon-metrics b{display:block}.amazon-import-card .amazon-metrics span{font-size:.8rem;color:#777}.amazon-import-card .amazon-metrics b{font-size:1.05rem;margin-top:3px}.amazon-import-card h3{font-size:1rem;margin:16px 0 8px}.amazon-import-card .amazon-product-list{padding-left:22px}.amazon-import-card .amazon-product-list li{padding:8px 0;border-bottom:1px solid #eee}.amazon-import-card .amazon-product-list small{display:block;color:#777;margin-top:4px}.amazon-import-card .amazon-product-list a{margin-left:6px}.amazon-import-card .amazon-empty{color:#777;font-size:.9rem}.amazon-import-card .amazon-history{margin-top:14px}.amazon-import-card .amazon-history-list{margin-top:8px}.amazon-import-card .amazon-history-row{display:grid;grid-template-columns:1.1fr 1.3fr 1fr auto;gap:6px;padding:8px 0;border-bottom:1px solid #eee;font-size:.8rem}.amazon-import-card .amazon-history-row span{color:#777}.amazon-import-card .amazon-import-label input{display:none}@media(max-width:480px){.amazon-import-card .amazon-history-row{grid-template-columns:1fr 1fr}.amazon-import-card .amazon-history-row strong{text-align:right}}";
   document.head.appendChild(style);
