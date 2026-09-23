@@ -210,7 +210,7 @@
     const reports = loadReports();
     const accounts = Array.from(new Set(reports.map(x => x.accountId))).sort();
     const previous = getPrimary();
-    const main = accounts.includes(previous) ? previous : (accounts.includes("135036") ? "135036" : accounts[0] || "");
+    const main = accounts.includes(previous) ? previous : (accounts[0] || "");
     if (main && main !== previous) localStorage.setItem(PRIMARY_KEY, main);
     accountSelect.innerHTML = accounts.map(id =>
       '<option value="' + safe(id) + '"' + (id === main ? " selected" : "") + '>' +
@@ -280,7 +280,7 @@
         (a.start || "").localeCompare(b.start || "") || a.accountId.localeCompare(b.accountId));
       localStorage.setItem(STORE_KEY, JSON.stringify(updated));
       const main = localStorage.getItem(PRIMARY_KEY);
-      if (!main && parsed.some(x => x.accountId === "135036")) localStorage.setItem(PRIMARY_KEY, "135036");
+      
       status.textContent = parsed.length + "件のZIPから " + parsed.length +
         "期間レポートを取り込みました。同じアカウント・期間のデータは更新し、他の記録は保持しました。端末内だけに保存しています。";
       render();
