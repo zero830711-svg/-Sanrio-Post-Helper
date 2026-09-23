@@ -157,3 +157,25 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 @media(max-width:600px){.codex-share-bar{grid-template-columns:1fr}.codex-share-bar .small-btn{width:100%}.codex-share-link-wrap{grid-template-columns:1fr}}
 
 .freshness-review{margin:8px 0;padding:9px 11px;border:1px solid #e8d18c;border-radius:10px;background:#fff7df;color:#795b20;font-size:12px;font-weight:700;line-height:1.5}
+
+.rakuten-import-card{margin:14px 0;display:grid;gap:10px}
+.rakuten-report-summary{display:grid;gap:10px}
+.rakuten-empty{padding:12px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:13px}
+.rakuten-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.rakuten-kpis>div{display:grid;gap:4px;min-width:0;padding:10px 8px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.rakuten-kpis span{font-size:11px;color:var(--muted)}
+.rakuten-kpis strong{font-size:15px;overflow-wrap:anywhere}
+.rakuten-month-list{display:grid;gap:8px}
+.rakuten-month-card{padding:11px;border:1px solid var(--line);border-radius:13px;background:#fff}
+.rakuten-month-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rakuten-month-head>strong{font-size:15px}
+.rakuten-month-head>span,.rakuten-month-kpis{font-size:11px;color:var(--muted)}
+.rakuten-month-kpis{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.rakuten-month-kpis span{padding:4px 7px;border-radius:999px;background:#f5eef2}
+.rakuten-month-card details summary{font-size:12px;font-weight:700;cursor:pointer;padding:5px 0}
+.rakuten-product-list{margin:5px 0 0;padding-left:21px;display:grid;gap:8px}
+.rakuten-product-list li{padding-left:2px}
+.rakuten-product-list strong{display:block;font-size:12px;line-height:1.45}
+.rakuten-product-list span{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.rakuten-clear-btn{justify-self:start;color:var(--muted);background:#fff}
+@media(max-width:420px){.rakuten-kpis>div{padding:8px 6px}.rakuten-kpis strong{font-size:13px}}

@@ -4,6 +4,7 @@ const DB_NAME="sanrioPostHelperDB";
 const STORE="popularPosts";
 const LEGACY_KEY="sanrioPopularPostsV1";
 const LAST_ANALYTICS_IMPORT_KEY="sanrioLastAnalyticsImportAt";
+const RAKUTEN_REPORT_KEY="sanrioRakutenOrderReportsV1";
 const LAST_BACKUP_EXPORT_KEY="sanrioLastBackupExportAt";
 const CLOUD_API_URL_KEY="sanrioCloudApiUrl";
 const CLOUD_SYNC_KEY_KEY="sanrioCloudSyncKey";
@@ -12,7 +13,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3305";
+const APP_VERSION="2026.09.23-3306";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -2561,6 +2562,147 @@ async function shareToX(item,button){
   alert("投稿文をコピーしました。画像は長押しで保存してXに貼り付けてください。");
 }
 
+
+
+let rakutenXlsxLoader=null;
+function loadRakutenXlsx(){
+  if(window.XLSX)return Promise.resolve(window.XLSX);
+  if(!rakutenXlsxLoader){
+    rakutenXlsxLoader=new Promise((resolve,reject)=>{
+      const script=document.createElement("script");
+      script.src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
+      script.onload=()=>window.XLSX?resolve(window.XLSX):reject(new Error("Excel読み込み機能を開始できません"));
+      script.onerror=()=>reject(new Error("Excel読み込み機能を読み込めません。通信後にもう一度お試しください"));
+      document.head.appendChild(script);
+    });
+  }
+  return rakutenXlsxLoader;
+}
+function rakutenReportStore(){
+  try{return JSON.parse(localStorage.getItem(RAKUTEN_REPORT_KEY)||"{}")}catch(e){return {}}
+}
+function rakutenReportNumber(value){
+  if(typeof value==="number")return Number.isFinite(value)?value:0;
+  const n=Number(String(value??"").replace(/[¥￥,\s円pt]/g,""));
+  return Number.isFinite(n)?n:0;
+}
+function rakutenReportDate(value,XLSX){
+  if(value instanceof Date&&!Number.isNaN(value.getTime())){
+    const p=n=>String(n).padStart(2,"0");
+    return value.getFullYear()+"-"+p(value.getMonth()+1)+"-"+p(value.getDate())+(value.getHours()||value.getMinutes()?(" "+p(value.getHours())+":"+p(value.getMinutes())):"");
+  }
+  if(typeof value==="number"&&XLSX?.SSF){
+    const d=XLSX.SSF.parse_date_code(value);
+    if(d)return d.y+"-"+String(d.m).padStart(2,"0")+"-"+String(d.d).padStart(2,"0");
+  }
+  return String(value??"").trim();
+}
+async function parseRakutenOrderFile(file){
+  const XLSX=await loadRakutenXlsx();
+  const book=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
+  const ws=book.Sheets[book.SheetNames[0]];
+  if(!ws)throw new Error(file.name+" にシートがありません");
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+  const headerAt=rows.findIndex(row=>row.some(v=>String(v||"").trim()==="発生日"));
+  if(headerAt<0)throw new Error(file.name+" の「発生日」列が見つかりません。楽天の注文別成果Excelを選んでください");
+  const headers=rows[headerAt].map(v=>String(v||"").trim());
+  const col=name=>headers.indexOf(name);
+  const idx={date:col("発生日"),reward:col("成果報酬"),rate:col("料率"),amount:col("売上金額"),genre:col("ジャンル名"),shop:col("ショップ名"),item:col("商品名"),status:col("ステータス"),link:col("リンクタイプ"),device:col("デバイスタイプ"),measurement:col("計測ID")};
+  if(idx.date<0||idx.reward<0||idx.item<0||idx.status<0)throw new Error(file.name+" の列形式が想定と異なります");
+  const first=String(rows[0]?.find(v=>v!=null)||"");
+  const period=first.match(/(20[0-9]{2})[./-](0?[1-9]|1[0-2])/);
+  let month=period?period[1]+"."+String(period[2]).padStart(2,"0"):"";
+  const data=[];
+  for(let i=headerAt+1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r||String(r[idx.date]||"").trim().toLowerCase()==="date")continue;
+    if(r[idx.date]==null||r[idx.date]===""||r[idx.shop]==null&&r[idx.item]==null)continue;
+    const statusCode=Math.trunc(rakutenReportNumber(r[idx.status]));
+    data.push({
+      date:rakutenReportDate(r[idx.date],XLSX),
+      reward:rakutenReportNumber(r[idx.reward]),
+      rate:rakutenReportNumber(r[idx.rate]),
+      amount:rakutenReportNumber(r[idx.amount]),
+      genre:String(r[idx.genre]||""),
+      shop:String(r[idx.shop]||""),
+      item:String(r[idx.item]||""),
+      status:statusCode,
+      linkType:rakutenReportNumber(r[idx.link]),
+      deviceType:rakutenReportNumber(r[idx.device]),
+      measurementId:String(r[idx.measurement]||"")
+    });
+  }
+  if(!data.length)throw new Error(file.name+" から明細を読み取れませんでした");
+  if(!month){
+    const found=data[0].date.match(/(20[0-9]{2})[-/.](0?[0-9]|1[0-2])/);
+    if(found)month=found[1]+"."+String(found[2]).padStart(2,"0");
+  }
+  if(!month)throw new Error(file.name+" の対象月を判別できません");
+  return {month,rows:data,fileName:file.name,importedAt:new Date().toISOString()};
+}
+function rakutenYen(value){
+  return "¥"+Math.round(value||0).toLocaleString("ja-JP");
+}
+function renderRakutenReports(){
+  const root=$("rakutenReportSummary");
+  if(!root)return;
+  const reports=rakutenReportStore();
+  const months=Object.keys(reports).sort((a,b)=>b.localeCompare(a));
+  if(!months.length){
+    root.innerHTML='<div class="rakuten-empty">注文別Excelはまだ読み込まれていません。</div>';
+    return;
+  }
+  const all=months.flatMap(month=>reports[month].rows||[]);
+  const sumStatus=code=>all.filter(r=>Number(r.status)===code).reduce((n,r)=>n+(Number(r.reward)||0),0);
+  const totalRows=all.length;
+  const kpis=[
+    ["確定済み報酬",rakutenYen(sumStatus(1))],
+    ["未確定報酬",rakutenYen(sumStatus(0))],
+    ["読み込み明細",totalRows.toLocaleString("ja-JP")+"行"]
+  ];
+  const cards=months.map(month=>{
+    const report=reports[month],data=report.rows||[];
+    const sums={0:0,1:0,2:0};
+    data.forEach(r=>{const s=Number(r.status);if(sums[s]!==undefined)sums[s]+=Number(r.reward)||0});
+    const products=new Map();
+    data.filter(r=>r.item).forEach(r=>{
+      const key=r.shop+"\\u0000"+r.item;
+      const p=products.get(key)||{shop:r.shop,item:r.item,reward:0,count:0};
+      p.reward+=Number(r.reward)||0;p.count++;products.set(key,p);
+    });
+    const top=[...products.values()].sort((a,b)=>b.reward-a.reward).slice(0,5);
+    const productHtml=top.length?top.map(p=>'<li><strong>'+esc(p.item)+'</strong><span>'+esc(p.shop)+' ・ '+p.count+'明細 ・ '+rakutenYen(p.reward)+'</span></li>').join(""):'<li>商品名のある明細はありません。</li>';
+    return '<article class="rakuten-month-card"><div class="rakuten-month-head"><strong>'+esc(month)+'</strong><span>'+data.length.toLocaleString("ja-JP")+'明細</span></div>'+
+      '<div class="rakuten-month-kpis"><span>確定 '+rakutenYen(sums[1])+'</span><span>未確定 '+rakutenYen(sums[0])+'</span><span>破棄 '+rakutenYen(sums[2])+'</span></div>'+
+      '<details><summary>成果商品 上位5件</summary><ol class="rakuten-product-list">'+productHtml+'</ol></details></article>';
+  }).join("");
+  root.innerHTML='<div class="rakuten-kpis">'+kpis.map(x=>'<div><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join("")+'</div><div class="rakuten-month-list">'+cards+'</div>';
+}
+$("importRakutenOrders")?.addEventListener("change",async e=>{
+  const files=[...(e.target.files||[])];
+  if(!files.length)return;
+  const status=$("rakutenImportStatus");
+  status.textContent="読み込み中…";
+  try{
+    const parsed=[];
+    for(const file of files)parsed.push(await parseRakutenOrderFile(file));
+    const reports=rakutenReportStore();
+    parsed.forEach(report=>{reports[report.month]=report});
+    localStorage.setItem(RAKUTEN_REPORT_KEY,JSON.stringify(reports));
+    renderRakutenReports();
+    status.textContent=parsed.map(x=>x.month).join("、")+" の明細を読み込みました。同じ月は今回のファイルで更新しました。";
+  }catch(err){
+    status.textContent=err.message||"楽天Excelを読み込めませんでした";
+  }
+  e.target.value="";
+});
+$("clearRakutenOrders")?.addEventListener("click",()=>{
+  if(!confirm("この端末に保存した楽天注文レポートをすべて削除します。よろしいですか？"))return;
+  localStorage.removeItem(RAKUTEN_REPORT_KEY);
+  renderRakutenReports();
+  $("rakutenImportStatus").textContent="保存済みレポートを削除しました。";
+});
+renderRakutenReports();
 
 $("importAnalyticsCsv").addEventListener("change",async e=>{
   const file=e.target.files[0]; if(!file)return;
