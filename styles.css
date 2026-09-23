@@ -129,3 +129,14 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 /* Build 3230: AI-agnostic rewrite prompt */
 .rewrite-btn{background:#fff3d8;border-color:#ead29a;color:#7a5a13}
 .detail-sheet>.rewrite-btn{margin:2px 0 10px}
+
+
+/* Build 3291: compose post text and image for reuse */
+.detail-action-row{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 10px}
+.detail-action-row .small-btn{margin:0}
+.detail-copy-image-btn{background:#f8dce7;border-color:#efbfd1;color:#612e46}
+.detail-copy-image-btn:disabled{opacity:.65}
+.detail-media-item{margin:0;display:grid;gap:8px}
+.detail-media-item img{display:block}
+.detail-download-btn{justify-self:start;background:#fff;border-color:var(--line)}
+@media(max-width:460px){.detail-action-row{display:grid;grid-template-columns:1fr}.detail-action-row .small-btn{width:100%}.detail-download-btn{width:100%}}
