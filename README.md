@@ -1,10 +1,11 @@
 # Sanrio Post Helper
 
-**Current app: 2026.09.23-3260**
+**Current app: 2026.09.23-3298**
 
 iPhone中心で、過去のX投稿を分析・再利用するためのWebツールです。
 
 ## 主な機能
+- Codex確認用の期限付き閲覧リンク（今日の候補5件、30分）
 - XアナリティクスCSVの一括取り込み
 - Trend Radar：Sanrio公式、Google News系の公開RSS、Reddit公開情報から国内外の最新話題を取得
 - 72時間以内を中心に表示し、7日超の古い話題は除外

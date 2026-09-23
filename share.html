@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fff7fb">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<title>期限付き確認ページ | Sanrio Post Helper</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#29252d;background:#fff7fb}
+*{box-sizing:border-box}
+body{margin:0;padding:20px 14px 48px}
+main{max-width:760px;margin:0 auto}
+header,.post,.state{background:#fff;border:1px solid #e9dfe6;border-radius:18px;padding:18px;margin:0 0 14px;box-shadow:0 4px 18px #33203308}
+h1{font-size:22px;margin:0 0 8px}
+h2{font-size:18px;line-height:1.45;margin:0 0 10px}
+p{line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.note,.meta{color:#77717a;font-size:13px}
+.badge{display:inline-block;background:#f6e1eb;color:#7c4560;padding:5px 10px;border-radius:99px;font-size:12px;margin-bottom:10px}
+.post{padding:18px}
+.post-text{white-space:pre-wrap;line-height:1.7;overflow-wrap:anywhere}
+.media{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.media img{display:block;width:100%;height:auto;max-height:560px;object-fit:contain;background:#f5f2f4;border-radius:12px}
+.media a{color:#5548a7;overflow-wrap:anywhere}
+.metrics{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;color:#77717a;font-size:13px}
+.metrics span{padding:5px 9px;border-radius:99px;background:#f7f3f6}
+#search{width:100%;padding:12px 14px;border:1px solid #ddd2dc;border-radius:12px;font-size:16px;margin-top:10px}
+@media(max-width:520px){body{padding:12px 10px 32px}.post,header,.state{padding:14px}.media{grid-template-columns:1fr 1fr}h1{font-size:20px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<span class="badge">Sanrio Post Helper</span>
+<h1>期限付き確認ページ</h1>
+<p id="intro" class="note">確認用データを読み込んでいます…</p>
+<input id="search" type="search" placeholder="投稿文から検索" aria-label="投稿文から検索" hidden>
+</header>
+<div id="state" class="state" role="status" aria-live="polite">読み込み中…</div>
+<section id="posts" aria-label="投稿候補"></section>
+</main>
+<script>
+(()=> {
+"use strict";
+const API="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/archive-media-batch.php";
+const params=new URLSearchParams(location.search);
+const token=new URLSearchParams(location.hash.replace(/^#/,"")).get("token")||params.get("token")||"";
+const state=document.getElementById("state"),root=document.getElementById("posts"),intro=document.getElementById("intro"),search=document.getElementById("search");
+let records=[];
+const add=(parent,tag,cls,text)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=String(text);parent.appendChild(el);return el};
+const metric=(label,value)=>value===null||value===undefined||value===""?null:label+" "+Number(value).toLocaleString("ja-JP");
+function render(){
+ const q=search.value.trim().toLocaleLowerCase();
+ root.replaceChildren();
+ const rows=records.filter(p=>!q||String(p.title+" "+p.text).toLocaleLowerCase().includes(q));
+ for(const p of rows){
+  const card=add(root,"article","post");
+  add(card,"h2","",p.title||"投稿");
+  add(card,"div","meta",p.postedAt||"");
+  if(p.text)add(card,"p","post-text",p.text);
+  if(p.xUrl){try{const x=new URL(p.xUrl);if(x.protocol==="https:"){const a=add(card,"a","","Xで投稿を見る");a.href=x.href;a.target="_blank";a.rel="noopener noreferrer"}}catch(e){}}
+  if(p.xUrl){try{const x=new URL(p.xUrl);if(x.protocol==="https:"){const a=add(card,"a","","Xで投稿を見る");a.href=x.href;a.target="_blank";a.rel="noopener noreferrer"}}catch(e){}}
+  const stats=[metric("表示",p.impressions),metric("いいね",p.likes),metric("保存",p.bookmarks),metric("クリック",p.clicks)].filter(Boolean);
+  if(stats.length){const m=add(card,"div","metrics");stats.forEach(s=>add(m,"span","",s))}
+  const media=[];
+  (Array.isArray(p.images)?p.images:[]).forEach(src=>media.push({src,type:"image"}));
+  (Array.isArray(p.videos)?p.videos:[]).forEach(src=>media.push({src,type:"video"}));
+  if(media.length){
+   const grid=add(card,"div","media");
+   media.forEach(item=>{
+    let url;
+    try{url=new URL(item.src);if(url.protocol!=="https:")return}catch(e){return}
+    if(item.type==="image"){
+     const img=add(grid,"img","","");img.alt="投稿写真";img.loading="lazy";
+     img.onerror=()=>{if(img.dataset.proxyTried)return;img.dataset.proxyTried="1";const proxy=new URL(API);proxy.searchParams.set("action","shared_file");proxy.searchParams.set("token",token);proxy.searchParams.set("url",item.src);img.src=proxy.href};
+     img.src=item.src;
+    }else{
+     const a=add(grid,"a","", "動画を開く");a.href=url.href;a.target="_blank";a.rel="noopener noreferrer";
+    }
+   });
+  }
+ }
+ if(!rows.length)add(root,"p","state","一致する投稿はありません。");
+}
+async function start(){
+ if(!/^[a-f0-9]{64}$/i.test(token)){state.textContent="リンクが正しくありません。アプリで確認用リンクを作り直してください。";return}
+ try{
+  const u=new URL(API);u.searchParams.set("action","shared");u.searchParams.set("token",token);
+  const response=await fetch(u.href,{cache:"no-store"});
+  const data=await response.json();
+  if(response.status===410){state.textContent="このリンクの有効期限が切れました。アプリで新しいリンクを作ってください。";return}
+  if(!response.ok||!data.ok||!data.snapshot)throw new Error(data.error||"共有データを読み込めません");
+  records=Array.isArray(data.snapshot.posts)?data.snapshot.posts:[];
+  intro.textContent=(data.snapshot.scope||"投稿")+ " "+records.length+"件を表示中。リンクは "+new Date(data.expiresAt).toLocaleString("ja-JP")+" まで有効です。";
+  state.hidden=true;search.hidden=false;search.addEventListener("input",render);render();
+ }catch(error){state.textContent="共有データを読み込めませんでした。リンクの期限切れ、またはサーバー未更新の可能性があります。"}
+}
+start();
+})();
+</script>
+</body>
+</html>

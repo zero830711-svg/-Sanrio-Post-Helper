@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3297";
+const APP_VERSION="2026.09.23-3298";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -137,6 +137,74 @@ async function archiveMediaRequest(action="stats"){
 function byteText(n){
   const v=Number(n)||0;if(v>=1024**3)return (v/1024**3).toFixed(1)+" GB";if(v>=1024**2)return (v/1024**2).toFixed(1)+" MB";if(v>=1024)return (v/1024).toFixed(1)+" KB";return v.toLocaleString()+" B";
 }
+async function createCodexReviewLink(button){
+  const status=$("codexShareStatus");
+  const linkWrap=$("codexShareLinkWrap");
+  if(!button)return;
+  button.disabled=true;
+  button.textContent="リンクを作っています…";
+  if(status)status.textContent="今日の候補と写真を準備しています。";
+  if(linkWrap)linkWrap.classList.add("hidden");
+  try{
+    const {key}=cloudSettings();
+    if(!key){
+      const management=document.querySelector(".management");
+      if(management)management.open=true;
+      const syncCard=document.querySelector(".cloud-sync-card");
+      if(syncCard)syncCard.scrollIntoView({behavior:"smooth",block:"center"});
+      const message="確認用リンクには同期キーの初回設定が必要です。ここで一度保存すると、次回からはボタンだけで作れます。";
+      if($("cloudSyncStatus"))$("cloudSyncStatus").textContent=message;
+      throw new Error(message);
+    }
+    const all=await dbGetAll();
+    let selected=todayPicksById.size?[...todayPicksById.values()]:await getRoleBasedPicks();
+    let scope=selected.length?"今日の候補":"最近の保存投稿";
+    if(!selected.length)selected=all.filter(x=>!x._deleted).sort((a,b)=>postedTime(b)-postedTime(a)).slice(0,5);
+    selected=selected.slice(0,5);
+    if(!selected.length)throw new Error("共有できる保存投稿がありません。");
+    const posts=selected.map(x=>({
+      title:String(x.title||shortLabel(x)||"投稿").slice(0,240),
+      text:String(x.text||"").slice(0,16000),
+      postedAt:formatPostedMeta(x),
+      xUrl:String(x.xUrl||x.tweetUrl||x.url||"").slice(0,2048),
+      images:mediaArray(x.images||(x.image?[x.image]:[])).slice(0,20),
+      videos:mediaArray(x.videos).slice(0,10),
+      impressions:x.impressions??null,
+      likes:x.likes??null,
+      bookmarks:x.bookmarks??null,
+      clicks:x.clicks??null
+    }));
+    const api=new URL(archiveMediaApiUrl());
+    api.searchParams.set("action","share");
+    const response=await fetch(api.toString(),{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
+      body:JSON.stringify({version:APP_VERSION,scope,createdAt:new Date().toISOString(),posts}),
+      cache:"no-store"
+    });
+    let result={};
+    try{result=await response.json()}catch(e){}
+    if(!response.ok||!result.ok||!result.token)throw new Error(result.error||("共有リンクの作成に失敗しました（HTTP "+response.status+"）"));
+    const shareUrl=new URL("./share.html",location.href);
+    shareUrl.hash="token="+encodeURIComponent(result.token);
+    const input=$("codexShareUrl");
+    if(input)input.value=shareUrl.href;
+    if(linkWrap)linkWrap.classList.remove("hidden");
+    if(status)status.textContent="共有リンクを作成しました。30分後に自動で無効になります。";
+    button.textContent="Codex確認用リンクを作る";
+    copyTextFromClick(shareUrl.href,button,"リンクをコピーしました");
+  }catch(error){
+    if(status)status.textContent=error?.message||"共有リンクを作成できませんでした。";
+    button.textContent="Codex確認用リンクを作る";
+  }finally{
+    button.disabled=false;
+  }
+}
+function copyCodexReviewLink(button){
+  const value=$("codexShareUrl")?.value;
+  if(value)copyTextFromClick(value,button,"リンクをコピーしました");
+}
+
 async function renderArchiveCloudStatus(){
   const root=$("archiveCloudStatus");if(!root)return;
   const local=await dbGetAll();const localMedia=local.filter(x=>mediaArray(x.images).length||mediaArray(x.videos).length).length;
@@ -2441,6 +2509,8 @@ $("cloudSaveSettings")?.addEventListener("click",saveCloudSettings);
 $("cloudTest")?.addEventListener("click",cloudPing);
 $("cloudPush")?.addEventListener("click",cloudPushAll);
 $("archiveCloudRefresh")?.addEventListener("click",renderArchiveCloudStatus);
+$("createCodexShareLink")?.addEventListener("click",e=>createCodexReviewLink(e.currentTarget));
+$("copyCodexShareLink")?.addEventListener("click",e=>copyCodexReviewLink(e.currentTarget));
 $("archiveMediaRepair")?.addEventListener("click",async()=>{
   const perm=await repairArchiveMediaPermissions();
   if(!perm.ok)return;

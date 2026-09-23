@@ -149,3 +149,9 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .detail-download-all-btn{width:100%;margin:8px 0 14px;padding:14px;font-weight:700}
 .detail-download-all-btn:disabled{opacity:.65}
 .detail-media-status{margin:0;color:var(--muted);font-size:14px}
+
+.codex-share-bar{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:8px;margin:10px 0 18px;padding:12px;border:1px solid var(--line,#eadde5);border-radius:14px;background:#fff}
+.codex-share-bar>span{font-size:13px;color:var(--muted);line-height:1.45}
+.codex-share-link-wrap{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;width:100%}
+.codex-share-link-wrap input{min-width:0;width:100%;font-size:13px}
+@media(max-width:600px){.codex-share-bar{grid-template-columns:1fr}.codex-share-bar .small-btn{width:100%}.codex-share-link-wrap{grid-template-columns:1fr}}
