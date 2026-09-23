@@ -146,4 +146,6 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .detail-media-actions .small-btn{width:100%;justify-self:stretch}
 .detail-media-actions .small-btn:disabled{opacity:.65}
 
+.detail-download-all-btn{width:100%;margin:8px 0 14px;padding:14px;font-weight:700}
+.detail-download-all-btn:disabled{opacity:.65}
 .detail-media-status{margin:0;color:var(--muted);font-size:14px}
