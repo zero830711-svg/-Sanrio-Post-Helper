@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3294";
+const APP_VERSION="2026.09.23-3295";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -2036,10 +2036,10 @@ function showTodayDetail(item){
   detailImageBlobErrors=imgs.map(()=>null);
   const mediaStatus=$("detailMediaStatus");if(mediaStatus)mediaStatus.textContent=imgs.length?"写真を準備しています…":"";
   $("detailMedia").innerHTML=
-    imgs.map((src,index)=>'<figure class="detail-media-item"><img src="'+esc(src)+'" alt="投稿画像" loading="lazy"><div class="detail-media-actions"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'" disabled>写真を準備中…</button><button class="small-btn detail-copy-image-each" type="button" data-detail-copy-image="'+index+'" disabled>本文＋この写真を画像コピー</button></div></figure>').join("")+
+    imgs.map((src,index)=>'<figure class="detail-media-item"><img src="'+esc(src)+'" alt="投稿画像" loading="lazy"><div class="detail-media-actions"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'" disabled>写真を準備中…</button></div></figure>').join("")+
     vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
   $("detailCopyImage").disabled=!imgs.length;
-  $("detailCopyImage").textContent=imgs.length?"本文＋1枚目の写真を画像コピー":"投稿画像がありません";
+  $("detailCopyImage").textContent=imgs.length?"本文と写真全部を1枚にしてコピー":"投稿画像がありません";
   $("detailMediaCount").textContent=(imgs.length?imgs.length+"枚":"")+(imgs.length&&vids.length?" / ":"")+(vids.length?vids.length+"動画":"");
   const rewrite=$("detailRewritePrompt");
   if(rewrite){rewrite.dataset.id=item.id;rewrite.dataset.role=item.recommendedRole||""}
@@ -2073,19 +2073,16 @@ function preloadDetailImages(item,images){
       if(detailCurrentItem!==item)return;
       detailImageBlobs[index]=blob;
       const save=$("detailMedia").querySelector('[data-detail-download="'+index+'"]');
-      const copy=$("detailMedia").querySelector('[data-detail-copy-image="'+index+'"]');
       if(save){save.disabled=false;save.textContent="この写真をiPhoneに保存"}
-      if(copy)copy.disabled=false;
-      if(index===0&&saveButton){saveButton.disabled=false;saveButton.textContent="本文＋1枚目の写真を画像コピー"}
-      if(mediaStatus)mediaStatus.textContent="写真 "+detailImageBlobs.filter(Boolean).length+" / "+images.length+" 枚を準備しました。各写真のボタンからコピー・保存できます。";
+      const loaded=detailImageBlobs.filter(Boolean).length;
+      if(loaded===images.length&&saveButton){saveButton.disabled=false;saveButton.textContent="本文と写真全部を1枚にしてコピー"}
+      if(mediaStatus)mediaStatus.textContent=loaded===images.length?"本文と写真"+images.length+"枚をまとめてコピーできます。":"写真 "+loaded+" / "+images.length+" 枚を準備しました。";
     }).catch(error=>{
       if(detailCurrentItem!==item)return;
       detailImageBlobErrors[index]=error;
       const save=$("detailMedia").querySelector('[data-detail-download="'+index+'"]');
-      const copy=$("detailMedia").querySelector('[data-detail-copy-image="'+index+'"]');
       if(save){save.disabled=false;save.textContent="画像を再読み込み";save.title=error?.message||""}
-      if(copy)copy.disabled=true;
-      if(index===0&&saveButton)saveButton.disabled=true;
+      if(saveButton)saveButton.disabled=true;
       if(mediaStatus)mediaStatus.textContent="画像を取得できません。同期キーを確認するか、ロリポップの archive-media-batch.php を更新してください。";
     });
   });
@@ -2139,36 +2136,62 @@ function wrapCanvasText(ctx,text,maxWidth){
   }
   return output;
 }
-async function createPostImage(item,index=0){
-  const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
-  const src=imgs[index];
-  if(!src)throw new Error("投稿画像がありません");
-  let blob=detailImageBlobs[index];
-  if(!blob){blob=await imageBlob(src);if(detailCurrentItem===item)detailImageBlobs[index]=blob}
-  const objectUrl=URL.createObjectURL(blob);
-  const img=new Image();
-  try{
-    await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error("写真を読み込めませんでした"));img.src=objectUrl});
-  }finally{URL.revokeObjectURL(objectUrl)}
-  if(!img.naturalWidth||!img.naturalHeight)throw new Error("写真データを読み込めませんでした");
-  const width=1080,pad=64,textWidth=width-pad*2;
+async function createPostImage(item){
+  const sources=mediaArray(item.images||(item.image?[item.image]:[]));
+  if(!sources.length)throw new Error("投稿画像がありません");
+  const pictures=[];
+  for(let index=0;index<sources.length;index++){
+    let blob=detailImageBlobs[index];
+    if(!blob){blob=await imageBlob(sources[index]);if(detailCurrentItem===item)detailImageBlobs[index]=blob}
+    const objectUrl=URL.createObjectURL(blob),img=new Image();
+    try{
+      await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error("写真"+(index+1)+"を読み込めませんでした"));img.src=objectUrl});
+    }finally{URL.revokeObjectURL(objectUrl)}
+    if(!img.naturalWidth||!img.naturalHeight)throw new Error("写真データを読み込めませんでした");
+    pictures.push(img);
+  }
+
+  const width=1080,pad=64,textWidth=width-pad*2,gap=32,maxImageHeight=1400;
   const probe=document.createElement("canvas").getContext("2d");
   probe.font="30px -apple-system,BlinkMacSystemFont, sans-serif";
   const lines=wrapCanvasText(probe,item.text||"",textWidth),lineHeight=47;
-  const textHeight=Math.max(lineHeight,lines.length*lineHeight);
-  const scale=Math.min(textWidth/img.naturalWidth,1400/img.naturalHeight);
-  const imageWidth=Math.max(1,Math.round(img.naturalWidth*scale)),imageHeight=Math.max(1,Math.round(img.naturalHeight*scale));
   probe.font="bold 36px -apple-system,BlinkMacSystemFont, sans-serif";
-  const titleLines=wrapCanvasText(probe,item.title||shortLabel(item),textWidth);
-  const titleHeight=titleLines.length*48;
+  const titleLines=wrapCanvasText(probe,item.title||shortLabel(item),textWidth),titleHeight=titleLines.length*48;
+  probe.font="24px -apple-system,BlinkMacSystemFont, sans-serif";
+  const meta=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):""].filter(Boolean).join(" ・ ");
+  const metaLines=wrapCanvasText(probe,meta,textWidth),metaHeight=metaLines.length*34;
+  const bodyHeight=Math.max(lineHeight,lines.length*lineHeight);
+  const titleBlock=pad+titleHeight+20+metaHeight+30+34+18+bodyHeight+42+38+18;
+  const dims=pictures.map(img=>{
+    const scale=Math.min(textWidth/img.naturalWidth,maxImageHeight/img.naturalHeight);
+    return {width:Math.max(1,Math.round(img.naturalWidth*scale)),height:Math.max(1,Math.round(img.naturalHeight*scale))};
+  });
+  const gaps=Math.max(0,dims.length-1)*gap;
+  const available=Math.max(1,15000-titleBlock-pad-gaps);
+  const imageScale=Math.min(1,available/dims.reduce((sum,d)=>sum+d.height,0));
+  const imageHeights=dims.map(d=>Math.max(1,Math.round(d.height*imageScale)));
+  const imageWidths=dims.map(d=>Math.max(1,Math.round(d.width*imageScale)));
   const canvas=document.createElement("canvas");
-  canvas.width=width;canvas.height=pad+titleHeight+28+textHeight+42+imageHeight+pad;
-  const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
-  let y=pad;ctx.fillStyle="#8c4964";ctx.font="bold 36px -apple-system,BlinkMacSystemFont, sans-serif";
+  canvas.width=width;
+  canvas.height=Math.min(15000,titleBlock+imageHeights.reduce((sum,h)=>sum+h,0)+gaps+pad);
+  const ctx=canvas.getContext("2d");
+  if(!ctx)throw new Error("画像を作成できませんでした");
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);
+  let y=pad;
+  ctx.fillStyle="#8c4964";ctx.font="bold 36px -apple-system,BlinkMacSystemFont, sans-serif";
   for(const line of titleLines){ctx.fillText(line,pad,y+36);y+=48}
-  y+=28;ctx.fillStyle="#2d2530";ctx.font="30px -apple-system,BlinkMacSystemFont, sans-serif";
+  y+=20;ctx.fillStyle="#817a83";ctx.font="24px -apple-system,BlinkMacSystemFont, sans-serif";
+  for(const line of metaLines){ctx.fillText(line,pad,y+24);y+=34}
+  y+=30;ctx.fillStyle="#8c4964";ctx.font="bold 26px -apple-system,BlinkMacSystemFont, sans-serif";ctx.fillText("投稿文",pad,y+26);y+=44;
+  ctx.fillStyle="#2d2530";ctx.font="30px -apple-system,BlinkMacSystemFont, sans-serif";
   for(const line of lines){ctx.fillText(line,pad,y+30);y+=lineHeight}
-  y+=42;ctx.drawImage(img,(width-imageWidth)/2,y,imageWidth,imageHeight);
+  y+=42;ctx.fillStyle="#8c4964";ctx.font="bold 26px -apple-system,BlinkMacSystemFont, sans-serif";ctx.fillText("投稿写真（"+pictures.length+"枚）",pad,y+26);y+=44;
+  pictures.forEach((img,i)=>{
+    if(i)y+=gap;
+    const w=imageWidths[i],h=imageHeights[i];
+    ctx.drawImage(img,(width-w)/2,y,w,h);
+    y+=h;
+  });
   if(canvas.toBlob)return await new Promise((resolve,reject)=>{
     try{canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("PNGを作れませんでした")),"image/png")}
     catch(err){reject(err)}
@@ -2190,23 +2213,14 @@ async function saveGeneratedImage(blob,item,index){
 }
 function copyPostPhotoLinkFallback(item,index,button,old){
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
-  const src=imgs[index]||"";
-  const content=[item.title||shortLabel(item),item.text||"",src].filter(Boolean).join("\n\n");
-  copyPromptFallback(content,src?"写真を読み込めませんでした":"投稿画像が見つかりません");
-  if(src){
-    const link=document.createElement("a");link.href=src;link.target="_blank";link.rel="noopener";
-    link.textContent="写真を開く（開いた写真を長押しして保存）";link.style.cssText="display:block;margin-top:10px;color:#1769d2";
-    $("copyFallbackPanel")?.appendChild(link);
-    const copy=document.createElement("button");copy.type="button";copy.textContent="本文と写真URLをコピー";copy.style.cssText="display:block;margin-top:8px;padding:8px 12px";
-    copy.addEventListener("click",()=>copyTextFromClick(content,copy,"本文と写真リンクをコピーしました"));
-    $("copyFallbackPanel")?.appendChild(copy);
-  }
+  const content=[item.title||shortLabel(item),item.text||"",...imgs.map((src,i)=>"写真"+(i+1)+": "+src)].filter(Boolean).join("\n\n");
+  copyPromptFallback(content,imgs.length?"本文と写真を合成できませんでした":"投稿画像が見つかりません");
 }
-function copyDetailPostImage(button,index=0){
+function copyDetailPostImage(button){
   const item=detailCurrentItem;
   if(!item)return;
   const old=button.textContent;button.disabled=true;button.textContent="画像を作成してコピー中…";
-  const blobPromise=createPostImage(item,index);
+  const blobPromise=createPostImage(item);
   let writePromise=null;
   try{
     if(!navigator.clipboard?.write||!window.ClipboardItem)throw new Error("画像クリップボード非対応");
@@ -2215,32 +2229,32 @@ function copyDetailPostImage(button,index=0){
   }catch(err){}
   if(writePromise){
     Promise.resolve(writePromise).then(()=>{
-      finishImageButton(button,old,"本文と写真をコピーしました");
+      finishImageButton(button,old,"本文と写真全部をコピーしました");
     }).catch(async()=>{
       try{
         const blob=await blobPromise;
-        await saveGeneratedImage(blob,item,index);
+        await saveGeneratedImage(blob,item,0);
         finishImageButton(button,old,"PNGを保存しました。写真をXに添付できます");
       }catch(err){
-        finishImageButton(button,old,"写真を開いて保存してください");
-        copyPostPhotoLinkFallback(item,index,button,old);
+        finishImageButton(button,old,"画像を作成できませんでした");
+        copyPostPhotoLinkFallback(item,0,button,old);
       }
     });
   }else{
     blobPromise.then(async blob=>{
       try{
-        const file=new File([blob],safeImageName(item,index,"png"),{type:"image/png"});
+        const file=new File([blob],safeImageName(item,0,"png"),{type:"image/png"});
         if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-          await navigator.share({files:[file],title:"本文と写真"});finishImageButton(button,old,"画像を共有しました");
+          await navigator.share({files:[file],title:"本文と写真全部"});finishImageButton(button,old,"本文と写真全部を共有しました");
         }else{
-          await saveGeneratedImage(blob,item,index);finishImageButton(button,old,"PNGを保存しました。写真をXに添付できます");
+          await saveGeneratedImage(blob,item,0);finishImageButton(button,old,"PNGを保存しました。写真をXに添付できます");
         }
       }catch(err){
-        saveGeneratedImage(blob,item,index);finishImageButton(button,old,"PNGを保存しました。写真をXに添付できます");
+        saveGeneratedImage(blob,item,0);finishImageButton(button,old,"PNGを保存しました。写真をXに添付できます");
       }
     }).catch(()=>{
-      finishImageButton(button,old,"写真を開いて保存してください");
-      copyPostPhotoLinkFallback(item,index,button,old);
+      finishImageButton(button,old,"画像を作成できませんでした");
+      copyPostPhotoLinkFallback(item,0,button,old);
     });
   }
 }
@@ -2358,9 +2372,7 @@ async function checkLatestVersion(){
 $("detailCopyImage")?.addEventListener("click",e=>copyDetailPostImage(e.currentTarget));
 $("detailMedia")?.addEventListener("click",e=>{
   const save=e.target.closest("[data-detail-download]");
-  if(save){downloadDetailImage(Number(save.dataset.detailDownload),save);return}
-  const copy=e.target.closest("[data-detail-copy-image]");
-  if(copy)copyDetailPostImage(copy,Number(copy.dataset.detailCopyImage));
+  if(save)downloadDetailImage(Number(save.dataset.detailDownload),save);
 });
 $("detailRewritePrompt")?.addEventListener("click",e=>{
   if(detailCurrentItem)copyRewritePrompt(detailCurrentItem,e.currentTarget.dataset.role||detailCurrentItem.recommendedRole||"",e.currentTarget);

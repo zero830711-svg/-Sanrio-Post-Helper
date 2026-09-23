@@ -144,7 +144,6 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 /* Build 3293: per-photo copy and native iPhone save */
 .detail-media-actions{display:grid;gap:8px;width:100%}
 .detail-media-actions .small-btn{width:100%;justify-self:stretch}
-.detail-copy-image-each{background:#f8dce7;border-color:#efbfd1;color:#612e46}
 .detail-media-actions .small-btn:disabled{opacity:.65}
 
 .detail-media-status{margin:0;color:var(--muted);font-size:14px}
