@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3293";
+const APP_VERSION="2026.09.23-3294";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -2034,6 +2034,7 @@ function showTodayDetail(item){
   $("detailText").textContent=item.text||"";
   detailImageBlobs=imgs.map(()=>null);
   detailImageBlobErrors=imgs.map(()=>null);
+  const mediaStatus=$("detailMediaStatus");if(mediaStatus)mediaStatus.textContent=imgs.length?"写真を準備しています…":"";
   $("detailMedia").innerHTML=
     imgs.map((src,index)=>'<figure class="detail-media-item"><img src="'+esc(src)+'" alt="投稿画像" loading="lazy"><div class="detail-media-actions"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'" disabled>写真を準備中…</button><button class="small-btn detail-copy-image-each" type="button" data-detail-copy-image="'+index+'" disabled>本文＋この写真を画像コピー</button></div></figure>').join("")+
     vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
@@ -2076,11 +2077,16 @@ function preloadDetailImages(item,images){
       if(save){save.disabled=false;save.textContent="この写真をiPhoneに保存"}
       if(copy)copy.disabled=false;
       if(index===0&&saveButton){saveButton.disabled=false;saveButton.textContent="本文＋1枚目の写真を画像コピー"}
+      if(mediaStatus)mediaStatus.textContent="写真 "+detailImageBlobs.filter(Boolean).length+" / "+images.length+" 枚を準備しました。各写真のボタンからコピー・保存できます。";
     }).catch(error=>{
       if(detailCurrentItem!==item)return;
       detailImageBlobErrors[index]=error;
       const save=$("detailMedia").querySelector('[data-detail-download="'+index+'"]');
-      if(save){save.disabled=false;save.textContent="画像を再読み込み"}
+      const copy=$("detailMedia").querySelector('[data-detail-copy-image="'+index+'"]');
+      if(save){save.disabled=false;save.textContent="画像を再読み込み";save.title=error?.message||""}
+      if(copy)copy.disabled=true;
+      if(index===0&&saveButton)saveButton.disabled=true;
+      if(mediaStatus)mediaStatus.textContent="画像を取得できません。同期キーを確認するか、ロリポップの archive-media-batch.php を更新してください。";
     });
   });
 }
