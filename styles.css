@@ -140,3 +140,9 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .detail-media-item img{display:block}
 .detail-download-btn{justify-self:start;background:#fff;border-color:var(--line)}
 @media(max-width:460px){.detail-action-row{display:grid;grid-template-columns:1fr}.detail-action-row .small-btn{width:100%}.detail-download-btn{width:100%}}
+
+/* Build 3293: per-photo copy and native iPhone save */
+.detail-media-actions{display:grid;gap:8px;width:100%}
+.detail-media-actions .small-btn{width:100%;justify-self:stretch}
+.detail-copy-image-each{background:#f8dce7;border-color:#efbfd1;color:#612e46}
+.detail-media-actions .small-btn:disabled{opacity:.65}

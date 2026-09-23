@@ -21,6 +21,25 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
     $items=array_map(fn($r)=>['postId'=>(string)$r['post_id'],'mediaType'=>(string)$r['media_type'],'publicUrl'=>(string)$r['public_url']],$rows);
     out(['ok'=>true,'count'=>count($items),'items'=>$items]);
   }
+  if($action==='file'){
+    $url=trim((string)($_GET['url']??''));
+    if($url===''||strlen($url)>4096)out(['ok'=>false,'error'=>'Invalid media URL'],400);
+    $lookup=$pdo->prepare("SELECT storage_path,mime_type FROM sanrio_post_media WHERE public_url=:url AND media_type IN ('image','gif') LIMIT 1");
+    $lookup->execute([':url'=>$url]);
+    $media=$lookup->fetch();
+    if(!$media)out(['ok'=>false,'error'=>'Image is not in the archive media index'],404);
+    $root=realpath((string)($config['media_root']??''));
+    $relative=(string)$media['storage_path'];
+    if(!$root||str_contains($relative,'..')||!preg_match('~^media/[0-9]{1,64}/[a-f0-9]{64}\\.[a-z0-9]{1,8}$~i',$relative))out(['ok'=>false,'error'=>'Invalid media path'],404);
+    $path=realpath($root.DIRECTORY_SEPARATOR.str_replace('/',DIRECTORY_SEPARATOR,$relative));
+    if(!$path||!str_starts_with($path,$root.DIRECTORY_SEPARATOR)||!is_file($path))out(['ok'=>false,'error'=>'Image file not found'],404);
+    header('Content-Type: '.(string)$media['mime_type']);
+    header('Content-Length: '.(string)filesize($path));
+    header('Cache-Control: private, max-age=3600');
+    header('X-Content-Type-Options: nosniff');
+    readfile($path);
+    exit;
+  }
   if($action==='repair_permissions'){
     $root=rtrim((string)($config['media_root']??''),DIRECTORY_SEPARATOR);
     $base=$root.DIRECTORY_SEPARATOR.'media';

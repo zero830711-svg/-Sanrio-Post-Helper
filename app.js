@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3292";
+const APP_VERSION="2026.09.23-3293";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -1956,7 +1956,7 @@ function buildRewritePrompt(item,role,recent=[]){
     String(item.text||""),
     recentText?("\n【最近使った投稿（表現・テーマの重複を避ける）】\n"+recentText):"",
     "",
-    "出力は完成した投稿文だけにしてください。"
+    "出力形式は厳守：完成した投稿文だけを、必ず ```text で始まり ``` で終わるコードブロック1つに入れてください。コードブロック外に説明・前置き・補足を書かず、ブロック内には投稿文だけを入れてください。"
   ].filter(Boolean).join("\n");
 }
 function copyPromptFallback(text,title){
@@ -1966,10 +1966,25 @@ function copyPromptFallback(text,title){
     panel.setAttribute("role","dialog");panel.setAttribute("aria-modal","true");
     panel.style.cssText="position:fixed;z-index:10050;left:16px;right:16px;bottom:24px;max-width:680px;margin:auto;padding:16px;background:#fff;border:2px solid #8c4964;border-radius:16px;box-shadow:0 8px 40px #0005";
     const heading=document.createElement("strong");heading.id="copyFallbackTitle";panel.appendChild(heading);
-    const note=document.createElement("p");note.textContent="自動コピーできませんでした。下の文章を長押しして「コピー」を選んでください。";note.style.cssText="margin:8px 0;font-size:14px";panel.appendChild(note);
+    const note=document.createElement("p");note.id="copyFallbackNote";note.textContent="コピーできない場合は「もう一度コピー」を押してください。";note.style.cssText="margin:8px 0;font-size:14px";panel.appendChild(note);
     const area=document.createElement("textarea");area.id="copyFallbackText";area.readOnly=true;area.style.cssText="width:100%;height:160px;padding:10px;font-size:14px";
     panel.appendChild(area);
-    const close=document.createElement("button");close.type="button";close.textContent="閉じる";close.style.cssText="margin-top:8px;padding:8px 16px";
+    const retry=document.createElement("button");retry.type="button";retry.textContent="もう一度コピー";retry.style.cssText="margin:8px 8px 0 0;padding:10px 16px";
+    retry.addEventListener("click",()=>{
+      const value=$("copyFallbackText").value;
+      try{
+        if(!navigator.clipboard?.writeText)throw new Error("clipboard unavailable");
+        navigator.clipboard.writeText(value).then(()=>{
+          $("copyFallbackTitle").textContent="コピーしました";
+          $("copyFallbackNote").textContent="ChatGPTの入力欄に貼り付けてください。";
+        }).catch(()=>{
+          $("copyFallbackTitle").textContent="自動コピーできませんでした";
+          $("copyFallbackNote").textContent="文章を長押しして「コピー」を選んでください。";
+          $("copyFallbackText").focus();$("copyFallbackText").select();
+        });
+      }catch(e){$("copyFallbackText").focus();$("copyFallbackText").select();$("copyFallbackNote").textContent="文章を長押しして「コピー」を選んでください。"}
+    });panel.appendChild(retry);
+    const close=document.createElement("button");close.type="button";close.textContent="閉じる";close.style.cssText="margin-top:8px;padding:10px 16px";
     close.addEventListener("click",()=>panel.remove());panel.appendChild(close);
     document.body.appendChild(panel);
   }
@@ -1986,24 +2001,18 @@ function legacyCopyText(text){
   area.remove();return copied;
 }
 function copyTextFromClick(text,button,label){
-  let clipboardPromise=null;
-  try{if(navigator.clipboard?.writeText)clipboardPromise=navigator.clipboard.writeText(text)}
-  catch(e){}
-  const legacyCopied=legacyCopyText(text);
   const old=button?.textContent;
-  if(clipboardPromise){
-    clipboardPromise.then(()=>{
-      if(button){button.textContent=label||"コピーしました";setTimeout(()=>button.textContent=old,1800)}
-    }).catch(()=>{
-      if(legacyCopied){if(button){button.textContent=label||"コピーしました";setTimeout(()=>button.textContent=old,1800)}}
-      else{copyPromptFallback(text,"コピーできませんでした");if(button)button.textContent="文章を選択してコピー"}
-    });
-  }else if(legacyCopied){
-    if(button){button.textContent=label||"コピーしました";setTimeout(()=>button.textContent=old,1800)}
-  }else{
-    copyPromptFallback(text,"コピーできませんでした");
-    if(button)button.textContent="文章を選択してコピー";
-  }
+  const success=()=>{if(button){button.textContent=label||"コピーしました";setTimeout(()=>button.textContent=old,1800)}};
+  try{
+    if(navigator.clipboard?.writeText){
+      const request=navigator.clipboard.writeText(text);
+      request.then(success).catch(()=>{copyPromptFallback(text,"コピーできませんでした");if(button)button.textContent="もう一度コピー"});
+      return;
+    }
+  }catch(e){}
+  if(legacyCopyText(text)){success();return}
+  copyPromptFallback(text,"コピーできませんでした");
+  if(button)button.textContent="文章を選択してコピー";
 }
 function copyRewritePrompt(item,role,button){
   if(!item)return;
@@ -2012,6 +2021,8 @@ function copyRewritePrompt(item,role,button){
 }
 
 let detailCurrentItem=null;
+let detailImageBlobs=[];
+let detailImageBlobErrors=[];
 let todayPicksById=new Map();
 function showTodayDetail(item){
   if(!item)return;
@@ -2021,21 +2032,57 @@ function showTodayDetail(item){
   $("detailTitle").textContent=item.title||shortLabel(item);
   $("detailMeta").textContent=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):""].filter(Boolean).join(" ・ ");
   $("detailText").textContent=item.text||"";
+  detailImageBlobs=imgs.map(()=>null);
+  detailImageBlobErrors=imgs.map(()=>null);
   $("detailMedia").innerHTML=
-    imgs.map((src,index)=>'<figure class="detail-media-item"><img src="'+esc(src)+'" alt="投稿画像" loading="lazy"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'">この画像をダウンロード</button></figure>').join("")+
+    imgs.map((src,index)=>'<figure class="detail-media-item"><img src="'+esc(src)+'" alt="投稿画像" loading="lazy"><div class="detail-media-actions"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'" disabled>写真を準備中…</button><button class="small-btn detail-copy-image-each" type="button" data-detail-copy-image="'+index+'" disabled>本文＋この写真を画像コピー</button></div></figure>').join("")+
     vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
   $("detailCopyImage").disabled=!imgs.length;
-  $("detailCopyImage").textContent=imgs.length?"本文＋写真を画像コピー":"投稿画像がありません";
+  $("detailCopyImage").textContent=imgs.length?"本文＋1枚目の写真を画像コピー":"投稿画像がありません";
   $("detailMediaCount").textContent=(imgs.length?imgs.length+"枚":"")+(imgs.length&&vids.length?" / ":"")+(vids.length?vids.length+"動画":"");
   const rewrite=$("detailRewritePrompt");
   if(rewrite){rewrite.dataset.id=item.id;rewrite.dataset.role=item.recommendedRole||""}
   $("todayDetailModal").classList.remove("hidden");
   document.body.style.overflow="hidden";
+  preloadDetailImages(item,imgs);
 }
 async function imageBlob(src){
-  const res=await fetch(src);
-  if(!res.ok)throw new Error("画像を読み込めませんでした");
-  return await res.blob();
+  try{
+    const direct=await fetch(src,{mode:"cors",cache:"force-cache"});
+    if(!direct.ok)throw new Error("画像サーバー HTTP "+direct.status);
+    const blob=await direct.blob();
+    if(blob.type&&blob.type.startsWith("image/"))return blob;
+    throw new Error("画像データではありません");
+  }catch(directError){
+    const {key}=cloudSettings();
+    if(!key)throw new Error("画像サーバーが外部取得を許可していません。ロリポップ同期キーを確認してください。");
+    const endpoint=new URL(archiveMediaApiUrl());
+    endpoint.searchParams.set("action","file");
+    endpoint.searchParams.set("url",src);
+    const response=await fetch(endpoint.toString(),{headers:{Authorization:"Bearer "+key},cache:"no-store"});
+    const type=response.headers.get("Content-Type")||"";
+    if(!response.ok||!type.startsWith("image/"))throw new Error("画像配信側の更新が必要です。");
+    return await response.blob();
+  }
+}
+function preloadDetailImages(item,images){
+  const saveButton=$("detailCopyImage");
+  images.forEach((src,index)=>{
+    imageBlob(src).then(blob=>{
+      if(detailCurrentItem!==item)return;
+      detailImageBlobs[index]=blob;
+      const save=$("detailMedia").querySelector('[data-detail-download="'+index+'"]');
+      const copy=$("detailMedia").querySelector('[data-detail-copy-image="'+index+'"]');
+      if(save){save.disabled=false;save.textContent="この写真をiPhoneに保存"}
+      if(copy)copy.disabled=false;
+      if(index===0&&saveButton){saveButton.disabled=false;saveButton.textContent="本文＋1枚目の写真を画像コピー"}
+    }).catch(error=>{
+      if(detailCurrentItem!==item)return;
+      detailImageBlobErrors[index]=error;
+      const save=$("detailMedia").querySelector('[data-detail-download="'+index+'"]');
+      if(save){save.disabled=false;save.textContent="画像を再読み込み"}
+    });
+  });
 }
 function safeImageName(item,index,ext){
   const base=String(item?.title||"sanrio-post").replace(/[\\/:*?"<>|]/g,"_").slice(0,60);
@@ -2048,15 +2095,29 @@ async function downloadDetailImage(index,button){
   if(!src)return;
   const old=button?.textContent;
   try{
-    const blob=await imageBlob(src);
+    let blob=detailImageBlobs[index];
+    if(!blob){
+      blob=await imageBlob(src);
+      if(detailCurrentItem===item)detailImageBlobs[index]=blob;
+      if(button){button.textContent="写真を準備しました。もう一度押してください";button.disabled=false}
+      return;
+    }
     const ext=(blob.type||"").includes("png")?"png":(blob.type||"").includes("webp")?"webp":"jpg";
+    const file=new File([blob],safeImageName(item,index,ext),{type:blob.type||"image/jpeg"});
+    if(navigator.share&&navigator.canShare?.({files:[file]})){
+      const sharing=navigator.share({files:[file],title:"写真を保存"});
+      if(button)button.textContent="共有シートを開いています";
+      await sharing;
+      if(button){button.textContent="共有シートで「写真に保存」を選択";setTimeout(()=>button.textContent=old,3000)}
+      return;
+    }
     const url=URL.createObjectURL(blob),a=document.createElement("a");
-    a.href=url;a.download=safeImageName(item,index,ext);document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1500);
-    if(button){button.textContent="ダウンロードしました";setTimeout(()=>button.textContent=old,1400)}
+    a.href=url;a.download=file.name;a.style.display="none";document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    if(button){button.textContent="ファイルをダウンロードしました";setTimeout(()=>button.textContent=old,2500)}
   }catch(err){
-    const a=document.createElement("a");a.href=src;a.target="_blank";a.rel="noopener";a.download=safeImageName(item,index,"jpg");a.click();
-    if(button){button.textContent="画像を開きました";setTimeout(()=>button.textContent=old,1600)}
+    if(err?.name==="AbortError")return;
+    if(button){button.textContent="保存失敗：タップして再試行";button.disabled=false;button.title=err?.message||""}
   }
 }
 function wrapCanvasText(ctx,text,maxWidth){
@@ -2076,12 +2137,13 @@ async function createPostImage(item,index=0){
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const src=imgs[index];
   if(!src)throw new Error("投稿画像がありません");
-  const displayed=document.querySelectorAll("#detailMedia .detail-media-item img")[index];
-  let img=displayed&&displayed.complete&&displayed.naturalWidth?displayed:null;
-  if(!img){
-    img=new Image();
-    await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error("写真を読み込めませんでした"));img.src=src});
-  }
+  let blob=detailImageBlobs[index];
+  if(!blob){blob=await imageBlob(src);if(detailCurrentItem===item)detailImageBlobs[index]=blob}
+  const objectUrl=URL.createObjectURL(blob);
+  const img=new Image();
+  try{
+    await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error("写真を読み込めませんでした"));img.src=objectUrl});
+  }finally{URL.revokeObjectURL(objectUrl)}
   if(!img.naturalWidth||!img.naturalHeight)throw new Error("写真データを読み込めませんでした");
   const width=1080,pad=64,textWidth=width-pad*2;
   const probe=document.createElement("canvas").getContext("2d");
@@ -2289,8 +2351,10 @@ async function checkLatestVersion(){
 }
 $("detailCopyImage")?.addEventListener("click",e=>copyDetailPostImage(e.currentTarget));
 $("detailMedia")?.addEventListener("click",e=>{
-  const button=e.target.closest("[data-detail-download]");
-  if(button)downloadDetailImage(Number(button.dataset.detailDownload),button);
+  const save=e.target.closest("[data-detail-download]");
+  if(save){downloadDetailImage(Number(save.dataset.detailDownload),save);return}
+  const copy=e.target.closest("[data-detail-copy-image]");
+  if(copy)copyDetailPostImage(copy,Number(copy.dataset.detailCopyImage));
 });
 $("detailRewritePrompt")?.addEventListener("click",e=>{
   if(detailCurrentItem)copyRewritePrompt(detailCurrentItem,e.currentTarget.dataset.role||detailCurrentItem.recommendedRole||"",e.currentTarget);
