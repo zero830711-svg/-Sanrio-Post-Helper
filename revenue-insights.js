@@ -203,3 +203,17 @@
   });
   if (dashboard?.open) render();
 })();
+
+// Keep retweets in the archive, but never surface them in the main "今日の候補" picker.
+(() => {
+  if (typeof getReadyItems !== "function") return;
+  const originalGetReadyItems = getReadyItems;
+  const isRtPost = item => /^\s*RT\s+@/i.test(String(item?.text || item?.title || ""));
+  getReadyItems = async function () {
+    const items = await originalGetReadyItems();
+    return items.filter(item => !isRtPost(item));
+  };
+  Promise.resolve().then(() => {
+    if (typeof renderToday === "function") renderToday();
+  });
+})();
