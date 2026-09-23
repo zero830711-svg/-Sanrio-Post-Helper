@@ -4,7 +4,7 @@
   const card = document.getElementById("amazonReportsCard");
   if (!card) return;
   const versionLabel = document.getElementById("appVersionStatus");
-  if (versionLabel) versionLabel.textContent = "アプリ版 2026.09.23-3310（最新）";
+  if (versionLabel) versionLabel.textContent = "アプリ版 2026.09.23-3312（最新）";
 
   const input = document.getElementById("importAmazonReports");
   const status = document.getElementById("amazonReportsStatus");
@@ -369,7 +369,13 @@
       const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
       const payload = JSON.parse(await new Response(stream).text());
       if (payload.version !== 1 || !Array.isArray(payload.reports)) throw new Error("レポート形式が違います");
-      const byKey = new Map(loadReports().map(item => [item.key, item]));
+      const sourceFiles = new Set(payload.sourceFiles || []);
+      const existing = loadReports();
+      const keep = existing.filter(old => !payload.reports.some(report =>
+        old.accountId === report.accountId &&
+        ((report.start && report.end && old.start === report.start && old.end === report.end) ||
+         sourceFiles.has(old.reportId))));
+      const byKey = new Map(keep.map(item => [item.key, item]));
       for (const report of payload.reports) {
         if (!report || !report.accountId || !report.key) throw new Error("アカウント情報がありません");
         byKey.set(report.key, report);
@@ -377,7 +383,7 @@
       localStorage.setItem(STORE_KEY, JSON.stringify(Array.from(byKey.values())));
       if (payload.primaryAccountId) localStorage.setItem(PRIMARY_KEY, String(payload.primaryAccountId));
       history.replaceState(null, "", location.pathname + location.search);
-      status.textContent = payload.reports.length + "件のAmazonレポートをこの端末に保存しました。既存の別期間データは残しています。";
+      status.textContent = payload.reports.length + "件のAmazonレポートをこの端末に保存しました。別期間の既存データは残しています。";
       render();
     } catch (error) {
       status.textContent = "リンクからの取り込みに失敗しました：" + (error && error.message ? error.message : String(error));
