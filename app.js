@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3300";
+const APP_VERSION="2026.09.23-3301";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -402,14 +402,33 @@ function formatPostedMeta(x){
 }
 function freshnessReviewReason(x){
   const age=(Date.now()-postedTime(x))/(24*60*60*1000);
-  if(!Number.isFinite(age)||age<30)return "";
+  if(!Number.isFinite(age))return "";
   const text=String(x.title||"")+" "+String(x.text||"");
-  const dated=/(?:20[0-9]{2}[-.][0-9]{1,2}|[0-9]{1,2}月(?:上旬|中旬|下旬|第? *[0-9]{1,2}週|[0-9]{1,2}日))/.test(text);
-  const timeSensitive=/(?:発売|予約|販売|開催|受付|入荷|受注|順次)/.test(text);
-  if(dated&&timeSensitive)return "投稿内の日付・発売・開催情報を確認してください。";
+  const timeSensitive=/(?:発売|予約|販売|開催|受付|入荷|受注|順次|登場|再販|開始)/.test(text);
+  let period=text.match(/(20[0-9]{2})年 *([0-9]{1,2})月/);
+  if(!period)period=text.match(/(20[0-9]{2})[-.]([0-9]{1,2})/);
+  let year=period?Number(period[1]):0;
+  let month=period?Number(period[2]):0;
+  if(!period){
+    const monthMatch=text.match(/(^|[^0-9])([0-9]{1,2})月/);
+    const postDate=new Date(postedTime(x));
+    if(monthMatch&&Number.isFinite(postDate.getTime())){
+      month=Number(monthMatch[2]);
+      year=postDate.getFullYear()+(month<postDate.getMonth()+1?1:0);
+    }
+  }
+  if(timeSensitive&&year&&month>=1&&month<=12){
+    const now=new Date();
+    if(year*12+month < now.getFullYear()*12+now.getMonth()+1){
+      return year+"年"+month+"月の時期は過ぎています。現在の販売・開催状況を確認してください。";
+    }
+    if(age>=30)return "投稿内の"+year+"年"+month+"月という時期の最新状況を確認してください。";
+  }
+  if(age>=90)return "投稿から90日以上経過しています。商品・販売・開催状況を確認してください。";
   if(age>=45&&/(?:新商品|商品|グッズ|フィギュア|書籍|雑貨|文房具|発売|販売|取扱店舗|価格|税込|[0-9,]+円|ショップ|予約)/.test(text)){
     return "価格・販売状況などが変わっている可能性があります。公式情報を確認してください。";
   }
+  if(age>=30&&timeSensitive)return "投稿内の日付・発売・開催情報の最新状況を確認してください。";
   return "";
 }
 function isLikelyExpiredNews(x){
@@ -506,7 +525,8 @@ function todayMetricChips(x,role){
     if(imp)chips.push("クリック率 "+percentText(metricRate(x.urlClicks,x.impressions)));
   }else if(role==="保存狙い"){
     if(metricNumber(x.bookmarks))chips.push("保存 "+metricNumber(x.bookmarks).toLocaleString());
-    if(imp)chips.push("保存率 "+percentText(metricRate(x.bookmarks,x.impressions)));
+    if(imp&&x.bookmarks!==null&&x.bookmarks!==undefined&&String(x.bookmarks).trim()!=="")chips.push("保存率 "+percentText(metricRate(x.bookmarks,x.impressions)));
+    else chips.push("保存率 データなし");
   }else if(role==="久しぶり"){
     const age=Math.max(0,Math.floor((Date.now()-lastUseTime(x))/(24*60*60*1000)));
     chips.push(age+"日空き");
@@ -514,6 +534,10 @@ function todayMetricChips(x,role){
   }else{
     chips.push("テーマ "+reuseTopicKey(x).replace("|"," / "));
     if(imp)chips.push("表示 "+imp.toLocaleString());
+  }
+  if(!chips.some(v=>v.startsWith("保存率 "))){
+    if(imp&&x.bookmarks!==null&&x.bookmarks!==undefined&&String(x.bookmarks).trim()!=="")chips.push("保存率 "+percentText(metricRate(x.bookmarks,x.impressions)));
+    else chips.push("保存率 データなし");
   }
   return chips.map(v=>'<span>'+v+'</span>').join("");
 }
