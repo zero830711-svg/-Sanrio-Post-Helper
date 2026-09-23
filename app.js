@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3290";
+const APP_VERSION="2026.09.23-3291";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -1979,25 +1979,125 @@ function promptWindow(prompt){
   w.document.close();
 }
 
+let detailCurrentItem=null;
 function showTodayDetail(item){
   if(!item)return;
+  detailCurrentItem=item;
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
   $("detailMeta").textContent=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):""].filter(Boolean).join(" ・ ");
   $("detailText").textContent=item.text||"";
   $("detailMedia").innerHTML=
-    imgs.map(src=>'<img src="'+esc(src)+'" alt="投稿画像" loading="lazy">').join("")+
+    imgs.map((src,index)=>'<figure class="detail-media-item"><img src="'+esc(src)+'" alt="投稿画像" loading="lazy"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'">この画像をダウンロード</button></figure>').join("")+
     vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
+  $("detailCopyImage").disabled=!imgs.length;
+  $("detailCopyImage").textContent=imgs.length?"本文＋写真を画像コピー":"投稿画像がありません";
   $("detailMediaCount").textContent=(imgs.length?imgs.length+"枚":"")+(imgs.length&&vids.length?" / ":"")+(vids.length?vids.length+"動画":"");
   const rewrite=$("detailRewritePrompt");
   if(rewrite){rewrite.dataset.id=item.id;rewrite.dataset.role=item.recommendedRole||""}
   $("todayDetailModal").classList.remove("hidden");
   document.body.style.overflow="hidden";
 }
+async function imageBlob(src){
+  const res=await fetch(src);
+  if(!res.ok)throw new Error("画像を読み込めませんでした");
+  return await res.blob();
+}
+function safeImageName(item,index,ext){
+  const base=String(item?.title||"sanrio-post").replace(/[\\/:*?"<>|]/g,"_").slice(0,60);
+  return base+"-"+(index+1)+"."+ext;
+}
+async function downloadDetailImage(index,button){
+  const item=detailCurrentItem;
+  const imgs=mediaArray(item?.images||(item?.image?[item.image]:[]));
+  const src=imgs[index];
+  if(!src)return;
+  const old=button?.textContent;
+  try{
+    const blob=await imageBlob(src);
+    const ext=(blob.type||"").includes("png")?"png":(blob.type||"").includes("webp")?"webp":"jpg";
+    const url=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=url;a.download=safeImageName(item,index,ext);document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    if(button){button.textContent="ダウンロードしました";setTimeout(()=>button.textContent=old,1400)}
+  }catch(err){
+    const a=document.createElement("a");a.href=src;a.target="_blank";a.rel="noopener";a.download=safeImageName(item,index,"jpg");a.click();
+    if(button){button.textContent="画像を開きました";setTimeout(()=>button.textContent=old,1600)}
+  }
+}
+function wrapCanvasText(ctx,text,maxWidth){
+  const output=[];
+  for(const paragraph of String(text||"").split("\\n")){
+    if(!paragraph){output.push("");continue}
+    let line="";
+    for(const char of paragraph){
+      if(line&&ctx.measureText(line+char).width>maxWidth){output.push(line);line=char}
+      else line+=char;
+    }
+    output.push(line);
+  }
+  return output;
+}
+async function createPostImage(item,index=0){
+  const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
+  if(!imgs[index])throw new Error("投稿画像がありません");
+  const src=imgs[index],img=new Image();
+  if(!src.startsWith("data:")&&!src.startsWith("blob:"))img.crossOrigin="anonymous";
+  await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error("画像を読み込めませんでした"));img.src=src});
+  const width=1080,pad=64,textWidth=width-pad*2;
+  const probe=document.createElement("canvas").getContext("2d");
+  probe.font="30px -apple-system,BlinkMacSystemFont, sans-serif";
+  const lines=wrapCanvasText(probe,item.text||"",textWidth);
+  const lineHeight=47,textHeight=Math.max(lineHeight,lines.length*lineHeight);
+  const scale=Math.min(textWidth/img.naturalWidth,1400/img.naturalHeight);
+  const imageWidth=Math.round(img.naturalWidth*scale),imageHeight=Math.round(img.naturalHeight*scale);
+  const titleLines=wrapCanvasText(probe,item.title||shortLabel(item),textWidth);
+  probe.font="bold 36px -apple-system,BlinkMacSystemFont, sans-serif";
+  const titleHeight=titleLines.length*48;
+  const height=pad+titleHeight+28+textHeight+42+imageHeight+pad;
+  const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;
+  const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,width,height);
+  let y=pad;
+  ctx.fillStyle="#8c4964";ctx.font="bold 36px -apple-system,BlinkMacSystemFont, sans-serif";
+  for(const line of titleLines){ctx.fillText(line,pad,y+36);y+=48}
+  y+=28;ctx.fillStyle="#2d2530";ctx.font="30px -apple-system,BlinkMacSystemFont, sans-serif";
+  for(const line of lines){ctx.fillText(line,pad,y+30);y+=lineHeight}
+  y+=42;ctx.drawImage(img,(width-imageWidth)/2,y,imageWidth,imageHeight);
+  return await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("画像を作成できませんでした")),"image/png"));
+}
+async function copyDetailPostImage(button){
+  const item=detailCurrentItem;
+  if(!item)return;
+  const old=button.textContent;button.disabled=true;button.textContent="画像を作成中…";
+  try{
+    const blob=await createPostImage(item,0);
+    try{
+      if(!navigator.clipboard?.write||!window.ClipboardItem)throw new Error("画像コピーに非対応");
+      await navigator.clipboard.write([new ClipboardItem({"image/png":blob})]);
+      button.textContent="画像をコピーしました";
+    }catch(copyError){
+      const file=new File([blob],"sanrio-post.png",{type:"image/png"});
+      if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+        await navigator.share({files:[file],title:"本文と写真"});
+        button.textContent="画像を共有しました";
+      }else{
+        const url=URL.createObjectURL(blob),a=document.createElement("a");
+        a.href=url;a.download=safeImageName(item,0,"png");a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
+        button.textContent="PNGを保存しました";
+      }
+    }
+  }catch(err){
+    alert("本文と写真の画像を作成できませんでした。投稿画像が端末に保存済みか確認してください。");
+    button.textContent=old;
+  }finally{
+    button.disabled=false;setTimeout(()=>button.textContent=old,2000);
+  }
+}
 function closeTodayDetail(){
   $("todayDetailModal").classList.add("hidden");
   $("detailMedia").innerHTML="";
+  detailCurrentItem=null;
   document.body.style.overflow="";
 }
 
@@ -2104,6 +2204,11 @@ async function checkLatestVersion(){
     }
   }catch(e){}
 }
+$("detailCopyImage")?.addEventListener("click",e=>copyDetailPostImage(e.currentTarget));
+$("detailMedia")?.addEventListener("click",e=>{
+  const button=e.target.closest("[data-detail-download]");
+  if(button)downloadDetailImage(Number(button.dataset.detailDownload),button);
+});
 $("detailRewritePrompt")?.addEventListener("click",async e=>{
   const items=await dbGetAll();
   const item=items.find(x=>x.id===e.currentTarget.dataset.id);
