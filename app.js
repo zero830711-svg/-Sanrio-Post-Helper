@@ -12,7 +12,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.23-3296";
+const APP_VERSION="2026.09.23-3297";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -2044,6 +2044,8 @@ function showTodayDetail(item){
     vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
   $("detailCopyImage").disabled=!imgs.length;
   $("detailCopyImage").textContent=imgs.length?"本文と写真全部を1枚で保存":"投稿画像がありません";
+  const allPhotosButton=$("detailDownloadAllPhotos");
+  if(allPhotosButton){allPhotosButton.disabled=!imgs.length;allPhotosButton.textContent=imgs.length?imgs.length+"枚を準備中…":"投稿画像がありません"}
   $("detailMediaCount").textContent=(imgs.length?imgs.length+"枚":"")+(imgs.length&&vids.length?" / ":"")+(vids.length?vids.length+"動画":"");
   const rewrite=$("detailRewritePrompt");
   if(rewrite){rewrite.dataset.id=item.id;rewrite.dataset.role=item.recommendedRole||""}
@@ -2072,6 +2074,7 @@ async function imageBlob(src){
 }
 function preloadDetailImages(item,images){
   const saveButton=$("detailCopyImage");
+  const allPhotosButton=$("detailDownloadAllPhotos");
   const mediaStatus=$("detailMediaStatus");
   images.forEach((src,index)=>{
     imageBlob(src).then(blob=>{
@@ -2080,6 +2083,7 @@ function preloadDetailImages(item,images){
       const save=$("detailMedia").querySelector('[data-detail-download="'+index+'"]');
       if(save){save.disabled=false;save.textContent="この写真をiPhoneに保存"}
       const loaded=detailImageBlobs.filter(Boolean).length;
+      if(allPhotosButton){allPhotosButton.disabled=loaded!==images.length;allPhotosButton.textContent=loaded===images.length?images.length+"枚をまとめて保存":"写真を準備中… ("+loaded+"/"+images.length+")"}
       if(mediaStatus)mediaStatus.textContent="写真 "+loaded+" / "+images.length+" 枚を読み込みました。";
       if(loaded===images.length&&!detailWholeImagePromise&&!detailWholeImageBlob){
         if(mediaStatus)mediaStatus.textContent="本文と写真全部を1枚にまとめています…";
@@ -2105,9 +2109,59 @@ function preloadDetailImages(item,images){
       const save=$("detailMedia").querySelector('[data-detail-download="'+index+'"]');
       if(save){save.disabled=false;save.textContent="画像を再読み込み";save.title=error?.message||""}
       if(saveButton){saveButton.disabled=false;saveButton.textContent="本文と写真を1枚にして保存"}
-      if(mediaStatus)mediaStatus.textContent="写真の読み込みに失敗しました。保存ボタンから再試行できます。";
+      if(allPhotosButton){allPhotosButton.disabled=false;allPhotosButton.textContent="写真を読み込み直す ("+detailImageBlobs.filter(Boolean).length+"/"+images.length+")"}
+      if(mediaStatus)mediaStatus.textContent="写真の読み込みに失敗しました。まとめて保存ボタンで再試行できます。";
     });
   });
+}
+function downloadAllDetailPhotos(button){
+  const item=detailCurrentItem;
+  if(!item||!button)return;
+  const sources=mediaArray(item.images||(item.image?[item.image]:[]));
+  const loaded=detailImageBlobs.filter(Boolean).length;
+  if(loaded!==sources.length){
+    button.disabled=true;
+    button.textContent="写真を読み込み中…";
+    Promise.all(sources.map((src,index)=>detailImageBlobs[index]?Promise.resolve(detailImageBlobs[index]):imageBlob(src).then(blob=>{if(detailCurrentItem===item)detailImageBlobs[index]=blob;return blob})))
+      .then(()=>{
+        if(detailCurrentItem!==item)return;
+        button.disabled=false;
+        button.textContent="写真"+sources.length+"枚を準備しました。もう一度タップ";
+        const status=$("detailMediaStatus");
+        if(status)status.textContent="写真全部を準備しました。もう一度まとめて保存を押してください。";
+      })
+      .catch(error=>{
+        if(detailCurrentItem!==item)return;
+        button.disabled=false;
+        button.textContent="写真を読み込み直す";
+        const status=$("detailMediaStatus");
+        if(status)status.textContent="一部の写真を読み込めませんでした："+(error?.message||"通信エラー");
+      });
+    return;
+  }
+  const files=detailImageBlobs.map((blob,index)=>{
+    const ext=(blob.type||"").includes("png")?"png":(blob.type||"").includes("webp")?"webp":"jpg";
+    return new File([blob],safeImageName(item,index,ext),{type:blob.type||"image/jpeg"});
+  });
+  try{
+    if(navigator.share&&navigator.canShare?.({files})){
+      const sharing=navigator.share({files,title:sources.length+"枚の投稿写真"});
+      button.textContent="共有シートで「写真に保存」を選んでください";
+      const status=$("detailMediaStatus");
+      if(status)status.textContent="共有シートで「写真に保存」を選ぶと、"+files.length+"枚をまとめて保存できます。";
+      sharing.catch(error=>{if(error?.name!=="AbortError"){button.textContent="もう一度タップして保存";if(status)status.textContent="共有を開けませんでした。もう一度お試しください。"}});
+      return;
+    }
+  }catch(error){}
+  files.forEach(file=>{
+    const blob=detailImageBlobs[files.indexOf(file)];
+    const url=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=url;a.download=file.name;a.style.display="none";document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+  });
+  button.textContent=files.length+"枚をダウンロードしました";
+  const status=$("detailMediaStatus");
+  if(status)status.textContent="写真"+files.length+"枚のダウンロードを開始しました。";
 }
 function downloadWholePostImage(button){
   const item=detailCurrentItem;
@@ -2428,6 +2482,7 @@ async function checkLatestVersion(){
   }catch(e){}
 }
 $("detailCopyImage")?.addEventListener("click",e=>downloadWholePostImage(e.currentTarget));
+$("detailDownloadAllPhotos")?.addEventListener("click",e=>downloadAllDetailPhotos(e.currentTarget));
 $("detailMedia")?.addEventListener("click",e=>{
   const save=e.target.closest("[data-detail-download]");
   if(save)downloadDetailImage(Number(save.dataset.detailDownload),save);
