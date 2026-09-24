@@ -13,7 +13,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.24-3324";
+const APP_VERSION="2026.09.24-3325";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -270,6 +270,34 @@ function hasRakutenAffiliate(x){
   return /(楽天|rakuten)/i.test(t) && /(https?:\/\/t\.co\/|rakuten\.)/i.test(t);
 }
 function hasAffiliate(x){return hasAmazonAffiliate(x)||hasRakutenAffiliate(x)}
+function todayAffiliateBadges(item){
+  const marked=value=>value===true||(typeof value==="string"&&value.trim()&&!/^(false|0|no)$/i.test(value.trim()));
+  let amazon=marked(item.amazon),rakuten=marked(item.rakuten);
+  const genericAffiliate=marked(item.affiliateUrl);
+  const urls=[];
+  for(const source of [item.amazon,item.rakuten,item.affiliateUrl,item.text]){
+    if(typeof source!=="string")continue;
+    urls.push(...(source.match(/https?:\\/\\/[^\\s<>"']+/gi)||[]));
+  }
+  for(const raw of urls){
+    const cleanUrl=raw.replace(/[.,!?。，！？;；:：)）\\]】」』]+$/g,"");
+    try{
+      const host=new URL(cleanUrl).hostname.toLowerCase();
+      if(/(^|\\.)amazon\\./.test(host)||host==="amzn.to"||host.endsWith(".amzn.to")||/(^|\\.)amzn\\./.test(host))amazon=true;
+      if(/(^|\\.)rakuten\\./.test(host)||host==="r10.to"||host.endsWith(".r10.to"))rakuten=true;
+    }catch(_){}
+  }
+  const text=String(item.text||"");
+  const pr=/#[\\s　]*(?:pr|広告)\\b|アフィリエイト|広告を含みます|プロモーションを含みます/i.test(text);
+  const badges=[];
+  if(amazon)badges.push(["amazon","Amazonリンク"]);
+  if(rakuten)badges.push(["rakuten","楽天リンク"]);
+  if(!amazon&&!rakuten&&genericAffiliate)badges.push(["affiliate","アフィリエイトリンク"]);
+  if(!amazon&&!rakuten&&!genericAffiliate&&urls.length)badges.push(["unknown","リンクあり・行先未確認"]);
+  if(pr)badges.push(["pr","PR表記あり"]);
+  if(!badges.length)badges.push(["none","リンク情報なし"]);
+  return badges.map(([kind,label])=>'<span class="today-affiliate-badge affiliate-'+kind+'">'+label+'</span>').join("");
+}
 
 function canonicalPostKey(x){
   if(clean(x.postId))return "post:"+clean(x.postId);
@@ -1856,32 +1884,29 @@ async function renderToday(){
     const imgs=mediaArray(x.images||(x.image?[x.image]:[]));
     const vids=mediaArray(x.videos);
     const thumbs=imgs.slice(0,4).map((src,n)=>
-      '<button class="today-media-thumb" type="button" data-today-action="media" data-id="'+x.id+'" aria-label="画像'+(n+1)+'を見る">'+
+      '<div class="today-media-thumb" aria-label="画像'+(n+1)+'">'+
       '<img src="'+esc(src)+'" alt="" loading="lazy" onerror="this.closest(\'.today-media-thumb\').classList.add(\'media-load-failed\')">'+
-      '</button>'
+      '</div>'
     ).join("");
     const mediaBox=(thumbs||vids.length)
-      ?'<div class="today-media-grid">'+thumbs+(vids.length?'<button class="today-video-tile" type="button" data-today-action="media" data-id="'+x.id+'">🎬<span>'+vids.length+'動画</span></button>':'')+'</div>'
+      ?'<div class="today-media-grid">'+thumbs+(vids.length?'<div class="today-video-tile">🎬<span>'+vids.length+'動画</span></div>':'')+'</div>'
       :'<div class="today-rank today-rank-inline">'+(i+1)+'</div>';
+    const plainText=String(x.text||"").replace(/https?:\\/\\/[^\\s]+/g,"[リンク]").replace(/\\s+/g," ").trim();
+    const excerpt=plainText.length>96?plainText.slice(0,96)+"…":plainText;
     return '<article class="today-item featured today-item-full">'+
       '<div class="today-main">'+
         '<div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div>'+
+        '<div class="today-affiliate-badges">'+todayAffiliateBadges(x)+'</div>'+
         '<h3>'+esc(x.title||shortLabel(x))+'</h3>'+
         '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
+        (excerpt?'<p class="today-preview today-candidate-excerpt">'+esc(excerpt)+'</p>':'')+
         (freshnessReviewReason(x)?'<div class="freshness-review" role="note">⚠️ '+esc(freshnessReviewReason(x))+'</div>':'')+
         '<div class="recommend-reason">選定理由：'+esc([...recommendationReasons(x),x._diverseReason].filter(Boolean).join("・"))+'</div>'+
         mediaBox+
-        '<details class="today-original" open>'+
-          '<summary>以前の投稿文</summary>'+
-          '<p class="today-preview today-preview-full">'+esc(x.text||"")+'</p>'+
-        '</details>'+
         '<div class="metric-chips">'+todayMetricChips(x,x._role)+'</div>'+
         '<div class="today-actions">'+
           (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
           '<button class="small-btn detail-btn" data-today-action="detail" data-id="'+x.id+'">内容を全部見る</button>'+
-          '<button class="small-btn rewrite-btn" data-today-action="rewrite" data-role="'+esc(x._role||"")+'" data-id="'+x.id+'">焼き直しプロンプト</button>'+
-          '<button class="small-btn" data-today-action="copy" data-id="'+x.id+'">投稿文コピー</button>'+
-          ((imgs.length||vids.length)?'<button class="small-btn" data-today-action="media" data-id="'+x.id+'">写真・動画を見る</button>':'')+
           '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
           '<button class="small-btn skip-btn" data-today-action="skip" data-id="'+x.id+'">見送る</button>'+
           '<button class="small-btn exclude-btn" data-today-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
@@ -1890,6 +1915,7 @@ async function renderToday(){
     '</article>';
   }).join("");
 }
+
 async function renderRecentUsed(){
   const root=$("recentUsedList");
   const card=$("recentUsedCard");
