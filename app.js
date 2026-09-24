@@ -12,8 +12,44 @@ const LAST_CLOUD_SYNC_KEY="sanrioLastCloudSyncAt";
 const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
+const CHARACTER_DEFS=[
+  {key:"クロミ",name:"クロミ",aliases:["クロミ","kuromi"],re:/クロミ|Kuromi/i},
+  {key:"チャーミーキティ",name:"チャーミーキティ",aliases:["チャーミーキティ","charmmy kitty"],re:/チャーミーキティ|Charmmy\s*Kitty/i},
+  {key:"キティ",name:"キティ",aliases:["キティ","ハローキティ","hello kitty"],re:/ハローキティ|Hello\s*Kitty|キティ/i},
+  {key:"マイメロ",name:"マイメロ",aliases:["マイメロ","マイメロディ","my melody"],re:/マイメロ|My\s*Melody/i},
+  {key:"シナモン",name:"シナモン",aliases:["シナモン","シナモロール","cinnamoroll"],re:/シナモン|シナモロール|Cinnamoroll/i},
+  {key:"プリン",name:"プリン",aliases:["プリン","ポムポムプリン","pompompurin"],re:/ポムポムプリン|Pompompurin/i},
+  {key:"ポチャッコ",name:"ポチャッコ",aliases:["ポチャッコ","pochacco"],re:/ポチャッコ|Pochacco/i},
+  {key:"けろけろけろっぴ",name:"けろけろけろっぴ",aliases:["けろけろけろっぴ","けろっぴ","ケロピー","keroppi"],re:/けろけろけろっぴ|ケロケロケロッピ|けろっぴ|ケロッピ|ケロピー|Keroppi/i},
+  {key:"タキシードサム",name:"タキシードサム",aliases:["タキシードサム","tuxedo sam"],re:/タキシードサム|Tuxedo\s*Sam/i},
+  {key:"シュガーバニーズ",name:"シュガーバニーズ",aliases:["シュガーバニーズ","しろうさ","くろうさ","sugarbunnies"],re:/シュガーバニーズ|Sugar\s*Bunnies?|しろうさ|くろうさ/i},
+  {key:"バッドばつ丸",name:"バッドばつ丸",aliases:["バッドばつ丸","ばつ丸","バツ丸","badtz-maru"],re:/バッドばつ丸|バッドばつまる|ばつ丸|バツ丸|Badtz[-\s]*Maru|Bad\s+Badtz/i},
+  {key:"チョコキャット",name:"チョコキャット",aliases:["チョコキャット","chococat"],re:/チョコキャット|Chococat/i},
+  {key:"リトルツインスターズ",name:"リトルツインスターズ",aliases:["リトルツインスターズ","キキララ","little twin stars","kiki & lala"],re:/リトルツインスターズ|キキララ|Little\s*Twin\s*Stars|Kiki\s*(?:&|and)\s*Lala/i},
+  {key:"ぐでたま",name:"ぐでたま",aliases:["ぐでたま","gudetama"],re:/ぐでたま|Gudetama/i},
+  {key:"ハンギョドン",name:"ハンギョドン",aliases:["ハンギョドン","hangyodon"],re:/ハンギョドン|Hangyodon/i},
+  {key:"こぎみゅん",name:"こぎみゅん",aliases:["こぎみゅん","cogimyun"],re:/こぎみゅん|Cogimyun/i},
+  {key:"ウィッシュミーメル",name:"ウィッシュミーメル",aliases:["ウィッシュミーメル","wish me mell"],re:/ウィッシュミーメル|Wish\s*me\s*Mell/i},
+  {key:"ぼんぼんりぼん",name:"ぼんぼんりぼん",aliases:["ぼんぼんりぼん","bonbonribbon"],re:/ぼんぼんりぼん|Bonbonribbon/i},
+  {key:"アグレッシブ烈子",name:"アグレッシブ烈子",aliases:["アグレッシブ烈子","烈子","aggretsuko"],re:/アグレッシブ烈子|烈子|Aggretsuko|Aggressive\s*Retsuko/i},
+  {key:"マロンクリーム",name:"マロンクリーム",aliases:["マロンクリーム","marron cream"],re:/マロンクリーム|Marron\s*Cream/i},
+  {key:"ミュークルドリーミー",name:"ミュークルドリーミー",aliases:["ミュークルドリーミー","mewkledreamy"],re:/ミュークルドリーミー|Mewkledreamy/i},
+  {key:"まるもふびより",name:"まるもふびより",aliases:["まるもふびより","marumofubiyori"],re:/まるもふびより|Marumofubiyori/i},
+  {key:"あひるのペックル",name:"あひるのペックル",aliases:["あひるのペックル","ペックル","ahiru no peckle"],re:/あひるのペックル|ペックル|Ahiru\s*no\s*Peckle/i},
+  {key:"みんなのたあ坊",name:"みんなのたあ坊",aliases:["みんなのたあ坊","たあ坊","minna no taabo"],re:/みんなのたあ坊|たあ坊|Minna\s*no\s*Taabo/i},
+  {key:"おさるのもんきち",name:"おさるのもんきち",aliases:["おさるのもんきち","もんきち","osaru no monkichi"],re:/おさるのもんきち|もんきち|Osaru\s*no\s*Monkichi/i}
+];
+function characterNameForText(text){
+  const value=String(text||"");
+  return (CHARACTER_DEFS.find(c=>c.re.test(value))||{}).key||"";
+}
+function characterDefForQuery(query){
+  const value=clean(query).toLowerCase();
+  return CHARACTER_DEFS.find(c=>c.key.toLowerCase()===value||c.aliases.some(a=>a.toLowerCase()===value))||null;
+}
+
 let trendRangeHours=24;
-const APP_VERSION="2026.09.24-3333";
+const APP_VERSION="2026.09.24-3334";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -533,16 +569,7 @@ function isRecommendationEligible(x){
 }
 function reuseTopicKey(x){
   const t=(" "+String(x.title||"")+" "+String(x.text||"")+" ").toLowerCase();
-  const chars=[
-    ["キティ",/キティ|hello kitty/],
-    ["クロミ",/クロミ|kuromi/],
-    ["マイメロ",/マイメロ|my melody/],
-    ["シナモン",/シナモン|シナモロール|cinnamoroll/],
-    ["プリン",/ポムポムプリン|pompompurin/],
-    ["ポチャッコ",/ポチャッコ|pochacco/],
-    ["ぐでたま",/ぐでたま|gudetama/]
-  ];
-  const char=(chars.find(([,re])=>re.test(t))||["その他"])[0];
+  const char=characterNameForText(t)||"その他";
   let theme="一般";
   if(/コラボ|collab/.test(t))theme="コラボ";
   else if(/海外|韓国|香港|中国|台湾|korea|hong kong/.test(t))theme="海外";
@@ -1151,28 +1178,12 @@ async function trendStateRequest(topicKey,state){
 }
 
 function trendCharacter(text){
-  const t=String(text||"");
-  const pairs=[
-    ["クロミ",/クロミ|KUROMI/i],
-    ["キティ",/ハローキティ|Hello Kitty|キティ/i],
-    ["マイメロ",/マイメロ|My Melody/i],
-    ["シナモン",/シナモン|Cinnamoroll/i],
-    ["プリン",/ポムポムプリン|Pompompurin/i],
-    ["ポチャッコ",/ポチャッコ|Pochacco/i]
-  ];
-  return (pairs.find(([,re])=>re.test(t))||[])[0]||"";
+  return characterNameForText(text);
 }
 function characterAffinity(items,character){
   if(!character)return 0;
-  const map={
-    "クロミ":/クロミ|KUROMI/i,
-    "キティ":/ハローキティ|Hello Kitty|キティ/i,
-    "マイメロ":/マイメロ|My Melody/i,
-    "シナモン":/シナモン|Cinnamoroll/i,
-    "プリン":/ポムポムプリン|Pompompurin/i,
-    "ポチャッコ":/ポチャッコ|Pochacco/i
-  };
-  const re=map[character];
+  const def=CHARACTER_DEFS.find(c=>c.key===character);
+  const re=def&&def.re;
   if(!re)return 0;
   const rows=items.filter(x=>metricNumber(x.impressions)>=1000&&re.test(String(x.title||"")+" "+String(x.text||"")));
   if(!rows.length)return 0;
@@ -1615,9 +1626,9 @@ function reuseRisk(items){
     groups.get(k).push(x);
   }
   const repeated=[...groups.values()].filter(g=>g.length>1).sort((a,b)=>b.length-a.length);
-  const chars=["クロミ","キティ","マイメロ","シナモン","プリン","ポチャッコ"].map(c=>({
-    char:c,count:recent.filter(x=>trendCharacter((x.title||"")+" "+(x.text||""))===c).length
-  })).sort((a,b)=>b.count-a.count);
+  const chars=CHARACTER_DEFS.map(c=>({
+    char:c.key,count:recent.filter(x=>trendCharacter((x.title||"")+" "+(x.text||""))===c.key).length
+  })).filter(x=>x.count>0).sort((a,b)=>b.count-a.count);
   return {repeated,topChar:chars[0]};
 }
 function renderReuseRisk(items){
@@ -1669,19 +1680,11 @@ async function renderAnalytics(){
   if(typeof Chart==="undefined")return;
   destroyChart("character");
 
-  const chars=[
-    ["キティ",/ハローキティ|キティ/],
-    ["クロミ",/クロミ/],
-    ["マイメロ",/マイメロ/],
-    ["シナモン",/シナモン|シナモロール/],
-    ["プリン",/ポムポムプリン/],
-    ["ポチャッコ",/ポチャッコ/]
-  ];
-  const charData=chars.map(([name,re])=>{
-    const rows=items.filter(x=>re.test(String(x.title||"")+" "+String(x.text||""))&&isAnalyticsEligible(x));
+  const charData=CHARACTER_DEFS.map(c=>{
+    const rows=items.filter(x=>c.re.test(String(x.title||"")+" "+String(x.text||""))&&isAnalyticsEligible(x));
     const avg=rows.length?rows.reduce((s,x)=>s+metricRate(x.urlClicks,x.impressions),0)/rows.length:0;
-    return {name,avg,count:rows.length};
-  });
+    return {name:c.name,avg,count:rows.length};
+  }).filter(x=>x.count>0);
   const charEl=$("characterChart");
   if(charEl)analyticsCharts.character=new Chart(charEl,{
     type:"bar",
@@ -2009,6 +2012,7 @@ async function renderRevenuePick(){
 
 async function renderArchive(){
   const q=clean($("archiveSearch").value).toLowerCase();
+  const selectedCharacter=characterDefForQuery(q);
   const all=await dbGetAll();
   const flexIds=searchIds(all,q);
   const keyCounts=new Map();
@@ -2018,7 +2022,7 @@ async function renderArchive(){
   let items=all.filter(x=>{
     let hay=((x.title+" "+x.text+" "+x.memo+" "+(x.impressions||"")+" "+(x.likes||"")+" "+(x.bookmarks||"")).toLowerCase());
     if(/シナモン|シナモロール/.test(hay))hay+=" シナモン シナモロール";
-    const matches=!q || hay.includes(q) || (flexIds&&flexIds.has(String(x.id)));
+    const matches=selectedCharacter ? selectedCharacter.re.test(hay) : (!q || hay.includes(q) || (flexIds&&flexIds.has(String(x.id))));
     if(!matches)return false;
     if(archiveFilter==="ready")return safeReuseItem(x);
     if(archiveFilter==="affiliate")return hasAffiliate(x);
@@ -2780,7 +2784,7 @@ function rakutenYen(value){
 }
 function rakutenSanrioRelated(row){
   const text=[row.item,row.shop,row.genre].join(" ").toLowerCase();
-  return /サンリオ|sanrio|ハローキティ|hello\\s*kitty|マイメロディ|マイメロ|my\\s*melody|クロミ|kuromi|シナモロール|シナモン|cinnamoroll|cinnamonroll|ポムポムプリン|pompompurin|ポチャッコ|pochacco|ハンギョドン|hangyodon|けろけろけろっぴ|keroppi|バッドばつ丸|ばつ丸|badtz|リトルツインスターズ|little twin stars|kiki.{0,3}lala|タキシードサム|tuxedo\\s*sam|tuxedosam|あひるのペックル|pekkle|ウィッシュミーメル|wish me mell|ぐでたま|gudetama|こぎみゅん|cogimyun|ぼんぼんりぼん|bonbonribbon|まるもふびより|marumofubiyori|ウサハナ|usahana|チアリーチャム|cheery chums|ザシキブタ|zashikibuta|パティ.{0,2}ジミー|patty.{0,3}jimmy|ミュークルドリーミー|mewkledreamy|シュガーバニーズ|sugarbunnies/i.test(text);
+  return /サンリオ|sanrio|ハローキティ|hello\s*kitty|マイメロディ|マイメロ|my\s*melody|クロミ|kuromi|シナモロール|シナモン|cinnamoroll|cinnamonroll|ポムポムプリン|pompompurin|ポチャッコ|pochacco|ハンギョドン|hangyodon|けろけろけろっぴ|keroppi|バッドばつ丸|ばつ丸|badtz|リトルツインスターズ|little twin stars|kiki.{0,3}lala|タキシードサム|tuxedo\s*sam|tuxedosam|あひるのペックル|pekkle|ウィッシュミーメル|wish me mell|ぐでたま|gudetama|こぎみゅん|cogimyun|ぼんぼんりぼん|bonbonribbon|まるもふびより|marumofubiyori|ウサハナ|usahana|チアリーチャム|cheery chums|ザシキブタ|zashikibuta|パティ.{0,2}ジミー|patty.{0,3}jimmy|ミュークルドリーミー|mewkledreamy|シュガーバニーズ|sugarbunnies/i.test(text);
 }
 function renderRakutenReports(){
   const root=$("rakutenReportSummary");
@@ -3063,7 +3067,7 @@ document.querySelectorAll(".character-btn").forEach(btn=>btn.addEventListener("c
   archiveLimit=50;
   const input=$("archiveSearch");
   const same=input.value===btn.dataset.character;
-  input.value=same?"":(btn.dataset.character==="シナモ"?"シナモン":btn.dataset.character);
+  input.value=same?"":btn.dataset.character;
   document.querySelectorAll(".character-btn").forEach(x=>x.classList.remove("active"));
   if(!same)btn.classList.add("active");
   renderArchive();
