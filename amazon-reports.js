@@ -289,15 +289,19 @@
     const top = latest.products.filter(p => p.shippedItems > 0 || p.commission > 0)
       .sort((a,b) => b.commission - a.commission || b.shippedItems - a.shippedItems).slice(0,5);
     if (top.length) {
-      html += '<h3>商品別（アカウント合算・紹介料順）</h3><ol class="amazon-product-list">' +
+      html += '<details class="amazon-product-details"><summary>購入商品（参考・投稿との対応は不明）</summary>' +
+        '<p class="amazon-attribution-note">Amazon経由で購入された商品の参考情報です。購入者がサンリオ投稿で紹介した商品を買ったことや、特定の投稿から発生した売上を示すものではありません。</p>' +
+        '<ol class="amazon-product-list">' +
         top.map(p => '<li><span>' + safe(p.title || p.asin) + '</span><small>' +
           number(p.shippedItems) + '点・' + money(p.commission) + '・' +
           '<a href="https://www.amazon.co.jp/dp/' + encodeURIComponent(p.asin) + '" target="_blank" rel="noopener">商品</a></small></li>').join("") +
-        '</ol>';
+        '</ol></details>';
     } else if (latest.topSellers.length) {
-      html += '<h3>商品ランキング（アカウント合算）</h3><ol class="amazon-product-list">' +
+      html += '<details class="amazon-product-details"><summary>購入商品ランキング（参考・投稿との対応は不明）</summary>' +
+        '<p class="amazon-attribution-note">Amazon経由の購入全体の参考情報です。サンリオ投稿や特定商品の売上を示すものではありません。</p>' +
+        '<ol class="amazon-product-list">' +
         latest.topSellers.slice(0,5).map(p => '<li><span>' + safe(p.title || p.asin) + '</span><small>' +
-          safe(p.category) + '・' + safe(p.type) + '</small></li>').join("") + '</ol>';
+          safe(p.category) + '・' + safe(p.type) + '</small></li>').join("") + '</ol></details>';
     } else {
       html += '<p class="amazon-empty">この期間の商品別実績はありません。</p>';
     }
@@ -418,7 +422,7 @@
   importFromLink();
 
   const style = document.createElement("style");
-  style.textContent = ".amazon-import-card .amazon-import-label{display:inline-flex;align-items:center;justify-content:center;margin-top:10px}.amazon-import-card .amazon-primary-select{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:.9rem}.amazon-import-card select{max-width:190px;padding:9px;border:1px solid #ddd;border-radius:10px;background:#fff}.amazon-import-card .amazon-primary-report{margin:14px 0;padding:14px;border-radius:14px;background:#fff7fb;border:1px solid #f0dce7}.amazon-import-card .amazon-primary-report>span{display:block;color:#7d7480;font-size:.85rem;margin-top:4px}.amazon-import-card .amazon-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}.amazon-import-card .amazon-metrics div{background:#fff;border-radius:10px;padding:10px}.amazon-import-card .amazon-metrics span,.amazon-import-card .amazon-metrics b{display:block}.amazon-import-card .amazon-metrics span{font-size:.8rem;color:#777}.amazon-import-card .amazon-metrics b{font-size:1.05rem;margin-top:3px}.amazon-import-card h3{font-size:1rem;margin:16px 0 8px}.amazon-import-card .amazon-product-list{padding-left:22px}.amazon-import-card .amazon-product-list li{padding:8px 0;border-bottom:1px solid #eee}.amazon-import-card .amazon-product-list small{display:block;color:#777;margin-top:4px}.amazon-import-card .amazon-product-list a{margin-left:6px}.amazon-import-card .amazon-empty{color:#777;font-size:.9rem}.amazon-import-card .amazon-history{margin-top:14px}.amazon-import-card .amazon-history-list{margin-top:8px}.amazon-import-card .amazon-history-row{display:grid;grid-template-columns:1.1fr 1.3fr 1fr auto;gap:6px;padding:8px 0;border-bottom:1px solid #eee;font-size:.8rem}.amazon-import-card .amazon-history-row span{color:#777}.amazon-import-card .amazon-import-label input{display:none}@media(max-width:480px){.amazon-import-card .amazon-history-row{grid-template-columns:1fr 1fr}.amazon-import-card .amazon-history-row strong{text-align:right}}";
+  style.textContent = ".amazon-import-card .amazon-import-label{display:inline-flex;align-items:center;justify-content:center;margin-top:10px}.amazon-import-card .amazon-primary-select{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:.9rem}.amazon-import-card select{max-width:190px;padding:9px;border:1px solid #ddd;border-radius:10px;background:#fff}.amazon-import-card .amazon-primary-report{margin:14px 0;padding:14px;border-radius:14px;background:#fff7fb;border:1px solid #f0dce7}.amazon-import-card .amazon-primary-report>span{display:block;color:#7d7480;font-size:.85rem;margin-top:4px}.amazon-import-card .amazon-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}.amazon-import-card .amazon-metrics div{background:#fff;border-radius:10px;padding:10px}.amazon-import-card .amazon-metrics span,.amazon-import-card .amazon-metrics b{display:block}.amazon-import-card .amazon-metrics span{font-size:.8rem;color:#777}.amazon-import-card .amazon-metrics b{font-size:1.05rem;margin-top:3px}.amazon-import-card h3{font-size:1rem;margin:16px 0 8px}.amazon-import-card .amazon-product-details{margin:14px 0}.amazon-import-card .amazon-product-details summary{cursor:pointer;font-weight:700;padding:10px 12px;border-radius:10px;background:#f7f3f6}.amazon-import-card .amazon-attribution-note{margin:8px 0;padding:10px 12px;border-left:3px solid #d97da6;background:#fff7fb;color:#6f6570;font-size:.85rem;line-height:1.55}.amazon-import-card .amazon-product-list{padding-left:22px}.amazon-import-card .amazon-product-list li{padding:8px 0;border-bottom:1px solid #eee}.amazon-import-card .amazon-product-list small{display:block;color:#777;margin-top:4px}.amazon-import-card .amazon-product-list a{margin-left:6px}.amazon-import-card .amazon-empty{color:#777;font-size:.9rem}.amazon-import-card .amazon-history{margin-top:14px}.amazon-import-card .amazon-history-list{margin-top:8px}.amazon-import-card .amazon-history-row{display:grid;grid-template-columns:1.1fr 1.3fr 1fr auto;gap:6px;padding:8px 0;border-bottom:1px solid #eee;font-size:.8rem}.amazon-import-card .amazon-history-row span{color:#777}.amazon-import-card .amazon-import-label input{display:none}@media(max-width:480px){.amazon-import-card .amazon-history-row{grid-template-columns:1fr 1fr}.amazon-import-card .amazon-history-row strong{text-align:right}}";
   document.head.appendChild(style);
   render();
 })();
