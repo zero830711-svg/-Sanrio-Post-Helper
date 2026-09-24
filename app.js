@@ -13,7 +13,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.24-3326";
+const APP_VERSION="2026.09.24-3329";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -305,9 +305,9 @@ function xOpenButton(item){
   let url="";
   try{
     const parsed=new URL(raw);
-    const host=parsed.hostname.toLowerCase().replace(/^www\\./,"");
+    const host=parsed.hostname.toLowerCase().replace(/^www\./,"");
     if(!["x.com","twitter.com"].includes(host))return "";
-    const postId=parsed.pathname.match(/\\/status\\/(\\d+)/)?.[1];
+    const postId=parsed.pathname.match(/\/status\/(\d+)/)?.[1];
     url=postId?"https://x.com/i/status/"+postId:parsed.href;
   }catch(_){return ""}
   return '<a class="small-btn link-btn" href="'+esc(url)+'" target="_blank" rel="noopener">Xアプリで開く</a>';
