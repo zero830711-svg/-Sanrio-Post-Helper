@@ -13,7 +13,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.24-3321";
+const APP_VERSION="2026.09.24-3322";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -2718,6 +2718,10 @@ async function parseRakutenOrderFile(file){
 function rakutenYen(value){
   return "¥"+Math.round(value||0).toLocaleString("ja-JP");
 }
+function rakutenSanrioRelated(row){
+  const text=[row.item,row.shop,row.genre].join(" ").toLowerCase();
+  return /サンリオ|sanrio|ハローキティ|hello\\s*kitty|マイメロディ|マイメロ|my\\s*melody|クロミ|kuromi|シナモロール|シナモン|cinnamoroll|cinnamonroll|ポムポムプリン|pompompurin|ポチャッコ|pochacco|ハンギョドン|hangyodon|けろけろけろっぴ|keroppi|バッドばつ丸|ばつ丸|badtz|リトルツインスターズ|little twin stars|kiki.{0,3}lala|タキシードサム|tuxedo\\s*sam|tuxedosam|あひるのペックル|pekkle|ウィッシュミーメル|wish me mell|ぐでたま|gudetama|こぎみゅん|cogimyun|ぼんぼんりぼん|bonbonribbon|まるもふびより|marumofubiyori|ウサハナ|usahana|チアリーチャム|cheery chums|ザシキブタ|zashikibuta|パティ.{0,2}ジミー|patty.{0,3}jimmy|ミュークルドリーミー|mewkledreamy|シュガーバニーズ|sugarbunnies/i.test(text);
+}
 function renderRakutenReports(){
   const root=$("rakutenReportSummary");
   if(!root)return;
@@ -2740,18 +2744,18 @@ function renderRakutenReports(){
     const sums={0:0,1:0,2:0};
     data.forEach(r=>{const s=Number(r.status);if(sums[s]!==undefined)sums[s]+=Number(r.reward)||0});
     const products=new Map();
-    data.filter(r=>r.item).forEach(r=>{
+    data.filter(r=>r.item&&rakutenSanrioRelated(r)).forEach(r=>{
       const key=r.shop+"\\u0000"+r.item;
       const p=products.get(key)||{shop:r.shop,item:r.item,reward:0,count:0};
       p.reward+=Number(r.reward)||0;p.count++;products.set(key,p);
     });
     const top=[...products.values()].sort((a,b)=>b.reward-a.reward).slice(0,5);
-    const productHtml=top.length?top.map(p=>'<li><strong>'+esc(p.item)+'</strong><span>'+esc(p.shop)+' ・ '+p.count+'明細 ・ '+rakutenYen(p.reward)+'</span></li>').join(""):'<li>商品名のある明細はありません。</li>';
+    const productHtml=top.length?top.map(p=>'<li><strong>'+esc(p.item)+'</strong><span>'+esc(p.shop)+' ・ '+p.count+'明細 ・ '+rakutenYen(p.reward)+'</span></li>').join(""):'<li>サンリオ関連と確認できる商品名の明細はありません。</li>';
     return '<article class="rakuten-month-card"><div class="rakuten-month-head"><strong>'+esc(month)+'</strong><span>'+data.length.toLocaleString("ja-JP")+'明細</span></div>'+
       '<div class="rakuten-month-kpis"><span>確定 '+rakutenYen(sums[1])+'</span><span>未確定 '+rakutenYen(sums[0])+'</span><span>破棄 '+rakutenYen(sums[2])+'</span></div>'+
-      '<details><summary>成果商品 上位5件</summary><ol class="rakuten-product-list">'+productHtml+'</ol></details></article>';
+      '<details><summary>サンリオ関連と確認できる商品 上位5件</summary><ol class="rakuten-product-list">'+productHtml+'</ol></details></article>';
   }).join("");
-  root.innerHTML='<div class="rakuten-kpis">'+kpis.map(x=>'<div><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join("")+'</div><div class="rakuten-month-list">'+cards+'</div>';
+  root.innerHTML='<div class="rakuten-report-note">報酬と件数は楽天レポート全体の集計です。購入商品がサンリオ投稿の商品と一致するとは限りません。商品名・ショップ名は、サンリオ関連と確認できる明細だけ表示します。</div><div class="rakuten-kpis">'+kpis.map(x=>'<div><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join("")+'</div><div class="rakuten-month-list">'+cards+'</div>';
 }
 $("importRakutenOrders")?.addEventListener("change",async e=>{
   const files=[...(e.target.files||[])];
