@@ -13,7 +13,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.24-3332";
+const APP_VERSION="2026.09.24-3333";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -295,14 +295,17 @@ function todayAffiliateBadges(item){
     if(typeof source!=="string")continue;
     urls.push(...(source.match(/https?:\/\/[^\s<>"']+/gi)||[]));
   }
+  let unknownUrl=false;
   for(const raw of urls){
     const cleanUrl=raw.replace(/[.,!?。，！？;；:：)）\]】」』]+$/g,"");
     if(isNonExternalPostUrl(cleanUrl,item))continue;
     try{
       const host=new URL(cleanUrl).hostname.toLowerCase();
-      if(/(^|\.)amazon\./.test(host)||host==="amzn.to"||host.endsWith(".amzn.to")||/(^|\.)amzn\./.test(host))amazon=true;
-      if(/(^|\.)rakuten\./.test(host)||host==="r10.to"||host.endsWith(".r10.to"))rakuten=true;
-    }catch(_){}
+      let knownAffiliate=false;
+      if(/(^|\.)amazon\./.test(host)||host==="amzn.to"||host.endsWith(".amzn.to")||/(^|\.)amzn\./.test(host)){amazon=true;knownAffiliate=true}
+      if(/(^|\.)rakuten\./.test(host)||host==="r10.to"||host.endsWith(".r10.to")){rakuten=true;knownAffiliate=true}
+      if(!knownAffiliate)unknownUrl=true;
+    }catch(_){unknownUrl=true}
   }
   const text=String(item.text||"");
   const pr=/#\s*(?:pr\b|広告)|アフィリエイト|広告を含みます|プロモーションを含みます/i.test(text);
@@ -310,7 +313,7 @@ function todayAffiliateBadges(item){
   if(amazon)badges.push(["amazon","Amazonリンク"]);
   if(rakuten)badges.push(["rakuten","楽天リンク"]);
   if(!amazon&&!rakuten&&genericAffiliate)badges.push(["affiliate","アフィリエイトリンク"]);
-  if(!amazon&&!rakuten&&!genericAffiliate&&urls.length)badges.push(["unknown","リンクあり・行先未確認"]);
+  if(!amazon&&!rakuten&&!genericAffiliate&&unknownUrl)badges.push(["unknown","リンクあり・行先未確認"]);
   if(pr)badges.push(["pr","PR表記あり"]);
   if(!badges.length)badges.push(["none","リンク情報なし"]);
   return badges.map(([kind,label])=>'<span class="today-affiliate-badge affiliate-'+kind+'">'+label+'</span>').join("");
