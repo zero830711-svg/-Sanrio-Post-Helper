@@ -299,6 +299,40 @@ function todayAffiliateBadges(item){
   return badges.map(([kind,label])=>'<span class="today-affiliate-badge affiliate-'+kind+'">'+label+'</span>').join("");
 }
 
+function xOpenButton(item){
+  const url=clean(item&& (item.xUrl||item.tweetUrl||item.url));
+  if(!url)return "";
+  const match=url.match(/\/status(?:es)?\/(\d+)/i);
+  const postId=match?match[1]:"";
+  return '<button type="button" class="small-btn link-btn" data-open-x data-x-url="'+esc(url)+'" data-x-post-id="'+esc(postId)+'">'+(postId?"Xアプリで開く":"Xで見る")+'</button>';
+}
+function openXAppOrWeb(button){
+  const url=button.dataset.xUrl||"";
+  const postId=button.dataset.xPostId||"";
+  if(!postId){window.open(url,"_blank","noopener,noreferrer");return}
+  let timer=0,appOpened=false;
+  const cleanup=()=>document.removeEventListener("visibilitychange",onVisibility);
+  const onVisibility=()=>{
+    if(document.visibilityState==="hidden"){
+      appOpened=true;
+      clearTimeout(timer);
+      cleanup();
+    }
+  };
+  document.addEventListener("visibilitychange",onVisibility);
+  window.location.href="twitter://status?id="+encodeURIComponent(postId);
+  timer=setTimeout(()=>{
+    cleanup();
+    if(!appOpened&&document.visibilityState!=="hidden")window.location.href=url;
+  },900);
+}
+document.addEventListener("click",e=>{
+  const button=e.target.closest("[data-open-x]");
+  if(!button)return;
+  e.preventDefault();
+  openXAppOrWeb(button);
+});
+
 function canonicalPostKey(x){
   if(clean(x.postId))return "post:"+clean(x.postId);
   const m=String(x.xUrl||"").match(/status\/(\d+)/);
@@ -1905,7 +1939,7 @@ async function renderToday(){
         mediaBox+
         '<div class="metric-chips">'+todayMetricChips(x,x._role)+'</div>'+
         '<div class="today-actions">'+
-          (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
+          xOpenButton(x)+
           '<button class="small-btn detail-btn" data-today-action="detail" data-id="'+x.id+'">内容を全部見る</button>'+
           '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
           '<button class="small-btn skip-btn" data-today-action="skip" data-id="'+x.id+'">見送る</button>'+
@@ -1938,7 +1972,7 @@ async function renderRecentUsed(){
     '<article class="recent-used-item">'+
       '<div><strong>'+esc(x.title)+'</strong>'+
       '<div class="today-meta">'+esc(new Date(x.lastRepostedAt).toLocaleDateString("ja-JP"))+' に再投稿</div></div>'+
-      (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
+      xOpenButton(x)+
     '</article>'
   ).join("");
 }
@@ -1966,7 +2000,7 @@ async function renderRevenuePick(){
       (metricNumber(x.impressions)?'<span>クリック率 '+percentText(metricRate(x.urlClicks,x.impressions))+'</span>':'')+
     '</div>'+
     '<div class="today-actions">'+
-      (x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':'')+
+      xOpenButton(x)+
       '<button class="small-btn" data-revenue-action="copy" data-id="'+x.id+'">投稿文コピー</button>'+
       '<button class="small-btn" data-revenue-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
       '<button class="small-btn exclude-btn" data-revenue-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
@@ -2026,7 +2060,7 @@ async function renderArchive(){
         '</div>':''}
         <p>${esc(x.text)}</p>
         <div class="archive-actions primary-actions">
-          ${x.xUrl?'<a class="small-btn link-btn" href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">Xで見る</a>':''}
+          ${xOpenButton(x)}
           <button class="small-btn" data-action="copy" data-id="${x.id}">投稿文コピー</button>
           <button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button>
         </div>
