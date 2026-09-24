@@ -320,7 +320,7 @@ function openXAppOrWeb(button){
     }
   };
   document.addEventListener("visibilitychange",onVisibility);
-  window.location.href="twitter://status?id="+encodeURIComponent(postId);
+  window.location.href="x://status?id="+encodeURIComponent(postId);
   timer=setTimeout(()=>{
     cleanup();
     if(!appOpened&&document.visibilityState!=="hidden")window.location.href=url;
