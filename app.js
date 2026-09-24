@@ -300,38 +300,10 @@ function todayAffiliateBadges(item){
 }
 
 function xOpenButton(item){
-  const url=clean(item&& (item.xUrl||item.tweetUrl||item.url));
+  const url=clean(item&&(item.xUrl||item.tweetUrl||item.url));
   if(!url)return "";
-  const match=url.match(/\/status(?:es)?\/(\d+)/i);
-  const postId=match?match[1]:"";
-  return '<button type="button" class="small-btn link-btn" data-open-x data-x-url="'+esc(url)+'" data-x-post-id="'+esc(postId)+'">'+(postId?"Xアプリで開く":"Xで見る")+'</button>';
+  return '<a class="small-btn link-btn" href="'+esc(url)+'">Xアプリで開く</a>';
 }
-function openXAppOrWeb(button){
-  const url=button.dataset.xUrl||"";
-  const postId=button.dataset.xPostId||"";
-  if(!postId){window.open(url,"_blank","noopener,noreferrer");return}
-  let timer=0,appOpened=false;
-  const cleanup=()=>document.removeEventListener("visibilitychange",onVisibility);
-  const onVisibility=()=>{
-    if(document.visibilityState==="hidden"){
-      appOpened=true;
-      clearTimeout(timer);
-      cleanup();
-    }
-  };
-  document.addEventListener("visibilitychange",onVisibility);
-  window.location.href="x://status?id="+encodeURIComponent(postId);
-  timer=setTimeout(()=>{
-    cleanup();
-    if(!appOpened&&document.visibilityState!=="hidden")window.location.href=url;
-  },900);
-}
-document.addEventListener("click",e=>{
-  const button=e.target.closest("[data-open-x]");
-  if(!button)return;
-  e.preventDefault();
-  openXAppOrWeb(button);
-});
 
 function canonicalPostKey(x){
   if(clean(x.postId))return "post:"+clean(x.postId);
