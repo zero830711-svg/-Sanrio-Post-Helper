@@ -355,6 +355,48 @@ function todayAffiliateBadges(item){
   return badges.map(([kind,label])=>'<span class="today-affiliate-badge affiliate-'+kind+'">'+label+'</span>').join("");
 }
 
+function todayAffiliateLinks(item){
+  const found=new Map();
+  const fields=[["amazon",item.amazon],["rakuten",item.rakuten],["affiliate",item.affiliateUrl],["text",item.text]];
+  for(const [hint,source] of fields){
+    if(typeof source!=="string")continue;
+    const candidates=source.match(/https?:\/\/[^\s<>"']+/gi)||[];
+    for(const raw of candidates){
+      const linkUrl=raw.replace(/[.,!?。，！？;；:：)）\]】」』]+$/g,"");
+      let parsed;
+      try{parsed=new URL(linkUrl)}catch(_){continue}
+      if(parsed.protocol!=="https:"&&parsed.protocol!=="http:")continue;
+      const host=parsed.hostname.toLowerCase().replace(/^www\./,"");
+      let kind="";
+      if(/(^|\.)amazon\./.test(host)||/(^|\.)amzn\./.test(host))kind="amazon";
+      else if(/(^|\.)rakuten\./.test(host)||host==="r10.to"||host.endsWith(".r10.to"))kind="rakuten";
+      else if(hint==="amazon"||hint==="rakuten")kind=hint;
+      else if(host==="t.co"){
+        const amazon=hasAmazonAffiliate(item),rakuten=hasRakutenAffiliate(item);
+        if(amazon!==rakuten)kind=amazon?"amazon":"rakuten";
+      }
+      if(!kind)continue;
+      if(host==="t.co"){
+        const amazon=hasAmazonAffiliate(item),rakuten=hasRakutenAffiliate(item);
+        if(!((kind==="amazon"&&amazon)||(kind==="rakuten"&&rakuten)))continue;
+      }else if(isNonExternalPostUrl(linkUrl,item))continue;
+      found.set(kind+"|"+linkUrl,{kind,url:linkUrl});
+    }
+  }
+  return [...found.values()];
+}
+function todayAffiliateLinkButtons(item){
+  const links=todayAffiliateLinks(item);
+  if(!links.length)return "";
+  return '<div class="today-affiliate-links" aria-label="Amazon・楽天リンク">'+links.map(link=>{
+    const label=link.kind==="amazon"?"Amazon":"楽天";
+    return '<div class="today-affiliate-link-row">'+
+      '<a class="today-affiliate-open affiliate-open-'+link.kind+'" href="'+esc(link.url)+'" target="_blank" rel="sponsored nofollow noopener noreferrer">'+label+'で在庫を確認 ↗</a>'+
+      '<button class="small-btn today-affiliate-copy" type="button" data-today-action="copy-affiliate" data-affiliate-url="'+esc(link.url)+'">リンクをコピー</button>'+
+    '</div>';
+  }).join("")+'</div>';
+}
+
 function xOpenButton(item){
   const raw=clean(item&&(item.xUrl||item.tweetUrl||item.url));
   if(!raw)return "";
@@ -1934,6 +1976,7 @@ async function renderToday(){
       '<div class="today-main">'+
         '<div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div>'+
         '<div class="today-affiliate-badges">'+todayAffiliateBadges(x)+'</div>'+
+        todayAffiliateLinkButtons(x)+
         '<h3>'+esc(x.title||shortLabel(x))+'</h3>'+
         '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
         (excerpt?'<p class="today-preview today-candidate-excerpt">'+esc(excerpt)+'</p>':'')+
@@ -3009,6 +3052,11 @@ document.querySelector(".analytics-dashboard")?.addEventListener("click",async e
 $("todayList").addEventListener("click",async e=>{
   const btn=e.target.closest("[data-today-action]");
   if(!btn)return;
+  if(btn.dataset.todayAction==="copy-affiliate"){
+    const url=btn.dataset.affiliateUrl||"";
+    if(url)copyTextFromClick(url,btn,"リンクをコピーしました");
+    return;
+  }
   if(btn.dataset.todayAction==="rewrite"||btn.dataset.todayAction==="copy"){
     const cached=todayPicksById.get(String(btn.dataset.id));
     if(cached){
