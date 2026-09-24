@@ -301,7 +301,7 @@ function isAmazonAffiliateHost(host){
 function hasAmazonAffiliate(x){
   if(clean(x.amazon))return true;
   const t=String(x.text||"");
-  return /(amazon|アマゾン)/i.test(t) && /(https?:\/\/t\.co\/|amazon\.|amzn\.)/i.test(t);
+  return /(amazon|アマゾン)/i.test(t) && /(https?:\/\/t\.co\/|amazon(?:\.|\/)|amzn\.)/i.test(t);
 }
 function hasRakutenAffiliate(x){
   if(clean(x.rakuten))return true;
