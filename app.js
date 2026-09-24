@@ -277,18 +277,18 @@ function todayAffiliateBadges(item){
   const urls=[];
   for(const source of [item.amazon,item.rakuten,item.affiliateUrl,item.text]){
     if(typeof source!=="string")continue;
-    urls.push(...(source.match(/https?:\\/\\/[^\\s<>"']+/gi)||[]));
+    urls.push(...(source.match(/https?:\/\/[^\s<>"']+/gi)||[]));
   }
   for(const raw of urls){
-    const cleanUrl=raw.replace(/[.,!?。，！？;；:：)）\\]】」』]+$/g,"");
+    const cleanUrl=raw.replace(/[.,!?。，！？;；:：)）\]】」』]+$/g,"");
     try{
       const host=new URL(cleanUrl).hostname.toLowerCase();
-      if(/(^|\\.)amazon\\./.test(host)||host==="amzn.to"||host.endsWith(".amzn.to")||/(^|\\.)amzn\\./.test(host))amazon=true;
-      if(/(^|\\.)rakuten\\./.test(host)||host==="r10.to"||host.endsWith(".r10.to"))rakuten=true;
+      if(/(^|\.)amazon\./.test(host)||host==="amzn.to"||host.endsWith(".amzn.to")||/(^|\.)amzn\./.test(host))amazon=true;
+      if(/(^|\.)rakuten\./.test(host)||host==="r10.to"||host.endsWith(".r10.to"))rakuten=true;
     }catch(_){}
   }
   const text=String(item.text||"");
-  const pr=/#[\\s　]*(?:pr|広告)\\b|アフィリエイト|広告を含みます|プロモーションを含みます/i.test(text);
+  const pr=/#\s*(?:pr\b|広告)|アフィリエイト|広告を含みます|プロモーションを含みます/i.test(text);
   const badges=[];
   if(amazon)badges.push(["amazon","Amazonリンク"]);
   if(rakuten)badges.push(["rakuten","楽天リンク"]);
@@ -1891,8 +1891,8 @@ async function renderToday(){
     const mediaBox=(thumbs||vids.length)
       ?'<div class="today-media-grid">'+thumbs+(vids.length?'<div class="today-video-tile">🎬<span>'+vids.length+'動画</span></div>':'')+'</div>'
       :'<div class="today-rank today-rank-inline">'+(i+1)+'</div>';
-    const plainText=String(x.text||"").replace(/https?:\\/\\/[^\\s]+/g,"[リンク]").replace(/\\s+/g," ").trim();
-    const excerpt=plainText.length>96?plainText.slice(0,96)+"…":plainText;
+    const plainText=String(x.text||"").replace(/https?:\/\/[^\s]+/g,"[リンク]").replace(/\s+/g," ").trim();
+    const excerpt=plainText.length>64?plainText.slice(0,64)+"…":plainText;
     return '<article class="today-item featured today-item-full">'+
       '<div class="today-main">'+
         '<div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div>'+
