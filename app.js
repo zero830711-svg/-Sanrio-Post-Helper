@@ -13,7 +13,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.24-3331";
+const APP_VERSION="2026.09.24-3332";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -275,7 +275,7 @@ function isNonExternalPostUrl(raw,item){
     const url=new URL(raw);
     if(url.protocol!=="http:"&&url.protocol!=="https:")return true;
     const host=url.hostname.toLowerCase().replace(/^www\./,"");
-    if(host==="x.com"||host.endsWith(".x.com")||host==="twitter.com"||host.endsWith(".twitter.com")||host==="pic.twitter.com")return true;
+    if(host==="x.com"||host.endsWith(".x.com")||host==="twitter.com"||host.endsWith(".twitter.com")||host==="pic.twitter.com"||host==="t.co")return true;
     const own=clean(item&&(item.xUrl||item.tweetUrl||item.url));
     if(own){
       const ownUrl=new URL(own);
@@ -288,7 +288,7 @@ function isNonExternalPostUrl(raw,item){
 }
 function todayAffiliateBadges(item){
   const marked=value=>value===true||(typeof value==="string"&&value.trim()&&!/^(false|0|no)$/i.test(value.trim()));
-  let amazon=marked(item.amazon),rakuten=marked(item.rakuten);
+  let amazon=marked(item.amazon)||hasAmazonAffiliate(item),rakuten=marked(item.rakuten)||hasRakutenAffiliate(item);
   const genericAffiliate=marked(item.affiliateUrl);
   const urls=[];
   for(const source of [item.amazon,item.rakuten,item.affiliateUrl,item.text]){
