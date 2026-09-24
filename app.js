@@ -13,7 +13,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.24-3329";
+const APP_VERSION="2026.09.24-3330";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -270,6 +270,22 @@ function hasRakutenAffiliate(x){
   return /(楽天|rakuten)/i.test(t) && /(https?:\/\/t\.co\/|rakuten\.)/i.test(t);
 }
 function hasAffiliate(x){return hasAmazonAffiliate(x)||hasRakutenAffiliate(x)}
+function isNonExternalPostUrl(raw,item){
+  try{
+    const url=new URL(raw);
+    if(url.protocol!=="http:"&&url.protocol!=="https:")return true;
+    const host=url.hostname.toLowerCase().replace(/^www\./,"");
+    if(host==="x.com"||host.endsWith(".x.com")||host==="twitter.com"||host.endsWith(".twitter.com")||host==="pic.twitter.com"||host==="t.co")return true;
+    const own=clean(item&&(item.xUrl||item.tweetUrl||item.url));
+    if(own){
+      const ownUrl=new URL(own);
+      const ownId=ownUrl.pathname.match(/\/status\/(\d+)/)?.[1];
+      const candidateId=url.pathname.match(/\/status\/(\d+)/)?.[1];
+      if(ownId&&candidateId&&ownId===candidateId)return true;
+    }
+    return false;
+  }catch(_){return true}
+}
 function todayAffiliateBadges(item){
   const marked=value=>value===true||(typeof value==="string"&&value.trim()&&!/^(false|0|no)$/i.test(value.trim()));
   let amazon=marked(item.amazon),rakuten=marked(item.rakuten);
@@ -281,6 +297,7 @@ function todayAffiliateBadges(item){
   }
   for(const raw of urls){
     const cleanUrl=raw.replace(/[.,!?。，！？;；:：)）\]】」』]+$/g,"");
+    if(isNonExternalPostUrl(cleanUrl,item))continue;
     try{
       const host=new URL(cleanUrl).hostname.toLowerCase();
       if(/(^|\.)amazon\./.test(host)||host==="amzn.to"||host.endsWith(".amzn.to")||/(^|\.)amzn\./.test(host))amazon=true;
