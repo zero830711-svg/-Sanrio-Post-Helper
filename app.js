@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.25-3336";
+const APP_VERSION="2026.09.25-3337";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -357,8 +357,8 @@ function todayAffiliateBadges(item){
 
 function todayAffiliateLinks(item){
   const found=new Map();
-  const fields=[["amazon",item.amazon],["rakuten",item.rakuten],["affiliate",item.affiliateUrl],["text",item.text]];
-  for(const [hint,source] of fields){
+  const sources=[item.amazon,item.rakuten,item.affiliateUrl,item.text];
+  for(const source of sources){
     if(typeof source!=="string")continue;
     const candidates=source.match(/https?:\/\/[^\s<>"']+/gi)||[];
     for(const raw of candidates){
@@ -370,16 +370,7 @@ function todayAffiliateLinks(item){
       let kind="";
       if(/(^|\.)amazon\./.test(host)||/(^|\.)amzn\./.test(host))kind="amazon";
       else if(/(^|\.)rakuten\./.test(host)||host==="r10.to"||host.endsWith(".r10.to"))kind="rakuten";
-      else if(hint==="amazon"||hint==="rakuten")kind=hint;
-      else if(host==="t.co"){
-        const amazon=hasAmazonAffiliate(item),rakuten=hasRakutenAffiliate(item);
-        if(amazon!==rakuten)kind=amazon?"amazon":"rakuten";
-      }
-      if(!kind)continue;
-      if(host==="t.co"){
-        const amazon=hasAmazonAffiliate(item),rakuten=hasRakutenAffiliate(item);
-        if(!((kind==="amazon"&&amazon)||(kind==="rakuten"&&rakuten)))continue;
-      }else if(isNonExternalPostUrl(linkUrl,item))continue;
+      if(!kind||isNonExternalPostUrl(linkUrl,item))continue;
       found.set(kind+"|"+linkUrl,{kind,url:linkUrl});
     }
   }
@@ -388,15 +379,18 @@ function todayAffiliateLinks(item){
 function todayAffiliateLinkButtons(item){
   const links=todayAffiliateLinks(item);
   if(!links.length)return "";
+  const totals=links.reduce((map,link)=>map.set(link.kind,(map.get(link.kind)||0)+1),new Map());
+  const seen=new Map();
   return '<div class="today-affiliate-links" aria-label="Amazon・楽天リンク">'+links.map(link=>{
-    const label=link.kind==="amazon"?"Amazon":"楽天";
+    const storeName=link.kind==="amazon"?"Amazon":"楽天";
+    const number=(seen.get(link.kind)||0)+1;seen.set(link.kind,number);
+    const label=totals.get(link.kind)>1?storeName+"リンク "+number:storeName+"で在庫を確認";
     return '<div class="today-affiliate-link-row">'+
-      '<a class="today-affiliate-open affiliate-open-'+link.kind+'" href="'+esc(link.url)+'" target="_blank" rel="sponsored nofollow noopener noreferrer">'+label+'で在庫を確認 ↗</a>'+
+      '<a class="today-affiliate-open affiliate-open-'+link.kind+'" href="'+esc(link.url)+'" target="_blank" rel="sponsored nofollow noopener noreferrer">'+label+' ↗</a>'+
       '<button class="small-btn today-affiliate-copy" type="button" data-today-action="copy-affiliate" data-affiliate-url="'+esc(link.url)+'">リンクをコピー</button>'+
     '</div>';
   }).join("")+'</div>';
 }
-
 function xOpenButton(item){
   const raw=clean(item&&(item.xUrl||item.tweetUrl||item.url));
   if(!raw)return "";
