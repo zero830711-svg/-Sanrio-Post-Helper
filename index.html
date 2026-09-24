@@ -162,13 +162,10 @@
 <section class="card amazon-import-card" id="amazonReportsCard">
 <div>
 <h2 class="section-title">Amazon紹介レポート</h2>
-<p class="backup-note">AmazonアソシエイトのCategory・Linked-Product・Top-Sellers・Tracking-Id ZIPをまとめて選択。アカウント別に期間実績と商品を表示します。妻のアカウントを主に設定できます。同じアカウント・期間は更新し、ほかの記録は保持します。解析・保存はこのブラウザー内のみで、GitHubやクラウドには送信しません。</p>
+<p class="backup-note">2アカウント分のAmazonアソシエイトZIPをまとめて選ぶだけ。同じ期間の紹介料・発送売上・クリック・発送商品を自動で合算し、商品実績もまとめて表示します。解析・保存はこのブラウザー内のみで、GitHubやクラウドには送信しません。</p>
 </div>
 <label class="primary analytics-import-button amazon-import-label">AmazonレポートZIPを選ぶ
 <input id="importAmazonReports" type="file" accept=".zip,application/zip" multiple>
-</label>
-<label class="amazon-primary-select">主アカウント
-<select id="amazonPrimaryAccount" aria-label="主アカウント"><option value="">レポート未取り込み</option></select>
 </label>
 <p id="amazonReportsStatus" class="analytics-import-status" aria-live="polite"></p>
 <div id="amazonReportsSummary" class="amazon-reports-summary"></div>
