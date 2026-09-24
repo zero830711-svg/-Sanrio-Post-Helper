@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.25-3335";
+const APP_VERSION="2026.09.25-3336";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -2355,6 +2355,7 @@ function copyRewritePrompt(item,role,button){
 }
 
 let detailCurrentItem=null;
+let detailScrollY=0;
 let detailImageBlobs=[];
 let detailImageBlobErrors=[];
 let detailWholeImageBlob=null;
@@ -2383,7 +2384,13 @@ function showTodayDetail(item){
   $("detailMediaCount").textContent=(imgs.length?imgs.length+"枚":"")+(imgs.length&&vids.length?" / ":"")+(vids.length?vids.length+"動画":"");
   const rewrite=$("detailRewritePrompt");
   if(rewrite){rewrite.dataset.id=item.id;rewrite.dataset.role=item.recommendedRole||""}
+  detailScrollY=window.scrollY||window.pageYOffset||0;
   $("todayDetailModal").classList.remove("hidden");
+  document.body.style.position="fixed";
+  document.body.style.top="-"+detailScrollY+"px";
+  document.body.style.left="0";
+  document.body.style.right="0";
+  document.body.style.width="100%";
   document.body.style.overflow="hidden";
   preloadDetailImages(item,imgs);
 }
@@ -2709,7 +2716,13 @@ function closeTodayDetail(){
   detailCurrentItem=null;
   detailWholeImageBlob=null;
   detailWholeImagePromise=null;
+  document.body.style.position="";
+  document.body.style.top="";
+  document.body.style.left="";
+  document.body.style.right="";
+  document.body.style.width="";
   document.body.style.overflow="";
+  window.scrollTo(0,detailScrollY);
 }
 
 async function dataUrlToFile(dataUrl,name){
