@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.25-3340";
+const APP_VERSION="2026.09.25-3341";
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
@@ -611,20 +611,21 @@ function isRecommendationEligible(x){
 }
 function productGroupKey(x){
   if(separatedProductIds.has(String(x.id)))return "";
-  const links=[normalizedUrl(x.amazon),normalizedUrl(x.rakuten)].filter(Boolean);
-  for(const link of links){
-    const m=link.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
-    if(m)return "asin:"+m[1].toUpperCase();
-    try{const u=new URL(link),parts=u.pathname.split("/").filter(Boolean);if(/rakuten\.co\.jp$/i.test(u.hostname)&&parts.length>=2)return "rakuten:"+u.hostname.toLowerCase()+"/"+parts.slice(0,2).join("/").toLowerCase()}catch(e){}
-  }
   let raw=String(x.title||"").trim();
-  if(!raw||raw.length<8)raw=String(x.text||"").split(/\n|https?:\/\//)[0];
+  if(!raw||raw.length<8)raw=String(x.text||"")
   raw=raw.replace(/https?:\/\/\S+/gi," ").replace(/[#＃][^\s]+/g," ")
+    .replace(/^【[^】]{1,24}】/,"")
     .replace(/^[\s【\[（(「『]*?(?:PR|広告|公式|新発売|新商品|速報|最新情報|サンリオ)[\s】\]）)」』:：・-]*/i,"")
     .replace(/20\d{2}[年./-]\d{1,2}(?:[月./-]\d{1,2}日?)?/g," ")
     .replace(/[\s　]+/g,"").toLowerCase().replace(/[！!？?、。，．・:：「」『』【】［］()（）〜～…♡♥✨🎀]/g,"");
   const key=raw.slice(0,30);
-  return key.length>=10?"name:"+key:"";
+  if(key.length>=10)return "name:"+key;
+  for(const link of [normalizedUrl(x.amazon),normalizedUrl(x.rakuten)].filter(Boolean)){
+    const m=link.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
+    if(m)return "asin:"+m[1].toUpperCase();
+    try{const u=new URL(link),parts=u.pathname.split("/").filter(Boolean);if(/rakuten\.co\.jp$/i.test(u.hostname)&&parts.length>=2)return "rakuten:"+u.hostname.toLowerCase()+"/"+parts.slice(0,2).join("/").toLowerCase()}catch(e){}
+  }
+  return "";
 }
 function hasNewProductInformation(x){
   return /(再入荷|再販|発売日変更|日程変更|新色|新カラー|新デザイン|販売開始|予約開始|受付開始|在庫復活|追加販売|再受注)/i.test(String(x.title||"")+" "+String(x.text||""));
