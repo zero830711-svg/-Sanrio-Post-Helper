@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.25-3338";
+const APP_VERSION="2026.09.25-3339";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -296,7 +296,7 @@ async function maybeSyncArchiveMediaLinks(){
 
 
 function isAmazonAffiliateHost(host){
-  return /(^|\\.)amazon\\./i.test(host)||host==="amazon"||host.endsWith(".amazon")||/(^|\\.)amzn\\./i.test(host);
+  return /(^|\.)amazon\./i.test(host)||host==="amazon"||host.endsWith(".amazon")||/(^|\.)amzn\./i.test(host);
 }
 function hasAmazonAffiliate(x){
   if(clean(x.amazon))return true;
@@ -341,7 +341,7 @@ function todayAffiliateBadges(item){
     try{
       const host=new URL(cleanUrl).hostname.toLowerCase();
       let knownAffiliate=false;
-      if(/(^|\.)amazon\./.test(host)||host==="amzn.to"||host.endsWith(".amzn.to")||/(^|\.)amzn\./.test(host)){amazon=true;knownAffiliate=true}
+      if(isAmazonAffiliateHost(host)||host==="amzn.to"||host.endsWith(".amzn.to")){amazon=true;knownAffiliate=true}
       if(/(^|\.)rakuten\./.test(host)||host==="r10.to"||host.endsWith(".r10.to")){rakuten=true;knownAffiliate=true}
       if(!knownAffiliate)unknownUrl=true;
     }catch(_){unknownUrl=true}
@@ -371,7 +371,7 @@ function todayAffiliateLinks(item){
       if(parsed.protocol!=="https:"&&parsed.protocol!=="http:")continue;
       const host=parsed.hostname.toLowerCase().replace(/^www\./,"");
       let kind="";
-      if(/(^|\.)amazon\./.test(host)||/(^|\.)amzn\./.test(host))kind="amazon";
+      if(isAmazonAffiliateHost(host))kind="amazon";
       else if(/(^|\.)rakuten\./.test(host)||host==="r10.to"||host.endsWith(".r10.to"))kind="rakuten";
       if(!kind||isNonExternalPostUrl(linkUrl,item))continue;
       found.set(kind+"|"+linkUrl,{kind,url:linkUrl});
