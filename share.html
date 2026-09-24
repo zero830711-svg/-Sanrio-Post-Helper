@@ -114,7 +114,7 @@ function unpackPost(p){
 function addLinkedPostText(parent,text){
  const paragraph=add(parent,"p","post-text","");
  const source=String(text||"");
- const urlPattern=/https?:\\/\\/[^\\s<>「」『』【】]+/gi;
+ const urlPattern=/https?:\/\/[^\s<>「」『』【】]+/gi;
  const trailingPunctuation=/[.,!?;:。、，！？；：：）)】」』]+$/;
  let cursor=0,match;
  while((match=urlPattern.exec(source))){
@@ -133,8 +133,8 @@ function addLinkedPostText(parent,text){
      const link=add(paragraph,"a","post-link",href);
      link.href=url.href;
      link.target="_blank";
-     const host=url.hostname.toLowerCase().replace(/^www\\./,"");
-     const affiliate=/(^|\\.)amazon\\.(?:co\\.jp|com|co\\.uk|de|fr|it|es|ca|com\\.au|in|com\\.br)$/.test(host)||/(^|\\.)(?:amzn\\.to|amzn\\.asia|rakuten\\.co\\.jp|r10\\.to)$/.test(host)||host==="hb.afl.rakuten.co.jp";
+     const host=url.hostname.toLowerCase().replace(/^www\./,"");
+     const affiliate=/(^|\.)amazon\.(?:co\.jp|com|co\.uk|de|fr|it|es|ca|com\.au|in|com\.br)$/.test(host)||/(^|\.)(?:amzn\.to|amzn\.asia|rakuten\.co\.jp|r10\.to)$/.test(host)||host==="hb.afl.rakuten.co.jp";
      link.rel=affiliate?"sponsored nofollow noopener noreferrer":"noopener noreferrer";
     }else{
      paragraph.appendChild(document.createTextNode(href));
