@@ -1,15 +1,11 @@
 (() => {
   const STORE_KEY = "sanrioAmazonAffiliateReportsV1";
-  const PRIMARY_KEY = "sanrioAmazonPrimaryAccountV1";
   const card = document.getElementById("amazonReportsCard");
   if (!card) return;
-  const versionLabel = document.getElementById("appVersionStatus");
-  if (versionLabel) setTimeout(() => { versionLabel.textContent = "アプリ版 2026.09.23-3317（最新）"; }, 1500);
 
   const input = document.getElementById("importAmazonReports");
   const status = document.getElementById("amazonReportsStatus");
   const summary = document.getElementById("amazonReportsSummary");
-  const accountSelect = document.getElementById("amazonPrimaryAccount");
   const clearButton = document.getElementById("clearAmazonReports");
   let zipPromise;
 
@@ -25,7 +21,6 @@
       return Array.isArray(value) ? value : [];
     } catch (_) { return []; }
   }
-  function getPrimary() { return localStorage.getItem(PRIMARY_KEY) || ""; }
 
   function parseCsv(text) {
     const rows = [];
@@ -218,68 +213,105 @@
     return result;
   }
 
+  function combinedPeriods(reports) {
+    const groups = new Map();
+    for (const report of reports) {
+      const period = report.start || report.end
+        ? (report.start || "") + "|" + (report.end || "")
+        : "unknown|" + (report.reportId || report.key || "");
+      if (!groups.has(period)) groups.set(period, new Map());
+      const accounts = groups.get(period);
+      const old = accounts.get(report.accountId);
+      const oldTime = Date.parse(old?.importedAt || "") || 0;
+      const newTime = Date.parse(report.importedAt || "") || 0;
+      if (!old || newTime >= oldTime) accounts.set(report.accountId, report);
+    }
+    return Array.from(groups.values()).map(accounts => {
+      const rows = Array.from(accounts.values());
+      const first = rows[0] || {};
+      const combined = {
+        start: rows.map(x => x.start).filter(Boolean).sort()[0] || "",
+        end: rows.map(x => x.end).filter(Boolean).sort().slice(-1)[0] || "",
+        accountCount: rows.length,
+        reportCount: rows.length,
+        clicks: 0, shippedItems: 0, shippedSales: 0, commission: 0,
+        products: [], topSellers: []
+      };
+      for (const field of ["clicks", "shippedItems", "shippedSales", "commission"]) {
+        combined[field] = rows.reduce((sum, row) => sum + (Number(row[field]) || 0), 0);
+      }
+      const products = new Map();
+      for (const row of rows) for (const product of row.products || []) {
+        const key = String(product.asin || product.title || "") + "|" + String(product.date || "");
+        if (!key || key === "|") continue;
+        const current = products.get(key) || {
+          ...product, clicks: 0, shippedItems: 0, shippedSales: 0, commission: 0
+        };
+        for (const field of ["clicks", "shippedItems", "shippedSales", "commission"])
+          current[field] += Number(product[field]) || 0;
+        products.set(key, current);
+      }
+      combined.products = Array.from(products.values());
+      const sellers = new Map();
+      for (const row of rows) for (const product of row.topSellers || []) {
+        const key = String(product.asin || product.title || "");
+        if (key && !sellers.has(key)) sellers.set(key, product);
+      }
+      combined.topSellers = Array.from(sellers.values()).sort((x,y) =>
+        (Number(x.rank) || Number.MAX_SAFE_INTEGER) - (Number(y.rank) || Number.MAX_SAFE_INTEGER));
+      combined._sourcePeriod = first.start || first.end || "";
+      return combined;
+    }).sort((a,b) => (a.end || a.start || "").localeCompare(b.end || b.start || ""));
+  }
+
   function render() {
     const reports = loadReports();
-    const accounts = Array.from(new Set(reports.map(x => x.accountId))).sort();
-    const previous = getPrimary();
-    const main = accounts.includes(previous) ? previous : (accounts[0] || "");
-    if (main && main !== previous) localStorage.setItem(PRIMARY_KEY, main);
-    accountSelect.innerHTML = accounts.map(id =>
-      '<option value="' + safe(id) + '"' + (id === main ? " selected" : "") + '>' +
-      (id === main ? "主アカウント " : "比較アカウント ") + safe(id) + "</option>"
-    ).join("") || '<option value="">レポート未取り込み</option>';
-
     if (!reports.length) {
-      summary.innerHTML = '<p class="amazon-empty">AmazonのレポートZIPを選ぶと、アカウント別・期間別に集計します。</p>';
+      summary.innerHTML = '<p class="amazon-empty">AmazonのレポートZIPを選ぶと、2アカウント分を期間ごとに自動で合算します。</p>';
       return;
     }
-    const ordered = reports.slice().sort((a,b) => (a.start || "").localeCompare(b.start || ""));
-    const mainReports = ordered.filter(x => x.accountId === main).reverse();
-    const latest = mainReports[0];
-    const others = ordered.filter(x => x.accountId !== main);
-    const metrics = latest ? [
-      ["紹介料", money(latest.commission)],
-      ["発送売上", money(latest.shippedSales)],
-      ["クリック", number(latest.clicks)],
-      ["発送商品", number(latest.shippedItems)]
-    ] : [];
-    let html = "";
-    if (latest) {
-      html += '<div class="amazon-primary-report"><strong>主アカウント ' + safe(main) + '</strong><span>' +
-        safe(latest.start) + (latest.end !== latest.start ? "〜" + safe(latest.end) : "") +
-        '</span><div class="amazon-metrics">' +
-        metrics.map(x => '<div><span>' + x[0] + '</span><b>' + x[1] + '</b></div>').join("") +
-        '</div></div>';
-      const top = latest.products.filter(p => p.shippedItems > 0 || p.commission > 0)
-        .sort((a,b) => b.commission - a.commission || b.shippedItems - a.shippedItems).slice(0,5);
-      if (top.length) {
-        html += '<h3>主アカウント 商品別（発送済み紹介料順）</h3><ol class="amazon-product-list">' +
-          top.map(p => '<li><span>' + safe(p.title || p.asin) + '</span><small>' +
-            number(p.shippedItems) + '点・' + money(p.commission) + '・' +
-            '<a href="https://www.amazon.co.jp/dp/' + encodeURIComponent(p.asin) + '" target="_blank" rel="noopener">商品</a></small></li>').join("") +
-          '</ol>';
-      } else if (latest.topSellers && latest.topSellers.length) {
-        html += '<h3>主アカウント 商品ランキング</h3><ol class="amazon-product-list">' +
-          latest.topSellers.slice(0,5).map(p => '<li><span>' + safe(p.title || p.asin) + '</span><small>' +
-            safe(p.category) + '・' + safe(p.type) + '</small></li>').join("") + '</ol>';
-      } else {
-        html += '<p class="amazon-empty">この期間の商品別実績はありません。</p>';
-      }
+    const periods = combinedPeriods(reports);
+    const latest = periods[periods.length - 1];
+    const metrics = [
+      ["紹介料（合算）", money(latest.commission)],
+      ["発送売上（合算）", money(latest.shippedSales)],
+      ["クリック（合算）", number(latest.clicks)],
+      ["発送商品（合算）", number(latest.shippedItems)]
+    ];
+    const range = latest.start
+      ? safe(latest.start) + (latest.end && latest.end !== latest.start ? "〜" + safe(latest.end) : "")
+      : "期間不明";
+    let html = '<div class="amazon-primary-report"><strong>全アカウント合計（' +
+      number(latest.accountCount) + 'アカウント）</strong><span>' + range +
+      '</span><div class="amazon-metrics">' +
+      metrics.map(x => '<div><span>' + x[0] + '</span><b>' + x[1] + '</b></div>').join("") +
+      '</div></div>';
+    const top = latest.products.filter(p => p.shippedItems > 0 || p.commission > 0)
+      .sort((a,b) => b.commission - a.commission || b.shippedItems - a.shippedItems).slice(0,5);
+    if (top.length) {
+      html += '<h3>商品別（アカウント合算・紹介料順）</h3><ol class="amazon-product-list">' +
+        top.map(p => '<li><span>' + safe(p.title || p.asin) + '</span><small>' +
+          number(p.shippedItems) + '点・' + money(p.commission) + '・' +
+          '<a href="https://www.amazon.co.jp/dp/' + encodeURIComponent(p.asin) + '" target="_blank" rel="noopener">商品</a></small></li>').join("") +
+        '</ol>';
+    } else if (latest.topSellers.length) {
+      html += '<h3>商品ランキング（アカウント合算）</h3><ol class="amazon-product-list">' +
+        latest.topSellers.slice(0,5).map(p => '<li><span>' + safe(p.title || p.asin) + '</span><small>' +
+          safe(p.category) + '・' + safe(p.type) + '</small></li>').join("") + '</ol>';
+    } else {
+      html += '<p class="amazon-empty">この期間の商品別実績はありません。</p>';
     }
-    if (others.length) {
-      html += '<details class="amazon-history"><summary>全アカウント・期間の履歴（' + reports.length + '件）</summary><div class="amazon-history-list">' +
-        ordered.slice().reverse().map(r => '<div class="amazon-history-row"><b>' + (r.accountId === main ? "主" : "比較") +
-          " " + safe(r.accountId) + '</b><span>' + safe(r.start) + (r.end !== r.start ? "〜" + safe(r.end) : "") +
-          '</span><span>' + number(r.clicks) + 'クリック</span><strong>' + money(r.commission) + '</strong></div>').join("") +
+    if (periods.length > 1) {
+      html += '<details class="amazon-history"><summary>期間別の合算履歴（' + number(periods.length) + '期間）</summary><div class="amazon-history-list">' +
+        periods.slice().reverse().map(r => '<div class="amazon-history-row"><b>' +
+          (r.start ? safe(r.start) + (r.end && r.end !== r.start ? "〜" + safe(r.end) : "") : "期間不明") +
+          '</b><span>' + number(r.accountCount) + 'アカウント</span><span>' +
+          number(r.clicks) + 'クリック</span><strong>' + money(r.commission) + '</strong></div>').join("") +
         '</div></details>';
     }
     summary.innerHTML = html;
   }
 
-  accountSelect.addEventListener("change", () => {
-    if (accountSelect.value) localStorage.setItem(PRIMARY_KEY, accountSelect.value);
-    render();
-  });
   input.addEventListener("change", async () => {
     const files = Array.from(input.files || []);
     if (!files.length) return;
@@ -350,7 +382,6 @@
   clearButton.addEventListener("click", () => {
     if (!confirm("この端末に保存したAmazonレポートを削除しますか？")) return;
     localStorage.removeItem(STORE_KEY);
-    localStorage.removeItem(PRIMARY_KEY);
     status.textContent = "この端末のAmazonレポートを削除しました。";
     render();
   });
@@ -377,8 +408,7 @@
         byKey.set(report.key, report);
       }
       localStorage.setItem(STORE_KEY, JSON.stringify(Array.from(byKey.values())));
-      if (payload.primaryAccountId) localStorage.setItem(PRIMARY_KEY, String(payload.primaryAccountId));
-      history.replaceState(null, "", location.pathname + location.search);
+        history.replaceState(null, "", location.pathname + location.search);
       status.textContent = payload.reports.length + "件のAmazonレポートをこの端末に保存しました。別期間の既存データは残しています。";
       render();
     } catch (error) {
