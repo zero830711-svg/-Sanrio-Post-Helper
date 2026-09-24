@@ -49,8 +49,11 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.25-3339";
+const APP_VERSION="2026.09.25-3340";
 let archiveFilter="all";
+let archiveView="posts";
+let separatedProductIds=new Set();
+try{archiveView=localStorage.getItem("sphArchiveView")==="products"?"products":"posts";separatedProductIds=new Set(JSON.parse(localStorage.getItem("sphSeparatedProductIds")||"[]").map(String))}catch(e){}
 let archiveSort="newest";
 let archiveLimit=50;
 let undoState=null;
@@ -605,6 +608,34 @@ function lowValueReason(x){
 function isLowValueCandidate(x){return !!lowValueReason(x)}
 function isRecommendationEligible(x){
   return safeReuseItem(x)&&!isCandidateExcluded(x)&&!isLowValueCandidate(x);
+}
+function productGroupKey(x){
+  if(separatedProductIds.has(String(x.id)))return "";
+  const links=[normalizedUrl(x.amazon),normalizedUrl(x.rakuten)].filter(Boolean);
+  for(const link of links){
+    const m=link.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
+    if(m)return "asin:"+m[1].toUpperCase();
+    try{const u=new URL(link),parts=u.pathname.split("/").filter(Boolean);if(/rakuten\.co\.jp$/i.test(u.hostname)&&parts.length>=2)return "rakuten:"+u.hostname.toLowerCase()+"/"+parts.slice(0,2).join("/").toLowerCase()}catch(e){}
+  }
+  let raw=String(x.title||"").trim();
+  if(!raw||raw.length<8)raw=String(x.text||"").split(/\n|https?:\/\//)[0];
+  raw=raw.replace(/https?:\/\/\S+/gi," ").replace(/[#＃][^\s]+/g," ")
+    .replace(/^[\s【\[（(「『]*?(?:PR|広告|公式|新発売|新商品|速報|最新情報|サンリオ)[\s】\]）)」』:：・-]*/i,"")
+    .replace(/20\d{2}[年./-]\d{1,2}(?:[月./-]\d{1,2}日?)?/g," ")
+    .replace(/[\s　]+/g,"").toLowerCase().replace(/[！!？?、。，．・:：「」『』【】［］()（）〜～…♡♥✨🎀]/g,"");
+  const key=raw.slice(0,30);
+  return key.length>=10?"name:"+key:"";
+}
+function hasNewProductInformation(x){
+  return /(再入荷|再販|発売日変更|日程変更|新色|新カラー|新デザイン|販売開始|予約開始|受付開始|在庫復活|追加販売|再受注)/i.test(String(x.title||"")+" "+String(x.text||""));
+}
+function recentSameProductReason(x,all,now=Date.now()){
+  const key=productGroupKey(x);if(!key||hasNewProductInformation(x))return "";
+  const cutoff=now-30*24*60*60*1000;
+  const recent=all.filter(o=>o.id!==x.id&&productGroupKey(o)===key).map(o=>Math.max(
+    new Date(o.postedAt||"").getTime()||0,new Date(o.lastRepostedAt||"").getTime()||0
+  )).filter(t=>t>=cutoff).sort((a,b)=>b-a)[0];
+  return recent?"同じ商品を"+Math.max(1,Math.floor((now-recent)/86400000))+"日前に投稿済み":"";
 }
 function reuseTopicKey(x){
   const t=(" "+String(x.title||"")+" "+String(x.text||"")+" ").toLowerCase();
@@ -1822,7 +1853,7 @@ async function importAnalyticsCSV(file){
 async function getReadyItems(){
   const all=await dbGetAll();
   return all
-    .filter(x=>isRecommendationEligible(x)&&canRecommendToday(x))
+    .filter(x=>isRecommendationEligible(x)&&canRecommendToday(x)&&!recentSameProductReason(x,all))
     .sort((a,b)=>{
       const at=recommendedDay(a)===localDayKey()?1:0;
       const bt=recommendedDay(b)===localDayKey()?1:0;
@@ -2053,12 +2084,8 @@ async function renderRevenuePick(){
 async function renderArchive(){
   const q=clean($("archiveSearch").value).toLowerCase();
   const selectedCharacter=characterDefForQuery(q);
-  const all=await dbGetAll();
-  const flexIds=searchIds(all,q);
-  const keyCounts=new Map();
+  const all=await dbGetAll(), flexIds=searchIds(all,q), keyCounts=new Map();
   all.forEach(x=>keyCounts.set(canonicalPostKey(x),(keyCounts.get(canonicalPostKey(x))||0)+1));
-  const now=Date.now();
-  const readyCutoff=30*24*60*60*1000;
   let items=all.filter(x=>{
     let hay=((x.title+" "+x.text+" "+x.memo+" "+(x.impressions||"")+" "+(x.likes||"")+" "+(x.bookmarks||"")).toLowerCase());
     if(/シナモン|シナモロール/.test(hay))hay+=" シナモン シナモロール";
@@ -2084,44 +2111,44 @@ async function renderArchive(){
   else items.sort((a,b)=>String(b.postedAt||b.savedAt||"").localeCompare(String(a.postedAt||a.savedAt||"")));
   const root=$("archiveList");
   if(!items.length){root.innerHTML='<div class="empty">保存した人気投稿はまだありません。</div>';return}
-  const total=items.length;
-  const visible=items.slice(0,archiveLimit);
-  root.innerHTML='<div class="archive-count">'+visible.length+' / '+total+'件を表示</div>'+visible.map(x=>{
-    const imgs=mediaArray(x.images||(x.image?[x.image]:[]));
-    const vids=mediaArray(x.videos);
+  const renderItem=(x,showProductActions=false)=>{
+    const imgs=mediaArray(x.images||(x.image?[x.image]:[])), vids=mediaArray(x.videos);
     return `<article class="archive-item">
-      <div class="thumb-wrap">
-        ${imgs[0]?'<img class="archive-thumb" src="'+esc(imgs[0])+'" alt="" loading="lazy">':(vids.length?'<div class="archive-thumb archive-video-thumb">🎬</div>':'<div class="archive-thumb"></div>')}
-        ${(imgs.length||vids.length)?'<span class="image-count">'+(imgs.length?imgs.length+'枚':'')+(imgs.length&&vids.length?' / ':'')+(vids.length?vids.length+'動画':'')+'</span>':''}
-      </div>
+      <div class="thumb-wrap">${imgs[0]?'<img class="archive-thumb" src="'+esc(imgs[0])+'" alt="" loading="lazy">':(vids.length?'<div class="archive-thumb archive-video-thumb">🎬</div>':'<div class="archive-thumb"></div>')}${(imgs.length||vids.length)?'<span class="image-count">'+(imgs.length?imgs.length+'枚':'')+(imgs.length&&vids.length?' / ':'')+(vids.length?vids.length+'動画':'')+'</span>':''}</div>
       <div class="archive-body">
         <h3>${esc(x.title||shortLabel(x))}${x.source==="x-analytics"?'<span class="edited-badge">X分析</span>':''}${x.source==="x-archive"?'<span class="edited-badge">Xアーカイブ</span>':''}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
         <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}${isCandidateExcluded(x)?' ・ 候補から除外中':''}${isLowValueCandidate(x)?' ・ 自動除外：'+lowValueReason(x):''}</p>
-        ${(x.impressions||x.likes||x.bookmarks)?'<div class="metric-chips">'+
-          (x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+
-          (x.likes?'<span>♥ '+esc(x.likes)+'</span>':'')+
-          (x.bookmarks?'<span>保存 '+esc(x.bookmarks)+'</span>':'')+
-        '</div>':''}
+        ${(x.impressions||x.likes||x.bookmarks)?'<div class="metric-chips">'+(x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+(x.likes?'<span>♥ '+esc(x.likes)+'</span>':'')+(x.bookmarks?'<span>保存 '+esc(x.bookmarks)+'</span>':'')+'</div>':''}
         <p>${esc(x.text)}</p>
-        <div class="archive-actions primary-actions">
-          ${xOpenButton(x)}
-          <button class="small-btn" data-action="copy" data-id="${x.id}">投稿文コピー</button>
-          <button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button>
-        </div>
-        <details class="card-more">
-          <summary>その他</summary>
-          <div class="archive-actions more-actions">
-            <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
-            ${x.amazon?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.amazon))+'" target="_blank" rel="noopener">Amazon</a>':''}
-            ${x.rakuten?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.rakuten))+'" target="_blank" rel="noopener">楽天</a>':''}
-            ${(imgs.length||vids.length)?'<button class="small-btn" data-action="media" data-id="'+x.id+'">メディアを見る</button>':''}
-            <button class="small-btn" data-action="${isCandidateExcluded(x)?'restore':'exclude'}" data-id="${x.id}">${isCandidateExcluded(x)?'候補に戻す':'候補にしない'}</button>
-            <button class="small-btn danger" data-action="delete" data-id="${x.id}">削除</button>
-          </div>
-        </details>
+        <div class="archive-actions primary-actions">${xOpenButton(x)}<button class="small-btn" data-action="copy" data-id="${x.id}">投稿文コピー</button><button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button></div>
+        <details class="card-more"><summary>その他</summary><div class="archive-actions more-actions">
+          <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
+          ${x.amazon?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.amazon))+'" target="_blank" rel="noopener">Amazon</a>':''}
+          ${x.rakuten?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.rakuten))+'" target="_blank" rel="noopener">楽天</a>':''}
+          ${(imgs.length||vids.length)?'<button class="small-btn" data-action="media" data-id="'+x.id+'">メディアを見る</button>':''}
+          <button class="small-btn" data-action="${isCandidateExcluded(x)?'restore':'exclude'}" data-id="${x.id}">${isCandidateExcluded(x)?'候補に戻す':'候補にしない'}</button><button class="small-btn danger" data-action="delete" data-id="${x.id}">削除</button>${showProductActions?'<button class="small-btn" data-action="'+(separatedProductIds.has(String(x.id))?'join-product':'separate-product')+'" data-id="'+x.id+'">'+(separatedProductIds.has(String(x.id))?'自動グループに戻す':'別商品として分ける')+'</button>':''}
+        </div></details>
       </div>
-    </article>`}).join("")+
-    (visible.length<total?'<button class="load-more" data-action="more">さらに50件表示</button>':'');
+    </article>`;
+  };
+  if(archiveView==="products"){
+    const grouped=new Map();
+    for(const x of items){const key=productGroupKey(x)||("single:"+String(x.id));if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(x)}
+    const groups=[...grouped.values()];groups.forEach(group=>group.sort((a,b)=>postedTime(b)-postedTime(a)));groups.sort((a,b)=>postedTime(b[0])-postedTime(a[0]));const visible=groups.slice(0,archiveLimit);
+    const cards=visible.map(group=>{
+      group.sort((a,b)=>postedTime(b)-postedTime(a));
+      if(group.length===1)return renderItem(group[0],separatedProductIds.has(String(group[0].id)));
+      const best=group.reduce((b,x)=>metricNumber(x.impressions)>metricNumber(b.impressions)?x:b,group[0]);
+      const image=mediaArray(best.images||(best.image?[best.image]:[]))[0];
+      const label=String(best.title||shortLabel(best)).slice(0,90), date=postedTime(group[0])?new Date(postedTime(group[0])).toLocaleDateString("ja-JP"):"日付不明";
+      return '<details class="archive-product-group"><summary>'+(image?'<img class="product-group-thumb" src="'+esc(image)+'" alt="" loading="lazy">':'<span class="product-group-thumb product-group-placeholder">商品</span>')+
+        '<span class="product-group-summary"><strong>'+esc(label)+'</strong><span>'+group.length+'件の投稿 ・ 最新 '+esc(date)+'</span><span>最高表示 '+Math.max(...group.map(x=>metricNumber(x.impressions))).toLocaleString()+' ・ 最高いいね '+Math.max(...group.map(x=>metricNumber(x.likes))).toLocaleString()+'</span></span><span class="product-group-open">投稿を見る</span></summary><div class="product-group-posts">'+group.map(x=>renderItem(x,true)).join("")+'</div></details>';
+    }).join("");
+    root.innerHTML='<div class="archive-count">'+visible.length+' / '+groups.length+'商品グループ（投稿 '+items.length+'件）</div>'+cards+(visible.length<groups.length?'<button class="load-more" data-action="more">さらに50件表示</button>':'');
+  }else{
+    const visible=items.slice(0,archiveLimit);
+    root.innerHTML='<div class="archive-count">'+visible.length+' / '+items.length+'件を表示</div>'+visible.map(renderItem).join("")+(visible.length<items.length?'<button class="load-more" data-action="more">さらに50件表示</button>':'');
+  }
 }
 function showMedia(images=[],videos=[]){
   const imgs=mediaArray(images),vids=mediaArray(videos);
@@ -3131,6 +3158,14 @@ document.querySelectorAll(".character-btn").forEach(btn=>btn.addEventListener("c
   renderArchive();
 }));
 
+document.querySelectorAll("[data-archive-view]").forEach(x=>x.classList.toggle("active",x.dataset.archiveView===archiveView));
+document.querySelectorAll("[data-archive-view]").forEach(btn=>btn.addEventListener("click",()=>{
+  archiveView=btn.dataset.archiveView;
+  try{localStorage.setItem("sphArchiveView",archiveView)}catch(e){}
+  document.querySelectorAll("[data-archive-view]").forEach(x=>x.classList.toggle("active",x===btn));
+  archiveLimit=50;renderArchive();
+}));
+
 document.querySelectorAll(".sort-btn").forEach(btn=>btn.addEventListener("click",()=>{
   archiveSort=btn.dataset.sort;
   archiveLimit=50;
@@ -3241,6 +3276,12 @@ $("importBackup").addEventListener("change",async e=>{
 
 $("archiveList").addEventListener("click",async e=>{
   const btn=e.target.closest("[data-action]");if(!btn)return;
+  if(btn.dataset.action==="separate-product"||btn.dataset.action==="join-product"){
+    const id=String(btn.dataset.id);
+    if(btn.dataset.action==="separate-product")separatedProductIds.add(id);else separatedProductIds.delete(id);
+    try{localStorage.setItem("sphSeparatedProductIds",JSON.stringify([...separatedProductIds]))}catch(e){}
+    await renderArchive();return;
+  }
   if(btn.dataset.action==="more"){
     archiveLimit+=50;
     await renderArchive();
