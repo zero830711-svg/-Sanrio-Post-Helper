@@ -300,9 +300,17 @@ function todayAffiliateBadges(item){
 }
 
 function xOpenButton(item){
-  const url=clean(item&&(item.xUrl||item.tweetUrl||item.url));
-  if(!url)return "";
-  return '<a class="small-btn link-btn" href="'+esc(url)+'">Xアプリで開く</a>';
+  const raw=clean(item&&(item.xUrl||item.tweetUrl||item.url));
+  if(!raw)return "";
+  let url="";
+  try{
+    const parsed=new URL(raw);
+    const host=parsed.hostname.toLowerCase().replace(/^www\\./,"");
+    if(!["x.com","twitter.com"].includes(host))return "";
+    const postId=parsed.pathname.match(/\\/status\\/(\\d+)/)?.[1];
+    url=postId?"https://x.com/i/status/"+postId:parsed.href;
+  }catch(_){return ""}
+  return '<a class="small-btn link-btn" href="'+esc(url)+'" target="_blank" rel="noopener">Xアプリで開く</a>';
 }
 
 function canonicalPostKey(x){
