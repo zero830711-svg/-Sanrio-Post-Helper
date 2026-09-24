@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260925-3339">
+<link rel="stylesheet" href="./styles.css?v=20260925-3340">
 </head>
 <body>
 <main class="app">
@@ -18,7 +18,7 @@
 <p>開いたらすぐ、今日使う候補を確認。</p>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.09.25-3339</span>
+<span id="appVersionStatus">アプリ版 2026.09.25-3340</span>
 <button id="forceLatest" type="button" >最新版を読み込む</button>
 </div>
 <p class="backup-note app-update-help">更新後もホーム画面のアイコンはそのまま使えます。作り直しは不要です。この端末に保存した投稿データと同期設定は、同じURLを使う限り引き継がれます。</p>
@@ -48,7 +48,7 @@
 <div class="today-head">
 <div>
 <h2 class="section-title">今日の候補</h2>
-<p class="backup-note">2,819件の過去投稿から「過去最強 / クリック / 保存 / 久しぶり / 別テーマ」の5件を自動選定。似た内容の連投も避けます。</p>
+<p class="backup-note">2,819件の過去投稿から「過去最強 / クリック / 保存 / 久しぶり / 別テーマ」の5件を自動選定。似た内容の連投と、同じ商品の30日以内の再投稿候補を避けます（再入荷・発売日変更などの新情報は除外しません）。</p>
 <div id="todayProgress" class="today-progress"></div>
 </div>
 </div>
@@ -270,6 +270,7 @@
 <button class="character-btn" data-character="おさるのもんきち">おさるのもんきち</button>
 </div>
 </details>
+<div class="archive-view-row"><span class="sort-label">表示</span><button class="archive-view-btn active" data-archive-view="posts" type="button">投稿別</button><button class="archive-view-btn" data-archive-view="products" type="button">商品別（同じ商品をまとめる）</button></div>
 <div class="sort-row">
 <span class="sort-label">並び順</span>
 <button class="sort-btn active" data-sort="newest">新しい順</button>
@@ -321,8 +322,8 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260925-3339"></script>
-<script src="./amazon-reports.js?v=20260925-3339"></script>
-<script src="./revenue-insights.js?v=20260925-3339"></script>
+<script src="./app.js?v=20260925-3340"></script>
+<script src="./amazon-reports.js?v=20260925-3340"></script>
+<script src="./revenue-insights.js?v=20260925-3340"></script>
 </body>
 </html>
