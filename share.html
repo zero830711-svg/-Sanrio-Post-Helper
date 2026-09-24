@@ -111,6 +111,43 @@ function unpackPost(p){
   return {...p,text:raw.slice(end+1),pickRole:meta.role.slice(0,40),pickReason:meta.reason.slice(0,320)};
  }catch(_){return p}
 }
+function addLinkedPostText(parent,text){
+ const paragraph=add(parent,"p","post-text","");
+ const source=String(text||"");
+ const urlPattern=/https?:\\/\\/[^\\s<>「」『』【】]+/gi;
+ const trailingPunctuation=/[.,!?;:。、，！？；：：）)】」』]+$/;
+ let cursor=0,match;
+ while((match=urlPattern.exec(source))){
+  let href=match[0];
+  let suffix="";
+  while(trailingPunctuation.test(href)){
+   const char=href.slice(-1);
+   href=href.slice(0,-1);
+   suffix=char+suffix;
+  }
+  paragraph.appendChild(document.createTextNode(source.slice(cursor,match.index)));
+  if(href){
+   try{
+    const url=new URL(href);
+    if(url.protocol==="https:"){
+     const link=add(paragraph,"a","post-link",href);
+     link.href=url.href;
+     link.target="_blank";
+     const host=url.hostname.toLowerCase().replace(/^www\\./,"");
+     const affiliate=/(^|\\.)amazon\\.(?:co\\.jp|com|co\\.uk|de|fr|it|es|ca|com\\.au|in|com\\.br)$/.test(host)||/(^|\\.)(?:amzn\\.to|amzn\\.asia|rakuten\\.co\\.jp|r10\\.to)$/.test(host)||host==="hb.afl.rakuten.co.jp";
+     link.rel=affiliate?"sponsored nofollow noopener noreferrer":"noopener noreferrer";
+    }else{
+     paragraph.appendChild(document.createTextNode(href));
+    }
+   }catch(_){
+    paragraph.appendChild(document.createTextNode(href));
+   }
+  }
+  paragraph.appendChild(document.createTextNode(suffix));
+  cursor=match.index+match[0].length;
+ }
+ paragraph.appendChild(document.createTextNode(source.slice(cursor)));
+}
 function render(){
  const q=search.value.trim().toLocaleLowerCase();
  root.replaceChildren();
@@ -123,7 +160,7 @@ function render(){
   if(p.pickReason)add(card,"p","pick-reason","選定理由："+p.pickReason);
   const review=freshnessReviewReason(p);
   if(review)add(card,"p","freshness-review", "⚠️ "+review);
-  if(p.text)add(card,"p","post-text",p.text);
+  if(p.text)addLinkedPostText(card,p.text);
   if(p.xUrl){try{const x=new URL(p.xUrl);const host=x.hostname.toLowerCase().replace(/^www\./,"");if(x.protocol==="https:"&&["x.com","twitter.com"].includes(host)){const postId=x.pathname.match(/\/status\/(\d+)/)?.[1];const a=add(card,"a","","Xアプリで開く");a.href=postId?"https://x.com/i/status/"+postId:x.href;a.target="_blank";a.rel="noopener noreferrer"}}catch(e){}}
   const stats=[metric("表示",p.impressions),metric("いいね",p.likes),metric("保存",p.bookmarks),rateMetric("保存率",p.bookmarks,p.impressions)||"保存率 データなし",metric("クリック",p.clicks)].filter(Boolean);
   if(stats.length){const m=add(card,"div","metrics");stats.forEach(s=>add(m,"span","",s))}
