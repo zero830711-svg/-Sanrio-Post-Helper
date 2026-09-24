@@ -13,7 +13,7 @@ const TREND_CACHE_KEY="sanrioTrendRadarCacheV4";
 const DEFAULT_CLOUD_API_URL="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
 const TODAY_ROLES=["過去最強","クリック狙い","保存狙い","久しぶり","別テーマ"];
 let trendRangeHours=24;
-const APP_VERSION="2026.09.24-3330";
+const APP_VERSION="2026.09.24-3331";
 let archiveFilter="all";
 let archiveSort="newest";
 let archiveLimit=50;
@@ -275,7 +275,7 @@ function isNonExternalPostUrl(raw,item){
     const url=new URL(raw);
     if(url.protocol!=="http:"&&url.protocol!=="https:")return true;
     const host=url.hostname.toLowerCase().replace(/^www\./,"");
-    if(host==="x.com"||host.endsWith(".x.com")||host==="twitter.com"||host.endsWith(".twitter.com")||host==="pic.twitter.com"||host==="t.co")return true;
+    if(host==="x.com"||host.endsWith(".x.com")||host==="twitter.com"||host.endsWith(".twitter.com")||host==="pic.twitter.com")return true;
     const own=clean(item&&(item.xUrl||item.tweetUrl||item.url));
     if(own){
       const ownUrl=new URL(own);
