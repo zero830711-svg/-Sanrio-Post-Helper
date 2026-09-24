@@ -2,7 +2,6 @@
   "use strict";
 
   const AMAZON_KEY = "sanrioAmazonAffiliateReportsV1";
-  const AMAZON_PRIMARY_KEY = "sanrioAmazonPrimaryAccountV1";
   const RAKUTEN_KEY = "sanrioRakutenOrderReportsV1";
   const root = document.getElementById("revenueInsights");
   if (!root) return;
@@ -107,21 +106,41 @@
     const end = String(report.end || "");
     return start && end && start !== end ? start + "〜" + end : (start || end || "期間不明");
   }
+  function combinedAmazonPeriods(reports) {
+    const groups = new Map();
+    for (const report of reports) {
+      const periodKey = report.start || report.end
+        ? String(report.start || "") + "|" + String(report.end || "")
+        : "unknown|" + String(report.reportId || report.key || "");
+      if (!groups.has(periodKey)) groups.set(periodKey, new Map());
+      const byAccount = groups.get(periodKey);
+      const old = byAccount.get(String(report.accountId || ""));
+      const oldTime = Date.parse(old?.importedAt || "") || 0;
+      const newTime = Date.parse(report.importedAt || "") || 0;
+      if (!old || newTime >= oldTime) byAccount.set(String(report.accountId || ""), report);
+    }
+    return Array.from(groups.values()).map(byAccount => {
+      const rows = Array.from(byAccount.values());
+      const total = { ...rows[0], accountCount: rows.length, clicks: 0, shippedItems: 0, shippedSales: 0, commission: 0 };
+      for (const field of ["clicks", "shippedItems", "shippedSales", "commission"])
+        total[field] = rows.reduce((sum, row) => sum + n(row[field]), 0);
+      return total;
+    }).sort((a, b) => String(a.end || a.start || "").localeCompare(String(b.end || b.start || "")));
+  }
   function amazonRevenueSummary() {
     const reports = readJson(AMAZON_KEY, []);
-    const primary = localStorage.getItem(AMAZON_PRIMARY_KEY) || "";
-    if (!primary || !Array.isArray(reports)) return null;
-    const latest = reports.filter(report => report.accountId === primary)
-      .sort((a, b) => String(b.end || b.start || "").localeCompare(String(a.end || a.start || "")))[0];
+    if (!Array.isArray(reports) || !reports.length) return null;
+    const periods = combinedAmazonPeriods(reports);
+    const latest = periods[periods.length - 1];
     if (!latest) return null;
     const clicks = n(latest.clicks);
     const commission = n(latest.commission);
     return {
-      source: "Amazon・主アカウントの最新レポート",
+      source: "Amazon・全アカウント合算",
       title: reportDate(latest),
-      metric: "リンククリック " + count(clicks) + " ・ 発送商品 " + count(latest.shippedItems) + "点 ・ 紹介料 " + yen(commission) +
+      metric: "リンククリック " + count(clicks) + " ・ 発送商品 " + count(latest.shippedItems) + "点 ・ 発送売上 " + yen(latest.shippedSales) + " ・ 紹介料 " + yen(commission) +
         (clicks > 0 ? " ・ 1クリック当たり " + yen(commission / clicks) : ""),
-      action: "この期間の集計です。重なる期間のレポートは足しません。購入商品が投稿で紹介した商品と異なる場合もあります。"
+      action: count(latest.accountCount) + "アカウントの同じ期間を合算しています。Amazon経由の購入全体の成果で、特定のX投稿やサンリオ商品の売上を示すものではありません。"
     };
   }
   function rakutenRevenueSummary() {
