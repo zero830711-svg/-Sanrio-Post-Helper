@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.25-3341";
+const APP_VERSION="2026.09.25-3342";
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
@@ -609,31 +609,34 @@ function isLowValueCandidate(x){return !!lowValueReason(x)}
 function isRecommendationEligible(x){
   return safeReuseItem(x)&&!isCandidateExcluded(x)&&!isLowValueCandidate(x);
 }
-function productGroupKey(x){
-  if(separatedProductIds.has(String(x.id)))return "";
+function productGroupKeys(x){
+  if(separatedProductIds.has(String(x.id)))return [];
+  const keys=[];
   let raw=String(x.title||"").trim();
-  if(!raw||raw.length<8)raw=String(x.text||"")
+  if(!raw||raw.length<8)raw=String(x.text||"");
   raw=raw.replace(/https?:\/\/\S+/gi," ").replace(/[#＃][^\s]+/g," ")
     .replace(/^【[^】]{1,24}】/,"")
     .replace(/^[\s【\[（(「『]*?(?:PR|広告|公式|新発売|新商品|速報|最新情報|サンリオ)[\s】\]）)」』:：・-]*/i,"")
     .replace(/20\d{2}[年./-]\d{1,2}(?:[月./-]\d{1,2}日?)?/g," ")
     .replace(/[\s　]+/g,"").toLowerCase().replace(/[！!？?、。，．・:：「」『』【】［］()（）〜～…♡♥✨🎀]/g,"");
-  const key=raw.slice(0,30);
-  if(key.length>=10)return "name:"+key;
+  const name=raw.slice(0,30);
+  if(name.length>=10)keys.push("name:"+name);
   for(const link of [normalizedUrl(x.amazon),normalizedUrl(x.rakuten)].filter(Boolean)){
     const m=link.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
-    if(m)return "asin:"+m[1].toUpperCase();
-    try{const u=new URL(link),parts=u.pathname.split("/").filter(Boolean);if(/rakuten\.co\.jp$/i.test(u.hostname)&&parts.length>=2)return "rakuten:"+u.hostname.toLowerCase()+"/"+parts.slice(0,2).join("/").toLowerCase()}catch(e){}
+    if(m)keys.push("asin:"+m[1].toUpperCase());
+    try{const u=new URL(link),parts=u.pathname.split("/").filter(Boolean);if(/rakuten\.co\.jp$/i.test(u.hostname)&&parts.length>=2)keys.push("rakuten:"+u.hostname.toLowerCase()+"/"+parts.slice(0,2).join("/").toLowerCase())}catch(e){}
   }
-  return "";
+  return [...new Set(keys)];
 }
+function productGroupKey(x){return productGroupKeys(x)[0]||"";}
+
 function hasNewProductInformation(x){
   return /(再入荷|再販|発売日変更|日程変更|新色|新カラー|新デザイン|販売開始|予約開始|受付開始|在庫復活|追加販売|再受注)/i.test(String(x.title||"")+" "+String(x.text||""));
 }
 function recentSameProductReason(x,all,now=Date.now()){
-  const key=productGroupKey(x);if(!key||hasNewProductInformation(x))return "";
+  const keys=productGroupKeys(x);if(!keys.length||hasNewProductInformation(x))return "";
   const cutoff=now-30*24*60*60*1000;
-  const recent=all.filter(o=>o.id!==x.id&&productGroupKey(o)===key).map(o=>Math.max(
+  const recent=all.filter(o=>o.id!==x.id&&productGroupKeys(o).some(key=>keys.includes(key))).map(o=>Math.max(
     new Date(o.postedAt||"").getTime()||0,new Date(o.lastRepostedAt||"").getTime()||0
   )).filter(t=>t>=cutoff).sort((a,b)=>b-a)[0];
   return recent?"同じ商品を"+Math.max(1,Math.floor((now-recent)/86400000))+"日前に投稿済み":"";
@@ -2133,8 +2136,13 @@ async function renderArchive(){
     </article>`;
   };
   if(archiveView==="products"){
+    const parents=items.map((_,i)=>i);
+    const rootOf=i=>{while(parents[i]!==i){parents[i]=parents[parents[i]];i=parents[i]}return i};
+    const merge=(a,b)=>{const ra=rootOf(a),rb=rootOf(b);if(ra!==rb)parents[rb]=ra};
+    const owner=new Map();
+    items.forEach((item,i)=>productGroupKeys(item).forEach(key=>{if(owner.has(key))merge(i,owner.get(key));else owner.set(key,i)}));
     const grouped=new Map();
-    for(const x of items){const key=productGroupKey(x)||("single:"+String(x.id));if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(x)}
+    items.forEach((item,i)=>{const k=rootOf(i);if(!grouped.has(k))grouped.set(k,[]);grouped.get(k).push(item)});
     const groups=[...grouped.values()];groups.forEach(group=>group.sort((a,b)=>postedTime(b)-postedTime(a)));groups.sort((a,b)=>postedTime(b[0])-postedTime(a[0]));const visible=groups.slice(0,archiveLimit);
     const cards=visible.map(group=>{
       group.sort((a,b)=>postedTime(b)-postedTime(a));
