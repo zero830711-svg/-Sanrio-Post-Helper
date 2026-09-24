@@ -124,7 +124,7 @@ function render(){
   const review=freshnessReviewReason(p);
   if(review)add(card,"p","freshness-review", "⚠️ "+review);
   if(p.text)add(card,"p","post-text",p.text);
-  if(p.xUrl){try{const x=new URL(p.xUrl);const host=x.hostname.toLowerCase().replace(/^www\\./,"");if(x.protocol==="https:"&&["x.com","twitter.com"].includes(host)){const postId=x.pathname.match(/\\/status\\/(\\d+)/)?.[1];const a=add(card,"a","","Xアプリで開く");a.href=postId?"https://x.com/i/status/"+postId:x.href;a.target="_blank";a.rel="noopener noreferrer"}}catch(e){}}
+  if(p.xUrl){try{const x=new URL(p.xUrl);const host=x.hostname.toLowerCase().replace(/^www\./,"");if(x.protocol==="https:"&&["x.com","twitter.com"].includes(host)){const postId=x.pathname.match(/\/status\/(\d+)/)?.[1];const a=add(card,"a","","Xアプリで開く");a.href=postId?"https://x.com/i/status/"+postId:x.href;a.target="_blank";a.rel="noopener noreferrer"}}catch(e){}}
   const stats=[metric("表示",p.impressions),metric("いいね",p.likes),metric("保存",p.bookmarks),rateMetric("保存率",p.bookmarks,p.impressions)||"保存率 データなし",metric("クリック",p.clicks)].filter(Boolean);
   if(stats.length){const m=add(card,"div","metrics");stats.forEach(s=>add(m,"span","",s))}
   const media=[];
