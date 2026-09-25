@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Xアーカイブ修復 3350</title>
+<title>Xアーカイブ修復 3351</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
 .card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
@@ -21,7 +21,7 @@ progress{width:100%;margin:1rem 0}
 <body>
 <main>
 <h1>Xアーカイブ修復</h1>
-<p class="build">BUILD 3350</p>
+<p class="build">BUILD 3351</p>
 <p class="muted">写真・動画は再アップロードしません。Xアーカイブの <strong>tweets.js</strong> から本文を復元し、写真・動画用の t.co URL は本文から除去、本文中の短縮URLは元のリンク先へ置き換えます。</p>
 
 <section class="card">
@@ -47,7 +47,7 @@ progress{width:100%;margin:1rem 0}
 </section>
 
 <progress id="bar" value="0" max="1"></progress>
-<pre id="log">BUILD 3350 準備完了。</pre>
+<pre id="log">BUILD 3351 準備完了。</pre>
 </main>
 <script>
 (()=>{"use strict";
@@ -155,8 +155,21 @@ function cloudPushUrl(){
   return u.toString();
 }
 
+function sanitizeUnicodeString(str){
+  return String(str).replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,"�");
+}
+function sanitizeForCloud(value){
+  if(typeof value==="string")return sanitizeUnicodeString(value);
+  if(Array.isArray(value))return value.map(sanitizeForCloud);
+  if(value&&typeof value==="object"){
+    const out={};
+    for(const [k,v] of Object.entries(value))out[k]=sanitizeForCloud(v);
+    return out;
+  }
+  return value;
+}
 function safeCloudItem(item){
-  const copy={...item};
+  const copy=sanitizeForCloud({...item});
   copy.images=urlList(copy.images);
   copy.videos=urlList(copy.videos);
   if(!copy.images.length&&typeof copy.image==="string"&&(copy.image.startsWith("https://")||copy.image.startsWith("http://")))copy.images=[copy.image];
