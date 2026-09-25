@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Xアーカイブ修復 3349</title>
+<title>Xアーカイブ修復 3350</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
 .card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
@@ -21,7 +21,7 @@ progress{width:100%;margin:1rem 0}
 <body>
 <main>
 <h1>Xアーカイブ修復</h1>
-<p class="build">BUILD 3349</p>
+<p class="build">BUILD 3350</p>
 <p class="muted">写真・動画は再アップロードしません。Xアーカイブの <strong>tweets.js</strong> から本文を復元し、写真・動画用の t.co URL は本文から除去、本文中の短縮URLは元のリンク先へ置き換えます。</p>
 
 <section class="card">
@@ -47,7 +47,7 @@ progress{width:100%;margin:1rem 0}
 </section>
 
 <progress id="bar" value="0" max="1"></progress>
-<pre id="log">BUILD 3349 準備完了。</pre>
+<pre id="log">BUILD 3350 準備完了。</pre>
 </main>
 <script>
 (()=>{"use strict";
@@ -155,11 +155,21 @@ function cloudPushUrl(){
   return u.toString();
 }
 
+function safeCloudItem(item){
+  const copy={...item};
+  copy.images=urlList(copy.images);
+  copy.videos=urlList(copy.videos);
+  if(!copy.images.length&&typeof copy.image==="string"&&(copy.image.startsWith("https://")||copy.image.startsWith("http://")))copy.images=[copy.image];
+  delete copy.image;
+  return copy;
+}
 async function sendChunk(url,token,items){
-  const payload={items};
+  const payload={items:items.map(safeCloudItem)};
+  const json=JSON.stringify(payload);
+  const bytes=new TextEncoder().encode(json).length;
   const fd=new FormData();
   fd.append("payload_b64",toB64(payload));
-  fd.append("items",JSON.stringify(items));
+  fd.append("items",JSON.stringify(payload.items));
   const r=await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+token},body:fd,cache:"no-store"});
   const body=await r.text();
   let data={};try{data=JSON.parse(body)}catch(_){}
@@ -169,7 +179,7 @@ async function sendChunk(url,token,items){
     const retryBody=await retry.text();
     let retryData={};try{retryData=JSON.parse(retryBody)}catch(_){}
     if(retry.ok&&retryData.ok!==false)return {ok:items.length,failed:[]};
-    throw new Error("フォーム送信とJSON送信の両方をAPIが拒否しました。追加送信を停止しました。 JSON: "+retryBody.slice(0,180)+" / フォーム: "+body.slice(0,180));
+    throw new Error("フォーム送信とJSON送信の両方をAPIが拒否しました（"+items.length+"件、送信データ "+bytes+"バイト）。追加送信を停止しました。 JSON: "+retryBody.slice(0,180)+" / フォーム: "+body.slice(0,180));
   }
   if(r.status===401||r.status===403)throw new Error("クラウドAPIの認証エラーです。追加送信を停止しました。 "+body.slice(0,180));
   if(items.length===1)return {ok:0,failed:[{id:items[0].postId||items[0].id,status:r.status,body:body.slice(0,120)}]};
