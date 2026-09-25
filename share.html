@@ -33,6 +33,22 @@ p{line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
 .metrics span{padding:5px 9px;border-radius:99px;background:#f7f3f6}
 #search{width:100%;padding:12px 14px;border:1px solid #ddd2dc;border-radius:12px;font-size:16px;margin-top:10px}
 @media(max-width:520px){body{padding:12px 10px 32px}.post,header,.state{padding:14px}.media{grid-template-columns:1fr 1fr}h1{font-size:20px}}
+
+.post-text.is-collapsed{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden}
+.text-toggle{display:inline-flex;align-items:center;margin-top:4px;padding:7px 12px;border:0;border-radius:999px;background:#f6e1eb;color:#7c4560;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.affiliate-actions{margin:12px 0;padding:12px;border:1px solid #efd7e3;border-radius:14px;background:#fff9fc}
+.affiliate-title{margin:0 0 9px;font-size:13px;font-weight:700;color:#7c4560}
+.affiliate-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.affiliate-open,.affiliate-copy{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:8px 12px;border-radius:999px;font:inherit;font-size:14px;font-weight:700;text-decoration:none}
+.affiliate-open{flex:1;background:#f6e1eb;color:#382538}
+.affiliate-copy{border:1px solid #e9dfe6;background:#fff;color:#51414e;cursor:pointer}
+.product-group{margin:0 0 14px;padding:14px;border:1px solid #d8bfd0;border-radius:18px;background:#fff8fc}
+.product-group-head{margin:0 0 10px}
+.product-group-title{margin:0 0 4px;font-size:15px;color:#7c4560}
+.product-group-note{margin:0;color:#77717a;font-size:12px;line-height:1.5}
+.grouped-post{margin:10px 0 0;box-shadow:none}
+@media(max-width:520px){.affiliate-row{align-items:stretch}.affiliate-open,.affiliate-copy{font-size:13px;padding:8px 10px}}
+
 </style>
 </head>
 <body>
@@ -114,6 +130,58 @@ function unpackPost(p){
   return {...p,text:raw.slice(end+1),pickRole:meta.role.slice(0,40),pickReason:meta.reason.slice(0,320)};
  }catch(_){return p}
 }
+
+function extractUrls(text){
+ const source=String(text||"");
+ const pattern=/https?:\/\/[^\s<>「」『』【】]+/gi,trail=/[.,!?;:。、，！？；：：）)】」』]+$/;
+ const found=[];let m;
+ while((m=pattern.exec(source))){
+  let href=m[0];
+  while(trail.test(href))href=href.slice(0,-1);
+  try{const u=new URL(href);if(u.protocol==="https:")found.push(u)}catch(_){}
+ }
+ return found;
+}
+function affiliateKind(url){
+ const host=url.hostname.toLowerCase().replace(/^www\./,"");
+ if(/(^|\.)(?:amazon\.(?:co\.jp|com|co\.uk|de|fr|it|es|ca|com\.au|in|com\.br)|amzn\.to|amzn\.asia)$/.test(host))return "Amazon";
+ if(host==="hb.afl.rakuten.co.jp"||host==="r10.to"||host==="rakuten.co.jp"||host.endsWith(".rakuten.co.jp"))return "楽天";
+ return "";
+}
+function collectAffiliateLinks(text){
+ const links=[],seen=new Set();
+ for(const url of extractUrls(text)){
+  const shop=affiliateKind(url);if(!shop)continue;
+  const key=shop+"|"+url.href;
+  if(seen.has(key))continue;
+  seen.add(key);links.push({shop,href:url.href});
+ }
+ return links;
+}
+function renderAffiliateActions(parent,text){
+ const links=collectAffiliateLinks(text);
+ if(!links.length)return;
+ const box=add(parent,"section","affiliate-actions");
+ add(box,"p","affiliate-title","商品リンク（在庫・販売状況を確認）");
+ links.forEach((item,index)=>{
+  const row=add(box,"div","affiliate-row");
+  const open=add(row,"a","affiliate-open",item.shop+"で確認 ↗"+(links.filter(x=>x.shop===item.shop).length>1?" "+(links.filter(x=>x.shop===item.shop).indexOf(item)+1):""));
+  open.href=item.href;open.target="_blank";open.rel="sponsored nofollow noopener noreferrer";
+  const copy=add(row,"button","affiliate-copy","リンクをコピー");
+  copy.type="button";
+  copy.addEventListener("click",async()=>{
+   try{
+    if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(item.href);
+    else{
+     const input=document.createElement("textarea");input.value=item.href;input.style.position="fixed";input.style.opacity="0";document.body.appendChild(input);input.select();
+     const ok=document.execCommand("copy");input.remove();if(!ok)throw new Error("copy");
+    }
+    copy.textContent="コピーしました";
+    setTimeout(()=>{copy.textContent="リンクをコピー"},1800);
+   }catch(_){copy.textContent="コピーできませんでした";setTimeout(()=>{copy.textContent="リンクをコピー"},1800)}
+  });
+ });
+}
 function addLinkedPostText(parent,text){
  const paragraph=add(parent,"p","post-text","");
  const source=String(text||"");
@@ -134,59 +202,122 @@ function addLinkedPostText(parent,text){
     const url=new URL(href);
     if(url.protocol==="https:"){
      const link=add(paragraph,"a","post-link",href);
-     link.href=url.href;
-     link.target="_blank";
-     const host=url.hostname.toLowerCase().replace(/^www\./,"");
-     const affiliate=/(^|\.)amazon\.(?:co\.jp|com|co\.uk|de|fr|it|es|ca|com\.au|in|com\.br)$/.test(host)||/(^|\.)(?:amzn\.to|amzn\.asia|rakuten\.co\.jp|r10\.to)$/.test(host)||host==="hb.afl.rakuten.co.jp";
-     link.rel=affiliate?"sponsored nofollow noopener noreferrer":"noopener noreferrer";
-    }else{
-     paragraph.appendChild(document.createTextNode(href));
-    }
-   }catch(_){
-    paragraph.appendChild(document.createTextNode(href));
-   }
+     link.href=url.href;link.target="_blank";
+     link.rel=affiliateKind(url)?"sponsored nofollow noopener noreferrer":"noopener noreferrer";
+    }else paragraph.appendChild(document.createTextNode(href));
+   }catch(_){paragraph.appendChild(document.createTextNode(href))}
   }
   paragraph.appendChild(document.createTextNode(suffix));
   cursor=match.index+match[0].length;
  }
  paragraph.appendChild(document.createTextNode(source.slice(cursor)));
+ return paragraph;
+}
+function postProductKeys(p){
+ const text=String(p.title||"")+" "+String(p.text||"");
+ const keys=new Set();
+ const sku=/\b[A-Z]{2,8}[-_ ]?\d{3,5}(?:[-_ ]?[A-Z0-9]{1,6})?\b/gi;let m;
+ while((m=sku.exec(text)))keys.add("sku:"+m[0].toUpperCase().replace(/[-_ ]/g,""));
+ for(const url of extractUrls(text)){
+  const host=url.hostname.toLowerCase().replace(/^www\./,""),path=url.pathname;
+  const asin=path.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:\/|$)/i);
+  if(asin)keys.add("asin:"+asin[1].toUpperCase());
+  if(host==="item.rakuten.co.jp"){
+   const item=path.match(/^\/([^/]+)\/([^/]+)/);
+   if(item)keys.add("rakuten:"+item[1].toLowerCase()+"/"+item[2].toLowerCase());
+  }
+ }
+ return keys;
+}
+function normalizedPostTitle(p){
+ return String(p.title||"").toLocaleLowerCase()
+  .replace(/https?:\/\/\S+/gi," ").replace(/#[^\s#]+/g," ")
+  .replace(/[【】「」『』［］\[\]()（）]/g," ")
+  .replace(/[\s\p{P}\p{S}]+/gu,"").trim();
+}
+function titleSimilarity(a,b){
+ if(!a||!b||Math.min(a.length,b.length)<8)return 0;
+ if(Math.min(a.length,b.length)/Math.max(a.length,b.length)<0.72)return 0;
+ const grams=s=>{const out=new Set();for(let i=0;i<s.length-1;i++)out.add(s.slice(i,i+2));return out};
+ const x=grams(a),y=grams(b);let overlap=0;x.forEach(g=>{if(y.has(g))overlap++});
+ return overlap/(x.size+y.size-overlap||1);
+}
+function sameProductCandidate(a,b){
+ const ak=postProductKeys(a),bk=postProductKeys(b);
+ for(const k of ak)if(bk.has(k))return true;
+ const x=normalizedPostTitle(a),y=normalizedPostTitle(b);
+ return x===y&&x.length>=8||titleSimilarity(x,y)>=0.82;
+}
+function groupProductCandidates(rows){
+ const groups=[];
+ rows.forEach(post=>{
+  const group=groups.find(g=>g.posts.some(existing=>sameProductCandidate(existing,post)));
+  if(group)group.posts.push(post);else groups.push({posts:[post]});
+ });
+ return groups;
+}
+function renderPostCard(parent,p,grouped){
+ const card=add(parent,"article",grouped?"post grouped-post":"post");
+ add(card,"h2","",p.title||"投稿");
+ add(card,"div","meta",p.postedAt||"");
+ if(p.pickRole)add(card,"div","pick-role",p.pickRole);
+ if(p.pickReason)add(card,"p","pick-reason","選定理由："+p.pickReason);
+ const review=freshnessReviewReason(p);
+ if(review)add(card,"p","freshness-review","⚠️ "+review);
+ if(p.text){
+  const paragraph=addLinkedPostText(card,p.text);
+  if(String(p.text).length>260){
+   paragraph.classList.add("is-collapsed");
+   const toggle=add(card,"button","text-toggle","続きを読む");
+   toggle.type="button";toggle.setAttribute("aria-expanded","false");
+   toggle.addEventListener("click",()=>{
+    const expanded=toggle.getAttribute("aria-expanded")==="true";
+    toggle.setAttribute("aria-expanded",String(!expanded));
+    paragraph.classList.toggle("is-collapsed",expanded);
+    toggle.textContent=expanded?"続きを読む":"閉じる";
+   });
+  }
+  renderAffiliateActions(card,p.text);
+ }
+ if(p.xUrl){try{const x=new URL(p.xUrl);const host=x.hostname.toLowerCase().replace(/^www\./,"");if(x.protocol==="https:"&&["x.com","twitter.com"].includes(host)){const postId=x.pathname.match(/\/status\/(\d+)/)?.[1];const a=add(card,"a","","Xアプリで開く");a.href=postId?"https://x.com/i/status/"+postId:x.href;a.target="_blank";a.rel="noopener noreferrer"}}catch(e){}}
+ const stats=[metric("表示",p.impressions),metric("いいね",p.likes),metric("保存",p.bookmarks),rateMetric("保存率",p.bookmarks,p.impressions)||"保存率 データなし",metric("クリック",p.clicks)].filter(Boolean);
+ if(stats.length){const m=add(card,"div","metrics");stats.forEach(s=>add(m,"span","",s))}
+ const media=[];
+ (Array.isArray(p.images)?p.images:[]).forEach(src=>media.push({src,type:"image"}));
+ (Array.isArray(p.videos)?p.videos:[]).forEach(src=>media.push({src,type:"video"}));
+ if(media.length){
+  const grid=add(card,"div","media");
+  media.forEach(item=>{
+   let url;
+   try{url=new URL(item.src);if(url.protocol!=="https:")return}catch(e){return}
+   if(item.type==="image"){
+    const img=add(grid,"img","","");img.alt="投稿写真";img.loading="lazy";
+    img.onerror=()=>{if(img.dataset.proxyTried)return;img.dataset.proxyTried="1";const proxy=new URL(API);proxy.searchParams.set("action","shared_file");proxy.searchParams.set("token",token);proxy.searchParams.set("url",item.src);img.src=proxy.href};
+    img.src=item.src;
+   }else{
+    const a=add(grid,"a","","動画を開く");a.href=url.href;a.target="_blank";a.rel="noopener noreferrer";
+   }
+  });
+ }
+ return card;
 }
 function render(){
  const q=search.value.trim().toLocaleLowerCase();
  root.replaceChildren();
  const rows=records.filter(p=>!q||String(p.title+" "+p.text).toLocaleLowerCase().includes(q));
- for(const p of rows){
-  const card=add(root,"article","post");
-  add(card,"h2","",p.title||"投稿");
-  add(card,"div","meta",p.postedAt||"");
-  if(p.pickRole)add(card,"div","pick-role",p.pickRole);
-  if(p.pickReason)add(card,"p","pick-reason","選定理由："+p.pickReason);
-  const review=freshnessReviewReason(p);
-  if(review)add(card,"p","freshness-review", "⚠️ "+review);
-  if(p.text)addLinkedPostText(card,p.text);
-  if(p.xUrl){try{const x=new URL(p.xUrl);const host=x.hostname.toLowerCase().replace(/^www\./,"");if(x.protocol==="https:"&&["x.com","twitter.com"].includes(host)){const postId=x.pathname.match(/\/status\/(\d+)/)?.[1];const a=add(card,"a","","Xアプリで開く");a.href=postId?"https://x.com/i/status/"+postId:x.href;a.target="_blank";a.rel="noopener noreferrer"}}catch(e){}}
-  const stats=[metric("表示",p.impressions),metric("いいね",p.likes),metric("保存",p.bookmarks),rateMetric("保存率",p.bookmarks,p.impressions)||"保存率 データなし",metric("クリック",p.clicks)].filter(Boolean);
-  if(stats.length){const m=add(card,"div","metrics");stats.forEach(s=>add(m,"span","",s))}
-  const media=[];
-  (Array.isArray(p.images)?p.images:[]).forEach(src=>media.push({src,type:"image"}));
-  (Array.isArray(p.videos)?p.videos:[]).forEach(src=>media.push({src,type:"video"}));
-  if(media.length){
-   const grid=add(card,"div","media");
-   media.forEach(item=>{
-    let url;
-    try{url=new URL(item.src);if(url.protocol!=="https:")return}catch(e){return}
-    if(item.type==="image"){
-     const img=add(grid,"img","","");img.alt="投稿写真";img.loading="lazy";
-     img.onerror=()=>{if(img.dataset.proxyTried)return;img.dataset.proxyTried="1";const proxy=new URL(API);proxy.searchParams.set("action","shared_file");proxy.searchParams.set("token",token);proxy.searchParams.set("url",item.src);img.src=proxy.href};
-     img.src=item.src;
-    }else{
-     const a=add(grid,"a","", "動画を開く");a.href=url.href;a.target="_blank";a.rel="noopener noreferrer";
-    }
-   });
-  }
- }
+ const groups=groupProductCandidates(rows);
+ groups.forEach(group=>{
+  if(group.posts.length>1){
+   const section=add(root,"section","product-group");
+   const head=add(section,"header","product-group-head");
+   add(head,"h2","product-group-title","同じ商品かも：投稿候補"+group.posts.length+"件");
+   add(head,"p","product-group-note","タイトル・商品コード・商品リンクが近い投稿をまとめています。各投稿を見比べてください。");
+   group.posts.forEach(p=>renderPostCard(section,p,true));
+  }else renderPostCard(root,group.posts[0],false);
+ });
  if(!rows.length)add(root,"p","state","一致する投稿はありません。");
 }
+
 async function start(){
  if(!/^[a-f0-9]{64}$/i.test(token)){state.textContent="リンクが正しくありません。アプリで確認用リンクを作り直してください。";return}
  try{
