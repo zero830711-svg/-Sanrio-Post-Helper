@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Xアーカイブ修復 3346</title>
+<title>Xアーカイブ修復 3347</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
 .card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
@@ -21,7 +21,7 @@ progress{width:100%;margin:1rem 0}
 <body>
 <main>
 <h1>Xアーカイブ修復</h1>
-<p class="build">BUILD 3346</p>
+<p class="build">BUILD 3347</p>
 <p class="muted">写真・動画は再アップロードしません。Xアーカイブの <strong>tweets.js</strong> から本文を復元し、写真・動画用の t.co URL は本文から除去、本文中の短縮URLは元のリンク先へ置き換えます。</p>
 
 <section class="card">
@@ -47,7 +47,7 @@ progress{width:100%;margin:1rem 0}
 </section>
 
 <progress id="bar" value="0" max="1"></progress>
-<pre id="log">BUILD 3346 準備完了。</pre>
+<pre id="log">BUILD 3347 準備完了。</pre>
 </main>
 <script>
 (()=>{"use strict";
@@ -160,6 +160,7 @@ async function sendChunk(url,token,items){
   const r=await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+token},body:fd,cache:"no-store"});
   if(r.ok)return {ok:items.length,failed:[]};
   const body=await r.text();
+  if(/items array required/i.test(body))throw new Error("クラウドAPIが送信データの items 配列を受け取れていません。API側の受信形式エラーのため、追加送信を停止しました。 "+body.slice(0,180));
   if(items.length===1)return {ok:0,failed:[{id:items[0].postId||items[0].id,status:r.status,body:body.slice(0,120)}]};
   const mid=Math.ceil(items.length/2),a=await sendChunk(url,token,items.slice(0,mid)),b=await sendChunk(url,token,items.slice(mid));
   return {ok:a.ok+b.ok,failed:a.failed.concat(b.failed)};
