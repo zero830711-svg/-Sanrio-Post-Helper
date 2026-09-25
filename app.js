@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.25-3342";
+const APP_VERSION="2026.09.25-3343";
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
@@ -304,12 +304,12 @@ function isAmazonAffiliateHost(host){
 function hasAmazonAffiliate(x){
   if(clean(x.amazon))return true;
   const t=String(x.text||"");
-  return /(amazon|アマゾン)/i.test(t) && /(https?:\/\/t\.co\/|amazon(?:\.|\/)|amzn\.)/i.test(t);
+  return /(amazon|アマゾン)/i.test(t) && /https?:\/\/(?:www\.)?(?:amazon\.[a-z.]+|amzn\.[a-z.]+)/i.test(t);
 }
 function hasRakutenAffiliate(x){
   if(clean(x.rakuten))return true;
   const t=String(x.text||"");
-  return /(楽天|rakuten)/i.test(t) && /(https?:\/\/t\.co\/|rakuten\.)/i.test(t);
+  return /(楽天|rakuten)/i.test(t) && /https?:\/\/(?:www\.)?(?:[a-z0-9-]+\.)*rakuten\.[a-z.]+|https?:\/\/(?:www\.)?r10\.to\//i.test(t);
 }
 function hasAffiliate(x){return hasAmazonAffiliate(x)||hasRakutenAffiliate(x)}
 function isNonExternalPostUrl(raw,item){
@@ -2275,7 +2275,7 @@ function threadsSourceLinks(item){
       if(!url||seen.has(url)||media.has(url))continue;
       let host="";
       try{host=new URL(url).hostname.toLowerCase()}catch(_){continue}
-      if(/(^|\.)(x\.com|twitter\.com|pic\.twitter\.com|pbs\.twimg\.com|video\.twimg\.com)$/.test(host))continue;
+      if(/(^|\.)(x\.com|twitter\.com|pic\.twitter\.com|pbs\.twimg\.com|video\.twimg\.com|t\.co)$/.test(host))continue;
       seen.add(url);
       links.push({label,url});
     }
