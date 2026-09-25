@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Xアーカイブ修復 3345</title>
+<title>Xアーカイブ修復 3346</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
 .card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
@@ -21,7 +21,7 @@ progress{width:100%;margin:1rem 0}
 <body>
 <main>
 <h1>Xアーカイブ修復</h1>
-<p class="build">BUILD 3345</p>
+<p class="build">BUILD 3346</p>
 <p class="muted">写真・動画は再アップロードしません。Xアーカイブの <strong>tweets.js</strong> から本文を復元し、写真・動画用の t.co URL は本文から除去、本文中の短縮URLは元のリンク先へ置き換えます。</p>
 
 <section class="card">
@@ -47,7 +47,7 @@ progress{width:100%;margin:1rem 0}
 </section>
 
 <progress id="bar" value="0" max="1"></progress>
-<pre id="log">BUILD 3345 準備完了。</pre>
+<pre id="log">BUILD 3346 準備完了。</pre>
 </main>
 <script>
 (()=>{"use strict";
@@ -145,6 +145,16 @@ function openDb(){return new Promise((resolve,reject)=>{const q=indexedDB.open("
 async function getAll(){const db=await openDb();return new Promise((resolve,reject)=>{const q=db.transaction("popularPosts").objectStore("popularPosts").getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)})}
 async function putMany(items){if(!items.length)return;const db=await openDb();return new Promise((resolve,reject)=>{const tx=db.transaction("popularPosts","readwrite"),s=tx.objectStore("popularPosts");items.forEach(x=>s.put(x));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
 function toB64(obj){const bytes=new TextEncoder().encode(JSON.stringify(obj));let binary="";for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+32768));return btoa(binary)}
+function cloudPushUrl(){
+  const raw=$("api").value.trim();
+  if(!raw)throw new Error("API URLが空です");
+  const u=new URL(raw,location.href);
+  if(/\/archive-media-batch\.php$/i.test(u.pathname))u.pathname=u.pathname.replace(/archive-media-batch\.php$/i,"api2580.php");
+  u.searchParams.set("action","push");
+  u.hash="";
+  return u.toString();
+}
+
 async function sendChunk(url,token,items){
   const fd=new FormData();fd.append("payload_b64",toB64({items}));
   const r=await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+token},body:fd,cache:"no-store"});
@@ -208,7 +218,7 @@ $("repairText").onclick=async()=>{
     }else{
       say("端末本文は修復済みです。クラウドとの差分を確認します。");
     }
-    const pushUrl=$("api").value.replace(/archive-media-batch\.php(?:\?.*)?$/,"api2580.php?action=push");
+    const pushUrl=cloudPushUrl();
     const syncTargets=repairTargets.filter(item=>!item._deleted&&item.id);
     say("クラウドへ本文を再送："+syncTargets.length+"投稿（サーバー側の更新日時が新しいデータは保護されます）。");
     let ok=0,failed=[];
@@ -232,7 +242,7 @@ $("repairMedia").onclick=async()=>{
     const token=$("key").value.trim();if(!token)throw new Error("同期キーが空です");
     localStorage.setItem(KEY,token);
     const local=await getAll(),posts=local.map(x=>({...x,images:urlList(x.images),videos:urlList(x.videos)})).filter(x=>x.images.length||x.videos.length);
-    const pushUrl=$("api").value.replace(/archive-media-batch\.php(?:\?.*)?$/,"api2580.php?action=push");
+    const pushUrl=cloudPushUrl();
     let ok=0,failed=[];
     for(let i=0;i<posts.length;i+=5){
       const part=posts.slice(i,i+5),rr=await sendChunk(pushUrl,token,part);
