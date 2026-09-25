@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Xアーカイブ修復 3270</title>
+<title>Xアーカイブ修復 3343</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
 .card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
@@ -21,8 +21,8 @@ progress{width:100%;margin:1rem 0}
 <body>
 <main>
 <h1>Xアーカイブ修復</h1>
-<p class="build">BUILD 3270</p>
-<p class="muted">写真・動画は再アップロードしません。Xアーカイブの <strong>tweets.js</strong> から元投稿全文だけを復元できます。</p>
+<p class="build">BUILD 3343</p>
+<p class="muted">写真・動画は再アップロードしません。Xアーカイブの <strong>tweets.js</strong> から本文を復元し、写真・動画用の t.co URL は本文から除去、本文中の短縮URLは元のリンク先へ置き換えます。</p>
 
 <section class="card">
 <h2>① 元投稿全文を修復</h2>
@@ -32,7 +32,7 @@ progress{width:100%;margin:1rem 0}
 <label>note-tweet.js を選択（長文投稿の全文用）
 <input id="noteFile" type="file" accept=".js,text/javascript"></label>
 <button id="repairText" class="primary" type="button" disabled>投稿本文を完全修復</button>
-<p id="textStatus" class="muted">data フォルダ内の tweets.js と note-tweet.js を選んでください。note-tweet.js がない場合は通常投稿だけ修復します。</p>
+<p id="textStatus" class="muted">data フォルダ内の tweets.js と note-tweet.js を選んでください。画像URLの混入と t.co 表示の修復も行います。</p>
 </section>
 
 <section class="card">
@@ -47,7 +47,7 @@ progress{width:100%;margin:1rem 0}
 </section>
 
 <progress id="bar" value="0" max="1"></progress>
-<pre id="log">BUILD 3270 準備完了。</pre>
+<pre id="log">BUILD 3343 準備完了。</pre>
 </main>
 <script>
 (()=>{"use strict";
@@ -97,6 +97,33 @@ function attachNoteFullText(tweets,notes){
   return {matched};
 }
 function archiveTweetId(t){return String(t?.id_str||t?.id||"").trim()}
+function archiveVisibleText(tweet,raw){
+  let value=String(raw||"");
+  const media=[...(tweet?.entities?.media||[]),...(tweet?.extended_entities?.media||[])];
+  const mediaUrls=new Set(media.map(x=>String(x?.url||"").trim()).filter(Boolean));
+  let removedMediaLinks=0,expandedLinks=0;
+  for(const source of mediaUrls){
+    const count=value.split(source).length-1;
+    if(count){value=value.split(source).join("");removedMediaLinks+=count}
+  }
+  const entities=[...(tweet?.entities?.urls||[]),...(tweet?.extended_entities?.urls||[])];
+  const replacements=new Map();
+  for(const entity of entities){
+    const source=String(entity?.url||"").trim();
+    if(!source||mediaUrls.has(source)||!/^https?:\/\/t\.co\//i.test(source))continue;
+    const target=String(entity?.expanded_url||entity?.display_url||"").trim();
+    if(!target||/^https?:\/\/t\.co\//i.test(target))continue;
+    const visible=/^https?:\/\//i.test(target)?target:"https://"+target;
+    replacements.set(source,visible);
+  }
+  for(const [source,target] of replacements){
+    const count=value.split(source).length-1;
+    if(count){value=value.split(source).join(target);expandedLinks+=count}
+  }
+  value=value.replace(/[ \t]+\n/g,"\n").replace(/\n[ \t]+/g,"\n").replace(/[ \t]{2,}/g," ").trimEnd();
+  return {text:value,removedMediaLinks,expandedLinks};
+}
+
 function statusIdFromUrl(url){const m=String(url||"").match(/status\/(\d+)/);return m?m[1]:""}
 function localPostId(item){return String(item?.postId||statusIdFromUrl(item?.xUrl)||"").trim()}
 function textQuality(value){
@@ -152,15 +179,17 @@ $("repairText").onclick=async()=>{
     localStorage.setItem(KEY,token);
     const local=await getAll(),byPost=new Map();
     for(const item of local){const id=localPostId(item);if(id){if(!byPost.has(id))byPost.set(id,[]);byPost.get(id).push(item)}}
-    const updates=[];let matched=0,improved=0,protectedCount=0,unchanged=0,missing=0;
+    const updates=[];let matched=0,improved=0,protectedCount=0,unchanged=0,missing=0,removedMediaLinks=0,expandedLinks=0;
     for(const t of parsedTweets){
-      const id=archiveTweetId(t),candidate=String(t.__fullText||t.full_text||t.text||"");
+      const id=archiveTweetId(t),rawCandidate=String(t.__fullText||t.full_text||t.text||"");
+      const normalized=archiveVisibleText(t,rawCandidate),candidate=normalized.text;
+      removedMediaLinks+=normalized.removedMediaLinks;expandedLinks+=normalized.expandedLinks;
       if(!id||!candidate)continue;
       const matches=byPost.get(id);
       if(!matches||!matches.length){missing++;continue}
       matched++;
       for(const old of matches){
-        const prev=String(old.text||""),full=chooseFullerText(prev,candidate);
+        const prev=String(old.text||""),cleanPrev=archiveVisibleText(t,prev).text,full=chooseFullerText(cleanPrev,candidate);
         if(full===prev){
           if(candidate!==prev)protectedCount++;else unchanged++;
           continue;
@@ -170,7 +199,7 @@ $("repairText").onclick=async()=>{
         updates.push(next);
       }
     }
-    say("照合："+matched+"投稿 / 本文改善 "+improved+" / 短い本文から保護 "+protectedCount+" / 変更なし "+unchanged+" / DB未一致 "+missing);
+    say("照合："+matched+"投稿 / 本文改善 "+improved+" / 画像URL除去 "+removedMediaLinks+"件 / 短縮URL展開 "+expandedLinks+"件 / 短い本文から保護 "+protectedCount+" / 変更なし "+unchanged+" / DB未一致 "+missing);
     if(!updates.length){
       bar.value=1;
       $("textStatus").textContent=matched
