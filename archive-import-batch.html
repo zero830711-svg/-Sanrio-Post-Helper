@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Xアーカイブ修復 3351</title>
+<title>Xアーカイブ修復 3352</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
 .card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
@@ -21,7 +21,7 @@ progress{width:100%;margin:1rem 0}
 <body>
 <main>
 <h1>Xアーカイブ修復</h1>
-<p class="build">BUILD 3351</p>
+<p class="build">BUILD 3352</p>
 <p class="muted">写真・動画は再アップロードしません。Xアーカイブの <strong>tweets.js</strong> から本文を復元し、写真・動画用の t.co URL は本文から除去、本文中の短縮URLは元のリンク先へ置き換えます。</p>
 
 <section class="card">
@@ -44,10 +44,11 @@ progress{width:100%;margin:1rem 0}
 <section class="card">
 <label>API URL<br><input id="api" type="text" value="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/archive-media-batch.php"></label>
 <label>同期キー<br><input id="key" type="password"></label>
+<button id="probeApi" type="button">API受信テスト（投稿を保存しない）</button>
 </section>
 
 <progress id="bar" value="0" max="1"></progress>
-<pre id="log">BUILD 3351 準備完了。</pre>
+<pre id="log">BUILD 3352 準備完了。</pre>
 </main>
 <script>
 (()=>{"use strict";
@@ -271,6 +272,25 @@ $("repairText").onclick=async()=>{
   finally{btn.disabled=false}
 };
 function urlList(v){return Array.isArray(v)?[...new Set(v.filter(x=>typeof x==="string"&&/^https?:\/\//i.test(x)))]:[]}
+$("probeApi").onclick=async()=>{
+  const btn=$("probeApi");btn.disabled=true;
+  try{
+    const token=$("key").value.trim();if(!token)throw new Error("同期キーが空です");
+    const url=cloudPushUrl();
+    const fd=new FormData();fd.append("payload_b64",toB64({items:[]}));
+    const checks=[
+      {name:"フォーム",body:fd,headers:{Authorization:"Bearer "+token}},
+      {name:"JSON",body:JSON.stringify({items:[]}),headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"}}
+    ];
+    for(const check of checks){
+      const res=await fetch(url,{method:"POST",body:check.body,headers:check.headers,cache:"no-store"});
+      const body=await res.text();
+      say("API受信テスト "+check.name+"：HTTP "+res.status+" "+body.slice(0,300));
+    }
+    say("空の items を送信しました。投稿の保存はありません。");
+  }catch(err){say("API受信テスト失敗："+err.message)}
+  finally{btn.disabled=false}
+};
 $("repairMedia").onclick=async()=>{
   const btn=$("repairMedia");btn.disabled=true;
   try{
