@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<title>Xアーカイブ修復 3344</title>
+<title>Xアーカイブ修復 3345</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:#fff7fb;color:#352936}
 .card{background:#fff;border:1px solid #eadce7;border-radius:16px;padding:1rem;margin:1rem 0}
@@ -21,7 +21,7 @@ progress{width:100%;margin:1rem 0}
 <body>
 <main>
 <h1>Xアーカイブ修復</h1>
-<p class="build">BUILD 3344</p>
+<p class="build">BUILD 3345</p>
 <p class="muted">写真・動画は再アップロードしません。Xアーカイブの <strong>tweets.js</strong> から本文を復元し、写真・動画用の t.co URL は本文から除去、本文中の短縮URLは元のリンク先へ置き換えます。</p>
 
 <section class="card">
@@ -47,7 +47,7 @@ progress{width:100%;margin:1rem 0}
 </section>
 
 <progress id="bar" value="0" max="1"></progress>
-<pre id="log">BUILD 3344 準備完了。</pre>
+<pre id="log">BUILD 3345 準備完了。</pre>
 </main>
 <script>
 (()=>{"use strict";
@@ -190,13 +190,14 @@ $("repairText").onclick=async()=>{
       matched++;
       for(const old of matches){
         const prev=String(old.text||""),cleanPrev=archiveVisibleText(t,prev).text,full=chooseFullerText(cleanPrev,candidate);
-        const next={...old,text:full,title:old.title||full.replace(/\s+/g," ").slice(0,60),updatedAt:new Date().toISOString()};
+        const changed=full!==prev,needsId=!String(old.id||"");
+        const next={...old,id:String(old.id||("xarchive-"+id)),postId:String(old.postId||id),text:full,title:old.title||full.replace(/\s+/g," ").slice(0,60),updatedAt:changed||needsId?new Date().toISOString():(old.updatedAt||"")};
         repairTargets.push(next);
-        if(full===prev){
+        if(!changed&&!needsId){
           if(candidate!==prev)protectedCount++;else unchanged++;
           continue;
         }
-        improved++;
+        if(changed)improved++;
         updates.push(next);
       }
     }
@@ -207,31 +208,9 @@ $("repairText").onclick=async()=>{
     }else{
       say("端末本文は修復済みです。クラウドとの差分を確認します。");
     }
-    const pushUrl=$("api").value.replace(/archive-media-batch\\.php(?:\\?.*)?$/,"api2580.php?action=push");
-    const pullUrl=new URL(pushUrl);pullUrl.searchParams.set("action","pull");
-    const pulled=await fetch(pullUrl.toString(),{headers:{Authorization:"Bearer "+token},cache:"no-store"});
-    let cloud={};try{cloud=await pulled.json()}catch(e){}
-    if(!pulled.ok||cloud.ok!==true||!Array.isArray(cloud.items))throw new Error(cloud.error||("クラウド本文の確認に失敗しました（HTTP "+pulled.status+"）"));
-    const remoteById=new Map(cloud.items.filter(x=>x&&x.id).map(x=>[String(x.id),x]));
-    const remoteByPost=new Map(cloud.items.filter(x=>x&&x.postId).map(x=>[String(x.postId),x]));
-    const syncTargets=[];
-    for(const localItem of repairTargets){
-      if(localItem._deleted)continue;
-      const postId=String(localItem.postId||"");
-      const remote=remoteById.get(String(localItem.id||""))||(postId?remoteByPost.get(postId):null);
-      if(remote&&String(remote.text||"")===String(localItem.text||""))continue;
-      const merged={
-        ...(localItem||{}),
-        ...(remote||{}),
-        id:String(remote?.id||localItem.id||("xarchive-"+(postId||localPostId(localItem)))),
-        postId:String(remote?.postId||localItem.postId||postId),
-        text:String(localItem.text||""),
-        title:String(localItem.title||remote?.title||""),
-        updatedAt:new Date().toISOString()
-      };
-      syncTargets.push(merged);
-    }
-    say("クラウドとの差分："+syncTargets.length+"投稿を反映します。");
+    const pushUrl=$("api").value.replace(/archive-media-batch\.php(?:\?.*)?$/,"api2580.php?action=push");
+    const syncTargets=repairTargets.filter(item=>!item._deleted&&item.id);
+    say("クラウドへ本文を再送："+syncTargets.length+"投稿（サーバー側の更新日時が新しいデータは保護されます）。");
     let ok=0,failed=[];
     for(let i=0;i<syncTargets.length;i+=5){
       const part=syncTargets.slice(i,i+5),rr=await sendChunk(pushUrl,token,part);
