@@ -309,7 +309,7 @@ function render(){
  groups.forEach(group=>{
   if(group.posts.length>1){
    const section=add(root,"section","product-group");
-   const head=add(section,"header","product-group-head");
+   const head=add(section,"div","product-group-head");
    add(head,"h2","product-group-title","同じ商品かも：投稿候補"+group.posts.length+"件");
    add(head,"p","product-group-note","タイトル・商品コード・商品リンクが近い投稿をまとめています。各投稿を見比べてください。");
    group.posts.forEach(p=>renderPostCard(section,p,true));
