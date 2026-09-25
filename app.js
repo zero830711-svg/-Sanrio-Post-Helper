@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.25-3343";
+const APP_VERSION="2026.09.25-3344";
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
