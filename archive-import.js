@@ -1,5 +1,31 @@
 (()=>{const $=id=>document.getElementById(id),folder=$('folder'),summary=$('summary'),log=$('log'),preview=$('preview'),run=$('run'),progress=$('progress');let files=[],tweets=[],media=[];
 const say=s=>{log.textContent+=s+'\n';log.scrollTop=log.scrollHeight};const text=async f=>await f.text();const key='xArchiveImportDoneV1';
+function archiveVisibleText(tweet,raw){
+  let value=String(raw||"");
+  const media=[...(tweet?.entities?.media||[]),...(tweet?.extended_entities?.media||[])];
+  const mediaUrls=new Set(media.map(x=>String(x?.url||"").trim()).filter(Boolean));
+  let removedMediaLinks=0,expandedLinks=0;
+  for(const source of mediaUrls){
+    const count=value.split(source).length-1;
+    if(count){value=value.split(source).join("");removedMediaLinks+=count}
+  }
+  const entities=[...(tweet?.entities?.urls||[]),...(tweet?.extended_entities?.urls||[])];
+  const replacements=new Map();
+  for(const entity of entities){
+    const source=String(entity?.url||"").trim();
+    if(!source||mediaUrls.has(source)||!/^https?:\/\/t\.co\//i.test(source))continue;
+    const target=String(entity?.expanded_url||entity?.display_url||"").trim();
+    if(!target||/^https?:\/\/t\.co\//i.test(target))continue;
+    const visible=/^https?:\/\//i.test(target)?target:"https://"+target;
+    replacements.set(source,visible);
+  }
+  for(const [source,target] of replacements){
+    const count=value.split(source).length-1;
+    if(count){value=value.split(source).join(target);expandedLinks+=count}
+  }
+  value=value.replace(/[ \t]+\n/g,"\n").replace(/\n[ \t]+/g,"\n").replace(/[ \t]{2,}/g," ").trimEnd();
+  return {text:value,removedMediaLinks,expandedLinks};
+}
 function tweetId(x){return String(x?.tweet?.id||x?.id||'').trim()}function parseTweets(s){const m=s.match(/=\s*(\[.*\])\s*;?\s*$/s);if(!m)return[];try{return JSON.parse(m[1])}catch{return[]}}function rel(f){return(f.webkitRelativePath||f.name).replace(/\\/g,'/')}
 folder.onchange=()=>{files=[...folder.files];preview.disabled=!files.length;run.disabled=true;summary.textContent=files.length+'ファイルを選択';};
 preview.onclick=async()=>{tweets=[];media=[];const tf=files.find(f=>/data\/tweets\.js$/i.test(rel(f)));if(!tf){say('data/tweets.js が見つかりません');return}tweets=parseTweets(await text(tf));media=files.filter(f=>/data\/tweets_media\/.+\.(jpe?g|png|gif|mp4|mov|webm)$/i.test(rel(f)));const imgs=media.filter(f=>/\.(jpe?g|png|gif)$/i.test(f.name)).length,vids=media.length-imgs;summary.textContent='投稿 '+tweets.length+'件 / 画像 '+imgs+'枚 / 動画 '+vids+'本';run.disabled=!tweets.length;say('解析完了。既存データはID単位で補完します。');};
@@ -8,7 +34,7 @@ function merge(old,x){const usage={lastRepostedAt:old?.lastRepostedAt,repostCoun
 async function upload(postId,f){const fd=new FormData();fd.append('post_id',postId);fd.append('media',f,f.name);const r=await fetch($('api').value,{method:'POST',headers:{Authorization:'Bearer '+$('key').value},body:fd});if(!r.ok)throw new Error('media upload '+r.status);return await r.json()}
 async function workers(jobs,limit,fn){let next=0;const out=[];async function worker(){while(true){const i=next++;if(i>=jobs.length)return;try{out[i]=await fn(jobs[i])}catch(e){out[i]={error:e.message,job:jobs[i]}}}}await Promise.all(Array.from({length:Math.min(limit,jobs.length)},worker));return out}
 run.onclick=async()=>{run.disabled=true;const existing=await all(),by=new Map(existing.map(x=>[String(x.postId||x.id),x])),doneSet=new Set(JSON.parse(localStorage.getItem(key)||'[]'));let done=0;
-for(const w of tweets){const id=tweetId(w);if(!id)continue;const t=w.tweet||w;const old=by.get(id)||by.get(String(t.id));const item=merge(old,{id:old?.id||'xarchive-'+id,postId:id,xUrl:'https://x.com/i/web/status/'+id,text:t.full_text||t.text||old?.text||'',postedAt:t.created_at||old?.postedAt||'',source:'x-archive',updatedAt:new Date().toISOString()});await put(item);by.set(id,item);done++;progress.value=done/tweets.length}
+for(const w of tweets){const id=tweetId(w);if(!id)continue;const t=w.tweet||w;const old=by.get(id)||by.get(String(t.id));const item=merge(old,{id:old?.id||'xarchive-'+id,postId:id,xUrl:'https://x.com/i/web/status/'+id,text:archiveVisibleText(t,t.full_text||t.text||old?.text||'').text,postedAt:t.created_at||old?.postedAt||'',source:'x-archive',updatedAt:new Date().toISOString()});await put(item);by.set(id,item);done++;progress.value=done/tweets.length}
 say('投稿データ '+done+'件を端末DBへ統合しました。');const byId=new Set(tweets.map(tweetId));const jobs=media.filter(f=>{const m=rel(f).match(/data\/tweets_media\/(\d+)-/i);return m&&byId.has(m[1])&&!doneSet.has(rel(f))});let uploaded=0,failed=[];
 const results=await workers(jobs,4,async f=>{const m=rel(f).match(/data\/tweets_media\/(\d+)-/i);const result=await upload(m[1],f);const item=by.get(m[1]);if(item&&result.publicUrl){const k=/\.(mp4|mov|webm)$/i.test(f.name)?'videos':'images';const list=Array.isArray(item[k])?item[k]:[];if(!list.includes(result.publicUrl)){item[k]=[...list,result.publicUrl];await put(item);by.set(m[1],item)}}doneSet.add(rel(f));localStorage.setItem(key,JSON.stringify([...doneSet]));uploaded++;say('メディア '+uploaded+'/'+jobs.length+'件');return result});
 results.forEach(x=>{if(x?.error)failed.push(x)});say('取り込み完了。成功 '+uploaded+'件 / 失敗 '+failed.length+'件。');if(failed.length)say('失敗分は再度実行すると再試行されます。');run.disabled=false};
