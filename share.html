@@ -256,6 +256,26 @@ function groupProductCandidates(rows){
  });
  return groups;
 }
+function hasReadMoreOverflow(element){
+ const box=element.getBoundingClientRect();
+ const full=element.cloneNode(true);
+ full.classList.remove("is-collapsed");
+ full.style.position="fixed";
+ full.style.left="-10000px";
+ full.style.top="0";
+ full.style.visibility="hidden";
+ full.style.pointerEvents="none";
+ full.style.width=box.width+"px";
+ full.style.height="auto";
+ full.style.maxHeight="none";
+ full.style.overflow="visible";
+ full.style.display="block";
+ full.style.webkitLineClamp="unset";
+ document.body.appendChild(full);
+ const fullHeight=full.getBoundingClientRect().height;
+ full.remove();
+ return fullHeight>box.height+1;
+}
 function renderPostCard(parent,p,grouped){
  const card=add(parent,"article",grouped?"post grouped-post":"post");
  add(card,"h2","",p.title||"投稿");
@@ -266,8 +286,8 @@ function renderPostCard(parent,p,grouped){
  if(review)add(card,"p","freshness-review","⚠️ "+review);
  if(p.text){
   const paragraph=addLinkedPostText(card,p.text);
-  if(String(p.text).length>260){
-   paragraph.classList.add("is-collapsed");
+  paragraph.classList.add("is-collapsed");
+  if(hasReadMoreOverflow(paragraph)){
    const toggle=add(card,"button","text-toggle","続きを読む");
    toggle.type="button";toggle.setAttribute("aria-expanded","false");
    toggle.addEventListener("click",()=>{
@@ -276,6 +296,8 @@ function renderPostCard(parent,p,grouped){
     paragraph.classList.toggle("is-collapsed",expanded);
     toggle.textContent=expanded?"続きを読む":"閉じる";
    });
+  }else{
+   paragraph.classList.remove("is-collapsed");
   }
   renderAffiliateActions(card,p.text);
  }
