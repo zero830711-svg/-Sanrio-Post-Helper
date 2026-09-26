@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.26-3352";
+const APP_VERSION="2026.09.26-3353";
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
@@ -571,6 +571,12 @@ function freshnessReviewReason(x){
   }
   if(timeSensitive&&year&&month>=1&&month<=12){
     const now=new Date();
+    const periodMatch=text.match(/([0-9]{1,2})月\s*(上旬|中旬|下旬)/);
+    if(periodMatch&&Number(periodMatch[1])===month){
+      const periodEnd=periodMatch[2]==="上旬"?10:periodMatch[2]==="中旬"?20:new Date(year,month,0).getDate();
+      const periodHasPassed=now.getFullYear()>year||now.getFullYear()===year&&(now.getMonth()+1>month||now.getMonth()+1===month&&now.getDate()>periodEnd);
+      if(periodHasPassed)return "発売予定の"+year+"年"+month+"月"+periodMatch[2]+"は過ぎています。現在の販売状況を確認してください。";
+    }
     if(year*12+month < now.getFullYear()*12+now.getMonth()+1){
       return year+"年"+month+"月の時期は過ぎています。現在の販売・開催状況を確認してください。";
     }
@@ -787,6 +793,7 @@ async function undoLastRepost(){
 
 function recommendationReasons(x){
   const reasons=[];
+  if(todayAffiliateLinks(x).length)reasons.push("アフィリエイトリンクあり");
   const age=Math.max(0,Math.floor((Date.now()-lastUseTime(x))/(24*60*60*1000)));
   const impressions=metricNumber(x.impressions);
   const clickRate=metricRate(x.urlClicks,x.impressions);

@@ -106,6 +106,12 @@ function freshnessReviewReason(p){
  }
  if(timeSensitive&&year&&month>=1&&month<=12){
   const now=new Date();
+  const periodMatch=text.match(/([0-9]{1,2})月\s*(上旬|中旬|下旬)/);
+  if(periodMatch&&Number(periodMatch[1])===month){
+   const periodEnd=periodMatch[2]==="上旬"?10:periodMatch[2]==="中旬"?20:new Date(year,month,0).getDate();
+   const periodHasPassed=now.getFullYear()>year||now.getFullYear()===year&&(now.getMonth()+1>month||now.getMonth()+1===month&&now.getDate()>periodEnd);
+   if(periodHasPassed)return "発売予定の"+year+"年"+month+"月"+periodMatch[2]+"は過ぎています。現在の販売状況を確認してください。";
+  }
   if(year*12+month < now.getFullYear()*12+now.getMonth()+1){
    return year+"年"+month+"月の時期は過ぎています。現在の販売・開催状況を確認してください。";
   }
@@ -289,7 +295,9 @@ function renderPostCard(parent,p,grouped){
  add(card,"h2","",p.title||"投稿");
  add(card,"div","meta",p.postedAt||"");
  if(p.pickRole)add(card,"div","pick-role",p.pickRole);
- if(p.pickReason)add(card,"p","pick-reason","選定理由："+p.pickReason);
+ const hasAffiliate=collectAffiliateLinks(p).length>0;
+ const reasonParts=[p.pickReason,hasAffiliate&&!String(p.pickReason||"").includes("アフィリエイトリンクあり")?"アフィリエイトリンクあり":""].filter(Boolean);
+ if(reasonParts.length)add(card,"p","pick-reason","選定理由："+reasonParts.join("・"));
  const review=freshnessReviewReason(p);
  if(review)add(card,"p","freshness-review","⚠️ "+review);
  if(p.text){
