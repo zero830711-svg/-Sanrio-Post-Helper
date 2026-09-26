@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.26-3349";
+const APP_VERSION="2026.09.26-3350";
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
@@ -555,6 +555,7 @@ function freshnessReviewReason(x){
   const age=(Date.now()-postedTime(x))/(24*60*60*1000);
   if(!Number.isFinite(age))return "";
   const text=String(x.title||"")+" "+String(x.text||"");
+  if(releaseReminderInfo(x))return "";
   const timeSensitive=/(?:発売|予約|販売|開催|受付|入荷|受注|順次|登場|再販|開始)/.test(text);
   let period=text.match(/(20[0-9]{2})年 *([0-9]{1,2})月/);
   if(!period)period=text.match(/(20[0-9]{2})[-.]([0-9]{1,2})/);
@@ -582,6 +583,38 @@ function freshnessReviewReason(x){
   if(age>=30&&timeSensitive)return "投稿内の日付・発売・開催情報の最新状況を確認してください。";
   return "";
 }
+function releaseReminderInfo(x,now=new Date()){
+  const text=String(x.title||"")+" "+String(x.text||"");
+  const markers=[...text.matchAll(/発売(?:日|予定)?|販売開始|予約開始|発売開始|発売する|発売！|発売。/g)];
+  if(!markers.length)return null;
+  const dateRe=/(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日?|(?<!\d)(20\d{2})[/.年-](\d{1,2})[/.月-](\d{1,2})日?|(?<!\d)(\d{1,2})月\s*(\d{1,2})日?|(?<!\d)(\d{1,2})\/(\d{1,2})(?!\d)/g;
+  const candidates=[];
+  for(const m of text.matchAll(dateRe)){
+    const pos=m.index||0;
+    if(!markers.some(mark=>Math.abs(mark.index-pos)<=48))continue;
+    let year,month,day;
+    if(m[1]){year=+m[1];month=+m[2];day=+m[3]}
+    else if(m[4]){year=+m[4];month=+m[5];day=+m[6]}
+    else if(m[7]){month=+m[7];day=+m[8]}
+    else {month=+m[9];day=+m[10]}
+    const years=year?[year]:[now.getFullYear()-1,now.getFullYear(),now.getFullYear()+1];
+    for(const y of years){
+      const d=new Date(y,month-1,day);
+      if(d.getFullYear()!==y||d.getMonth()!==month-1||d.getDate()!==day)continue;
+      const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+      const diff=Math.round((d-today)/86400000);
+      if(Math.abs(diff)<=1)candidates.push({date:d,diff,yearExplicit:!!year});
+    }
+  }
+  candidates.sort((a,b)=>Math.abs(a.diff)-Math.abs(b.diff));
+  return candidates[0]||null;
+}
+function releaseReminderLabel(x){
+  const info=releaseReminderInfo(x);
+  if(!info)return "";
+  const when=info.diff===0?"今日":info.diff===1?"明日":"昨日";
+  return "発売日リマインド："+when+"発売";
+}
 function isLikelyExpiredNews(x){
   const t=String(x.text||"");
   const hot=/(本日|明日|本日発売|本日開始|発売日|予約開始|販売開始|開催決定|開催期間|期間限定|本日より|今日から|\d{1,2}月\d{1,2}日|\d{1,2}\/\d{1,2})/;
@@ -589,7 +622,7 @@ function isLikelyExpiredNews(x){
   const age=(Date.now()-postedTime(x))/(24*60*60*1000);
   return age>21;
 }
-function safeReuseItem(x){return isReadyForReuse(x)&&!isLikelyExpiredNews(x)}
+function safeReuseItem(x){return isReadyForReuse(x)&&(!isLikelyExpiredNews(x)||!!releaseReminderInfo(x))}
 function lowValueReason(x){
   const raw=String(x.text||"").trim();
   if(!raw)return "本文なし";
@@ -791,6 +824,8 @@ function recommendationReasons(x){
   const clickRate=metricRate(x.urlClicks,x.impressions);
   const saveRate=metricRate(x.bookmarks,x.impressions);
   const repostRate=metricRate(x.reposts,x.impressions);
+  const releaseReason=releaseReminderLabel(x);
+  if(releaseReason)reasons.push(releaseReason);
   if(impressions>=100000)reasons.push("表示10万+");
   else if(impressions>=30000)reasons.push("表示3万+");
   if(repostRate>=0.01)reasons.push("拡散率 "+percentText(repostRate));
@@ -800,7 +835,7 @@ function recommendationReasons(x){
   if(age>=60)reasons.push(age+"日空き");
   else if(age>=30)reasons.push("30日以上空き");
   if(isEvergreenPost(x))reasons.push("長く使える内容");
-  return reasons.slice(0,3);
+  return reasons.slice(0,4);
 }
 
 function metricNumber(v){
@@ -1865,6 +1900,9 @@ async function getReadyItems(){
       return recommendationScore(b)-recommendationScore(a);
     });
 }
+function selectionPriority(x){
+  return (todayAffiliateLinks(x).length?1200:0)+(releaseReminderInfo(x)?5000:0);
+}
 async function getRoleBasedPicks(){
   const pool=await getReadyItems();
   if(!pool.length)return [];
@@ -1890,7 +1928,7 @@ async function getRoleBasedPicks(){
     pickedTopics.add(topic);
   };
 
-  const sameDay=pool.filter(x=>recommendedDay(x)===today);
+  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="revenue-reminder-v1");
   for(const role of TODAY_ROLES){
     const existing=sameDay.find(x=>x.recommendedRole===role&&!used.has(x.id));
     keep(existing,role);
@@ -1942,7 +1980,7 @@ async function stampRecommendations(items){
   const updates=[];
   for(const item of items){
     if(recommendedDay(item)===today&&item.recommendedRole===item._role)continue;
-    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用"});
+    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"revenue-reminder-v1"});
   }
   await dbPutMany(updates);
   if(updates.length)queueCloudSync(updates,[]);
@@ -2006,7 +2044,7 @@ async function renderToday(){
     const excerpt=plainText.length>64?plainText.slice(0,64)+"…":plainText;
     return '<article class="today-item featured today-item-full">'+
       '<div class="today-main">'+
-        '<div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div>'+
+        '<div class="today-rank-label">'+esc(releaseReminderLabel(x)?"発売日リマインド":(x._role||("おすすめ "+(i+1))))+'</div>'+
         '<div class="today-affiliate-badges">'+todayAffiliateBadges(x)+'</div>'+
         todayAffiliateLinkButtons(x)+
         '<h3>'+esc(x.title||shortLabel(x))+'</h3>'+
