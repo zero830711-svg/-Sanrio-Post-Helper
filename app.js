@@ -397,7 +397,7 @@ function todayAffiliateLinkButtons(item){
     '</div>';
   }).join("")+'</div>';
 }
-function xOpenButton(item){
+function xOpenButton(item,label="Xアプリで開く"){
   const raw=clean(item&&(item.xUrl||item.tweetUrl||item.url));
   if(!raw)return "";
   let url="";
@@ -408,7 +408,7 @@ function xOpenButton(item){
     const postId=parsed.pathname.match(/\/status\/(\d+)/)?.[1];
     url=postId?"https://x.com/i/status/"+postId:parsed.href;
   }catch(_){return ""}
-  return '<a class="small-btn link-btn" href="'+esc(url)+'" target="_blank" rel="noopener">Xアプリで開く</a>';
+  return '<a class="small-btn link-btn" href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(label)+'</a>';
 }
 
 function canonicalPostKey(x){
@@ -2016,10 +2016,10 @@ async function renderToday(){
         '<div class="recommend-reason">選定理由：'+esc([...recommendationReasons(x),x._diverseReason].filter(Boolean).join("・"))+'</div>'+
         mediaBox+
         '<div class="metric-chips">'+todayMetricChips(x,x._role)+'</div>'+
-        '<div class="today-actions">'+
-          xOpenButton(x)+
-          '<button class="small-btn detail-btn" data-today-action="detail" data-id="'+x.id+'">内容を全部見る</button>'+
-          '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済みにする</button>'+
+        '<div class="today-actions today-actions-compact">'+
+          xOpenButton(x,"Xアプリ")+
+          '<button class="small-btn detail-btn" data-today-action="detail" data-id="'+x.id+'">全部見る</button>'+
+          '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済み</button>'+
           '<button class="small-btn skip-btn" data-today-action="skip" data-id="'+x.id+'">見送る</button>'+
           '<button class="small-btn exclude-btn" data-today-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
         '</div>'+
