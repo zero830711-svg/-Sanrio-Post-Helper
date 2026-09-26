@@ -138,19 +138,27 @@ function extractUrls(text){
  while((m=pattern.exec(source))){
   let href=m[0];
   while(trail.test(href))href=href.slice(0,-1);
-  try{const u=new URL(href);if(u.protocol==="https:")found.push(u)}catch(_){}
+  try{const u=new URL(href);if(u.protocol==="https:"||u.protocol==="http:")found.push(u)}catch(_){}
  }
  return found;
 }
+function isAmazonAffiliateHost(host){
+ return /(^|\.)amazon\./i.test(host)||host==="amazon"||host.endsWith(".amazon")||/(^|\.)amzn\./i.test(host);
+}
 function affiliateKind(url){
  const host=url.hostname.toLowerCase().replace(/^www\./,"");
- if(/(^|\.)(?:amazon\.(?:co\.jp|com|co\.uk|de|fr|it|es|ca|com\.au|in|com\.br)|amzn\.to|amzn\.asia)$/.test(host))return "Amazon";
- if(host==="hb.afl.rakuten.co.jp"||host==="r10.to"||host==="rakuten.co.jp"||host.endsWith(".rakuten.co.jp"))return "楽天";
+ if(isAmazonAffiliateHost(host))return "Amazon";
+ if(/(^|\.)rakuten\./.test(host)||host==="r10.to"||host.endsWith(".r10.to"))return "楽天";
  return "";
 }
-function collectAffiliateLinks(text){
+function collectAffiliateLinks(post){
  const links=[],seen=new Set();
- for(const url of extractUrls(text)){
+ const candidates=[...extractUrls(post?.text||"")];
+ for(const item of (Array.isArray(post?.affiliateLinks)?post.affiliateLinks:[])){
+  const raw=typeof item==="string"?item:String(item?.url||item?.href||"");
+  try{const url=new URL(raw);if(url.protocol==="https:"||url.protocol==="http:")candidates.push(url)}catch(_){}
+ }
+ for(const url of candidates){
   const shop=affiliateKind(url);if(!shop)continue;
   const key=shop+"|"+url.href;
   if(seen.has(key))continue;
@@ -158,8 +166,8 @@ function collectAffiliateLinks(text){
  }
  return links;
 }
-function renderAffiliateActions(parent,text){
- const links=collectAffiliateLinks(text);
+function renderAffiliateActions(parent,post){
+ const links=collectAffiliateLinks(post);
  if(!links.length)return;
  const box=add(parent,"section","affiliate-actions");
  add(box,"p","affiliate-title","商品リンク（在庫・販売状況を確認）");
@@ -200,7 +208,7 @@ function addLinkedPostText(parent,text){
   if(href){
    try{
     const url=new URL(href);
-    if(url.protocol==="https:"){
+    if(url.protocol==="https:"||url.protocol==="http:"){
      const link=add(paragraph,"a","post-link",href);
      link.href=url.href;link.target="_blank";
      link.rel=affiliateKind(url)?"sponsored nofollow noopener noreferrer":"noopener noreferrer";
@@ -299,8 +307,8 @@ function renderPostCard(parent,p,grouped){
   }else{
    paragraph.classList.remove("is-collapsed");
   }
-  renderAffiliateActions(card,p.text);
  }
+ if(p.text||(Array.isArray(p.affiliateLinks)&&p.affiliateLinks.length))renderAffiliateActions(card,p);
  if(p.xUrl){try{const x=new URL(p.xUrl);const host=x.hostname.toLowerCase().replace(/^www\./,"");if(x.protocol==="https:"&&["x.com","twitter.com"].includes(host)){const postId=x.pathname.match(/\/status\/(\d+)/)?.[1];const a=add(card,"a","","Xアプリで開く");a.href=postId?"https://x.com/i/status/"+postId:x.href;a.target="_blank";a.rel="noopener noreferrer"}}catch(e){}}
  const stats=[metric("表示",p.impressions),metric("いいね",p.likes),metric("保存",p.bookmarks),rateMetric("保存率",p.bookmarks,p.impressions)||"保存率 データなし",metric("クリック",p.clicks)].filter(Boolean);
  if(stats.length){const m=add(card,"div","metrics");stats.forEach(s=>add(m,"span","",s))}
