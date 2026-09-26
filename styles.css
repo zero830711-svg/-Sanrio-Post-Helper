@@ -207,3 +207,7 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .today-actions-compact{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
 .today-actions-compact>*{grid-column:span 2;min-width:0;justify-content:center;text-align:center;white-space:nowrap;padding:9px 5px;font-size:clamp(11px,3.2vw,14px)}
 .today-actions-compact>:nth-child(n+4){grid-column:span 3}
+
+/* 今日の候補：写真を薄いグレーの枠いっぱいに表示 */
+.today-item-full .today-media-thumb{position:relative;display:block;padding:0;overflow:hidden;background:transparent}
+.today-item-full .today-media-thumb img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:cover!important;object-position:center;border-radius:inherit;background:transparent}
