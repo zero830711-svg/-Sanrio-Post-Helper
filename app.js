@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.25-3345";
+const APP_VERSION="2026.09.26-3346";
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
@@ -2124,7 +2124,7 @@ async function renderArchive(){
         <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}${isCandidateExcluded(x)?' ・ 候補から除外中':''}${isLowValueCandidate(x)?' ・ 自動除外：'+lowValueReason(x):''}</p>
         ${(x.impressions||x.likes||x.bookmarks)?'<div class="metric-chips">'+(x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+(x.likes?'<span>♥ '+esc(x.likes)+'</span>':'')+(x.bookmarks?'<span>保存 '+esc(x.bookmarks)+'</span>':'')+'</div>':''}
         <p>${esc(x.text)}</p>
-        <div class="archive-actions primary-actions">${xOpenButton(x)}<button class="small-btn" data-action="copy" data-id="${x.id}">投稿文コピー</button><button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button></div>
+        <div class="archive-actions primary-actions">${xOpenButton(x)}<button class="small-btn detail-btn" data-action="detail" data-id="${x.id}">内容を全部見る</button><button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button></div>
         <details class="card-more"><summary>その他</summary><div class="archive-actions more-actions">
           <button class="small-btn" data-action="sharex" data-id="${x.id}">Xへ共有</button>
           ${x.amazon?'<a class="small-btn link-btn" href="'+esc(normalizedUrl(x.amazon))+'" target="_blank" rel="noopener">Amazon</a>':''}
@@ -3308,9 +3308,9 @@ $("archiveList").addEventListener("click",async e=>{
     await renderRecentUsed();
     await renderTodayProgress();
   }
-  if(btn.dataset.action==="copy"){
-    await navigator.clipboard.writeText(item.text||"");
-    btn.textContent="コピー済み";setTimeout(()=>btn.textContent="投稿文コピー",1200);
+  if(btn.dataset.action==="detail"){
+    showTodayDetail(item);
+    return;
   }
   if(btn.dataset.action==="images"||btn.dataset.action==="media"){
     const imgs=item.images||(item.image?[item.image]:[]);showMedia(imgs,item.videos||[]);
