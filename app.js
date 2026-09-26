@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.26-3351";
+const APP_VERSION="2026.09.26-3352";
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
@@ -216,6 +216,7 @@ async function createCodexReviewLink(button){
       text:sharedPostText(x,scope==="今日の候補"),
       postedAt:String(x.postedAt||x.savedAt||formatPostedMeta(x)),
       xUrl:String(x.xUrl||x.tweetUrl||x.url||"").slice(0,2048),
+      affiliateLinks:todayAffiliateLinks(x).map(link=>({kind:link.kind,url:String(link.url||"").slice(0,2048)})).slice(0,20),
       images:mediaArray(x.images||(x.image?[x.image]:[])).slice(0,20),
       videos:mediaArray(x.videos).slice(0,10),
       impressions:x.impressions??null,
