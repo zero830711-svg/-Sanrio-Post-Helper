@@ -202,6 +202,11 @@ async function load(force){
   var endpoint=apiUrl+(force?(apiUrl.includes("?")?"&":"?")+"refresh=1":"");
   var response=await fetch(endpoint,{headers:{"Authorization":"Bearer "+key},cache:"no-store"});
   var data=await response.json();
+  if(!force&&data.apiVersion!=="2801"){
+   var refreshUrl=apiUrl+(apiUrl.includes("?")?"&":"?")+"refresh=1";
+   response=await fetch(refreshUrl,{headers:{"Authorization":"Bearer "+key},cache:"no-store"});
+   data=await response.json();
+  }
   if(!response.ok||data.ok===false)throw new Error(data.error||"話題を取得できませんでした");
   render(Array.isArray(data.items)?data.items:[]);
  }catch(error){
