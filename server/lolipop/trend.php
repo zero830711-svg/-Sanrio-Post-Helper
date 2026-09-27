@@ -21,8 +21,8 @@ function iid(string $s,string $u,string $t):string{return substr(hash('sha256',$
 function addUnique(array &$items,array $item,array &$seen):void{$k=strtolower(trim(($item['url']??'').'|'.($item['title']??'')));if($k==='|'||isset($seen[$k]))return;$seen[$k]=1;$items[]=$item;}
 function parseRss(string $xml,string $source,string $region,array &$items,array &$seen):void{
  if($xml==='')return;libxml_use_internal_errors(true);$rss=simplexml_load_string($xml,'SimpleXMLElement',LIBXML_NOCDATA);if(!$rss)return;
- foreach(($rss->channel->item??[]) as $n){$t=cleanText((string)$n->title);$u=trim((string)$n->link);if($t===''||$u==='')continue;
-  addUnique($items,['id'=>iid($source,$u,$t),'source'=>$source,'sourceType'=>'news','region'=>$region,'title'=>$t,'summary'=>cleanText((string)$n->description),'url'=>$u,'publishedAt'=>isoDate((string)$n->pubDate),'votes'=>0,'comments'=>0],$seen);}
+ foreach(($rss->channel->item??[]) as $n){$t=cleanText((string)$n->title);$u=trim((string)$n->link);$publisher=cleanText((string)$n->source);if($t===''||$u==='')continue;
+  addUnique($items,['id'=>iid($source,$u,$t),'source'=>$source,'publisher'=>$publisher,'sourceType'=>'news','region'=>$region,'title'=>$t,'summary'=>cleanText((string)$n->description),'url'=>$u,'publishedAt'=>isoDate((string)$n->pubDate),'votes'=>0,'comments'=>0],$seen);}
 }
 function parseReddit(string $json,string $sub,array &$items,array &$seen):void{
  $d=json_decode($json,true);foreach(($d['data']['children']??[]) as $r){$x=$r['data']??[];$t=cleanText((string)($x['title']??''));if($t==='')continue;$p=(string)($x['permalink']??'');$u=$p?'https://www.reddit.com'.$p:(string)($x['url']??'');
@@ -87,6 +87,7 @@ function prioritizeLinkedArticleProducts(array &$items):void{
   if(($items[$i]['sourceType']??'')!=='news')continue;
   $host=strtolower((string)parse_url((string)($items[$i]['url']??''),PHP_URL_HOST));
   if(!isAllAboutHost($host)&&!in_array($host,['news.google.com','news.googleusercontent.com'],true))continue;
+  if(!isAllAboutHost($host)&&stripos((string)($items[$i]['publisher']??''),'All About')===false)continue;
   $checked++;$products=getAllAboutAmazonProducts((string)$items[$i]['url']);
   if($products){$items[$i]['amazonProducts']=$products;$items[$i]['hasAmazonProductLinks']=true;}
  }
