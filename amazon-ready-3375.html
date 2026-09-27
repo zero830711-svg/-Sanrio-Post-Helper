@@ -200,7 +200,7 @@ async function load(force){
   var endpoint=apiUrl+(force?(apiUrl.includes("?")?"&":"?")+"refresh=1":"");
   var data=await requestTrend(endpoint,key);
   render(Array.isArray(data.items)?data.items:[],Array.isArray(data.sourceHealth)?data.sourceHealth:[]);
-  if(data.apiVersion!=="2806"){
+  if(data.apiVersion!=="2807"){
    setStatus(statusNode.textContent+" 90日候補を使うには、ロリポップ側のtrend.php更新が必要です。","empty");
   }
  }catch(error){
