@@ -54,7 +54,7 @@ function amazonProductCards(string $html):array{
   if($asin===''||isset($seen[$asin]))continue;
   $title='';
   for($node=$a->parentNode,$depth=0;$node&&$depth<6;$node=$node->parentNode,$depth++){
-   if(!$node instanceof DOMElement)continue;
+   if(!($node instanceof DOMElement))continue;
    foreach($xp->query('.//h1|.//h2|.//h3|.//h4|.//strong', $node) as $h){
     $candidate=cleanText((string)$h->textContent);
     if(mb_strlen($candidate)>=8&&mb_strlen($candidate)<=180&&!preg_match('/amazonで見る|楽天で見る|購入はこちら/iu',$candidate)){$title=$candidate;break;}
@@ -128,5 +128,5 @@ prioritizeLinkedArticleProducts($items);\n$groups=groupTopics($items);$out=[];$s
 foreach($groups as $g){$rep=$g['representative'];$key=substr(hash('sha256',implode('|',words((string)$rep['title']))),0,40);$seenQ->execute([$key]);$r=$seenQ->fetch();$first=$r?(string)$r['first_seen_at']:date('Y-m-d H:i:s');$seenUp->execute([$key]);$stateQ->execute([$key]);$sr=$stateQ->fetch();
  $regions=array_map(fn($x)=>(string)($x['region']??''),$g['items']);$rep['topicKey']=$key;$rep['firstSeenAt']=date(DATE_ATOM,strtotime($first));$rep['isNew']=(time()-strtotime($first))<86400;$rep['relatedCount']=count($g['items']);$rep['relatedSources']=array_values(array_unique(array_map(fn($x)=>(string)($x['source']??''),$g['items'])));$rep['relatedItems']=array_map(fn($x)=>['source'=>$x['source']??'','url'=>$x['url']??'','region'=>$x['region']??''],array_slice($g['items'],0,8));$rep['jpCount']=count(array_filter($regions,fn($r)=>$r==='JP'));$rep['foreignCount']=count(array_filter($regions,fn($r)=>$r!==''&&$r!=='JP'));$rep['userState']=$sr?(string)$sr['state']:'';$out[]=$rep;}
 usort($out,function($a,$b){$score=function($x){$age=ageH($x['publishedAt']??$x['firstSeenAt']??null);$fresh=max(0,72-min($age,144)*.75);$ahead=((int)($x['jpCount']??0)===0&&(int)($x['foreignCount']??0)>=2)?18:0;return priority($x)+$fresh+$ahead+min(20,max(0,((int)($x['relatedCount']??1)-1)*6));};return $score($b)<=>$score($a);});
-$payload=['ok'=>true,'apiVersion'=>'2800','cached'=>false,'fetchedAt'=>date(DATE_ATOM),'items'=>array_slice($out,0,30),'count'=>count($out),'groupedCount'=>count($groups),'rawCount'=>count($items),'sourceHealth'=>$health];
+$payload=['ok'=>true,'apiVersion'=>'2801','cached'=>false,'fetchedAt'=>date(DATE_ATOM),'items'=>array_slice($out,0,30),'count'=>count($out),'groupedCount'=>count($groups),'rawCount'=>count($items),'sourceHealth'=>$health];
 $save=$pdo->prepare('INSERT INTO sanrio_trend_cache(cache_key,payload) VALUES(?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload),updated_at=CURRENT_TIMESTAMP');$save->execute(['trend',json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);respond($payload);
