@@ -9,6 +9,7 @@ test("話題から完成した投稿文と紹介リンクを自動生成し、�
     contentType: "application/json",
     body: JSON.stringify({
       ok: true,
+      apiVersion: "2811",
       items: [{
         sourceType: "news",
         source: "Google News JP",
@@ -52,6 +53,7 @@ test("古い話題からは投稿案を作らない", async ({ page }) => {
     contentType: "application/json",
     body: JSON.stringify({
       ok: true,
+      apiVersion: "2811",
       items: [{
         sourceType: "news",
         source: "Google News JP",
@@ -66,5 +68,5 @@ test("古い話題からは投稿案を作らない", async ({ page }) => {
 
   await page.goto("amazon-ready-3377.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".idea")).toHaveCount(0);
-  await expect(page.locator("#status")).toContainText("今回は候補を表示していません");
+  await expect(page.locator("#status")).toContainText("実物商品のAmazonリンク付き候補は見つかりませんでした");
 });
