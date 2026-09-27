@@ -75,9 +75,44 @@ try {
 } catch (Throwable $e) { respond(['ok'=>false,'error'=>'Database connection failed'],500); }
 
 $action = $_GET['action'] ?? 'ping';
+$pdo->exec("CREATE TABLE IF NOT EXISTS sanrio_affiliate_catalog(asin CHAR(10) NOT NULL PRIMARY KEY,payload LONGTEXT NOT NULL,updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+
+if ($action === 'catalog-pull') {
+    $rows=$pdo->query('SELECT payload FROM sanrio_affiliate_catalog ORDER BY updated_at DESC')->fetchAll();
+    $items=[];
+    foreach($rows as $row){$decoded=json_decode($row['payload'],true);if(is_array($decoded))$items[]=$decoded;}
+    respond(['ok'=>true,'apiVersion'=>'2581','items'=>$items,'count'=>count($items)]);
+}
+if ($action === 'catalog-push') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') respond(['ok'=>false,'error'=>'POST required'],405);
+    $body=readPayload();$items=$body['items']??null;
+    if(!is_array($items))respond(['ok'=>false,'error'=>'items array required','apiVersion'=>'2581'],400);
+    if(count($items)>200)respond(['ok'=>false,'error'=>'Maximum 200 products per request'],400);
+    $stmt=$pdo->prepare('INSERT INTO sanrio_affiliate_catalog (asin,payload) VALUES (:asin,:payload) ON DUPLICATE KEY UPDATE payload=VALUES(payload),updated_at=CURRENT_TIMESTAMP');
+    $pdo->beginTransaction();
+    try{
+        foreach($items as $item){
+            if(!is_array($item)||!preg_match('/^[A-Z0-9]{10}$/',(string)($item['asin']??'')))respond(['ok'=>false,'error'=>'Invalid ASIN','apiVersion'=>'2581'],400);
+            $asin=strtoupper((string)$item['asin']);$item['asin']=$asin;
+            $item['productUrl']='https://www.amazon.co.jp/dp/'.$asin;
+            $item['affiliateUrl']='https://www.amazon.co.jp/dp/'.$asin.'?tag=ononbrothers2-22';
+            $item['sources']=array_slice(is_array($item['sources']??null)?$item['sources']:[],0,20);
+            $payload=json_encode($item,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+            if(strlen($payload)>30000)respond(['ok'=>false,'error'=>'Product record exceeds 30 KB'],400);
+            $stmt->execute([':asin'=>$asin,':payload'=>$payload]);
+        }
+        $pdo->commit();
+    }catch(Throwable $e){
+        if($pdo->inTransaction())$pdo->rollBack();
+        respond(['ok'=>false,'error'=>'Catalog save failed','apiVersion'=>'2581'],500);
+    }
+    respond(['ok'=>true,'apiVersion'=>'2581','count'=>count($items)]);
+}
+
 
 if ($action === 'ping') {
-    respond(['ok'=>true,'apiVersion'=>'2580','serverTime'=>date('Y-m-d H:i:s')]);
+    respond(['ok'=>true,'apiVersion'=>'2581','serverTime'=>date('Y-m-d H:i:s')]);
 }
 
 if ($action === 'pull') {
@@ -87,14 +122,14 @@ if ($action === 'pull') {
         $decoded=json_decode($row['payload'],true);
         if(is_array($decoded))$items[]=$decoded;
     }
-    respond(['ok'=>true,'apiVersion'=>'2580','items'=>$items,'count'=>count($items)]);
+    respond(['ok'=>true,'apiVersion'=>'2581','items'=>$items,'count'=>count($items)]);
 }
 
 if ($action === 'delete') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') respond(['ok'=>false,'error'=>'POST required'],405);
     $body=readPayload();
     $ids=$body['ids'] ?? null;
-    if(!is_array($ids))respond(['ok'=>false,'error'=>'ids array required','apiVersion'=>'2580'],400);
+    if(!is_array($ids))respond(['ok'=>false,'error'=>'ids array required','apiVersion'=>'2581'],400);
     $deletedAt=(string)($body['deletedAt'] ?? gmdate('c'));
     $clientDate=date('Y-m-d H:i:s',strtotime($deletedAt) ?: time());
     $sql='INSERT INTO sanrio_post_sync (id, canonical_key, payload, client_updated_at)
@@ -116,14 +151,14 @@ if ($action === 'delete') {
         if($pdo->inTransaction())$pdo->rollBack();
         respond(['ok'=>false,'error'=>'Delete sync failed'],500);
     }
-    respond(['ok'=>true,'apiVersion'=>'2580','count'=>count($ids)]);
+    respond(['ok'=>true,'apiVersion'=>'2581','count'=>count($ids)]);
 }
 
 if ($action === 'push') {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') respond(['ok'=>false,'error'=>'POST required'],405);
     $body=readPayload();
     $items=$body['items'] ?? null;
-    if(!is_array($items))respond(['ok'=>false,'error'=>'items array required','detail'=>jsonErrorMessage(),'apiVersion'=>'2580'],400);
+    if(!is_array($items))respond(['ok'=>false,'error'=>'items array required','detail'=>jsonErrorMessage(),'apiVersion'=>'2581'],400);
     if(count($items)>200)respond(['ok'=>false,'error'=>'Maximum 200 items per request'],400);
 
     $sql='INSERT INTO sanrio_post_sync (id, canonical_key, payload, client_updated_at)
@@ -136,7 +171,7 @@ if ($action === 'push') {
     $pdo->beginTransaction();
     try{
         foreach($items as $itemIndex=>$item){
-            if(!is_array($item)||empty($item['id']))respond(['ok'=>false,'error'=>'Invalid item: id is required','itemIndex'=>$itemIndex,'apiVersion'=>'2580'],400);
+            if(!is_array($item)||empty($item['id']))respond(['ok'=>false,'error'=>'Invalid item: id is required','itemIndex'=>$itemIndex,'apiVersion'=>'2581'],400);
             $images=safeMediaUrls($item['images'] ?? []);
             if(empty($images) && !empty($item['image']) && is_string($item['image']) && preg_match('~^https?://~i',$item['image']))$images[]=$item['image'];
             $item['images']=$images;
@@ -157,9 +192,9 @@ if ($action === 'push') {
         $pdo->commit();
     }catch(Throwable $e){
         if($pdo->inTransaction())$pdo->rollBack();
-        respond(['ok'=>false,'error'=>'Save failed','detail'=>$e->getMessage(),'apiVersion'=>'2580'],500);
+        respond(['ok'=>false,'error'=>'Save failed','detail'=>$e->getMessage(),'apiVersion'=>'2581'],500);
     }
-    respond(['ok'=>true,'apiVersion'=>'2580','count'=>count($items)]);
+    respond(['ok'=>true,'apiVersion'=>'2581','count'=>count($items)]);
 }
 
 respond(['ok'=>false,'error'=>'Unknown action'],404);
