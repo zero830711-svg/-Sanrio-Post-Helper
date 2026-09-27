@@ -286,7 +286,7 @@ function localArchivePosts(){
 function dayKey(){return new Date().toLocaleDateString("sv-SE")}
 function isCooling(row){var t=Date.parse(row.lastCopiedAt||"");return Number.isFinite(t)&&(Date.now()-t)<USED_DAYS*86400000}
 function dailyRows(){
- var rows=readCatalog().filter(function(x){return x.affiliateUrl&&x.title&&!isCooling(x)}),key=dayKey(),daily;
+ var rows=readCatalog().filter(function(x){return x.affiliateUrl&&x.title&&!isCooling(x)&&oldPostFeature(x)}),key=dayKey(),daily;
  try{daily=JSON.parse(localStorage.getItem(DAILY_KEY)||"{}")}catch(e){daily={}}
  var byKey=new Map(rows.map(function(x){return [productKey(x),x]})),byAsin=new Map(rows.filter(function(x){return x.asin}).map(function(x){return [String(x.asin).toUpperCase(),productKey(x)]}));
  if(daily.date!==key)daily={date:key,asins:[],seen:[]};
@@ -305,21 +305,31 @@ function oldPostFeature(row){
  var sources=(row.sources||[]).slice().sort(function(a,b){return String(b.date||"").localeCompare(String(a.date||""))});
  for(var i=0;i<sources.length;i++){
   var t=clean(sources[i].text).replace(/https?:\/\/\S+/g," ").replace(/#[\p{L}\p{N}_]+/gu," ").replace(/\s+/g," ").trim();
-  t=t.replace(/(?:Amazon|楽天|購入はこちら|チェックはこちら).*$/i,"").trim();
-  if(t.length>=18&&!/(?:20\d{2}年|20\d{2}\/\d|発売日|開催期間|予約受付|在庫あり)/.test(t))return t.slice(0,115)+(t.length>115?"…":"");
+  t=t.replace(/(?:Amazon|アマゾン|楽天)(?:の商品ページ|リンク)?はこちら(?:から)?[^。！？]*/gi," ");
+  t=t.replace(/(?:商品ページはこちら|詳しくはこちら|チェックはこちら|購入はこちら|こちらから購入(?:できます|可能です)?|Amazonで(?:商品を)?(?:チェック|詳細を見る))[^。！？]*/gi," ");
+  t=t.replace(/[🙋‍♀️🙋‍♂️👇👉🎀♡♥️]+/gu," ").replace(/\s+/g," ").trim();
+  var parts=t.split(/[。！？]/).map(function(x){return x.trim()}).filter(function(x){
+   return x.length>=18&&!/(?:Amazon|アマゾン|楽天|こちら|購入|リンク|商品ページ|20\d{2}年|20\d{2}\/\d|発売日|開催期間|予約受付|在庫あり|#pr)/i.test(x);
+  });
+  if(parts.length)return parts.slice(0,2).join("。").slice(0,150)+(parts.join("。").length>150?"…":"");
  }
  return "";
 }
 function libraryDraft(row){
- var feature=oldPostFeature(row)||clean(row.title);
- return "サンリオ好きさんに見てほしいアイテム🎀\n"+feature+"\nAmazonの商品ページはこちら👇\n"+row.affiliateUrl+"\n#サンリオ #PR";
+ var feature=oldPostFeature(row);
+ if(!feature)return "";
+ return feature+"\n気になる方はAmazonの商品ページで詳細をチェック👇\n"+row.affiliateUrl+"\n#サンリオ #pr";
 }
+
 function renderLibrary(){
- var rows=readCatalog(),today=dailyRows();libraryStatus.textContent="登録 "+rows.length+"商品 ・ 今日の候補 "+today.length+"件（コピー済み商品は30日休止）";
- if(!today.length){libraryNode.innerHTML='<div class="library-empty">まだ商品がないか、最近の候補をすべて使っています。「過去投稿を取り込む」でアーカイブから商品を集めてください。</div>';return}
+ var rows=readCatalog(),today=dailyRows();libraryStatus.textContent="登録 "+rows.length+"商品 ・ 投稿内容を確認できる今日の候補 "+today.length+"件（コピー済み商品は30日休止）";
+ if(!today.length){
+  var message=rows.length?"商品リンクはありますが、紹介内容が読み取れる投稿がありません。リンクだけの投稿は内容を確認できないため、候補から外しています。":"まだ商品がありません。「過去投稿を取り込む」でアーカイブから商品を集めてください。";
+  libraryNode.innerHTML='<div class="library-empty">'+esc(message)+'</div>';return;
+ }
  libraryNode.innerHTML=today.map(function(row){
   var src=(row.sources||[]).find(function(x){return x.url}),post=libraryDraft(row),key=productKey(row),badge=row.asin?"ASIN "+row.asin:"Amazon短縮リンク";
-  return '<article class="library-item" data-key="'+esc(key)+'"><div class="idea-head"><span class="tag">過去投稿リンク</span><span class="tag">'+esc(badge)+'</span></div><h3>元投稿の紹介内容（商品名はリンク先で確認）</h3><div class="preview">'+esc(row.title)+'</div><div class="post-label">投稿文のプレビュー</div><div class="preview">'+esc(post)+'</div><p class="meta">'+((row.sources||[]).length)+'件の投稿リンクを統合</p><div class="library-actions"><a class="secondary" style="margin:0;padding:11px 5px" href="'+esc(row.affiliateUrl)+'" target="_blank" rel="noopener noreferrer">Amazonで確認 ↗</a><button class="copy" type="button">投稿文をコピーして次へ</button></div>'+(src&&src.url?'<details class="source"><summary>元投稿を見る</summary><a href="'+esc(src.url)+'" target="_blank" rel="noopener noreferrer">アーカイブ投稿を開く</a></details>':'')+'</article>';
+  return '<article class="library-item" data-key="'+esc(key)+'"><div class="idea-head"><span class="tag">過去投稿リンク</span><span class="tag">'+esc(badge)+'</span></div><h3>元投稿の商品紹介</h3><div class="preview">'+esc(oldPostFeature(row))+'</div><div class="post-label">投稿文のプレビュー</div><div class="preview">'+esc(post)+'</div><p class="meta">'+((row.sources||[]).length)+'件の投稿リンクを統合</p><div class="library-actions"><a class="secondary" style="margin:0;padding:11px 5px" href="'+esc(row.affiliateUrl)+'" target="_blank" rel="noopener noreferrer">Amazonで確認 ↗</a><button class="copy" type="button">投稿文をコピーして次へ</button></div>'+(src&&src.url?'<details class="source"><summary>元投稿を見る</summary><a href="'+esc(src.url)+'" target="_blank" rel="noopener noreferrer">アーカイブ投稿を開く</a></details>':'')+'</article>';
  }).join("");
  libraryNode.querySelectorAll(".library-item").forEach(function(card){
   var row=readCatalog().find(function(x){return productKey(x)===card.dataset.key}),button=card.querySelector("button.copy");
