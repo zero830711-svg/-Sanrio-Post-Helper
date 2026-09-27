@@ -27,7 +27,7 @@ set_exception_handler(static function(Throwable $e): void {
 });
 function token():string{$h=$_SERVER['HTTP_AUTHORIZATION']??'';return preg_match('/^Bearer\s+(.+)$/i',$h,$m)?trim($m[1]):'';}
 function fetchUrl(string $url,int $timeout=10,?array &$meta=null):string{
- $ctx=stream_context_create(['http'=>['timeout'=>$timeout,'user_agent'=>'SanrioPostHelper/2814','header'=>"Accept: application/json, application/rss+xml, application/xml, text/xml, text/html\r\n"]]);
+ $ctx=stream_context_create(['http'=>['timeout'=>$timeout,'user_agent'=>'SanrioPostHelper/2815','header'=>"Accept: application/json, application/rss+xml, application/xml, text/xml, text/html\r\n"]]);
  $b=@file_get_contents($url,false,$ctx);$headers=$http_response_header??[];$status=0;
  foreach($headers as $h){if(preg_match('~^HTTP/\\S+\\s+(\\d{3})~i',$h,$m))$status=(int)$m[1];}
  if($meta!==null)$meta=['status'=>$status,'bytes'=>$b===false?0:strlen($b)];
@@ -106,6 +106,56 @@ function amazonProductCards(string $html,int &$shortResolved):array{
  }
  return $out;
 }
+
+function googleNewsArticleId(string $url):string{
+ $host=strtolower((string)parse_url($url,PHP_URL_HOST));$path=trim((string)parse_url($url,PHP_URL_PATH),'/');
+ if($host!=='news.google.com')return '';
+ if(preg_match('~^(?:rss/)?(?:articles|read)/([^/]+)$~',$path,$m))return rawurldecode($m[1]);
+ return '';
+}
+function googleNewsSignature(string $html):array{
+ if(preg_match('/data-n-a-sg="([^"]+)"/',$html,$sm)&&preg_match('/data-n-a-ts="([^"]+)"/',$html,$tm))return ['signature'=>$sm[1],'timestamp'=>$tm[1]];
+ return [];
+}
+function postUrl(string $url,string $body,int $timeout,?array &$meta=null):string{
+ $ctx=stream_context_create(['http'=>['method'=>'POST','timeout'=>$timeout,'ignore_errors'=>true,'user_agent'=>'Mozilla/5.0 SanrioPostHelper/2815','header'=>"Content-Type: application/x-www-form-urlencoded;charset=UTF-8\r\nAccept: */*\r\n",'content'=>$body]]);
+ $b=@file_get_contents($url,false,$ctx);$headers=$http_response_header??[];$status=0;
+ foreach($headers as $h){if(preg_match('~^HTTP/\S+\s+(\d{3})~i',$h,$m))$status=(int)$m[1];}
+ if($meta!==null)$meta=['status'=>$status,'bytes'=>$b===false?0:strlen($b)];
+ return $b===false?'':$b;
+}
+function decodeGoogleNewsBatch(array $pending,array &$diag):array{
+ if(!$pending)return [];
+ $context=[["X","X",["X","X"],null,null,1,1,"JP:ja",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0];
+ $requests=[];$ids=[];
+ foreach($pending as $itemIndex=>$entry){
+  $inner=["garturlreq",$context,$entry['id'],ctype_digit((string)$entry['timestamp'])?(int)$entry['timestamp']:$entry['timestamp'],$entry['signature']];
+  $encoded=json_encode($inner,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);if($encoded===false)continue;
+  $requestId=(string)$itemIndex;$requests[]=["Fbv4je",$encoded,null,$requestId];$ids[]=(int)$itemIndex;
+ }
+ if(!$requests)return [];
+ $json=json_encode([$requests],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);if($json===false)return [];
+ $meta=[];$response=postUrl('https://news.google.com/_/DotsSplashUi/data/batchexecute','f.req='.rawurlencode($json),8,$meta);
+ $status=(string)($meta['status']??0);$diag['httpStatuses'][$status]=($diag['httpStatuses'][$status]??0)+1;
+ if($response==='')return [];
+ $body=ltrim($response);$sep=strpos($body,"\n\n");if($sep!==false&&$sep<12)$body=ltrim(substr($body,$sep+2));
+ if(str_starts_with($body,")]}'")){$nl=strpos($body,"\n");$body=$nl===false?substr($body,4):substr($body,$nl+1);$body=ltrim($body);}
+ $data=json_decode($body,true);
+ if(!is_array($data)&&preg_match('/^\d+\s*\n(.*)$/s',$body,$m))$data=json_decode(ltrim($m[1]),true);
+ if(!is_array($data))return [];
+ $byId=[];$ordered=[];
+ foreach($data as $row){
+  if(!is_array($row)||!isset($row[2])||(($row[0]??'')!=='wrb.fr'&&($row[1]??'')!=='Fbv4je'))continue;
+  $payload=is_string($row[2])?json_decode($row[2],true):$row[2];
+  if(!is_array($payload)||($payload[0]??'')!=='garturlres'||!is_string($payload[1]??null))continue;
+  $rid=null;foreach(array_slice($row,3) as $cell)if($cell!==null){$rid=(string)$cell;break;}
+  if($rid!==null)$byId[$rid]=$payload[1];$ordered[]=$payload[1];
+ }
+ $out=[];$offset=0;
+ foreach($ids as $itemIndex){$url=$byId[(string)$itemIndex]??($ordered[$offset]??'');$offset++;if(is_string($url)&&preg_match('~^https://~i',$url)&&strtolower((string)parse_url($url,PHP_URL_HOST))!=='news.google.com')$out[$itemIndex]=$url;}
+ $diag['googleUrlsResolved']=count($out);return $out;
+}
+
 function trustedNewsArticleUrl(string $url):bool{
  $p=parse_url($url);$scheme=strtolower((string)($p['scheme']??''));$host=strtolower((string)($p['host']??''));
  if($scheme!=='https'||$host===''||preg_match('/(^|\\.)(localhost|local|internal)$/i',$host))return false;
@@ -128,18 +178,44 @@ function getArticleAmazonProducts(string $url,int &$shortResolved,array &$diag):
 function prioritizeLinkedArticleProducts(array &$items,array &$health):void{
  $order=array_keys($items);
  usort($order,function($a,$b)use($items){$pa=priority($items[$a]);$pb=priority($items[$b]);if($pa!==$pb)return $pb<=>$pa;return ageH($items[$a]['publishedAt']??null)<=>ageH($items[$b]['publishedAt']??null);});
- $checked=0;$found=0;$checkedUrls=[];$shortResolved=0;$scanStarted=microtime(true);$directPublisherChecked=0;$diag=['attempted'=>0,'fetched'=>0,'emptyResponses'=>0,'htmlBytes'=>0,'amazonPdpAnchors'=>0,'httpStatuses'=>[]];
+ $checked=0;$found=0;$checkedUrls=[];$shortResolved=0;$scanStarted=microtime(true);$directPublisherChecked=0;
+ $diag=['attempted'=>0,'fetched'=>0,'emptyResponses'=>0,'htmlBytes'=>0,'amazonPdpAnchors'=>0,'httpStatuses'=>[],'googleUrlsAttempted'=>0,'googleUrlsResolved'=>0];$googlePending=[];
  foreach($order as $i){
-  if($checked>=24||(microtime(true)-$scanStarted)>=22)break;
+  if($checked>=24||(microtime(true)-$scanStarted)>=20)break;
   if(($items[$i]['sourceType']??'')!=='news'||!empty($items[$i]['amazonProducts']))continue;
   if(ageH($items[$i]['publishedAt']??null)>8760)continue;
   $url=(string)($items[$i]['url']??'');
   if(!trustedNewsArticleUrl($url)||isset($checkedUrls[$url]))continue;
   if(!preg_match('/sanrio|hello kitty|kuromi|my melody|cinnamoroll|pompompurin|pochacco|サンリオ|ハローキティ|キティ|クロミ|マイメロ|シナモ|プリン|ポチャッコ|こぎみゅん|ウサハナ|タキシードサム|ハンギョドン|ペックル/iu',(string)($items[$i]['title']??'')))continue;
-  $checkedUrls[$url]=true;$checked++;if(isAllAboutHost((string)parse_url($url,PHP_URL_HOST)))$directPublisherChecked++;$products=getArticleAmazonProducts($url,$shortResolved,$diag);
+  $host=strtolower((string)parse_url($url,PHP_URL_HOST));$checkedUrls[$url]=true;$checked++;
+  if(in_array($host,['news.google.com','news.googleusercontent.com'],true)){
+   if(count($googlePending)>=12)continue;
+   $articleId=googleNewsArticleId($url);if($articleId==='')continue;
+   $diag['googleUrlsAttempted']++;$meta=[];$diag['attempted']++;$html=fetchUrl($url,2,$meta);
+   $status=(string)($meta['status']??0);$diag['httpStatuses'][$status]=($diag['httpStatuses'][$status]??0)+1;
+   if($html===''){$diag['emptyResponses']++;continue;}
+   $diag['fetched']++;$diag['htmlBytes']+=strlen($html);$sig=googleNewsSignature($html);
+   if(!$sig){
+    $sigUrl='https://news.google.com/rss/articles/'.rawurlencode($articleId).'?hl=ja&gl=JP&ceid=JP%3Aja';
+    $meta=[];$diag['attempted']++;$html=fetchUrl($sigUrl,2,$meta);$status=(string)($meta['status']??0);$diag['httpStatuses'][$status]=($diag['httpStatuses'][$status]??0)+1;
+    if($html===''){$diag['emptyResponses']++;continue;}
+    $diag['fetched']++;$diag['htmlBytes']+=strlen($html);$sig=googleNewsSignature($html);
+   }
+   if($sig)$googlePending[$i]=['id'=>$articleId,'signature'=>$sig['signature'],'timestamp'=>$sig['timestamp']];
+   continue;
+  }
+  $directPublisherChecked++;$products=getArticleAmazonProducts($url,$shortResolved,$diag);
   if($products){$items[$i]['amazonProducts']=$products;$items[$i]['hasAmazonProductLinks']=true;$found+=count($products);}
  }
- $health[]=['label'=>'記事内Amazon商品リンク検索','ok'=>$found>0,'checkedArticles'=>$checked,'directPublisherChecked'=>$directPublisherChecked,'htmlFetched'=>$diag['fetched'],'emptyResponses'=>$diag['emptyResponses'],'htmlBytes'=>$diag['htmlBytes'],'amazonPdpAnchors'=>$diag['amazonPdpAnchors'],'httpStatuses'=>$diag['httpStatuses'],'productsFound'=>$found,'shortLinksResolved'=>$shortResolved];
+ $resolved=decodeGoogleNewsBatch($googlePending,$diag);
+ foreach($resolved as $i=>$articleUrl){
+  if((microtime(true)-$scanStarted)>=38)break;
+  if(!trustedNewsArticleUrl($articleUrl))continue;
+  $items[$i]['googleNewsUrl']=$items[$i]['url'];$items[$i]['url']=$articleUrl;$items[$i]['resolvedFromGoogleNews']=true;
+  $directPublisherChecked++;$products=getArticleAmazonProducts($articleUrl,$shortResolved,$diag);
+  if($products){$items[$i]['amazonProducts']=$products;$items[$i]['hasAmazonProductLinks']=true;$found+=count($products);}
+ }
+ $health[]=['label'=>'記事内Amazon商品リンク検索','ok'=>$found>0,'checkedArticles'=>$checked,'directPublisherChecked'=>$directPublisherChecked,'htmlFetched'=>$diag['fetched'],'emptyResponses'=>$diag['emptyResponses'],'htmlBytes'=>$diag['htmlBytes'],'amazonPdpAnchors'=>$diag['amazonPdpAnchors'],'httpStatuses'=>$diag['httpStatuses'],'googleUrlsAttempted'=>$diag['googleUrlsAttempted'],'googleUrlsResolved'=>$diag['googleUrlsResolved'],'productsFound'=>$found,'shortLinksResolved'=>$shortResolved];
 }
 function amazonAsinFromProductUrl(string $url):string{
  $u=parse_url($url);$host=strtolower((string)($u['host']??''));$path=(string)($u['path']??'');
@@ -149,7 +225,7 @@ function amazonAsinFromProductUrl(string $url):string{
 }
 function resolveAmznShortAsin(string $url):string{
  $host=strtolower((string)parse_url($url,PHP_URL_HOST));if(!in_array($host,['amzn.to','www.amzn.to'],true))return '';
- $ctx=stream_context_create(['http'=>['method'=>'GET','timeout'=>2,'follow_location'=>0,'ignore_errors'=>true,'user_agent'=>'Mozilla/5.0 SanrioPostHelper/2814','header'=>"Accept: text/html\r\n"]]);
+ $ctx=stream_context_create(['http'=>['method'=>'GET','timeout'=>2,'follow_location'=>0,'ignore_errors'=>true,'user_agent'=>'Mozilla/5.0 SanrioPostHelper/2815','header'=>"Accept: text/html\r\n"]]);
  @file_get_contents($url,false,$ctx);$headers=$http_response_header??[];
  foreach($headers as $h){if(preg_match('/^Location:\\s*(https?:\\/\\/\\S+)/i',$h,$m)){$asin=amazonAsinFromProductUrl($m[1]);if($asin!=='')return $asin;}}
  return '';
@@ -254,7 +330,7 @@ if(($_GET['action']??'')==='state'){
 }
 
 $force=isset($_GET['refresh'])&&$_GET['refresh']==='1';$s=$pdo->prepare('SELECT payload,updated_at FROM sanrio_trend_cache WHERE cache_key=?');$s->execute(['trend']);$cached=$s->fetch();
-if(!$force&&$cached&&(time()-strtotime((string)$cached['updated_at']))<1200){$p=json_decode((string)$cached['payload'],true);if(is_array($p)&&($p['apiVersion']??'')==='2814'){$p['ok']=true;$p['cached']=true;respond($p);}}
+if(!$force&&$cached&&(time()-strtotime((string)$cached['updated_at']))<1200){$p=json_decode((string)$cached['payload'],true);if(is_array($p)&&($p['apiVersion']??'')==='2815'){$p['ok']=true;$p['cached']=true;respond($p);}}
 
 $items=[];$seen=[];$health=[];
 
@@ -291,5 +367,5 @@ $groups=array_map(fn($x)=>['representative'=>$x,'items'=>[$x]],$items);$out=[];$
 foreach($groups as $g){$rep=$g['representative'];$key=substr(hash('sha256',implode('|',words((string)$rep['title']))),0,40);$seenQ->execute([$key]);$r=$seenQ->fetch();$first=$r?(string)$r['first_seen_at']:date('Y-m-d H:i:s');$seenUp->execute([$key]);$stateQ->execute([$key]);$sr=$stateQ->fetch();
  $regions=array_map(fn($x)=>(string)($x['region']??''),$g['items']);$rep['topicKey']=$key;$rep['firstSeenAt']=date(DATE_ATOM,strtotime($first));$rep['isNew']=(time()-strtotime($first))<86400;$rep['relatedCount']=count($g['items']);$rep['relatedSources']=array_values(array_unique(array_map(fn($x)=>(string)($x['source']??''),$g['items'])));$rep['relatedItems']=array_map(fn($x)=>['source'=>$x['source']??'','url'=>$x['url']??'','region'=>$x['region']??''],array_slice($g['items'],0,8));$rep['jpCount']=count(array_filter($regions,fn($r)=>$r==='JP'));$rep['foreignCount']=count(array_filter($regions,fn($r)=>$r!==''&&$r!=='JP'));$rep['userState']=$sr?(string)$sr['state']:'';$out[]=$rep;}
 usort($out,function($a,$b){$score=function($x){$age=ageH($x['publishedAt']??$x['firstSeenAt']??null);$fresh=max(0,72-min($age,144)*.75);$ahead=((int)($x['jpCount']??0)===0&&(int)($x['foreignCount']??0)>=2)?18:0;return priority($x)+$fresh+$ahead+min(20,max(0,((int)($x['relatedCount']??1)-1)*6));};return $score($b)<=>$score($a);});
-$payload=['ok'=>true,'apiVersion'=>'2814','cached'=>false,'fetchedAt'=>date(DATE_ATOM),'items'=>array_slice($out,0,80),'count'=>count($out),'groupedCount'=>count($groups),'rawCount'=>count($items),'sourceHealth'=>$health];
+$payload=['ok'=>true,'apiVersion'=>'2815','cached'=>false,'fetchedAt'=>date(DATE_ATOM),'items'=>array_slice($out,0,80),'count'=>count($out),'groupedCount'=>count($groups),'rawCount'=>count($items),'sourceHealth'=>$health];
 $save=$pdo->prepare('INSERT INTO sanrio_trend_cache(cache_key,payload) VALUES(?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload),updated_at=CURRENT_TIMESTAMP');$save->execute(['trend',json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);respond($payload);
