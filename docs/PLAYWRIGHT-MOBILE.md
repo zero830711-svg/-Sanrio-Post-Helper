@@ -1,17 +1,27 @@
-# iPhoneからPlaywrightテストを実行する
+# iPhoneからPlaywrightテストを確認する
 
-Playwright本体はiPhoneにはインストールせず、GitHub ActionsのLinux環境で実行します。iPhoneからは実行開始と結果確認ができます。
+PlaywrightはGitHub Actions上で実行します。iPhoneにはインストール不要です。
 
-## 実行方法
+## 自動実行
+
+mainブランチへの対象ファイルの更新時と、main向けPull Requestで自動実行されます。テストはGitHub Pagesの反映待ちをせず、その更新内容をiPhone 13相当の画面サイズで確認します。
+
+## iPhoneから手動実行
 
 1. GitHubでこのリポジトリを開きます。
 2. **Actions** → **Playwright mobile smoke tests** を開きます。
-3. **Run workflow** → ブランチが **main** であることを確認 → **Run workflow** を押します。
-4. 実行行が緑のチェックになったら成功です。赤い×なら実行行を開き、`Test the live GitHub Pages site` のログを確認します。
-5. 実行行の **Artifacts** から `playwright-mobile-report` をダウンロードすると、失敗時のスクリーンショット・動画・トレースを確認できます。
+3. **Run workflow** → ブランチ **main** を選択 → **Run workflow** を押します。
 
-iPhoneのSafariから直接開く場合は、次のURLを使えます。
+iPhoneのSafariから直接開く場合：
 
 https://github.com/zero830711-svg/-Sanrio-Post-Helper/actions/workflows/playwright.yml
 
-GitHub ActionsではiPhone 13相当の画面サイズで、Amazon商品候補ページの表示、検索例ボタン、候補保存、アフィリエイトID付きリンク生成を確認します。テスト専用のブラウザー領域を使うため、保存データは本番ユーザーの端末には残りません。Xへの実投稿操作は行いません。
+実行が緑のチェックなら成功です。失敗時は実行行を開いてログを確認してください。Artifactsに playwright-mobile-report があれば、スクリーンショット・動画・トレースも確認できます。
+
+## 確認内容
+
+- トップ画面からAmazon商品候補ページを開ける
+- iPhone幅でページ表示、検索例ボタン、横スクロールの有無
+- 商品候補の保存とアフィリエイトID付きリンク生成
+
+テスト用のブラウザー領域を使うため、テストデータはユーザーの端末には保存されません。Xへの実投稿操作は行いません。
