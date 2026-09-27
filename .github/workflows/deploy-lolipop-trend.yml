@@ -28,6 +28,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Check PHP syntax
+        run: php -l server/lolipop/trend.php
+
       - name: Deploy only trend.php over FTPS
         shell: bash
         run: |
