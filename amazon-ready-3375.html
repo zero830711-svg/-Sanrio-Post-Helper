@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fff7fb">
+<title>商品リンク付きサンリオ投稿案 | Sanrio Post Helper</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#302832;background:#fff7fb;--pink:#e58caf;--line:#eadfe5;--muted:#817780}
+*{box-sizing:border-box}body{margin:0;padding:16px 12px calc(28px + env(safe-area-inset-bottom))}
+main{max-width:680px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 14px}
+a{color:#8c4964}.top a{text-decoration:none;font-weight:800}.tag{display:inline-block;background:#f6edf2;border-radius:999px;padding:5px 9px;font-size:12px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 3px 12px #32202a0a}
+h1{font-size:24px;line-height:1.3;margin:0 0 8px}h2{font-size:16px;margin:0 0 8px}
+p{margin:0}.intro{font-size:14px;line-height:1.65;color:var(--muted)}
+.status{padding:12px;border-radius:12px;background:#fff;color:var(--muted);font-size:14px;line-height:1.6}
+.status.error{background:#fff1f1;color:#8e3535}.status.empty{background:#fff5dd;color:#745019}
+.list{display:grid;gap:12px;margin-top:12px}.idea{border:1px solid var(--line);border-radius:15px;padding:14px;background:#fff}
+.idea-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px}
+.idea-title{font-size:16px;line-height:1.55;font-weight:800;overflow-wrap:anywhere;margin:0 0 10px}
+.meta{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+.preview{white-space:pre-wrap;overflow-wrap:anywhere;border-radius:12px;background:#fcf8fa;padding:12px;font-size:14px;line-height:1.7}
+.url-note{font-size:12px;color:var(--muted);margin-top:8px}
+.full-post{margin-top:8px;font-size:12px}.full-post summary,.more summary{cursor:pointer;color:#8c4964;font-weight:700;padding:8px 0}
+.full-post .preview{font-size:12px}
+.primary,.secondary{width:100%;border:0;border-radius:13px;padding:14px;margin-top:10px;font:inherit;font-weight:800;cursor:pointer}
+.primary{background:#302832;color:#fff}.primary.done{background:#31704b}.primary:disabled{background:#b9b2b7;cursor:not-allowed}.product-hit{margin-top:10px;padding:11px;border-radius:11px;background:#f5eef2;font-size:13px;line-height:1.55}.product-hit strong{display:block;margin-bottom:4px}.verify{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fffdfd}.verify label{display:block;font-size:13px;font-weight:700;margin:10px 0 5px}.verify input[type="text"],.verify input[type="url"]{width:100%;font:inherit;font-size:16px;padding:11px;border:1px solid #cbbec6;border-radius:9px}.verify .check{display:flex;gap:9px;align-items:flex-start;font-weight:500;line-height:1.5}.verify .check input{width:20px;height:20px;flex:none;margin:0}.verify .hint{font-size:12px;color:#815268;line-height:1.5;margin-top:8px}
+.secondary{display:block;text-align:center;text-decoration:none;background:#fff;border:1px solid var(--line);color:#302832}
+.source{margin-top:9px;font-size:12px}.source summary{cursor:pointer;color:#8c4964;font-weight:700}
+.source a{display:block;margin-top:8px;overflow-wrap:anywhere}
+.foot{font-size:11px;line-height:1.6;color:var(--muted);padding:4px}
+.refresh{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 11px;font-weight:700}
+.more{background:#fff;border:1px solid var(--line);border-radius:15px;padding:0 14px}
+.more summary{padding:14px 0}.more .idea{margin-bottom:14px}
+@media(min-width:600px){body{padding:24px}.card{padding:20px}}
+ .post-label{font-size:12px;font-weight:800;color:#8c4964;margin:12px 0 5px}.post-preview{font-size:14px;min-height:104px}
+</style>
+</head>
+<body>
+<main>
+<nav class="top"><a href="./index.html?v=20260927-3368">← Sanrio Post Helper</a><button id="refresh" class="refresh" type="button">更新</button></nav>
+<header class="card">
+<h1>今日のサンリオ投稿案</h1>
+<p class="intro">直近90日以内の記事から、実際の商品に直接つながるAmazonリンク付き候補を表示します。直近30日を先に表示します。</p>
+</header>
+<div id="status" class="status" role="status" aria-live="polite">新しい話題を確認しています…</div>
+<section id="ideas" class="list" aria-label="要照合のニュース候補"></section>
+<p class="foot">直近90日以内のサンリオ商品紹介記事から、記事内にAmazon商品リンクがある候補だけを表示します。直近30日を優先し、31〜90日前の記事も追加します。投稿文は記事の説明に沿って作成します。Amazonの商品ページで在庫・価格は自動確認しません。</p>
+</main>
+<script>
+(function(){
+"use strict";
+var API_DEFAULT="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php";
+var KEY_NAME="sanrioCloudSyncKey";
+var URL_NAME="sanrioCloudApiUrl";
+var TAG_NAME="sphAmazonAssociateTagV1";
+var DEFAULT_TAG="ononbrothers2-22";
+var statusNode=document.getElementById("status");
+var listNode=document.getElementById("ideas");
+function clean(value){return String(value||"").trim()}
+function setStatus(message,type){statusNode.className="status"+(type?" "+type:"");statusNode.textContent=message}
+function getApiUrl(){
+ var value=localStorage.getItem(URL_NAME)||API_DEFAULT;
+ return value.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/trend.php");
+}
+function removeSourceSuffix(title,source){
+ if(!source)return title;
+ var suffixes=[" ("+source+")","（"+source+"）"," - "+source," – "+source," | "+source," ｜ "+source];
+ for(var i=0;i<suffixes.length;i++){
+  var suffix=suffixes[i];
+  if(title.toLowerCase().slice(-suffix.length)===suffix.toLowerCase())return title.slice(0,-suffix.length).trim();
+ }
+ return title;
+}
+function cleanTitle(item){
+ var title=clean(item.title).replace(/\s+/g," ");
+ title=removeSourceSuffix(title,clean(item.source));
+ title=title.replace(/\s*[-–|｜]\s*(Yahoo!ニュース|マイナビニュース|アニメ！アニメ！|ORICON NEWS|ファミ通\.com|ねとらぼ|J-CASTニュース)\s*$/i,"");
+ title=title.replace(/\s*[（(]\s*(アニメ！アニメ！|Yahoo!ニュース|マイナビニュース|ORICON NEWS|ファミ通\.com|ねとらぼ|J-CASTニュース)\s*[）)]\s*$/i,"");
+ return title.replace(/\s+/g," ").trim();
+}
+function shortTitle(item){
+ var title=cleanTitle(item).replace(/^【[^】]{1,16}】\s*/,"").trim();
+ if(title.length<=48)return title;
+ var head=title.slice(0,48);
+ var boundary=Math.max(head.lastIndexOf(" "),head.lastIndexOf("　"),head.lastIndexOf("♪"),head.lastIndexOf("！"),head.lastIndexOf("!"),head.lastIndexOf("☆"),head.lastIndexOf("】"),head.lastIndexOf("」"),head.lastIndexOf("。"),head.lastIndexOf("、"));
+ if(boundary<20)return title;
+ var mark=head.charAt(boundary);
+ return head.slice(0,boundary+(mark===" "||mark==="　"?0:1)).trim();
+}
+function directProductUrl(value,tag){
+ try{
+  var u=new URL(clean(value));
+  if(u.protocol!=="https:"||!["amazon.co.jp","www.amazon.co.jp","m.amazon.co.jp"].includes(u.hostname.toLowerCase()))return "";
+  var parts=u.pathname.split("/").filter(Boolean);
+  var asin="";
+  if(parts[0]==="dp"&&parts[1])asin=parts[1];
+  if(parts[0]==="gp"&&parts[1]==="product"&&parts[2])asin=parts[2];
+  if(parts[0]==="gp"&&parts[1]==="aw"&&parts[2]==="d"&&parts[3])asin=parts[3];
+  if(!/^[A-Z0-9]{10}$/i.test(asin))return "";
+  return "https://www.amazon.co.jp/dp/"+asin.toUpperCase()+"?tag="+encodeURIComponent(tag);
+ }catch(error){return ""}
+}
+function ageDays(item){
+ if(!item.publishedAt)return Infinity;
+ var time=Date.parse(item.publishedAt),age=Date.now()-time;
+ return Number.isFinite(time)&&age>=0?age/(24*60*60*1000):Infinity;
+}
+function isRecent(item){return ageDays(item)<=90}
+function shortProductName(value){
+ var name=clean(value).replace(/\s+/g," ");
+ if(name.length<=52)return name;
+ var cut=name.slice(0,49),at=Math.max(cut.lastIndexOf(" "),cut.lastIndexOf("　"),cut.lastIndexOf("、"),cut.lastIndexOf("（"));
+ return (at>=20?cut.slice(0,at):cut)+"…";
+}
+function postFeature(value){
+ var text=clean(value).replace(/\s+/g," ");
+ if(!text)return "";
+ var sentences=text.split(/[。！？]/).map(function(s){return s.trim()}).filter(function(s){return s.length>=14&&!/(20\d{2}年|\d{1,2}月\d{1,2}日|税込|\d[,.]?\d{2,}円|発売|販売|在庫|予約|品切|受付|価格|クーポン)/.test(s)});
+ return sentences.length?sentences[0].slice(0,64)+(sentences[0].length>64?"…":""):"";
+}
+function makePost(article,product,url){
+ var title=cleanTitle(article),hook=title.split(/[、。！!？?:：]/)[0].replace(/^【[^】]*】\s*/,"").trim();
+ if(hook.length>40)hook=hook.slice(0,38)+"…";
+ var name=shortProductName(product.title),feature=postFeature(product.feature);
+ var first=hook?hook+"が気になる🎀":"サンリオの気になる商品を見つけた🎀";
+ var second=feature?feature:"紹介されていた「"+name+"」はこちら";
+ return first+"\n"+second+"\nAmazonで詳細をチェック👇\n"+url+"\n#サンリオ #pr";
+}
+function isProductTopic(item){
+ return /グッズ|新商品|新作|ぬい|発売|コラボ|ガチャ|一番くじ|限定|ポップアップ|商品|雑貨|くじ|予約|再販|販売|collection|plush|collab|new product|new release|limited|merch|launch|restock|blind box/i.test(clean(item.title)+" "+clean(item.summary));
+}
+function esc(value){return String(value||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function renderIdea(candidate,index,tag){
+ var item=candidate.article,product=candidate.product,url=directProductUrl(product.url,tag);
+ var title=cleanTitle(item).slice(0,72),days=ageDays(item);
+ var date=item.publishedAt?new Date(item.publishedAt).toLocaleDateString("ja-JP"):"";
+ var post=makePost(item,product,url),ageLabel=days<=30?"直近30日":"31〜90日前";
+ return '<article class="idea"><div class="idea-head"><span class="tag">'+ageLabel+'</span><span class="tag">記事内Amazonリンク</span><span class="tag">'+esc(item.publisher||item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'元記事に掲載された商品リンク</p><div class="product-hit"><strong>記事内で紹介されている商品</strong>'+esc(product.title)+'</div><div class="post-label">投稿文のプレビュー</div><div class="preview post-preview">'+esc(post)+'</div><p class="url-note">投稿前にAmazon商品ページと紹介内容をご確認ください。</p><a class="secondary amazon-link" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Amazon商品を確認 ↗</a><button class="primary copy-post" type="button">この投稿文をコピー</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
+}
+function render(items,health){
+ var tag=clean(localStorage.getItem(TAG_NAME))||DEFAULT_TAG;
+ var selected=[],seen=new Set();
+ items.filter(function(item){return item.sourceType==="news"&&isRecent(item)&&Array.isArray(item.amazonProducts)}).forEach(function(item){
+  item.amazonProducts.forEach(function(product){
+   var url=directProductUrl(product.url,tag);
+   if(!url||!clean(product.title))return;
+   var asin=url.match(/\/dp\/([A-Z0-9]{10})/i),key=asin?asin[1].toUpperCase():url;
+   if(seen.has(key))return;
+   seen.add(key);selected.push({article:item,product:product,url:url});
+  });
+ });
+ selected.sort(function(a,b){
+  var aOld=ageDays(a.article)>30?1:0,bOld=ageDays(b.article)>30?1:0;
+  return aOld-bOld||Date.parse(b.article.publishedAt||"")-Date.parse(a.article.publishedAt||"");
+ });
+ var perArticle=new Map();
+ selected=selected.filter(function(candidate){var key=candidate.article.url||candidate.article.id,count=perArticle.get(key)||0;if(count>=2)return false;perArticle.set(key,count+1);return true}).slice(0,6);
+ if(!selected.length){
+  var allAboutFeed=(health||[]).find(function(source){return source.label==="All About NEWS RSS"});
+  if(allAboutFeed&&!allAboutFeed.ok){
+   setStatus("All Aboutの新着RSSを取得できませんでした。時間をおいて更新してください。","error");
+  }else{
+   setStatus("直近90日以内の記事から、記事内に有効なAmazon商品リンクがあるサンリオ商品候補は見つかりませんでした。時間をおいて更新してください。","empty");
+  }
+  listNode.replaceChildren();
+  return;
+ }
+ setStatus("記事内の有効なAmazon商品リンクから"+selected.length+"件を表示しています。直近30日を優先し、31〜90日前も含めています。");
+ listNode.innerHTML=selected.map(function(candidate,index){return renderIdea(candidate,index,tag)}).join("");
+ listNode.querySelectorAll(".idea").forEach(function(card,index){
+  var button=card.querySelector(".copy-post"),candidate=selected[index];
+  button.addEventListener("click",async function(){
+   var url=directProductUrl(candidate.product.url,tag);
+   if(!url)return;
+   try{
+    await navigator.clipboard.writeText(makePost(candidate.article,candidate.product,url));
+    button.textContent="コピーしました";
+    button.classList.add("done");
+    setTimeout(function(){button.textContent="この投稿文をコピー";button.classList.remove("done")},1800);
+   }catch(error){setStatus("コピーできませんでした。本文を長押ししてコピーしてください。","error")}
+  });
+ });
+}
+async function requestTrend(url,key){
+ var response=await fetch(url,{headers:{"Authorization":"Bearer "+key},cache:"no-store"});
+ if(response.status===401){var authError=new Error("auth");authError.kind="auth";throw authError}
+ var data;
+ try{data=await response.json()}catch(error){var jsonError=new Error("json");jsonError.kind="json";throw jsonError}
+ if(!response.ok||data.ok===false){var serverError=new Error("server");serverError.kind="server";serverError.status=response.status;throw serverError}
+ return data;
+}
+async function load(force){
+ listNode.replaceChildren();
+ setStatus("新しい話題を確認しています…");
+ var key=clean(localStorage.getItem(KEY_NAME));
+ if(!key){setStatus("初回のみ、Sanrio Post Helperの「管理 → ロリポップ同期」で設定済みの同期キーが必要です。キーをここへ入力する必要はありません。","error");return}
+ try{
+  var apiUrl=getApiUrl();
+  var endpoint=apiUrl+(force?(apiUrl.includes("?")?"&":"?")+"refresh=1":"");
+  var data=await requestTrend(endpoint,key);
+  render(Array.isArray(data.items)?data.items:[],Array.isArray(data.sourceHealth)?data.sourceHealth:[]);
+  if(data.apiVersion!=="2805"){
+   setStatus(statusNode.textContent+" 90日候補を使うには、ロリポップ側のtrend.php更新が必要です。","empty");
+  }
+ }catch(error){
+  if(error.kind==="auth")setStatus("ロリポップAPIの認証に失敗しました。Sanrio Post Helperの同期設定と、API側の同期キーが一致しているか確認してください。","error");
+  else if(error.kind==="json")setStatus("APIからJSON以外の応答が返りました。ロリポップのtrend.phpの更新状態をご確認ください。","error");
+  else if(error.kind==="server")setStatus("ロリポップAPIがHTTP "+error.status+"を返しました。しばらく後に更新をお試しください。","error");
+  else setStatus("APIに接続できませんでした。通信状態、ロリポップAPIの稼働状態、CORS許可設定をご確認ください。","error");
+ }
+}
+document.getElementById("refresh").addEventListener("click",function(){load(true)});
+load();
+})();
+</script>
+</body>
+</html>
