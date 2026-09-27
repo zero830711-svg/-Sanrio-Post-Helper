@@ -123,10 +123,10 @@ function getArticleAmazonProducts(string $url,int &$shortResolved):array{
 function prioritizeLinkedArticleProducts(array &$items,array &$health):void{
  $order=array_keys($items);
  usort($order,function($a,$b)use($items){$pa=priority($items[$a]);$pb=priority($items[$b]);if($pa!==$pb)return $pb<=>$pa;return ageH($items[$a]['publishedAt']??null)<=>ageH($items[$b]['publishedAt']??null);});
- $checked=0;$found=0;$checkedUrls=[];$shortResolved=0;
+ $checked=0;$found=0;$checkedUrls=[];$shortResolved=0;$scanStarted=microtime(true);
  if(count($order)>10){$shift=((int)floor(time()/300)*6)%count($order);$order=array_merge(array_slice($order,$shift),array_slice($order,0,$shift));}
  foreach($order as $i){
-  if($checked>=24)break;
+  if($checked>=24||(microtime(true)-$scanStarted)>=18)break;
   if(($items[$i]['sourceType']??'')!=='news'||!empty($items[$i]['amazonProducts']))continue;
   if(ageH($items[$i]['publishedAt']??null)>8760)continue;
   $url=(string)($items[$i]['url']??'');
