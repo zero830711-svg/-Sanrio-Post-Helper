@@ -1,10 +1,6 @@
 {
   "name": "sanrio-post-helper",
   "private": true,
-  "scripts": {
-    "test:e2e": "playwright test"
-  },
-  "devDependencies": {
-    "@playwright/test": "latest"
-  }
+  "scripts": { "test:e2e": "playwright test" },
+  "devDependencies": { "@playwright/test": "1.61.1" }
 }
