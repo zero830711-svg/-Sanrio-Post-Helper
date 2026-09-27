@@ -5,7 +5,7 @@ test("トップから完成した投稿案ページを開ける", async ({ page 
   expect(response && response.status()).toBe(200);
   await page.getByRole("link", { name: "新着記事の商品リンクから投稿案を作る" }).click();
   await expect(page).toHaveURL(/amazon-ready-3377\.html/);
-  await expect(page.getByRole("heading", { name: "今日のサンリオ投稿案" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "新着記事の商品リンクから投稿案" })).toBeVisible();
 });
 
 test("Amazon商品候補ページがiPhone幅で開き、検索例ボタンが使える", async ({ page }) => {
