@@ -33,8 +33,8 @@ test("商品候補を保存し、アフィリエイトID付き紹介リンクを
 
   await page.locator("#productTitle").fill("Playwright動作確認用サンプル商品");
   await page.locator("#productUrl").fill("https://www.amazon.co.jp/dp/B0ABC12345");
-  await expect(page.locator("#postDraft")).toContainText("Playwright動作確認用サンプル商品");
-  await expect(page.locator("#postDraft")).toContainText("tag=ononbrothers2-22");
+  await expect(page.locator("#postDraft")).toHaveValue(/Playwright動作確認用サンプル商品/);
+  await expect(page.locator("#postDraft")).toHaveValue(/tag=ononbrothers2-22/);
 
   await page.getByRole("button", { name: "候補を保存" }).click();
   await expect(page.locator("#candidateList")).toContainText("Playwright動作確認用サンプル商品");
