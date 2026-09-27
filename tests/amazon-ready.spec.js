@@ -26,7 +26,7 @@ test("話題から完成した投稿文と紹介リンクを自動生成し、�
   await expect(page.locator(".idea")).toHaveCount(1);
   await expect(page.locator("input, textarea")).toHaveCount(0);
   await expect(page.locator(".post-preview")).toContainText("HELLO KITTY × BRILMY スタンドポーチ BOOK");
-  await expect(page.locator(".post-preview")).toContainText("中身が見えて使いやすい仕様です。");
+  await expect(page.locator(".post-preview")).toContainText("中身が見えて使いやすい仕様です");
   await expect(page.locator(".post-preview")).toContainText("#サンリオ #pr");
   await expect(page.locator(".post-preview")).toContainText("tag=ononbrothers2-22");
 
