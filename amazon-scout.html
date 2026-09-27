@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fff7fb">
+<title>Amazon商品候補づくり | Sanrio Post Helper</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#302832;background:#fff7fb;--pink:#e58caf;--line:#eadfe5;--muted:#817780}*{box-sizing:border-box}body{margin:0;padding:16px 12px 40px}.wrap{max-width:760px;margin:auto}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.top a{color:#8c4964;text-decoration:none;font-weight:800}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 3px 12px #32202a0a}h1{font-size:22px;margin:7px 0}h2{font-size:16px;margin:0 0 10px}.muted,.help{font-size:13px;line-height:1.55;color:var(--muted)}.help{margin:7px 0 0}.row{display:grid;gap:9px}.field{display:grid;gap:5px;margin:10px 0}.field label{font-weight:800;font-size:13px}.field input,.field textarea,select{width:100%;border:1px solid #cfc3ca;border-radius:12px;padding:12px;font:inherit;background:white}.field textarea{min-height:100px;line-height:1.5}.btn{border:0;border-radius:12px;padding:12px 14px;background:#f4dce6;color:#302832;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;text-align:center}.btn.dark{background:#302832;color:#fff}.btn.outline{background:#fff;border:1px solid var(--line)}.btn.amazon{background:#fff0d3;color:#80551c}.buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.buttons.one{grid-template-columns:1fr}.quick{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.quick .btn{font-size:12px;padding:9px}.status{font-size:13px;line-height:1.5;margin-top:10px}.warn{padding:11px;border-radius:12px;background:#fff5dd;color:#745019;font-size:12px;line-height:1.5;margin-top:10px}.item{border:1px solid var(--line);border-radius:14px;padding:12px;margin:9px 0}.item h3{font-size:15px;margin:0 0 6px}.item p{white-space:pre-wrap;font-size:12px;color:var(--muted);line-height:1.5;margin:5px 0}.item-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}.item-actions .btn{font-size:12px;padding:8px 10px}.tag{display:inline-block;font-size:11px;background:#f6edf2;border-radius:999px;padding:4px 8px;margin-right:5px}.empty{color:var(--muted);font-size:13px}.duplicate{padding:10px;background:#fff5dd;border-radius:11px;font-size:12px;margin-top:10px}.duplicate a{display:block;color:#765966;margin-top:6px}.footer{font-size:11px;color:var(--muted);line-height:1.5;margin:14px 4px}@media(min-width:600px){body{padding:24px}.card{padding:20px}.row.two{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<nav class="top"><a href="./index.html?v=20260927-3354">← Sanrio Post Helper</a><span class="tag">APIなし版</span></nav>
+<header class="card">
+<h1>Amazon商品候補づくり</h1>
+<p class="muted">サンリオの新商品情報とAmazon検索を使い、紹介候補・アフィリエイトリンク・X投稿文をまとめます。APIを使わず、商品情報は選んだものだけ手入力します。</p>
+</header>
+
+<section class="card">
+<h2>1. 新しい商品を探す</h2>
+<p class="help">ニュースや公式情報で候補を見つけ、Amazonの検索結果で商品を確認します。検索ページにも紹介IDを付けます。</p>
+<div class="field"><label for="searchQuery">キャラクター・商品・話題</label><input id="searchQuery" placeholder="例：シナモロール 新作 ぬいぐるみ"></div>
+<div class="buttons">
+<button class="btn outline" id="newsSearch" type="button">ニュースを探す</button>
+<button class="btn amazon" id="amazonSearch" type="button">Amazonで探す</button>
+</div>
+<div class="quick" aria-label="検索例">
+<button class="btn outline quick-query" data-query="サンリオ 新商品 2026" type="button">新商品</button>
+<button class="btn outline quick-query" data-query="サンリオ ガチャ 新作" type="button">ガチャ</button>
+<button class="btn outline quick-query" data-query="サンリオ 一番くじ 新作" type="button">一番くじ</button>
+<button class="btn outline quick-query" data-query="サンリオ コラボグッズ 新作" type="button">コラボ</button>
+</div>
+</section>
+
+<section class="card">
+<h2>2. 見つけた商品を候補に登録</h2>
+<div class="field"><label for="associateTag">AmazonアフィリエイトID（トラッキングID）</label><input id="associateTag" value="ononbrothers2-22" autocomplete="off"></div>
+<div class="row two">
+<div class="field"><label for="productTitle">商品名</label><input id="productTitle" placeholder="Amazonの商品名を入力"></div>
+<div class="field"><label for="productUrl">商品URL（任意）</label><input id="productUrl" type="url" placeholder="SiteStripeのリンクを貼り付け"></div>
+</div>
+<div class="field"><label for="sourceUrl">新商品情報の出典URL（任意）</label><input id="sourceUrl" type="url" placeholder="公式ニュースなど"></div>
+<div class="field"><label for="postDraft">X投稿文（確認・編集できます）</label><textarea id="postDraft" placeholder="商品名を入力すると下書きが入ります"></textarea></div>
+<div class="buttons">
+<button class="btn outline" id="checkArchive" type="button">過去投稿と照合</button>
+<button class="btn dark" id="saveCandidate" type="button">候補を保存</button>
+</div>
+<div id="duplicateResult" class="status" aria-live="polite"></div>
+<div class="buttons">
+<button class="btn outline" id="copyAffiliate" type="button">紹介リンクをコピー</button>
+<button class="btn" id="copyDraft" type="button">投稿文をコピー</button>
+</div>
+<div class="buttons one"><button class="btn dark" id="openX" type="button">Xの投稿画面を開く</button></div>
+<div id="formStatus" class="status" aria-live="polite"></div>
+<div class="warn">Amazonの商品画像はこのページから取得・保存しません。画像を投稿する場合は、自分で用意した画像か、利用許可のある画像を使ってください。Xの写真添付と最終投稿は手動です。</div>
+</section>
+
+<section class="card">
+<h2>保存した商品候補</h2>
+<p class="help">候補はこのブラウザー内に保存されます。過去投稿との照合は、Sanrio Post Helperに取り込まれている投稿データを使います。</p>
+<div id="candidateList"></div>
+</section>
+<p class="footer">商品情報・価格・販売状況はAmazonの商品ページで確認してください。紹介リンクはAmazonアソシエイトのルールに従って使用してください。</p>
+</main>
+<script>
+(()=>{
+const TAG_KEY="sphAmazonAssociateTagV1",LIST_KEY="sphAmazonScoutCandidatesV1";
+const $=id=>document.getElementById(id),clean=v=>String(v||"").trim();
+const esc=v=>String(v||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const getTag=()=>clean($("associateTag").value)||"ononbrothers2-22";
+const getList=()=>{try{return JSON.parse(localStorage.getItem(LIST_KEY)||"[]")}catch(e){return []}};
+const setList=a=>localStorage.setItem(LIST_KEY,JSON.stringify(a));
+function makeSearchUrl(query){const u=new URL("https://www.amazon.co.jp/s");u.searchParams.set("k",query);u.searchParams.set("tag",getTag());return u.toString()}
+function makeAffiliateUrl(raw,title){
+ if(!clean(raw))return makeSearchUrl(title);
+ try{
+  const u=new URL(raw);const host=u.hostname.toLowerCase();
+  if(host==="amzn.to"||host==="amzn.asia")return u.toString();
+  if(!(host==="amazon.co.jp"||host.endsWith(".amazon.co.jp")))return "";
+  const asin=u.pathname.match(/\/(?:dp|gp\/product|exec\/obidos\/ASIN)\/([A-Z0-9]{10})/i)?.[1];
+  if(asin){const out=new URL("https://www.amazon.co.jp/dp/"+asin.toUpperCase());out.searchParams.set("tag",getTag());return out.toString()}
+  u.searchParams.set("tag",getTag());return u.toString();
+ }catch(e){return ""}
+}
+function setDraft(){const title=clean($("productTitle").value);if(!title)return;const url=makeAffiliateUrl($("productUrl").value,title);if(!url){$("formStatus").textContent="Amazon.co.jpの商品URLかSiteStripeリンクを入力してください。";return}
+ const current=clean($("postDraft").value);if(!current||current.startsWith("サンリオの「"))$("postDraft").value=`サンリオの「${title}」を見つけました。\n気になる方はこちらからチェックできます👇\n${url}\n#PR`;
+}
+function normal(s){return String(s||"").toLowerCase().replace(/https?:\/\/\S+/g," ").replace(/[【】「」『』［］\[\]（）()・、。!！?？\s　＿_\-‐〜～:：]/g,"")}
+function tokens(s){return (String(s||"").toLowerCase().match(/[a-z0-9]{2,}|[ぁ-んァ-ヶ一-龠]{2,}/g)||[]).filter(w=>!/[ぁ-んァ-ヶ一-龠]/.test(w)||w.length>=3)}
+function similarity(a,b){const na=normal(a),nb=normal(b);if(!na||!nb)return 0;if(na.includes(nb)||nb.includes(na))return 1;const aa=new Set(tokens(a)),bb=new Set(tokens(b));if(!aa.size||!bb.size)return 0;let n=0;aa.forEach(x=>{if(bb.has(x))n++});return n/Math.min(aa.size,bb.size)}
+async function readArchive(){return new Promise(resolve=>{try{if(!indexedDB){resolve([]);return}const req=indexedDB.open("sanrioPostHelperDB",1);req.onerror=()=>resolve([]);req.onsuccess=()=>{const db=req.result;if(!db.objectStoreNames.contains("popularPosts")){db.close();resolve([]);return}const tx=db.transaction("popularPosts","readonly"),get=tx.objectStore("popularPosts").getAll();get.onsuccess=()=>{db.close();resolve(get.result||[])};get.onerror=()=>{db.close();resolve([])}}}catch(e){resolve([])}})}
+async function checkArchive(){const title=clean($("productTitle").value);const out=$("duplicateResult");if(!title){out.textContent="先に商品名を入力してください。";return}out.textContent="過去投稿を確認中…";const rows=await readArchive();if(!rows.length){out.innerHTML="過去投稿データを読み込めませんでした。Sanrio Post Helperと同じブラウザーで開いているか確認してください。";return}
+ const matches=rows.map(p=>({p,score:similarity(title,[p.title,p.text,p.memo].filter(Boolean).join(" "))})).filter(x=>x.score>=0.55).sort((a,b)=>b.score-a.score).slice(0,4);
+ if(!matches.length){out.innerHTML="<span class='tag'>重複候補なし</span>過去投稿内に似た商品名は見つかりませんでした。タイトルだけの照合なので、念のため投稿一覧も確認してください。";return}
+ out.innerHTML="<div class='duplicate'><strong>似た投稿が"+matches.length+"件あります</strong>（自動で重複と断定せず、内容を確認してください。）"+matches.map(({p})=>`<a href="${esc(p.url||p.tweetUrl||"#")}" target="_blank" rel="noopener">${esc(p.title||p.text||"過去投稿")}</a>`).join("")+"</div>";
+}
+async function copy(text){if(!text){$("formStatus").textContent="コピーする内容がありません。";return}try{await navigator.clipboard.writeText(text);$("formStatus").textContent="コピーしました。"}catch(e){const t=document.createElement("textarea");t.value=text;t.style.position="fixed";t.style.opacity="0";document.body.appendChild(t);t.select();const ok=document.execCommand("copy");t.remove();$("formStatus").textContent=ok?"コピーしました。":"コピーできませんでした。テキストを選択してコピーしてください。"}}
+function render(){const root=$("candidateList"),rows=getList();if(!rows.length){root.innerHTML="<p class='empty'>保存した候補はありません。</p>";return}root.innerHTML=rows.slice().reverse().map(x=>`<article class="item"><h3>${esc(x.title)}</h3><p><span class="tag">${esc(x.status||"未投稿")}</span>${esc(new Date(x.createdAt).toLocaleDateString("ja-JP"))}</p><p>${esc(x.draft)}</p><div class="item-actions"><a class="btn amazon" href="${esc(x.affiliateUrl)}" target="_blank" rel="sponsored nofollow noopener noreferrer">Amazonを開く</a><button class="btn" data-copy="${esc(x.id)}" type="button">文をコピー</button><button class="btn outline" data-toggle="${esc(x.id)}" type="button">${x.status==="投稿済み"?"未投稿に戻す":"投稿済みにする"}</button><button class="btn outline" data-delete="${esc(x.id)}" type="button">削除</button></div></article>`).join("");root.querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>{const x=getList().find(r=>r.id===b.dataset.copy);if(x)copy(x.draft)});root.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const a=getList();const x=a.find(r=>r.id===b.dataset.toggle);if(x){x.status=x.status==="投稿済み"?"未投稿":"投稿済み";setList(a);render()}});root.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>{setList(getList().filter(r=>r.id!==b.dataset.delete));render()})}
+$("associateTag").value=localStorage.getItem(TAG_KEY)||"ononbrothers2-22";$("associateTag").addEventListener("change",()=>localStorage.setItem(TAG_KEY,getTag()));
+$("productTitle").addEventListener("input",setDraft);$("productUrl").addEventListener("change",setDraft);
+$("amazonSearch").onclick=()=>{const q=clean($("searchQuery").value)||clean($("productTitle").value);if(!q){$("formStatus").textContent="検索語を入力してください。";return}window.open(makeSearchUrl(q),"_blank","noopener")};
+$("newsSearch").onclick=()=>{const q=clean($("searchQuery").value)||clean($("productTitle").value)||"サンリオ 新商品";window.open("https://www.google.com/search?q="+encodeURIComponent(q+" サンリオ 新商品"),"_blank","noopener")};
+document.querySelectorAll(".quick-query").forEach(b=>b.onclick=()=>{$("searchQuery").value=b.dataset.query});
+$("checkArchive").onclick=checkArchive;
+$("copyAffiliate").onclick=()=>{const title=clean($("productTitle").value),url=makeAffiliateUrl($("productUrl").value,title);if(!title){$("formStatus").textContent="商品名を入力してください。";return}if(!url){$("formStatus").textContent="Amazon.co.jpの商品URLを確認してください。";return}copy(url)};
+$("copyDraft").onclick=()=>{setDraft();copy(clean($("postDraft").value))};
+$("openX").onclick=()=>{setDraft();const text=clean($("postDraft").value);if(!text){$("formStatus").textContent="商品名を入力してください。";return}window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent(text),"_blank","noopener")};
+$("saveCandidate").onclick=()=>{const title=clean($("productTitle").value);if(!title){$("formStatus").textContent="商品名を入力してください。";return}const affiliateUrl=makeAffiliateUrl($("productUrl").value,title);if(!affiliateUrl){$("formStatus").textContent="Amazon.co.jpの商品URLかSiteStripeリンクを確認してください。";return}setDraft();const draft=clean($("postDraft").value);const rows=getList();rows.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),title,affiliateUrl,draft,sourceUrl:clean($("sourceUrl").value),createdAt:new Date().toISOString(),status:"未投稿"});setList(rows);render();$("formStatus").textContent="候補をこのブラウザーに保存しました。"};
+render();
+})();
+</script>
+</body>
+</html>
