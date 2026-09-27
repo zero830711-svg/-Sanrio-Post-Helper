@@ -110,7 +110,7 @@ if(($_GET['action']??'')==='state'){
 }
 
 $force=isset($_GET['refresh'])&&$_GET['refresh']==='1';$s=$pdo->prepare('SELECT payload,updated_at FROM sanrio_trend_cache WHERE cache_key=?');$s->execute(['trend']);$cached=$s->fetch();
-if(!$force&&$cached&&(time()-strtotime((string)$cached['updated_at']))<1200){$p=json_decode((string)$cached['payload'],true);if(is_array($p)){$p['ok']=true;$p['cached']=true;respond($p);}}
+if(!$force&&$cached&&(time()-strtotime((string)$cached['updated_at']))<1200){$p=json_decode((string)$cached['payload'],true);if(is_array($p)&&($p['apiVersion']??'')==='2802'){$p['ok']=true;$p['cached']=true;respond($p);}}
 
 $items=[];$seen=[];$health=[];
 $b=fetchUrl('https://corporate.sanrio.co.jp/news/2026.html');$health[]=['label'=>'Sanrio JP','ok'=>$b!==''];if($b!=='')parseOfficial($b,'https://corporate.sanrio.co.jp','Sanrio Japan','JP',$items,$seen);
@@ -124,11 +124,11 @@ $qs=[
 foreach($qs as [$label,$q,$hl,$gl,$ceid,$source,$region]){$url='https://news.google.com/rss/search?q='.rawurlencode($q).'&hl='.$hl.'&gl='.$gl.'&ceid='.rawurlencode($ceid);$b=fetchUrl($url);$health[]=['label'=>$label,'ok'=>$b!==''];if($b!=='')parseRss($b,$source,$region,$items,$seen);}
 $b=fetchUrl('https://www.reddit.com/r/sanrio/hot.json?limit=25&raw_json=1');$health[]=['label'=>'Reddit','ok'=>$b!==''];if($b!=='')parseReddit($b,'sanrio',$items,$seen);
 
-$items=array_values(array_filter($items,function($x){$a=ageH($x['publishedAt']??null);if(($x['sourceType']??'')==='reddit'){return $a<=72&&((int)($x['votes']??0)+(int)($x['comments']??0)*3)>=12;}if(!empty($x['publishedAt']))return $a<=168;return ($x['sourceType']??'')==='official';}));
+$items=array_values(array_filter($items,function($x){$a=ageH($x['publishedAt']??null);if(($x['sourceType']??'')==='reddit'){return $a<=72&&((int)($x['votes']??0)+(int)($x['comments']??0)*3)>=12;}if(!empty($x['publishedAt']))return $a<=720;return ($x['sourceType']??'')==='official';}));
 prioritizeLinkedArticleProducts($items);
 $groups=groupTopics($items);$out=[];$seenQ=$pdo->prepare('SELECT first_seen_at FROM sanrio_trend_seen WHERE topic_key=?');$seenUp=$pdo->prepare('INSERT INTO sanrio_trend_seen(topic_key,first_seen_at,last_seen_at) VALUES(?,NOW(),NOW()) ON DUPLICATE KEY UPDATE last_seen_at=NOW()');$stateQ=$pdo->prepare('SELECT state FROM sanrio_trend_state WHERE topic_key=?');
 foreach($groups as $g){$rep=$g['representative'];$key=substr(hash('sha256',implode('|',words((string)$rep['title']))),0,40);$seenQ->execute([$key]);$r=$seenQ->fetch();$first=$r?(string)$r['first_seen_at']:date('Y-m-d H:i:s');$seenUp->execute([$key]);$stateQ->execute([$key]);$sr=$stateQ->fetch();
  $regions=array_map(fn($x)=>(string)($x['region']??''),$g['items']);$rep['topicKey']=$key;$rep['firstSeenAt']=date(DATE_ATOM,strtotime($first));$rep['isNew']=(time()-strtotime($first))<86400;$rep['relatedCount']=count($g['items']);$rep['relatedSources']=array_values(array_unique(array_map(fn($x)=>(string)($x['source']??''),$g['items'])));$rep['relatedItems']=array_map(fn($x)=>['source'=>$x['source']??'','url'=>$x['url']??'','region'=>$x['region']??''],array_slice($g['items'],0,8));$rep['jpCount']=count(array_filter($regions,fn($r)=>$r==='JP'));$rep['foreignCount']=count(array_filter($regions,fn($r)=>$r!==''&&$r!=='JP'));$rep['userState']=$sr?(string)$sr['state']:'';$out[]=$rep;}
 usort($out,function($a,$b){$score=function($x){$age=ageH($x['publishedAt']??$x['firstSeenAt']??null);$fresh=max(0,72-min($age,144)*.75);$ahead=((int)($x['jpCount']??0)===0&&(int)($x['foreignCount']??0)>=2)?18:0;return priority($x)+$fresh+$ahead+min(20,max(0,((int)($x['relatedCount']??1)-1)*6));};return $score($b)<=>$score($a);});
-$payload=['ok'=>true,'apiVersion'=>'2801','cached'=>false,'fetchedAt'=>date(DATE_ATOM),'items'=>array_slice($out,0,30),'count'=>count($out),'groupedCount'=>count($groups),'rawCount'=>count($items),'sourceHealth'=>$health];
+$payload=['ok'=>true,'apiVersion'=>'2802','cached'=>false,'fetchedAt'=>date(DATE_ATOM),'items'=>array_slice($out,0,30),'count'=>count($out),'groupedCount'=>count($groups),'rawCount'=>count($items),'sourceHealth'=>$health];
 $save=$pdo->prepare('INSERT INTO sanrio_trend_cache(cache_key,payload) VALUES(?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload),updated_at=CURRENT_TIMESTAMP');$save->execute(['trend',json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);respond($payload);
