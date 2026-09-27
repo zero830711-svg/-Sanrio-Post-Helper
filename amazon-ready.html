@@ -37,14 +37,14 @@ p{margin:0}.intro{font-size:14px;line-height:1.65;color:var(--muted)}
 </head>
 <body>
 <main>
-<nav class="top"><a href="./index.html?v=20260927-3360">← Sanrio Post Helper</a><button id="refresh" class="refresh" type="button">更新</button></nav>
+<nav class="top"><a href="./index.html?v=20260927-3363">← Sanrio Post Helper</a><button id="refresh" class="refresh" type="button">更新</button></nav>
 <header class="card">
 <h1>今日のサンリオ投稿案</h1>
-<p class="intro">最近の話題から投稿文とAmazonリンクを用意しました。おすすめ案の「投稿文をコピー」を押すだけで使えます。</p>
+<p class="intro">記事の見出し全体ではなく、サンリオのキャラクター名と具体的な商品ジャンルでAmazonを検索します。</p>
 </header>
 <div id="status" class="status" role="status" aria-live="polite">新しい話題を確認しています…</div>
 <section id="ideas" class="list" aria-label="完成した投稿案"></section>
-<p class="foot">リンクはAmazonの検索結果を開くアフィリエイトリンクです。紹介する商品や販売状況を確認してから投稿してください。投稿文には広告であることを示す #pr を含めています。商品画像は取得・保存しません。</p>
+<p class="foot">リンクは商品ジャンルを絞ったAmazon検索です。記事内に商品名が特定できる場合はそのジャンルとキャラクター名を使い、特定できない場合は定番の「マスコットホルダー」を検索します。ニュース掲載品そのものとは限らないため、Amazonで商品名・在庫・価格を確認してから紹介してください。投稿文には #pr を含めています。商品画像は取得・保存しません。</p>
 </main>
 <script>
 (function(){
@@ -87,19 +87,32 @@ function shortTitle(item){
  var mark=head.charAt(boundary);
  return head.slice(0,boundary+(mark===" "||mark==="　"?0:1)).trim();
 }
+function amazonSearchTerm(item){
+ var text=clean(cleanTitle(item)+" "+item.summary);
+ var characters=["ハローキティ","マイメロディ","ポムポムプリン","シナモロール","クロミ","ポチャッコ","ハンギョドン","タキシードサム","けろけろけろっぴ","あひるのペックル","はなまるおばけ","こぎみゅん","ウィッシュミーメル","リトルツインスターズ"];
+ var foundCharacters=characters.filter(function(name){return text.indexOf(name)>=0;}).slice(0,2);
+ var productTypes=[
+  "ミニミニChibiぬいぐるみマスコット","スイーツマスコット","マスコットチャーム","シークレットがまぐち",
+  "ぬいぐるみマスコット","マスコットホルダー","ペンケース","一番くじ","キーホルダー","フィギュア",
+  "ぬいぐるみ","マスコット","がまぐち","チャーム","ポーチ","巾着","トートバッグ","バッグ","文具","ガチャ"
+ ];
+ var productType=productTypes.find(function(type){return text.indexOf(type)>=0;})||"マスコットホルダー";
+ var terms=["サンリオ(SANRIO)"].concat(foundCharacters,[productType]);
+ if(/Yummy/i.test(text))terms.push("Yummy");
+ return Array.from(new Set(terms)).join(" ");
+}
 function amazonUrl(item,tag){
- var query=("サンリオ "+shortTitle(item)+" グッズ").replace(/\s+/g," ").trim();
  var url=new URL("https://www.amazon.co.jp/s");
- url.searchParams.set("k",query);
+ url.searchParams.set("k",amazonSearchTerm(item));
  url.searchParams.set("tag",tag);
  return url.toString();
 }
 function makePost(item,tag){
- var title=shortTitle(item);
- return "「"+title+"」が気になる方はこちら🎀\n"+amazonUrl(item,tag)+"\n#サンリオ #pr";
+ var term=amazonSearchTerm(item);
+ return "サンリオの「"+term+"」をAmazonで探すならこちら🎀\\n"+amazonUrl(item,tag)+"\\n#サンリオ #pr";
 }
 function previewPost(item){
- return "「"+shortTitle(item)+"」が気になる方はこちら🎀\nAmazonで商品を探すリンク（コピー文に含まれます）\n#サンリオ #pr";
+ return "Amazon検索語：「"+amazonSearchTerm(item)+"」\\n紹介ID付きの検索リンクが投稿文に入ります。\\n#サンリオ #pr";
 }
 function isRecent(item){
  if(!item.publishedAt)return false;
@@ -113,10 +126,10 @@ function isProductTopic(item){
 function esc(value){return String(value||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function renderIdea(item,index,tag,featured){
  var post=makePost(item,tag);
- var title=cleanTitle(item).slice(0,72);
+ var title=cleanTitle(item).slice(0,72);\n var searchTerm=amazonSearchTerm(item);
  var date=item.publishedAt?new Date(item.publishedAt).toLocaleDateString("ja-JP"):"";
  var label=featured?"おすすめ":"投稿案 "+(index+1);
- return '<article class="idea"><div class="idea-head"><span class="tag">'+label+'</span><span class="tag">'+esc(item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'最近のサンリオ関連ニュースから作成</p><div class="preview">'+esc(previewPost(item))+'</div><p class="url-note">コピーすると、紹介ID付きのAmazon検索リンクも一緒に入ります。</p><details class="full-post"><summary>コピーされる投稿文を確認</summary><div class="preview">'+esc(post)+'</div></details><a class="secondary amazon-link" href="'+esc(amazonUrl(item,tag))+'" target="_blank" rel="noopener noreferrer">Amazonリンクを確認</a><button class="primary copy-post" data-index="'+index+'" type="button">投稿文をコピー</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
+ return '<article class="idea"><div class="idea-head"><span class="tag">'+label+'</span><span class="tag">'+esc(item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'最近のサンリオ関連ニュースから作成</p><div class="preview">'+esc(previewPost(item))+'</div><p class="url-note">Amazon検索語：「'+esc(searchTerm)+'」の商品を表示します。</p><details class="full-post"><summary>コピーされる投稿文を確認</summary><div class="preview">'+esc(post)+'</div></details><a class="secondary amazon-link" href="'+esc(amazonUrl(item,tag))+'" target="_blank" rel="noopener noreferrer">Amazonで候補商品を確認 ↗</a><button class="primary copy-post" data-index="'+index+'" type="button">投稿文をコピー</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
 }
 function render(items){
  var tag=clean(localStorage.getItem(TAG_NAME))||DEFAULT_TAG;
