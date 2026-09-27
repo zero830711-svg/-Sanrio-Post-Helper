@@ -4,7 +4,7 @@ test("Amazon商品候補ページがiPhone幅で開き、検索例ボタンが�
   const pageErrors = [];
   page.on("pageerror", error => pageErrors.push(error.message));
 
-  const response = await page.goto("/amazon-scout.html", { waitUntil: "domcontentloaded" });
+  const response = await page.goto("amazon-scout.html", { waitUntil: "domcontentloaded" });
   expect(response && response.status()).toBe(200);
   await expect(page).toHaveTitle(/Amazon商品候補づくり/);
   await expect(page.getByRole("heading", { name: "Amazon商品候補づくり" })).toBeVisible();
@@ -21,7 +21,7 @@ test("Amazon商品候補ページがiPhone幅で開き、検索例ボタンが�
 });
 
 test("商品候補を保存し、アフィリエイトID付き紹介リンクを作る", async ({ page }) => {
-  await page.goto("/amazon-scout.html", { waitUntil: "domcontentloaded" });
+  await page.goto("amazon-scout.html", { waitUntil: "domcontentloaded" });
 
   await page.locator("#productTitle").fill("Playwright動作確認用サンプル商品");
   await page.locator("#productUrl").fill("https://www.amazon.co.jp/dp/B0ABC12345");
