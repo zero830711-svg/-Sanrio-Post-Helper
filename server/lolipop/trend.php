@@ -109,7 +109,7 @@ function amazonAsinFromProductUrl(string $url):string{
 }
 function resolveAmznShortAsin(string $url):string{
  $host=strtolower((string)parse_url($url,PHP_URL_HOST));if(!in_array($host,['amzn.to','www.amzn.to'],true))return '';
- $ctx=stream_context_create(['http'=>['method'=>'GET','timeout'=>4,'follow_location'=>0,'ignore_errors'=>true,'user_agent'=>'Mozilla/5.0 SanrioPostHelper/2805','header'=>"Accept: text/html\\r\\n"]]);
+ $ctx=stream_context_create(['http'=>['method'=>'GET','timeout'=>4,'follow_location'=>0,'ignore_errors'=>true,'user_agent'=>'Mozilla/5.0 SanrioPostHelper/2805','header'=>"Accept: text/html\r\n"]]);
  @file_get_contents($url,false,$ctx);$headers=$http_response_header??[];
  foreach($headers as $h){if(preg_match('/^Location:\\s*(https?:\\/\\/\\S+)/i',$h,$m)){$asin=amazonAsinFromProductUrl($m[1]);if($asin!=='')return $asin;}}
  return '';
