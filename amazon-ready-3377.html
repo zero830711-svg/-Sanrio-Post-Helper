@@ -46,7 +46,6 @@ p{margin:0}.intro{font-size:14px;line-height:1.65;color:var(--muted)}
 <p class="intro">直近365日以内の記事から、実際の商品に直接つながるAmazonリンク付き候補を表示します。直近30日を先に表示します。</p>
 </header>
 <div id="status" class="status" role="status" aria-live="polite">新しい話題を確認しています…</div>
-<section id="ideas" class="list" aria-label="記事内Amazonリンク付き候補"></section>
 <section class="card" aria-labelledby="libraryTitle">
 <h2 id="libraryTitle">過去投稿の商品リンクをローテーション</h2>
 <p class="intro">XアーカイブからAmazon商品リンクを集め、商品ごとに重複をまとめます。1日最大5件を表示し、コピーした商品は30日間候補から外します。</p>
@@ -54,6 +53,8 @@ p{margin:0}.intro{font-size:14px;line-height:1.65;color:var(--muted)}
 <p id="libraryStatus" class="library-count" aria-live="polite">商品ライブラリを準備しています…</p>
 <div id="libraryList" class="library-list"></div>
 </section>
+<section id="ideas" class="list" aria-label="記事内Amazonリンク付き候補"></section>
+
 <p class="foot">直近365日以内のサンリオ商品紹介記事から、記事内にAmazon商品リンクがある候補だけを表示します。直近30日を優先し、31〜365日前の記事も追加します。投稿文は記事の説明に沿って作成します。Amazonの商品ページで在庫・価格は自動確認しません。</p>
 </main>
 <script>
