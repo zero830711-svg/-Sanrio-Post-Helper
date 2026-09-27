@@ -266,12 +266,14 @@ function dailyRows(){
  var rows=readCatalog().filter(function(x){return x.asin&&x.title&&!isCooling(x)}),key=dayKey(),daily;
  try{daily=JSON.parse(localStorage.getItem(DAILY_KEY)||"{}")}catch(e){daily={}}
  var byAsin=new Map(rows.map(function(x){return [x.asin,x]}));
- if(daily.date!==key)daily={date:key,asins:[]};
+ if(daily.date!==key)daily={date:key,asins:[],seen:[]};
  daily.asins=(daily.asins||[]).filter(function(id,i,a){return byAsin.has(id)&&a.indexOf(id)===i});
- var chosen=new Set(daily.asins);
+ daily.seen=Array.isArray(daily.seen)?daily.seen:[];
+ var chosen=new Set(daily.asins.concat(daily.seen));
  rows=rows.filter(function(x){return !chosen.has(x.asin)});
  for(var i=rows.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),tmp=rows[i];rows[i]=rows[j];rows[j]=tmp}
  daily.asins=daily.asins.concat(rows.slice(0,Math.max(0,DAILY_LIMIT-daily.asins.length)).map(function(x){return x.asin}));
+ daily.seen=Array.from(new Set(daily.seen.concat(daily.asins)));
  localStorage.setItem(DAILY_KEY,JSON.stringify(daily));
  return daily.asins.map(function(id){return byAsin.get(id)}).filter(Boolean);
 }
@@ -326,7 +328,12 @@ async function importArchive(){
   if(key){try{var products=readCatalog();for(var i=0;i<products.length;i+=200)await apiJson("catalog-push",key,{items:products.slice(i,i+200)})}catch(e){libraryStatus.textContent+=" 商品一覧の複数端末同期にはロリポップAPI更新が必要です。"}}
  }catch(error){libraryStatus.textContent="アーカイブを読めませんでした："+error.message}
 }
-function refreshLibrary(){localStorage.removeItem(DAILY_KEY);renderLibrary()}
+function refreshLibrary(){
+ var daily={};try{daily=JSON.parse(localStorage.getItem(DAILY_KEY)||"{}")}catch(e){}
+ if(daily.date!==dayKey())daily={date:dayKey(),asins:[],seen:[]};
+ daily.seen=Array.from(new Set((daily.seen||[]).concat(daily.asins||[])));daily.asins=[];
+ localStorage.setItem(DAILY_KEY,JSON.stringify(daily));renderLibrary()
+}
 
 async function requestTrend(url,key){
  var response=await fetch(url,{headers:{"Authorization":"Bearer "+key},cache:"no-store"});
