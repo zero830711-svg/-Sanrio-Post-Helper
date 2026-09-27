@@ -7,7 +7,7 @@ register_shutdown_function(static function(): void {
  error_log('Sanrio trend.php fatal: '.$last['message'].' in '.$last['file'].':'.$last['line']);
  while(ob_get_level()>0)ob_end_clean();
  if(!headers_sent()){http_response_code(500);header('Content-Type: application/json; charset=utf-8');}
- echo json_encode(['ok'=>false,'error'=>'trend.php internal error; Lolipop PHP error log has details'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+ echo json_encode(['ok'=>false,'error'=>'trend.php internal error: '.substr((string)$last['message'],0,240).' (line '.(int)$last['line'].')'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
 });
 $config = require __DIR__ . '/config.php';
 
@@ -23,7 +23,7 @@ set_exception_handler(static function(Throwable $e): void {
  error_log('Sanrio trend.php exception: '.get_class($e).': '.$e->getMessage().' in '.$e->getFile().':'.$e->getLine());
  while(ob_get_level()>0)ob_end_clean();
  if(!headers_sent()){http_response_code(500);header('Content-Type: application/json; charset=utf-8');}
- echo json_encode(['ok'=>false,'error'=>'trend.php internal error; Lolipop PHP error log has details'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+ echo json_encode(['ok'=>false,'error'=>'trend.php internal error: '.substr((string)$e->getMessage(),0,240).' ('.basename($e->getFile()).':'.(int)$e->getLine().')'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
 });
 function token():string{$h=$_SERVER['HTTP_AUTHORIZATION']??'';return preg_match('/^Bearer\s+(.+)$/i',$h,$m)?trim($m[1]):'';}
 function fetchUrl(string $url,int $timeout=10):string{
