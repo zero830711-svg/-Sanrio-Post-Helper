@@ -1,0 +1,49 @@
+name: Deploy Sanrio trend API to Lolipop
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/lolipop/trend.php"
+      - ".github/workflows/deploy-lolipop-trend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lolipop-trend-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Deploy only trend.php over FTPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$LOLIPOP_FTP_HOST" || -z "$LOLIPOP_FTP_USER" || -z "$LOLIPOP_FTP_PASSWORD" || -z "$LOLIPOP_TREND_DIR" ]]; then
+            echo "::notice::Lolipop deployment skipped. Add LOLIPOP_FTP_HOST, LOLIPOP_FTP_USER, LOLIPOP_FTP_PASSWORD, and LOLIPOP_TREND_DIR under Settings > Secrets and variables > Actions."
+            exit 0
+          fi
+
+          sudo apt-get update
+          sudo apt-get install --yes lftp
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          put server/lolipop/trend.php
+          bye
+          LFTP
