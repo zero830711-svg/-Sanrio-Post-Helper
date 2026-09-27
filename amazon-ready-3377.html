@@ -291,7 +291,7 @@ async function load(force){
   var data=await requestTrend(endpoint,key);
   window.__sphPostedAsins=await previouslyPostedAsins();
   render(Array.isArray(data.items)?data.items:[],Array.isArray(data.sourceHealth)?data.sourceHealth:[]);
-  if(data.apiVersion!=="2812"){
+  if(data.apiVersion!=="2813"){
    setStatus(statusNode.textContent+" 365日候補を使うには、ロリポップ側のtrend.php更新が必要です。","empty");
   }
  }catch(error){
