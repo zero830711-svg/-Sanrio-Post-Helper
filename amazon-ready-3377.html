@@ -141,9 +141,9 @@ function makePost(article,product,url){
  var title=cleanTitle(article),hook=title.split(/[、。！!？?:：]/)[0].replace(/^【[^】]*】\s*/,"").trim();
  if(hook.length>52)hook=hook.slice(0,50)+"…";
  var name=shortProductName(product.title),feature=postFeature(product.feature);
- var first="記事で紹介されていた「"+name+"」が気になる🎀";
- var second=feature||hook||"サンリオの気になる商品を見つけました";
- return first+"\n"+second+"\nAmazonで商品詳細をチェック👇\n"+url+"\n#サンリオ #pr";
+ var first="サンリオの「"+name+"」🎀";
+ var second=feature||hook||"気になった方は商品ページをチェック";
+ return first+"\n"+second+"\n気になったらAmazonで詳細を見てみる👇\n"+url+"\n#サンリオ #pr";
 }
 function isProductTopic(item){
  return /グッズ|新商品|新作|ぬい|発売|コラボ|ガチャ|一番くじ|限定|ポップアップ|商品|雑貨|くじ|予約|再販|販売|collection|plush|collab|new product|new release|limited|merch|launch|restock|blind box/i.test(clean(item.title)+" "+clean(item.summary));
