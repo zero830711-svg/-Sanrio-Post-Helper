@@ -89,7 +89,7 @@ function trustedNewsArticleUrl(string $url):bool{
 }
 function getArticleAmazonProducts(string $url):array{
  if(!trustedNewsArticleUrl($url))return [];
- $html=fetchUrl($url,3);if($html==='')return [];
+ $html=fetchUrl($url,2);if($html==='')return [];
  libxml_use_internal_errors(true);$dom=new DOMDocument();if(!@$dom->loadHTML($html,LIBXML_NOWARNING|LIBXML_NOERROR))return [];
  $xp=new DOMXPath($dom);$canonical='';$nodes=$xp->query('//link[translate(@rel,"CANONICAL","canonical")="canonical"]/@href');
  if($nodes&&$nodes->length)$canonical=trim($nodes->item(0)->nodeValue);
@@ -102,9 +102,9 @@ function prioritizeLinkedArticleProducts(array &$items,array &$health):void{
  $order=array_keys($items);
  usort($order,function($a,$b){$pa=priority($items[$a]);$pb=priority($items[$b]);if($pa!==$pb)return $pb<=>$pa;return ageH($items[$a]['publishedAt']??null)<=>ageH($items[$b]['publishedAt']??null);});
  $checked=0;$found=0;$checkedUrls=[];
- if(count($order)>18){$shift=((int)floor(time()/1200)*18)%count($order);$order=array_merge(array_slice($order,$shift),array_slice($order,0,$shift));}
+ if(count($order)>10){$shift=((int)floor(time()/1200)*10)%count($order);$order=array_merge(array_slice($order,$shift),array_slice($order,0,$shift));}
  foreach($order as $i){
-  if($checked>=18)break;
+  if($checked>=10)break;
   if(($items[$i]['sourceType']??'')!=='news'||!empty($items[$i]['amazonProducts']))continue;
   if(ageH($items[$i]['publishedAt']??null)>8760)continue;
   $url=(string)($items[$i]['url']??'');
@@ -181,7 +181,7 @@ function affiliateBlogProductCards(string $content,int &$resolvedLinks):array{
 function appendAffiliateBlogArticles(array &$items,array &$seen,array &$health):void{
  $after=date('c',time()-365*86400);
  $url='https://asitaaozora.net/wp-json/wp/v2/posts?search='.rawurlencode('サンリオ').'&after='.rawurlencode($after).'&per_page=100&_fields=date_gmt,link,title,content,excerpt';
- $json=fetchUrl($url,12);$posts=json_decode($json,true);$health[]=['label'=>'あしたはあおぞら（365日）','ok'=>is_array($posts)];
+ $json=fetchUrl($url,8);$posts=json_decode($json,true);$health[]=['label'=>'あしたはあおぞら（365日）','ok'=>is_array($posts)];
  if(!is_array($posts))return;
  $resolved=0;$checked=0;
  foreach($posts as $post){
@@ -217,8 +217,6 @@ $force=isset($_GET['refresh'])&&$_GET['refresh']==='1';$s=$pdo->prepare('SELECT 
 if(!$force&&$cached&&(time()-strtotime((string)$cached['updated_at']))<1200){$p=json_decode((string)$cached['payload'],true);if(is_array($p)&&($p['apiVersion']??'')==='2809'){$p['ok']=true;$p['cached']=true;respond($p);}}
 
 $items=[];$seen=[];$health=[];
-$b=fetchUrl('https://corporate.sanrio.co.jp/news/2026.html');$health[]=['label'=>'Sanrio JP','ok'=>$b!==''];if($b!=='')parseOfficial($b,'https://corporate.sanrio.co.jp','Sanrio Japan','JP',$items,$seen);
-$b=fetchUrl('https://www.sanrio.com/pages/press-releases');$health[]=['label'=>'Sanrio US','ok'=>$b!==''];if($b!=='')parseOfficial($b,'https://www.sanrio.com','Sanrio US','US',$items,$seen);
 
 $qs=[
  ['Google JP','サンリオ OR ハローキティ OR クロミ OR マイメロ OR シナモロール','ja','JP','JP:ja','Google News JP','JP'],
@@ -227,10 +225,9 @@ $qs=[
  ['Google JP Amazon','サンリオ Amazon after:2025-09-27','ja','JP','JP:ja','Google News JP','JP'],
  ['Google JP 商品','サンリオ 新商品 コラボ グッズ after:2025-09-27','ja','JP','JP:ja','Google News JP','JP']
 ];
-$aa=fetchUrl('https://news.allabout.co.jp/rss/all_latest/',10);$health[]=['label'=>'All About NEWS RSS','ok'=>$aa!==''];if($aa!=='')parseRss($aa,'All About ニュース','JP',$items,$seen);
-foreach($qs as [$label,$q,$hl,$gl,$ceid,$source,$region]){$url='https://news.google.com/rss/search?q='.rawurlencode($q).'&hl='.$hl.'&gl='.$gl.'&ceid='.rawurlencode($ceid);$b=fetchUrl($url,6);$health[]=['label'=>$label,'ok'=>$b!==''];if($b!=='')parseRss($b,$source,$region,$items,$seen);}
+$aa=fetchUrl('https://news.allabout.co.jp/rss/all_latest/',5);$health[]=['label'=>'All About NEWS RSS','ok'=>$aa!==''];if($aa!=='')parseRss($aa,'All About ニュース','JP',$items,$seen);
+foreach($qs as [$label,$q,$hl,$gl,$ceid,$source,$region]){$q=str_replace('after:2025-09-27','after:'.date('Y-m-d',time()-365*86400),$q);$url='https://news.google.com/rss/search?q='.rawurlencode($q).'&hl='.$hl.'&gl='.$gl.'&ceid='.rawurlencode($ceid);$b=fetchUrl($url,4);$health[]=['label'=>$label,'ok'=>$b!==''];if($b!=='')parseRss($b,$source,$region,$items,$seen);}
 appendAffiliateBlogArticles($items,$seen,$health);
-$b=fetchUrl('https://www.reddit.com/r/sanrio/hot.json?limit=25&raw_json=1');$health[]=['label'=>'Reddit','ok'=>$b!==''];if($b!=='')parseReddit($b,'sanrio',$items,$seen);
 
 $items=array_values(array_filter($items,function($x){$a=ageH($x['publishedAt']??null);if(($x['sourceType']??'')==='reddit'){return $a<=72&&((int)($x['votes']??0)+(int)($x['comments']??0)*3)>=12;}if(!empty($x['publishedAt']))return $a<=8760;return ($x['sourceType']??'')==='official';}));
 prioritizeLinkedArticleProducts($items,$health);
