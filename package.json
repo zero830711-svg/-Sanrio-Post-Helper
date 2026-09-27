@@ -1,0 +1,10 @@
+{
+  "name": "sanrio-post-helper",
+  "private": true,
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest"
+  }
+}
