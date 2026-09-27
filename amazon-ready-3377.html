@@ -337,8 +337,8 @@ async function load(force){
   var endpoint=apiUrl+(force?(apiUrl.includes("?")?"&":"?")+"refresh=1":"");
   var data=await requestTrend(endpoint,key);
   render(Array.isArray(data.items)?data.items:[],Array.isArray(data.sourceHealth)?data.sourceHealth:[]);
-  if(data.apiVersion!=="2807"){
-   setStatus(statusNode.textContent+" 90日候補を使うには、ロリポップ側のtrend.php更新が必要です。","empty");
+  if(data.apiVersion!=="2808"){
+   setStatus(statusNode.textContent+" 365日候補を使うには、ロリポップ側のtrend.php更新が必要です。","empty");
   }
  }catch(error){
   if(error.kind==="auth")setStatus("ロリポップAPIの認証に失敗しました。Sanrio Post Helperの同期設定と、API側の同期キーが一致しているか確認してください。","error");
