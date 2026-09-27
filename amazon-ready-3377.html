@@ -70,7 +70,16 @@ function clean(value){return String(value||"").trim()}
 function setStatus(message,type){statusNode.className="status"+(type?" "+type:"");statusNode.textContent=message}
 function getApiUrl(){
  var value=localStorage.getItem(URL_NAME)||API_DEFAULT;
- return value.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/trend.php");
+ try{
+  var u=new URL(value,location.href),path=u.pathname.replace(/\/+$/,"");
+  if(/\/api(?:\d+)?\.php$/i.test(path))u.pathname=path.replace(/\/api(?:\d+)?\.php$/i,"/trend.php");
+  else if(!/\/trend\.php$/i.test(path)){
+   if(/\/(?:sanrio-sync|api)$/i.test(path))u.pathname=path+"/trend.php";
+   else return value.replace(/\/api(?:\d+)?\.php(?:\?.*)?\/?$/i,"/trend.php");
+  }
+  u.search="";u.hash="";
+  return u.toString();
+ }catch(e){return value.replace(/\/api(?:\d+)?\.php(?:\?.*)?\/?$/i,"/trend.php")}
 }
 function removeSourceSuffix(title,source){
  if(!source)return title;
@@ -266,8 +275,8 @@ async function markRemoteUsed(asin){
 async function requestTrend(url,key){
  var response=await fetch(url,{headers:{"Authorization":"Bearer "+key},cache:"no-store"});
  if(response.status===401){var authError=new Error("auth");authError.kind="auth";throw authError}
- var data;
- try{data=await response.json()}catch(error){var jsonError=new Error("json");jsonError.kind="json";throw jsonError}
+ var data,contentType=response.headers.get("content-type")||"",raw=await response.text();
+ try{data=JSON.parse(raw)}catch(error){var jsonError=new Error("json");jsonError.kind="json";jsonError.status=response.status;jsonError.contentType=contentType;throw jsonError}
  if(!response.ok||data.ok===false){var serverError=new Error("server");serverError.kind="server";serverError.status=response.status;throw serverError}
  return data;
 }
@@ -287,7 +296,7 @@ async function load(force){
   }
  }catch(error){
   if(error.kind==="auth")setStatus("ロリポップAPIの認証に失敗しました。Sanrio Post Helperの同期設定と、API側の同期キーが一致しているか確認してください。","error");
-  else if(error.kind==="json")setStatus("APIからJSON以外の応答が返りました。ロリポップのtrend.phpの更新状態をご確認ください。","error");
+  else if(error.kind==="json")setStatus("APIがJSON以外を返しました（HTTP "+error.status+" / "+error.contentType+"）。管理画面の同期API URLを確認してください。","error");
   else if(error.kind==="server")setStatus("ロリポップAPIがHTTP "+error.status+"を返しました。しばらく後に更新をお試しください。","error");
   else setStatus("ニュース記事の商品リンクを取得できません。時間をおいて更新してください。","empty");
  }
