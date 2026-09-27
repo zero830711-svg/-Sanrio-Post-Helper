@@ -89,7 +89,7 @@ function render(items){
  listNode.innerHTML=selected.map(function(item,index){
   var post=makePost(item,tag);
   var date=item.publishedAt?new Date(item.publishedAt).toLocaleDateString("ja-JP"):"";
-  return '<article class="idea"><div class="idea-head"><span class="tag">投稿案 '+(index+1)+'</span><span class="tag">'+esc(item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(item.title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+"最近のサンリオ関連ニュースから作成</p><div class="preview">'+esc(post)+'</div><button class="primary copy-post" type="button">投稿文をコピー</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
+  return '<article class="idea"><div class="idea-head"><span class="tag">投稿案 '+(index+1)+'</span><span class="tag">'+esc(item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(item.title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'最近のサンリオ関連ニュースから作成</p><div class="preview">'+esc(post)+'</div><button class="primary copy-post" type="button">投稿文をコピー</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
  }).join("");
  listNode.querySelectorAll(".copy-post").forEach(function(button,index){
   button.addEventListener("click",async function(){
