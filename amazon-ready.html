@@ -58,8 +58,8 @@ function getApiUrl(){
  return value.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/trend.php");
 }
 function makePost(item,tag){
- var title=clean(item.title);
- var query=("サンリオ "+title+" グッズ").replace(/\s+/g," ").trim();
+ var title=clean(item.title).slice(0,72);
+ var query=("サンリオ "+clean(item.title).slice(0,120)+" グッズ").replace(/\s+/g," ").trim();
  var url=new URL("https://www.amazon.co.jp/s");
  url.searchParams.set("k",query);
  url.searchParams.set("tag",tag);
@@ -68,7 +68,8 @@ function makePost(item,tag){
 function isRecent(item){
  if(!item.publishedAt)return false;
  var time=Date.parse(item.publishedAt);
- return Number.isFinite(time)&&(Date.now()-time)<=7*24*60*60*1000;
+ var age=Date.now()-time;
+ return Number.isFinite(time)&&age>=0&&age<=7*24*60*60*1000;
 }
 function isProductTopic(item){
  return /グッズ|新商品|新作|ぬい|発売|コラボ|ガチャ|一番くじ|限定|ポップアップ|商品|雑貨|くじ|予約|再販|販売|collection|plush|collab|new product|new release|limited|merch|launch|restock|blind box/i.test(clean(item.title)+" "+clean(item.summary));
@@ -102,13 +103,14 @@ function render(items){
   });
  });
 }
-async function load(){
+async function load(force){
  listNode.replaceChildren();
  setStatus("新しい話題を確認しています…");
  var key=clean(localStorage.getItem(KEY_NAME));
  if(!key){setStatus("初回のみ、Sanrio Post Helperの「管理 → ロリポップ同期」で設定済みの同期キーが必要です。キーをここへ入力する必要はありません。","error");return}
  try{
-  var response=await fetch(getApiUrl(),{headers:{"Authorization":"Bearer "+key},cache:"no-store"});
+  var endpoint=getApiUrl()+(force?(getApiUrl().includes("?")?"&":"?")+"refresh=1":"");
+  var response=await fetch(endpoint,{headers:{"Authorization":"Bearer "+key},cache:"no-store"});
   var data=await response.json();
   if(!response.ok||data.ok===false)throw new Error(data.error||"話題を取得できませんでした");
   render(Array.isArray(data.items)?data.items:[]);
@@ -116,7 +118,7 @@ async function load(){
   setStatus("話題を読み込めませんでした。通信状態とSanrio Post Helperの同期設定をご確認ください。","error");
  }
 }
-document.getElementById("refresh").addEventListener("click",load);
+document.getElementById("refresh").addEventListener("click",function(){load(true)});
 load();
 })();
 </script>
