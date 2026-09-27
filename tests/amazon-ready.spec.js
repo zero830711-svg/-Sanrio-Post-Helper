@@ -37,7 +37,7 @@ test("話題から完成した投稿文と紹介リンクを自動生成し、�
   await page.getByRole("button", { name: "投稿文をコピー" }).click();
   await expect(page.getByRole("button", { name: "コピーしました" })).toBeVisible();
   const copied = await page.evaluate(() => window.__copiedPost);
-  expect(copied).toContain("#PR");
+  expect(copied).toContain("【PR】");
   expect(copied).toContain("tag=ononbrothers2-22");
 });
 
