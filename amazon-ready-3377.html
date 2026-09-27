@@ -55,7 +55,7 @@ p{margin:0}.intro{font-size:14px;line-height:1.65;color:var(--muted)}
 </section>
 <section id="ideas" class="list" aria-label="記事内Amazonリンク付き候補"></section>
 
-<p class="foot">直近365日以内のサンリオ商品紹介記事から、記事内にAmazon商品リンクがある候補だけを表示します。直近30日を優先し、31〜365日前の記事も追加します。投稿文は記事の説明に沿って作成します。Amazonの商品ページで在庫・価格は自動確認しません。</p>
+<p class="foot">直近365日以内のサンリオ商品紹介記事から、記事内にAmazon商品リンクがある候補だけを表示します。直近30日を優先し、31〜365日前の記事も追加します。投稿文は記事の説明に沿って作成します。発売日・開催日・商品ページの在庫・価格は自動確認しません。</p>
 </main>
 <script>
 (function(){
@@ -220,11 +220,11 @@ function deriveTitle(item,asin){
 }
 function sourceDate(item){return item.postedAt||item.createdAt||item.savedAt||item.date||""}
 function addArchiveProducts(posts){
- var rows=readCatalog(),byAsin=new Map(rows.map(function(x){return [x.asin,x]})),added=0;
+ var rows=readCatalog(),byAsin=new Map(rows.map(function(x){return [x.asin,x]})),added=0,found=0;
  posts.forEach(function(item){
   if(!item||typeof item!=="object"||item._deleted)return;
   urlsInPost(item).forEach(function(raw){
-   var asin=asinFromDirectUrl(raw);if(!asin)return;
+   var asin=asinFromDirectUrl(raw);if(!asin)return;found++;
    var old=byAsin.get(asin),title=deriveTitle(item,asin),postUrl=clean(item.xUrl||item.url||"");
    var affiliate="https://www.amazon.co.jp/dp/"+asin+"?tag="+encodeURIComponent(clean(localStorage.getItem(TAG_NAME))||DEFAULT_TAG);
    var src={url:postUrl,text:clean(item.text).slice(0,1200),date:sourceDate(item)};
@@ -239,7 +239,7 @@ function addArchiveProducts(posts){
    }
   });
  });
- rows=Array.from(byAsin.values());writeCatalog(rows);return {rows:rows,added:added};
+ rows=Array.from(byAsin.values());writeCatalog(rows);return {rows:rows,added:added,found:found};
 }
 function apiBase(){var value=localStorage.getItem(URL_NAME)||API_DEFAULT;return value.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/api2580.php")}
 async function apiJson(action,key,body){
@@ -314,7 +314,7 @@ async function importArchive(){
    try{var data=await apiJson("pull",key);all=(data.items||[]).concat(all);countCloud=(data.items||[]).length}catch(error){libraryStatus.textContent="同期サーバー分は取得できませんでした。端末分を取り込みます。 "+error.message}
   }
   var merged=addArchiveProducts(all);renderLibrary();
-  libraryStatus.textContent="取り込み完了："+merged.added+"商品を追加（端末 "+countLocal+"件・同期 "+countCloud+"件を確認）。同じASINは1商品に統合しました。";
+  libraryStatus.textContent="取り込み完了："+merged.found+"件のAmazon商品リンクから"+merged.added+"商品を追加（端末 "+countLocal+"件・同期 "+countCloud+"件）。同じASINは1商品に統合しました。";
   if(key){try{var products=readCatalog();for(var i=0;i<products.length;i+=200)await apiJson("catalog-push",key,{items:products.slice(i,i+200)})}catch(e){libraryStatus.textContent+=" 商品一覧の複数端末同期にはロリポップAPI更新が必要です。"}}
  }catch(error){libraryStatus.textContent="アーカイブを読めませんでした："+error.message}
 }
