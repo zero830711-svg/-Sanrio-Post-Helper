@@ -1,5 +1,14 @@
 <?php
 declare(strict_types=1);
+ob_start();
+register_shutdown_function(static function(): void {
+ $last=error_get_last();
+ if(!$last||!in_array($last['type'],[E_ERROR,E_PARSE,E_CORE_ERROR,E_COMPILE_ERROR,E_USER_ERROR],true))return;
+ error_log('Sanrio trend.php fatal: '.$last['message'].' in '.$last['file'].':'.$last['line']);
+ while(ob_get_level()>0)ob_end_clean();
+ if(!headers_sent()){http_response_code(500);header('Content-Type: application/json; charset=utf-8');}
+ echo json_encode(['ok'=>false,'error'=>'trend.php internal error; Lolipop PHP error log has details'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+});
 $config = require __DIR__ . '/config.php';
 
 $origin=$_SERVER['HTTP_ORIGIN']??'';$allowed=$config['allowed_origins']??[];
@@ -10,6 +19,12 @@ header('Content-Type: application/json; charset=utf-8');
 if($_SERVER['REQUEST_METHOD']==='OPTIONS'){http_response_code(204);exit;}
 
 function respond(array $d,int $s=200):never{http_response_code($s);echo json_encode($d,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
+set_exception_handler(static function(Throwable $e): void {
+ error_log('Sanrio trend.php exception: '.get_class($e).': '.$e->getMessage().' in '.$e->getFile().':'.$e->getLine());
+ while(ob_get_level()>0)ob_end_clean();
+ if(!headers_sent()){http_response_code(500);header('Content-Type: application/json; charset=utf-8');}
+ echo json_encode(['ok'=>false,'error'=>'trend.php internal error; Lolipop PHP error log has details'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+});
 function token():string{$h=$_SERVER['HTTP_AUTHORIZATION']??'';return preg_match('/^Bearer\s+(.+)$/i',$h,$m)?trim($m[1]):'';}
 function fetchUrl(string $url,int $timeout=10):string{
  $ctx=stream_context_create(['http'=>['timeout'=>$timeout,'user_agent'=>'SanrioPostHelper/2810','header'=>"Accept: application/json, application/rss+xml, application/xml, text/xml, text/html\r\n"]]);
