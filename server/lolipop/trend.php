@@ -12,7 +12,7 @@ if($_SERVER['REQUEST_METHOD']==='OPTIONS'){http_response_code(204);exit;}
 function respond(array $d,int $s=200):never{http_response_code($s);echo json_encode($d,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
 function token():string{$h=$_SERVER['HTTP_AUTHORIZATION']??'';return preg_match('/^Bearer\s+(.+)$/i',$h,$m)?trim($m[1]):'';}
 function fetchUrl(string $url,int $timeout=10):string{
- $ctx=stream_context_create(['http'=>['timeout'=>$timeout,'user_agent'=>'SanrioPostHelper/2800','header'=>"Accept: application/json, application/rss+xml, application/xml, text/xml, text/html\r\n"]]);
+ $ctx=stream_context_create(['http'=>['timeout'=>$timeout,'user_agent'=>'SanrioPostHelper/2803','header'=>"Accept: application/json, application/rss+xml, application/xml, text/xml, text/html\r\n"]]);
  $b=@file_get_contents($url,false,$ctx);return $b===false?'':$b;
 }
 function cleanText(string $s):string{$s=html_entity_decode(strip_tags($s),ENT_QUOTES|ENT_HTML5,'UTF-8');$s=preg_replace('/\s+/u',' ',trim($s));return mb_substr($s,0,500);}
@@ -21,7 +21,7 @@ function iid(string $s,string $u,string $t):string{return substr(hash('sha256',$
 function addUnique(array &$items,array $item,array &$seen):void{$k=strtolower(trim(($item['url']??'').'|'.($item['title']??'')));if($k==='|'||isset($seen[$k]))return;$seen[$k]=1;$items[]=$item;}
 function parseRss(string $xml,string $source,string $region,array &$items,array &$seen):void{
  if($xml==='')return;libxml_use_internal_errors(true);$rss=simplexml_load_string($xml,'SimpleXMLElement',LIBXML_NOCDATA);if(!$rss)return;
- foreach(($rss->channel->item??[]) as $n){$t=cleanText((string)$n->title);$u=trim((string)$n->link);$publisher=cleanText((string)$n->source);if($t===''||$u==='')continue;
+ foreach(($rss->channel->item??[]) as $n){$t=cleanText((string)$n->title);$u=trim((string)$n->link);$publisher=cleanText((string)$n->source);if($publisher==='')$publisher=$source;if($t===''||$u==='')continue;
   addUnique($items,['id'=>iid($source,$u,$t),'source'=>$source,'publisher'=>$publisher,'sourceType'=>'news','region'=>$region,'title'=>$t,'summary'=>cleanText((string)$n->description),'url'=>$u,'publishedAt'=>isoDate((string)$n->pubDate),'votes'=>0,'comments'=>0],$seen);}
 }
 function parseReddit(string $json,string $sub,array &$items,array &$seen):void{
@@ -55,6 +55,9 @@ function amazonProductCards(string $html):array{
   $title='';
   for($node=$a->parentNode,$depth=0;$node&&$depth<6;$node=$node->parentNode,$depth++){
    if(!($node instanceof DOMElement))continue;
+   $productTitles=$xp->query('.//*[contains(concat(" ",normalize-space(@class)," ")," article-product-item__title ")]',$node);
+   if($productTitles&&$productTitles->length){$candidate=cleanText((string)$productTitles->item(0)->textContent);if(mb_strlen($candidate)>=8&&mb_strlen($candidate)<=180)$title=$candidate;}
+   if($title!=='')break;
    foreach($xp->query('.//h1|.//h2|.//h3|.//h4|.//strong', $node) as $h){
     $candidate=cleanText((string)$h->textContent);
     if(mb_strlen($candidate)>=8&&mb_strlen($candidate)<=180&&!preg_match('/amazonで見る|楽天で見る|購入はこちら/iu',$candidate)){$title=$candidate;break;}
@@ -86,8 +89,8 @@ function prioritizeLinkedArticleProducts(array &$items):void{
   if($checked>=5)break;
   if(($items[$i]['sourceType']??'')!=='news')continue;
   $host=strtolower((string)parse_url((string)($items[$i]['url']??''),PHP_URL_HOST));
-  if(!isAllAboutHost($host)&&!in_array($host,['news.google.com','news.googleusercontent.com'],true))continue;
-  if(!isAllAboutHost($host)&&stripos((string)($items[$i]['publisher']??''),'All About')===false)continue;
+  if(!isAllAboutHost($host))continue;
+  if(!preg_match('/sanrio|hello kitty|kuromi|my melody|cinnamoroll|pompompurin|pochacco|サンリオ|ハローキティ|キティ|クロミ|マイメロ|シナモ|プリン|ポチャッコ/iu',(string)($items[$i]['title']??'')))continue;
   $checked++;$products=getAllAboutAmazonProducts((string)$items[$i]['url']);
   if($products){$items[$i]['amazonProducts']=$products;$items[$i]['hasAmazonProductLinks']=true;}
  }
@@ -110,7 +113,7 @@ if(($_GET['action']??'')==='state'){
 }
 
 $force=isset($_GET['refresh'])&&$_GET['refresh']==='1';$s=$pdo->prepare('SELECT payload,updated_at FROM sanrio_trend_cache WHERE cache_key=?');$s->execute(['trend']);$cached=$s->fetch();
-if(!$force&&$cached&&(time()-strtotime((string)$cached['updated_at']))<1200){$p=json_decode((string)$cached['payload'],true);if(is_array($p)&&($p['apiVersion']??'')==='2802'){$p['ok']=true;$p['cached']=true;respond($p);}}
+if(!$force&&$cached&&(time()-strtotime((string)$cached['updated_at']))<1200){$p=json_decode((string)$cached['payload'],true);if(is_array($p)&&($p['apiVersion']??'')==='2803'){$p['ok']=true;$p['cached']=true;respond($p);}}
 
 $items=[];$seen=[];$health=[];
 $b=fetchUrl('https://corporate.sanrio.co.jp/news/2026.html');$health[]=['label'=>'Sanrio JP','ok'=>$b!==''];if($b!=='')parseOfficial($b,'https://corporate.sanrio.co.jp','Sanrio Japan','JP',$items,$seen);
@@ -121,6 +124,7 @@ $qs=[
  ['Google US','Sanrio OR "Hello Kitty" OR Kuromi OR "My Melody" OR Cinnamoroll','en-US','US','US:en','Google News US','US'],
  ['Google KR','산리오 OR 헬로키티 OR 쿠로미 OR 마이멜로디 OR 시나모롤','ko','KR','KR:ko','Google News KR','KR']
 ];
+$aa=fetchUrl('https://news.allabout.co.jp/rss/all_latest/',10);$health[]=['label'=>'All About NEWS RSS','ok'=>$aa!=='';if($aa!=='')parseRss($aa,'All About ニュース','JP',$items,$seen);
 foreach($qs as [$label,$q,$hl,$gl,$ceid,$source,$region]){$url='https://news.google.com/rss/search?q='.rawurlencode($q).'&hl='.$hl.'&gl='.$gl.'&ceid='.rawurlencode($ceid);$b=fetchUrl($url);$health[]=['label'=>$label,'ok'=>$b!==''];if($b!=='')parseRss($b,$source,$region,$items,$seen);}
 $b=fetchUrl('https://www.reddit.com/r/sanrio/hot.json?limit=25&raw_json=1');$health[]=['label'=>'Reddit','ok'=>$b!==''];if($b!=='')parseReddit($b,'sanrio',$items,$seen);
 
@@ -130,5 +134,5 @@ $groups=groupTopics($items);$out=[];$seenQ=$pdo->prepare('SELECT first_seen_at F
 foreach($groups as $g){$rep=$g['representative'];$key=substr(hash('sha256',implode('|',words((string)$rep['title']))),0,40);$seenQ->execute([$key]);$r=$seenQ->fetch();$first=$r?(string)$r['first_seen_at']:date('Y-m-d H:i:s');$seenUp->execute([$key]);$stateQ->execute([$key]);$sr=$stateQ->fetch();
  $regions=array_map(fn($x)=>(string)($x['region']??''),$g['items']);$rep['topicKey']=$key;$rep['firstSeenAt']=date(DATE_ATOM,strtotime($first));$rep['isNew']=(time()-strtotime($first))<86400;$rep['relatedCount']=count($g['items']);$rep['relatedSources']=array_values(array_unique(array_map(fn($x)=>(string)($x['source']??''),$g['items'])));$rep['relatedItems']=array_map(fn($x)=>['source'=>$x['source']??'','url'=>$x['url']??'','region'=>$x['region']??''],array_slice($g['items'],0,8));$rep['jpCount']=count(array_filter($regions,fn($r)=>$r==='JP'));$rep['foreignCount']=count(array_filter($regions,fn($r)=>$r!==''&&$r!=='JP'));$rep['userState']=$sr?(string)$sr['state']:'';$out[]=$rep;}
 usort($out,function($a,$b){$score=function($x){$age=ageH($x['publishedAt']??$x['firstSeenAt']??null);$fresh=max(0,72-min($age,144)*.75);$ahead=((int)($x['jpCount']??0)===0&&(int)($x['foreignCount']??0)>=2)?18:0;return priority($x)+$fresh+$ahead+min(20,max(0,((int)($x['relatedCount']??1)-1)*6));};return $score($b)<=>$score($a);});
-$payload=['ok'=>true,'apiVersion'=>'2802','cached'=>false,'fetchedAt'=>date(DATE_ATOM),'items'=>array_slice($out,0,30),'count'=>count($out),'groupedCount'=>count($groups),'rawCount'=>count($items),'sourceHealth'=>$health];
+$payload=['ok'=>true,'apiVersion'=>'2803','cached'=>false,'fetchedAt'=>date(DATE_ATOM),'items'=>array_slice($out,0,30),'count'=>count($out),'groupedCount'=>count($groups),'rawCount'=>count($items),'sourceHealth'=>$health];
 $save=$pdo->prepare('INSERT INTO sanrio_trend_cache(cache_key,payload) VALUES(?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload),updated_at=CURRENT_TIMESTAMP');$save->execute(['trend',json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);respond($payload);
