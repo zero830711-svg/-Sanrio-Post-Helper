@@ -34,18 +34,23 @@ p{margin:0}.intro{font-size:14px;line-height:1.65;color:var(--muted)}
 .more summary{padding:14px 0}.more .idea{margin-bottom:14px}
 @media(min-width:600px){body{padding:24px}.card{padding:20px}}
  .post-label{font-size:12px;font-weight:800;color:#8c4964;margin:12px 0 5px}.post-preview{font-size:14px;min-height:104px}
+.diagnostics summary{cursor:pointer;font-weight:800;color:#8c4964}.diagnostics #sourceDiagnostics{margin-top:10px;font-size:13px;line-height:1.6;color:var(--muted)}
+.diagnostics ul{padding-left:20px;margin:8px 0}.feedback-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.feedback-actions button{font:inherit;font-size:13px;font-weight:700;padding:10px 6px;border:1px solid var(--line);border-radius:10px;background:#fff;color:#55414e}
+.feedback-actions button:hover{background:#fcf4f8}
 
 
 </style>
 </head>
 <body>
 <main>
-<nav class="top"><a href="./index.html?v=20260927-3382">← Sanrio Post Helper</a><button id="refresh" class="refresh" type="button">更新</button></nav>
+<nav class="top"><a href="./index.html?v=20260927-3383">← Sanrio Post Helper</a><button id="refresh" class="refresh" type="button">更新</button></nav>
 <header class="card">
 <h1>新着記事の商品リンクから投稿案</h1>
 <p class="intro">ネット上の新しいサンリオ商品記事を探し、記事内に実物商品のAmazonリンクがある候補だけを表示します。直近30日を優先して最大365日分を検索します。</p>
 </header>
 <div id="status" class="status" role="status" aria-live="polite">新しい話題を確認しています…</div>
+<details class="card diagnostics"><summary>検索状況を確認</summary><div id="sourceDiagnostics" aria-live="polite"></div></details>
 <section id="ideas" class="list" aria-label="記事内Amazonリンク付き候補"></section>
 
 <p class="foot">直近365日以内のサンリオ商品紹介記事から、記事内にAmazon商品リンクがある候補だけを表示します。直近30日を優先し、31〜365日前の記事も追加します。投稿文は記事の説明に沿って作成します。発売日・開催日・商品ページの在庫・価格は自動確認しません。</p>
@@ -60,6 +65,7 @@ var TAG_NAME="sphAmazonAssociateTagV1";
 var DEFAULT_TAG="ononbrothers2-22";
 var statusNode=document.getElementById("status");
 var listNode=document.getElementById("ideas");
+var diagnosticsNode=document.getElementById("sourceDiagnostics");
 function clean(value){return String(value||"").trim()}
 function setStatus(message,type){statusNode.className="status"+(type?" "+type:"");statusNode.textContent=message}
 function getApiUrl(){
@@ -139,18 +145,44 @@ function renderIdea(candidate,index,tag){
  var title=cleanTitle(item).slice(0,72),days=ageDays(item);
  var date=item.publishedAt?new Date(item.publishedAt).toLocaleDateString("ja-JP"):"";
  var post=makePost(item,product,url),ageLabel=days<=30?"直近30日":"31〜365日前";
- return '<article class="idea"><div class="idea-head"><span class="tag">'+ageLabel+'</span><span class="tag">記事内Amazonリンク</span><span class="tag">'+esc(item.publisher||item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'元記事に掲載された商品リンク</p><div class="product-hit"><strong>記事内で紹介されている商品</strong>'+esc(product.title)+'</div><div class="post-label">投稿文のプレビュー</div><div class="preview post-preview">'+esc(post)+'</div><p class="url-note">投稿前にAmazon商品ページと紹介内容をご確認ください。</p><a class="secondary amazon-link" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Amazon商品を確認 ↗</a><button class="primary copy-post" type="button">この投稿文をコピー</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
+ return '<article class="idea"><div class="idea-head"><span class="tag">'+ageLabel+'</span><span class="tag">記事内Amazonリンク</span><span class="tag">'+esc(item.publisher||item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'元記事に掲載された商品リンク</p><div class="product-hit"><strong>記事内で紹介されている商品</strong>'+esc(product.title)+'</div><div class="post-label">投稿文のプレビュー</div><div class="preview post-preview">'+esc(post)+'</div><p class="url-note">投稿前にAmazon商品ページと紹介内容をご確認ください。</p><a class="secondary amazon-link" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Amazon商品を確認 ↗</a><button class="primary copy-post" type="button">この投稿文をコピー</button><div class="feedback-actions"><button type="button" data-feedback="used">紹介済みにする</button><button type="button" data-feedback="wrong">商品が違う</button></div><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
+}
+function renderDiagnostics(health,stats){
+ if(!diagnosticsNode)return;
+ var sources=Array.isArray(health)?health:[],scan={},pool={},posted={},kept={};
+ sources.forEach(function(x){if(x.label==="記事内Amazon商品リンク検索")scan=x;if(x.label==="365日以内の記事候補")pool=x;if(x.label==="過去投稿済みASIN除外")posted=x;if(x.label==="商品リンク確認済み候補")kept=x});
+ var feeds=sources.filter(function(x){return !["記事内Amazon商品リンク検索","365日以内の記事候補","過去投稿済みASIN除外"].includes(x.label)}).map(function(x){
+  return "<li>"+esc(x.label||"検索元")+": "+(x.ok?"接続":"取得失敗")+(Number.isFinite(Number(x.articles))?" / 記事 "+Number(x.articles):"")+"</li>";
+ }).join("");
+ diagnosticsNode.innerHTML="<p>候補 "+Number(pool.articles||0)+"記事 → 検査 "+Number(scan.checkedArticles||0)+"記事 → 新規検出 "+Number(scan.productsFound||0)+"件。短縮リンク解決 "+Number(scan.shortLinksResolved||0)+"件。</p>"+
+ "<p>最終候補 "+Number(kept.articles||0)+"記事・商品 "+Number(kept.products||0)+"件。</p>"+
+ "<p>過去投稿ASINで除外 "+Number(stats.archiveExcluded||0)+"件、サーバー記録の紹介済み除外 "+Number(posted.excludedProducts||0)+"件、誤リンク報告 "+Number(stats.wrongExcluded||0)+"件、同一ASIN重複 "+Number(stats.duplicateExcluded||0)+"件。表示 "+Number(stats.shown||0)+"件。</p>"+
+ "<details><summary>検索元ごとの取得結果</summary><ul>"+feeds+"</ul></details>";
 }
 function render(items,health){
+ window.__sphTrendItems=items;window.__sphTrendHealth=health;
  var tag=clean(localStorage.getItem(TAG_NAME))||DEFAULT_TAG;
- var selected=[],seen=new Set(),posted=window.__sphPostedAsins||new Set();
+ var selected=[],seen=new Set(),posted=window.__sphPostedAsins||new Set(),stats={archiveExcluded:0,wrongExcluded:0,duplicateExcluded:0,shown:0};
+ var feedback={usedAsins:[],wrongLinks:[]};
+ try{feedback=JSON.parse(localStorage.getItem("sphAmazonDiscoveryFeedbackV1")||"{}")}catch(e){}
+ feedback.usedAsins=Array.isArray(feedback.usedAsins)?feedback.usedAsins:[];
+ feedback.wrongLinks=Array.isArray(feedback.wrongLinks)?feedback.wrongLinks:[];
  items.filter(function(item){return item.sourceType==="news"&&isRecent(item)&&Array.isArray(item.amazonProducts)}).forEach(function(item){
   item.amazonProducts.forEach(function(product){
    var url=directProductUrl(product.url,tag);
-   if(!url||!clean(product.title))return;
-   var asin=url.match(/\/dp\/([A-Z0-9]{10})/i),key=asin?asin[1].toUpperCase():url;
-   if(seen.has(key)||posted.has(key))return;
-   seen.add(key);selected.push({article:item,product:product,url:url});
+   if(!url)return;
+   var segments;
+   try{segments=new URL(product.url).pathname.split("/").filter(Boolean)}catch(e){segments=[]}
+   var asin=String(product.asin||"").toUpperCase();
+   if(!/^[A-Z0-9]{10}$/.test(asin)){
+    var at=segments.indexOf("dp");if(at<0)at=segments.indexOf("product");if(at>=0)asin=String(segments[at+1]||"").toUpperCase();
+   }
+   if(!/^[A-Z0-9]{10}$/.test(asin))return;
+   var pair=String(item.url||item.id||"")+"|"+asin;
+   if(posted.has(asin)||feedback.usedAsins.indexOf(asin)>=0){stats.archiveExcluded++;return}
+   if(feedback.wrongLinks.indexOf(pair)>=0){stats.wrongExcluded++;return}
+   if(seen.has(asin)){stats.duplicateExcluded++;return}
+   seen.add(asin);selected.push({article:item,product:product,url:url,asin:asin});
   });
  });
  selected.sort(function(a,b){
@@ -159,23 +191,40 @@ function render(items,health){
  });
  var perArticle=new Map();
  selected=selected.filter(function(candidate){var key=candidate.article.url||candidate.article.id,count=perArticle.get(key)||0;if(count>=4)return false;perArticle.set(key,count+1);return true}).slice(0,20);
+ stats.shown=selected.length;renderDiagnostics(health,stats);
  if(!selected.length){
-  setStatus(posted.size?"記事内にAmazonリンクがある商品は見つかりましたが、過去投稿のASINと一致したため除外しました。":"記事内に実物商品のAmazonリンクがある候補は見つかりませんでした。","empty");
+  var remote=Number((health||[]).filter(function(x){return x.label==="過去投稿済みASIN除外"}).map(function(x){return x.excludedProducts||0})[0]||0);
+  setStatus(stats.archiveExcluded||remote?"Amazonリンク商品は見つかりましたが、紹介済みの商品を除外しました。":"実物商品のAmazonリンク付き候補は見つかりませんでした。検索状況を開くと、検索元と検査数を確認できます。","empty");
   listNode.replaceChildren();return;
  }
- setStatus("記事内の有効なAmazon商品リンクから"+selected.length+"件を表示しています。直近30日を優先し、31〜365日前も含めています。");
+ setStatus("新しい記事の商品リンクから"+selected.length+"件を表示しています。直近30日を優先し、最大365日分を検索します。");
  listNode.innerHTML=selected.map(function(candidate,index){return renderIdea(candidate,index,tag)}).join("");
  listNode.querySelectorAll(".idea").forEach(function(card,index){
   var button=card.querySelector(".copy-post"),candidate=selected[index];
   button.addEventListener("click",async function(){
-   var url=directProductUrl(candidate.product.url,tag);
-   if(!url)return;
-   try{
-    await navigator.clipboard.writeText(makePost(candidate.article,candidate.product,url));
-    button.textContent="コピーしました";
-    button.classList.add("done");
-    setTimeout(function(){button.textContent="この投稿文をコピー";button.classList.remove("done")},1800);
-   }catch(error){setStatus("コピーできませんでした。本文を長押ししてコピーしてください。","error")}
+   try{await navigator.clipboard.writeText(makePost(candidate.article,candidate.product,candidate.url));button.textContent="コピーしました";button.classList.add("done");setTimeout(function(){button.textContent="この投稿文をコピー";button.classList.remove("done")},1800)}
+   catch(error){setStatus("コピーできませんでした。本文を長押ししてコピーしてください。","error")}
+  });
+  card.querySelectorAll("[data-feedback]").forEach(function(control){
+   control.addEventListener("click",async function(){
+    var data={usedAsins:[],wrongLinks:[]};
+    try{data=JSON.parse(localStorage.getItem("sphAmazonDiscoveryFeedbackV1")||"{}")}catch(e){}
+    data.usedAsins=Array.isArray(data.usedAsins)?data.usedAsins:[];
+    data.wrongLinks=Array.isArray(data.wrongLinks)?data.wrongLinks:[];
+    if(control.dataset.feedback==="used"){
+     if(data.usedAsins.indexOf(candidate.asin)<0)data.usedAsins.push(candidate.asin);
+     localStorage.setItem("sphAmazonDiscoveryFeedbackV1",JSON.stringify(data));
+     if(window.__sphPostedAsins)window.__sphPostedAsins.add(candidate.asin);
+     var synced=await markRemoteUsed(candidate.asin).catch(function(){return false});
+     setStatus(synced?"紹介済みとして保存しました。ほかの候補からも除外します。":"この端末で紹介済みにしました。","empty");
+    }else{
+     var pair=String(candidate.article.url||candidate.article.id||"")+"|"+candidate.asin;
+     if(data.wrongLinks.indexOf(pair)<0)data.wrongLinks.push(pair);
+     localStorage.setItem("sphAmazonDiscoveryFeedbackV1",JSON.stringify(data));
+     setStatus("この記事と商品リンクの組み合わせを候補から除外しました。","empty");
+    }
+    render(window.__sphTrendItems||[],window.__sphTrendHealth||[]);
+   });
   });
  });
 }
@@ -183,6 +232,12 @@ function render(items,health){
 function previouslyPostedAsins(){
  return new Promise(function(resolve){
   var found=new Set();
+  try{
+   var feedback=JSON.parse(localStorage.getItem("sphAmazonDiscoveryFeedbackV1")||"{}");
+   (feedback.usedAsins||[]).forEach(function(x){if(/^[A-Z0-9]{10}$/i.test(x))found.add(String(x).toUpperCase())});
+   var catalog=JSON.parse(localStorage.getItem("sphAmazonProductLibraryV1")||"[]");
+   (Array.isArray(catalog)?catalog:[]).forEach(function(x){if(x&&/^[A-Z0-9]{10}$/i.test(x.asin||""))found.add(String(x.asin).toUpperCase())});
+  }catch(e){}
   if(!window.indexedDB){resolve(found);return}
   var req=indexedDB.open("sanrioPostHelperDB");
   req.onerror=function(){resolve(found)};
@@ -200,6 +255,13 @@ function previouslyPostedAsins(){
    get.onerror=function(){db.close();resolve(found)};
   };
  });
+}
+async function markRemoteUsed(asin){
+ var key=clean(localStorage.getItem(KEY_NAME));if(!key)return false;
+ var api=getApiUrl(),url=api+(api.includes("?")?"&":"?")+"action=state";
+ var body=new URLSearchParams({topic_key:"asin:"+asin,state:"used"});
+ var response=await fetch(url,{method:"POST",headers:{"Authorization":"Bearer "+key,"Content-Type":"application/x-www-form-urlencoded"},body:body.toString(),cache:"no-store"});
+ return response.ok;
 }
 async function requestTrend(url,key){
  var response=await fetch(url,{headers:{"Authorization":"Bearer "+key},cache:"no-store"});
@@ -220,7 +282,7 @@ async function load(force){
   var data=await requestTrend(endpoint,key);
   window.__sphPostedAsins=await previouslyPostedAsins();
   render(Array.isArray(data.items)?data.items:[],Array.isArray(data.sourceHealth)?data.sourceHealth:[]);
-  if(data.apiVersion!=="2809"){
+  if(data.apiVersion!=="2810"){
    setStatus(statusNode.textContent+" 365日候補を使うには、ロリポップ側のtrend.php更新が必要です。","empty");
   }
  }catch(error){
