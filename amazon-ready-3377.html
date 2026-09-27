@@ -352,6 +352,7 @@ document.getElementById("refresh").addEventListener("click",function(){load(true
 document.getElementById("importArchive").addEventListener("click",importArchive);
 document.getElementById("refreshLibrary").addEventListener("click",refreshLibrary);
 renderLibrary();
+if(!readCatalog().length)importArchive();
 load();
 })();
 </script>
