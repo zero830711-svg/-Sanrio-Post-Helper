@@ -40,11 +40,11 @@ p{margin:0}.intro{font-size:14px;line-height:1.65;color:var(--muted)}
 <nav class="top"><a href="./index.html?v=20260927-3365">← Sanrio Post Helper</a><button id="refresh" class="refresh" type="button">更新</button></nav>
 <header class="card">
 <h1>今日のサンリオ投稿案</h1>
-<p class="intro">記事の見出し全体ではなく、サンリオのキャラクター名と具体的な商品ジャンルでAmazonを検索します。</p>
+<p class="intro">Amazonの検索結果には元記事とは別の商品が表示されます。元記事と同一の商品が確認できるまで、この候補からアフィリエイト投稿文は作成できません。</p>
 </header>
 <div id="status" class="status" role="status" aria-live="polite">新しい話題を確認しています…</div>
-<section id="ideas" class="list" aria-label="完成した投稿案"></section>
-<p class="foot">リンクは商品ジャンルを絞ったAmazon検索です。記事内に商品名が特定できる場合はそのジャンルとキャラクター名を使い、特定できない場合は定番の「マスコットホルダー」を検索します。ニュース掲載品そのものとは限らないため、Amazonで商品名・在庫・価格を確認してから紹介してください。投稿文には #pr を含めています。商品画像は取得・保存しません。</p>
+<section id="ideas" class="list" aria-label="要照合のニュース候補"></section>
+<p class="foot">Amazon検索は商品の存在・同一性・在庫を証明しません。商品画像は取得・保存しません。元記事の商品と一致するAmazonの商品ページが見つからなければ紹介しないでください。</p>
 </main>
 <script>
 (function(){
@@ -125,12 +125,12 @@ function isProductTopic(item){
 }
 function esc(value){return String(value||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function renderIdea(item,index,tag,featured){
- var post=makePost(item,tag);
+ var post="商品未照合。検索結果を元記事の商品として紹介する投稿文は作成できません。";
  var title=cleanTitle(item).slice(0,72);
  var searchTerm=amazonSearchTerm(item);
  var date=item.publishedAt?new Date(item.publishedAt).toLocaleDateString("ja-JP"):"";
  var label=featured?"おすすめ":"投稿案 "+(index+1);
- return '<article class="idea"><div class="idea-head"><span class="tag">'+label+'</span><span class="tag">'+esc(item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'最近のサンリオ関連ニュースから作成</p><div class="preview">'+esc(previewPost(item))+'</div><p class="url-note">Amazon検索語：「'+esc(searchTerm)+'」の商品を表示します。</p><details class="full-post"><summary>コピーされる投稿文を確認</summary><div class="preview">'+esc(post)+'</div></details><a class="secondary amazon-link" href="'+esc(amazonUrl(item,tag))+'" target="_blank" rel="noopener noreferrer">Amazonで候補商品を確認 ↗</a><button class="primary copy-post" data-index="'+index+'" type="button">投稿文をコピー</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
+ return '<article class="idea"><div class="idea-head"><span class="tag">'+label+'</span><span class="tag">'+esc(item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'最近のサンリオ関連ニュースから作成</p><div class="preview">'+esc(previewPost(item))+'</div><p class="url-note">検索結果には別の商品が表示される場合があります。元記事と同じ商品であることを確認してください。</p><details class="full-post"><summary>商品照合が必要です</summary><div class="preview">'+esc(post)+'</div></details><a class="secondary amazon-link" href="'+esc(amazonUrl(item,tag))+'" target="_blank" rel="noopener noreferrer">Amazonで商品を探す（検索結果） ↗</a><button class="primary copy-post" data-index="'+index+'" type="button" disabled>商品未照合・コピー不可</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
 }
 function render(items){
  var tag=clean(localStorage.getItem(TAG_NAME))||DEFAULT_TAG;
@@ -142,7 +142,7 @@ function render(items){
   listNode.replaceChildren();
   return;
  }
- setStatus("新しい話題から"+selected.length+"件の投稿案を作りました。");
+ setStatus("ニュース候補を"+selected.length+"件見つけました。Amazonの検索結果と同じ商品か照合できていないため、投稿文のコピーを停止しています。");
  var html=renderIdea(selected[0],0,tag,true);
  if(selected.length>1){
   html+='<details class="more"><summary>ほかの候補 '+(selected.length-1)+'件</summary>'+selected.slice(1).map(function(item,index){return renderIdea(item,index+1,tag,false)}).join("")+'</details>';
