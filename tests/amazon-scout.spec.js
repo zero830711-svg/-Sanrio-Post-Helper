@@ -1,5 +1,13 @@
 const { test, expect } = require("@playwright/test");
 
+test("トップからAmazon商品候補ページを開ける", async ({ page }) => {
+  const response = await page.goto("/", { waitUntil: "domcontentloaded" });
+  expect(response && response.status()).toBe(200);
+  await page.getByRole("link", { name: "商品候補づくりを開く" }).click();
+  await expect(page).toHaveURL(/amazon-scout\.html/);
+  await expect(page.getByRole("heading", { name: "Amazon商品候補づくり" })).toBeVisible();
+});
+
 test("Amazon商品候補ページがiPhone幅で開き、検索例ボタンが使える", async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", error => pageErrors.push(error.message));
