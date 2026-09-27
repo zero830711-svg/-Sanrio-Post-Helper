@@ -395,7 +395,7 @@ async function load(force){
   if(error.kind==="auth")setStatus("ロリポップAPIの認証に失敗しました。Sanrio Post Helperの同期設定と、API側の同期キーが一致しているか確認してください。","error");
   else if(error.kind==="json")setStatus("APIからJSON以外の応答が返りました。ロリポップのtrend.phpの更新状態をご確認ください。","error");
   else if(error.kind==="server")setStatus("ロリポップAPIがHTTP "+error.status+"を返しました。しばらく後に更新をお試しください。","error");
-  else setStatus("ニュースAPIに接続できません。下の「過去投稿の商品リンクをローテーション」は端末内の投稿データから使えます。","error");
+  else setStatus("ニュース候補は現在取得できません。下の「過去投稿の商品リンクをローテーション」は端末内の投稿データから利用できます。","empty");
  }
 }
 document.getElementById("refresh").addEventListener("click",function(){load(true)});
