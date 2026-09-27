@@ -63,7 +63,7 @@ function makePost(item,tag){
  var url=new URL("https://www.amazon.co.jp/s");
  url.searchParams.set("k",query);
  url.searchParams.set("tag",tag);
- return "【PR】サンリオの話題をチェック🎀\n「"+title+"」が気になる方はこちら👇\n"+url.toString()+"\n#PR #サンリオ";
+ return "【PR】サンリオの話題をチェック🎀\n「"+title+"」が気になる方はこちら👇\n"+url.toString()+"\n#サンリオ";
 }
 function isRecent(item){
  if(!item.publishedAt)return false;
