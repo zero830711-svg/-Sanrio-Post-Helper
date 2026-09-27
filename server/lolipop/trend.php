@@ -122,7 +122,7 @@ function getArticleAmazonProducts(string $url,int &$shortResolved):array{
 }
 function prioritizeLinkedArticleProducts(array &$items,array &$health):void{
  $order=array_keys($items);
- usort($order,function($a,$b){$pa=priority($items[$a]);$pb=priority($items[$b]);if($pa!==$pb)return $pb<=>$pa;return ageH($items[$a]['publishedAt']??null)<=>ageH($items[$b]['publishedAt']??null);});
+ usort($order,function($a,$b)use($items){$pa=priority($items[$a]);$pb=priority($items[$b]);if($pa!==$pb)return $pb<=>$pa;return ageH($items[$a]['publishedAt']??null)<=>ageH($items[$b]['publishedAt']??null);});
  $checked=0;$found=0;$checkedUrls=[];$shortResolved=0;
  if(count($order)>10){$shift=((int)floor(time()/1200)*10)%count($order);$order=array_merge(array_slice($order,$shift),array_slice($order,0,$shift));}
  foreach($order as $i){
