@@ -44,7 +44,7 @@ p{margin:0}.intro{font-size:14px;line-height:1.65;color:var(--muted)}
 </head>
 <body>
 <main>
-<nav class="top"><a href="./index.html?v=20260927-3383">← Sanrio Post Helper</a><button id="refresh" class="refresh" type="button">更新</button></nav>
+<nav class="top"><a href="./index.html?v=20260927-3392">← Sanrio Post Helper</a><button id="refresh" class="refresh" type="button">更新</button></nav>
 <header class="card">
 <h1>新着記事の商品リンクから投稿案</h1>
 <p class="intro">ネット上の新しいサンリオ商品記事を探し、記事内に実物商品のAmazonリンクがある候補だけを表示します。直近30日を優先して最大365日分を検索します。</p>
@@ -291,7 +291,7 @@ async function load(force){
   var data=await requestTrend(endpoint,key);
   window.__sphPostedAsins=await previouslyPostedAsins();
   render(Array.isArray(data.items)?data.items:[],Array.isArray(data.sourceHealth)?data.sourceHealth:[]);
-  if(data.apiVersion!=="2810"){
+  if(data.apiVersion!=="2811"){
    setStatus(statusNode.textContent+" 365日候補を使うには、ロリポップ側のtrend.php更新が必要です。","empty");
   }
  }catch(error){
