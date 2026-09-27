@@ -109,10 +109,10 @@ function amazonUrl(item,tag){
 }
 function makePost(item,tag){
  var term=amazonSearchTerm(item);
- return "サンリオの「"+term+"」をAmazonで探すならこちら🎀\\n"+amazonUrl(item,tag)+"\\n#サンリオ #pr";
+ return "サンリオの「"+term+"」をAmazonで探すならこちら🎀\n"+amazonUrl(item,tag)+"\n#サンリオ #pr";
 }
 function previewPost(item){
- return "Amazon検索語：「"+amazonSearchTerm(item)+"」\\n紹介ID付きの検索リンクが投稿文に入ります。\\n#サンリオ #pr";
+ return "Amazon検索語：「"+amazonSearchTerm(item)+"」\n紹介ID付きの検索リンクが投稿文に入ります。\n#サンリオ #pr";
 }
 function isRecent(item){
  if(!item.publishedAt)return false;
@@ -126,7 +126,8 @@ function isProductTopic(item){
 function esc(value){return String(value||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function renderIdea(item,index,tag,featured){
  var post=makePost(item,tag);
- var title=cleanTitle(item).slice(0,72);\n var searchTerm=amazonSearchTerm(item);
+ var title=cleanTitle(item).slice(0,72);
+ var searchTerm=amazonSearchTerm(item);
  var date=item.publishedAt?new Date(item.publishedAt).toLocaleDateString("ja-JP"):"";
  var label=featured?"おすすめ":"投稿案 "+(index+1);
  return '<article class="idea"><div class="idea-head"><span class="tag">'+label+'</span><span class="tag">'+esc(item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'最近のサンリオ関連ニュースから作成</p><div class="preview">'+esc(previewPost(item))+'</div><p class="url-note">Amazon検索語：「'+esc(searchTerm)+'」の商品を表示します。</p><details class="full-post"><summary>コピーされる投稿文を確認</summary><div class="preview">'+esc(post)+'</div></details><a class="secondary amazon-link" href="'+esc(amazonUrl(item,tag))+'" target="_blank" rel="noopener noreferrer">Amazonで候補商品を確認 ↗</a><button class="primary copy-post" data-index="'+index+'" type="button">投稿文をコピー</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
