@@ -198,49 +198,72 @@ function render(items,health){
 function readCatalog(){try{var v=JSON.parse(localStorage.getItem(CATALOG_KEY)||"[]");return Array.isArray(v)?v:[]}catch(e){return []}}
 function writeCatalog(rows){localStorage.setItem(CATALOG_KEY,JSON.stringify(rows));}
 function urlsInPost(item){
- var found=[];
- [item.amazon,item.affiliateUrl,item.text].concat(Array.isArray(item.affiliateLinks)?item.affiliateLinks.map(function(x){return x&&x.url}):[]).forEach(function(v){
-  if(typeof v!=="string")return;
-  (v.match(/https?:\/\/[^\s<>"']+/gi)||[]).forEach(function(raw){found.push(raw.replace(/[.,!?。，！？;；:：)）\]】」』]+$/g,""))});
- });
- return found;
+ var found=[],seen=new Set();
+ function scan(value,depth){
+  if(depth>5||value==null)return;
+  if(typeof value==="string"){
+   (value.match(/https?:\/\/[^\s<>"']+/gi)||[]).forEach(function(raw){raw=raw.replace(/[.,!?。，！？;；:：)）\]】」』]+$/g,"");if(!seen.has(raw)){seen.add(raw);found.push(raw)}});
+  }else if(Array.isArray(value)){value.forEach(function(x){scan(x,depth+1)})}
+  else if(typeof value==="object"){Object.keys(value).forEach(function(k){if(/^(?:url|expanded_url|expandedUrl|unwound_url|unwoundUrl|href|link|text|full_text|fullText|content|amazon|affiliateUrl|affiliateLinks|links|urls|entities|description)$/i.test(k))scan(value[k],depth+1)})}
+ }
+ scan(item,0);return found;
 }
-function asinFromDirectUrl(raw){
- try{var u=new URL(raw),host=u.hostname.toLowerCase().replace(/^www\./,"");
-  if(host!=="amazon.co.jp"&&host!=="m.amazon.co.jp")return "";
-  var m=u.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d|exec\/obidos\/ASIN)\/([A-Z0-9]{10})(?:\/|$)/i);
-  return m?m[1].toUpperCase():"";
- }catch(e){return ""}
+function amazonLink(raw){
+ try{
+  var u=new URL(raw),host=u.hostname.toLowerCase().replace(/^www\./,"");
+  if(/(^|\.)amazon\.(?:co\.jp|com|co\.uk|de|fr|it|es|ca|com\.au|in|com\.mx|com\.br|nl|sg|ae|sa)$/.test(host))return {url:u,host:host};
+  if(/^(?:amzn\.to|amzn\.asia|amzn\.eu|amzn\.la)$/.test(host))return {url:u,host:host,short:true};
+ }catch(e){}
+ return null;
 }
+function asinFromDirectUrl(raw,depth){
+ depth=depth||0;if(depth>3)return "";
+ try{
+  var u=new URL(raw),host=u.hostname.toLowerCase().replace(/^www\./,"");
+  if(!/(^|\.)amazon\./.test(host))return "";
+  var m=u.pathname.match(/\/(?:dp|product|gp\/product|gp\/aw\/d|exec\/obidos\/ASIN)\/([A-Z0-9]{10})(?:\/|$)/i);
+  if(m)return m[1].toUpperCase();
+  for(var name of ["asin","ASIN","pd_rd_i"]){var value=u.searchParams.get(name);if(value&&/^[A-Z0-9]{10}$/i.test(value))return value.toUpperCase()}
+  for(var param of ["url","u","redirectUrl","redirect_url"]){var nested=u.searchParams.get(param);if(nested){var found=asinFromDirectUrl(nested,depth+1);if(found)return found}}
+ }catch(e){}
+ return "";
+}
+function productKey(row){return clean(row&&row.key)||(row&&row.asin?"asin:"+String(row.asin).toUpperCase():"")}
 function deriveTitle(item,asin){
- var text=clean(item.text).replace(/https?:\/\/\S+/g," ").replace(/#[\p{L}\p{N}_]+/gu," ").replace(/\s+/g," ").trim();
+ var raw=clean(item.text||item.full_text||item.fullText||item.content);
+ var text=raw.replace(/https?:\/\/\S+/g," ").replace(/#[\p{L}\p{N}_]+/gu," ").replace(/\s+/g," ").trim();
  text=text.replace(/^(?:PR|広告|アフィリエイト広告)\s*/i,"").replace(/(?:が気になる方はこちら|はこちらからチェック|Amazonで(?:詳細を)?チェック).*$/,"").trim();
- if(text.length>95)text=text.slice(0,92).replace(/\s+\S*$/,"")+"…";
- return text||("サンリオ商品（ASIN "+asin+"）");
+ if(text.length>95)text=text.slice(0,92).replace(/\s+\S*$/,"…");
+ return text||(asin?"サンリオ商品（ASIN "+asin+"）":"サンリオ商品（Amazonリンク先で確認）");
 }
 function sourceDate(item){return item.postedAt||item.createdAt||item.savedAt||item.date||""}
 function addArchiveProducts(posts){
- var rows=readCatalog(),byAsin=new Map(rows.map(function(x){return [x.asin,x]})),added=0,found=0;
+ var rows=readCatalog(),byKey=new Map(rows.map(function(x){return [productKey(x),x]})),added=0,found=0;
  posts.forEach(function(item){
   if(!item||typeof item!=="object"||item._deleted)return;
   urlsInPost(item).forEach(function(raw){
-   var asin=asinFromDirectUrl(raw);if(!asin)return;found++;
-   var old=byAsin.get(asin),title=deriveTitle(item,asin),postUrl=clean(item.xUrl||item.url||"");
-   var affiliate="https://www.amazon.co.jp/dp/"+asin+"?tag="+encodeURIComponent(clean(localStorage.getItem(TAG_NAME))||DEFAULT_TAG);
-   var src={url:postUrl,text:clean(item.text).slice(0,1200),date:sourceDate(item)};
+   var link=amazonLink(raw);if(!link)return;
+   var asin=asinFromDirectUrl(raw),target=link.url.searchParams.get("url")||link.url.searchParams.get("u")||link.url.searchParams.get("redirectUrl")||link.url.searchParams.get("redirect_url")||"",key=asin?"asin:"+asin:(link.short?"short:":"amazon:")+link.host+link.url.pathname.replace(/\/$/,"")+(target?":"+target:"");
+   if(!asin&&!link.short&&!/redirect|slredirect|\/gp\/|\/exec\//i.test(link.url.pathname))return;
+   found++;
+   var old=byKey.get(key),title=deriveTitle(item,asin),postUrl=clean(item.xUrl||item.url||""),tag=clean(localStorage.getItem(TAG_NAME))||DEFAULT_TAG;
+   var productUrl=asin&&link.host.endsWith("amazon.co.jp")?"https://www.amazon.co.jp/dp/"+asin:raw;
+   var affiliate=asin&&link.host.endsWith("amazon.co.jp")?productUrl+"?tag="+encodeURIComponent(tag):raw;
+   var src={url:postUrl,text:clean(item.text||item.full_text||item.fullText||item.content).slice(0,1200),date:sourceDate(item)};
    if(old){
     old.sources=Array.isArray(old.sources)?old.sources:[];
     if(postUrl&&!old.sources.some(function(s){return s.url===postUrl}))old.sources.push(src);
     if(old.sources.length>20)old.sources=old.sources.slice(-20);
-    if((!old.title||/^サンリオ商品（ASIN/.test(old.title))&&title)old.title=title;
+    if((!old.title||/^サンリオ商品（(?:ASIN|Amazonリンク先)/.test(old.title))&&title)old.title=title;
    }else{
-    old={asin:asin,title:title,productUrl:"https://www.amazon.co.jp/dp/"+asin,affiliateUrl:affiliate,sources:postUrl?[src]:[],lastCopiedAt:"",createdAt:new Date().toISOString()};
-    byAsin.set(asin,old);added++;
+    old={key:key,asin:asin||"",title:title,productUrl:productUrl,affiliateUrl:affiliate,sources:postUrl?[src]:[],lastCopiedAt:"",createdAt:new Date().toISOString()};
+    byKey.set(key,old);added++;
    }
   });
  });
- rows=Array.from(byAsin.values());writeCatalog(rows);return {rows:rows,added:added,found:found};
+ rows=Array.from(byKey.values());writeCatalog(rows);return {rows:rows,added:added,found:found};
 }
+
 function apiBase(){var value=localStorage.getItem(URL_NAME)||API_DEFAULT;return value.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,"/api2580.php")}
 async function apiJson(action,key,body){
  var url=apiBase()+"?action="+encodeURIComponent(action),options={method:body?"POST":"GET",headers:{Authorization:"Bearer "+key},cache:"no-store"};
@@ -263,19 +286,20 @@ function localArchivePosts(){
 function dayKey(){return new Date().toLocaleDateString("sv-SE")}
 function isCooling(row){var t=Date.parse(row.lastCopiedAt||"");return Number.isFinite(t)&&(Date.now()-t)<USED_DAYS*86400000}
 function dailyRows(){
- var rows=readCatalog().filter(function(x){return x.asin&&x.title&&!isCooling(x)}),key=dayKey(),daily;
+ var rows=readCatalog().filter(function(x){return x.affiliateUrl&&x.title&&!isCooling(x)}),key=dayKey(),daily;
  try{daily=JSON.parse(localStorage.getItem(DAILY_KEY)||"{}")}catch(e){daily={}}
- var byAsin=new Map(rows.map(function(x){return [x.asin,x]}));
+ var byKey=new Map(rows.map(function(x){return [productKey(x),x]})),byAsin=new Map(rows.filter(function(x){return x.asin}).map(function(x){return [String(x.asin).toUpperCase(),productKey(x)]}));
  if(daily.date!==key)daily={date:key,asins:[],seen:[]};
- daily.asins=(daily.asins||[]).filter(function(id,i,a){return byAsin.has(id)&&a.indexOf(id)===i});
- daily.seen=Array.isArray(daily.seen)?daily.seen:[];
+ function normalize(id){return byKey.has(id)?id:(byAsin.get(String(id).toUpperCase())||"")}
+ daily.asins=Array.from(new Set((daily.asins||[]).map(normalize).filter(Boolean)));
+ daily.seen=Array.from(new Set((Array.isArray(daily.seen)?daily.seen:[]).map(normalize).filter(Boolean)));
  var chosen=new Set(daily.asins.concat(daily.seen));
- rows=rows.filter(function(x){return !chosen.has(x.asin)});
+ rows=rows.filter(function(x){return !chosen.has(productKey(x))});
  for(var i=rows.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),tmp=rows[i];rows[i]=rows[j];rows[j]=tmp}
- daily.asins=daily.asins.concat(rows.slice(0,Math.max(0,DAILY_LIMIT-daily.asins.length)).map(function(x){return x.asin}));
+ daily.asins=daily.asins.concat(rows.slice(0,Math.max(0,DAILY_LIMIT-daily.asins.length)).map(productKey));
  daily.seen=Array.from(new Set(daily.seen.concat(daily.asins)));
  localStorage.setItem(DAILY_KEY,JSON.stringify(daily));
- return daily.asins.map(function(id){return byAsin.get(id)}).filter(Boolean);
+ return daily.asins.map(function(id){return byKey.get(id)}).filter(Boolean);
 }
 function oldPostFeature(row){
  var sources=(row.sources||[]).slice().sort(function(a,b){return String(b.date||"").localeCompare(String(a.date||""))});
@@ -294,17 +318,17 @@ function renderLibrary(){
  var rows=readCatalog(),today=dailyRows();libraryStatus.textContent="登録 "+rows.length+"商品 ・ 今日の候補 "+today.length+"件（コピー済み商品は30日休止）";
  if(!today.length){libraryNode.innerHTML='<div class="library-empty">まだ商品がないか、最近の候補をすべて使っています。「過去投稿を取り込む」でアーカイブから商品を集めてください。</div>';return}
  libraryNode.innerHTML=today.map(function(row){
-  var src=(row.sources||[]).find(function(x){return x.url}),post=libraryDraft(row);
-  return '<article class="library-item" data-asin="'+esc(row.asin)+'"><div class="idea-head"><span class="tag">過去投稿リンク</span><span class="tag">ASIN '+esc(row.asin)+'</span></div><h3>元投稿の紹介内容（商品名はリンク先で確認）</h3><div class="preview">'+esc(row.title)+'</div><div class="post-label">投稿文のプレビュー</div><div class="preview">'+esc(post)+'</div><p class="meta">'+((row.sources||[]).length)+'件の投稿リンクを統合</p><div class="library-actions"><a class="secondary" style="margin:0;padding:11px 5px" href="'+esc(row.affiliateUrl)+'" target="_blank" rel="noopener noreferrer">Amazonで確認 ↗</a><button class="copy" type="button">投稿文をコピーして次へ</button></div>'+(src&&src.url?'<details class="source"><summary>元投稿を見る</summary><a href="'+esc(src.url)+'" target="_blank" rel="noopener noreferrer">アーカイブ投稿を開く</a></details>':'')+'</article>';
+  var src=(row.sources||[]).find(function(x){return x.url}),post=libraryDraft(row),key=productKey(row),badge=row.asin?"ASIN "+row.asin:"Amazon短縮リンク";
+  return '<article class="library-item" data-key="'+esc(key)+'"><div class="idea-head"><span class="tag">過去投稿リンク</span><span class="tag">'+esc(badge)+'</span></div><h3>元投稿の紹介内容（商品名はリンク先で確認）</h3><div class="preview">'+esc(row.title)+'</div><div class="post-label">投稿文のプレビュー</div><div class="preview">'+esc(post)+'</div><p class="meta">'+((row.sources||[]).length)+'件の投稿リンクを統合</p><div class="library-actions"><a class="secondary" style="margin:0;padding:11px 5px" href="'+esc(row.affiliateUrl)+'" target="_blank" rel="noopener noreferrer">Amazonで確認 ↗</a><button class="copy" type="button">投稿文をコピーして次へ</button></div>'+(src&&src.url?'<details class="source"><summary>元投稿を見る</summary><a href="'+esc(src.url)+'" target="_blank" rel="noopener noreferrer">アーカイブ投稿を開く</a></details>':'')+'</article>';
  }).join("");
  libraryNode.querySelectorAll(".library-item").forEach(function(card){
-  var row=readCatalog().find(function(x){return x.asin===card.dataset.asin}),button=card.querySelector("button.copy");
+  var row=readCatalog().find(function(x){return productKey(x)===card.dataset.key}),button=card.querySelector("button.copy");
   button.addEventListener("click",async function(){
    try{
     await navigator.clipboard.writeText(libraryDraft(row));row.lastCopiedAt=new Date().toISOString();
-    writeCatalog(readCatalog().map(function(x){return x.asin===row.asin?row:x}));
+    writeCatalog(readCatalog().map(function(x){return productKey(x)===productKey(row)?row:x}));
     var daily={};try{daily=JSON.parse(localStorage.getItem(DAILY_KEY)||"{}")}catch(e){}
-    if(daily.date!==dayKey())daily={date:dayKey(),asins:[]};daily.asins=(daily.asins||[]).filter(function(x){return x!==row.asin});
+    if(daily.date!==dayKey())daily={date:dayKey(),asins:[],seen:[]};daily.asins=(daily.asins||[]).filter(function(x){return x!==productKey(row)});
     localStorage.setItem(DAILY_KEY,JSON.stringify(daily));button.textContent="コピーしました";renderLibrary();
    }catch(e){libraryStatus.textContent="コピーできませんでした。投稿文を長押ししてコピーしてください。"}
   });
@@ -317,15 +341,15 @@ async function importArchive(){
   var local=await localArchivePosts();countLocal=local.length;var all=local;
   if(key){
    try{
-    var saved=await apiJson("catalog-pull",key),localBy=new Map(readCatalog().map(function(x){return [x.asin,x]}));
-    (saved.items||[]).forEach(function(x){if(x&&x.asin){var old=localBy.get(x.asin);if(old){old.sources=(old.sources||[]).concat(x.sources||[]).filter(function(s,i,a){return s&&s.url&&a.findIndex(function(y){return y&&y.url===s.url})===i}).slice(-20);if(!old.lastCopiedAt)old.lastCopiedAt=x.lastCopiedAt||""}else localBy.set(x.asin,x)}});
+    var saved=await apiJson("catalog-pull",key),localBy=new Map(readCatalog().map(function(x){return [productKey(x),x]}));
+    (saved.items||[]).forEach(function(x){if(x&&x.asin){var savedKey=productKey(x),old=localBy.get(savedKey);if(old){old.sources=(old.sources||[]).concat(x.sources||[]).filter(function(s,i,a){return s&&s.url&&a.findIndex(function(y){return y&&y.url===s.url})===i}).slice(-20);if(!old.lastCopiedAt)old.lastCopiedAt=x.lastCopiedAt||""}else localBy.set(x.asin,x)}});
     writeCatalog(Array.from(localBy.values()));
    }catch(e){}
    try{var data=await apiJson("pull",key);all=(data.items||[]).concat(all);countCloud=(data.items||[]).length}catch(error){libraryStatus.textContent="同期サーバー分は取得できませんでした。端末分を取り込みます。 "+error.message}
   }
   var merged=addArchiveProducts(all);renderLibrary();
-  libraryStatus.textContent="取り込み完了："+merged.found+"件のAmazon商品リンクから"+merged.added+"商品を追加（端末 "+countLocal+"件・同期 "+countCloud+"件）。同じASINは1商品に統合しました。";
-  if(key){try{var products=readCatalog();for(var i=0;i<products.length;i+=200)await apiJson("catalog-push",key,{items:products.slice(i,i+200)})}catch(e){libraryStatus.textContent+=" 商品一覧の複数端末同期にはロリポップAPI更新が必要です。"}}
+  libraryStatus.textContent="取り込み完了："+merged.found+"件のAmazonリンクから"+merged.added+"商品を追加（端末 "+countLocal+"件・同期 "+countCloud+"件）。ASINまたはリンクURLで重複をまとめました。";
+  if(key){try{var products=readCatalog().filter(function(x){return x.asin});for(var i=0;i<products.length;i+=200)await apiJson("catalog-push",key,{items:products.slice(i,i+200)})}catch(e){libraryStatus.textContent+=" 商品一覧の複数端末同期にはロリポップAPI更新が必要です。"}}
  }catch(error){libraryStatus.textContent="アーカイブを読めませんでした："+error.message}
 }
 function refreshLibrary(){
@@ -360,7 +384,7 @@ async function load(force){
   if(error.kind==="auth")setStatus("ロリポップAPIの認証に失敗しました。Sanrio Post Helperの同期設定と、API側の同期キーが一致しているか確認してください。","error");
   else if(error.kind==="json")setStatus("APIからJSON以外の応答が返りました。ロリポップのtrend.phpの更新状態をご確認ください。","error");
   else if(error.kind==="server")setStatus("ロリポップAPIがHTTP "+error.status+"を返しました。しばらく後に更新をお試しください。","error");
-  else setStatus("APIに接続できませんでした。通信状態、ロリポップAPIの稼働状態、CORS許可設定をご確認ください。","error");
+  else setStatus("ニュースAPIに接続できません。下の「過去投稿の商品リンクをローテーション」は端末内の投稿データから使えます。","error");
  }
 }
 document.getElementById("refresh").addEventListener("click",function(){load(true)});
