@@ -124,7 +124,7 @@ $qs=[
  ['Google US','Sanrio OR "Hello Kitty" OR Kuromi OR "My Melody" OR Cinnamoroll','en-US','US','US:en','Google News US','US'],
  ['Google KR','산리오 OR 헬로키티 OR 쿠로미 OR 마이멜로디 OR 시나모롤','ko','KR','KR:ko','Google News KR','KR']
 ];
-$aa=fetchUrl('https://news.allabout.co.jp/rss/all_latest/',10);$health[]=['label'=>'All About NEWS RSS','ok'=>$aa!=='';if($aa!=='')parseRss($aa,'All About ニュース','JP',$items,$seen);
+$aa=fetchUrl('https://news.allabout.co.jp/rss/all_latest/',10);$health[]=['label'=>'All About NEWS RSS','ok'=>$aa!==''];if($aa!=='')parseRss($aa,'All About ニュース','JP',$items,$seen);
 foreach($qs as [$label,$q,$hl,$gl,$ceid,$source,$region]){$url='https://news.google.com/rss/search?q='.rawurlencode($q).'&hl='.$hl.'&gl='.$gl.'&ceid='.rawurlencode($ceid);$b=fetchUrl($url);$health[]=['label'=>$label,'ok'=>$b!==''];if($b!=='')parseRss($b,$source,$region,$items,$seen);}
 $b=fetchUrl('https://www.reddit.com/r/sanrio/hot.json?limit=25&raw_json=1');$health[]=['label'=>'Reddit','ok'=>$b!==''];if($b!=='')parseReddit($b,'sanrio',$items,$seen);
 
