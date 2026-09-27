@@ -277,7 +277,7 @@ async function requestTrend(url,key){
  if(response.status===401){var authError=new Error("auth");authError.kind="auth";throw authError}
  var data,contentType=response.headers.get("content-type")||"",raw=await response.text();
  try{data=JSON.parse(raw)}catch(error){var jsonError=new Error("json");jsonError.kind="json";jsonError.status=response.status;jsonError.contentType=contentType;throw jsonError}
- if(!response.ok||data.ok===false){var serverError=new Error("server");serverError.kind="server";serverError.status=response.status;throw serverError}
+ if(!response.ok||data.ok===false){var serverError=new Error("server");serverError.kind="server";serverError.status=response.status;serverError.detail=typeof data.error==="string"?data.error.slice(0,280):"";throw serverError}
  return data;
 }
 async function load(force){
@@ -297,7 +297,7 @@ async function load(force){
  }catch(error){
   if(error.kind==="auth")setStatus("ロリポップAPIの認証に失敗しました。Sanrio Post Helperの同期設定と、API側の同期キーが一致しているか確認してください。","error");
   else if(error.kind==="json")setStatus("APIがJSON以外を返しました（HTTP "+error.status+" / "+error.contentType+"）。管理画面の同期API URLを確認してください。","error");
-  else if(error.kind==="server")setStatus("ロリポップAPIがHTTP "+error.status+"を返しました。しばらく後に更新をお試しください。","error");
+  else if(error.kind==="server")setStatus("ロリポップAPIがHTTP "+error.status+"を返しました。"+(error.detail?" "+error.detail:" しばらく後に更新をお試しください。"),"error");
   else setStatus("ニュース記事の商品リンクを取得できません。時間をおいて更新してください。","empty");
  }
 }
