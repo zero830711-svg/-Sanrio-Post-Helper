@@ -24,4 +24,10 @@ https://github.com/zero830711-svg/-Sanrio-Post-Helper/actions/workflows/playwrig
 - iPhone幅でページ表示、検索例ボタン、横スクロールの有無
 - 商品候補の保存とアフィリエイトID付きリンク生成
 
+## 無料の品質チェック
+
+- DependabotはnpmとGitHub Actionsの更新を月1回まとめて確認します。
+- Playwright実行前にnpm auditで高・重大レベルの既知の依存脆弱性を確認します。
+- CodeQLはJavaScriptとGitHub Actionsの設定を検査します。PHPファイルはCodeQLの対象言語ではありません。
+
 テスト用のブラウザー領域を使うため、テストデータはユーザーの端末には保存されません。Xへの実投稿操作は行いません。
