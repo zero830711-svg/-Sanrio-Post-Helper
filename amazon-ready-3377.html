@@ -307,6 +307,7 @@ function oldPostFeature(row){
   var t=clean(sources[i].text).replace(/https?:\/\/\S+/g," ").replace(/#[\p{L}\p{N}_]+/gu," ").replace(/\s+/g," ").trim();
   t=t.replace(/(?:Amazon|アマゾン|楽天)(?:の商品ページ|リンク)?はこちら(?:から)?[^。！？]*/gi," ");
   t=t.replace(/(?:商品ページはこちら|詳しくはこちら|チェックはこちら|購入はこちら|こちらから購入(?:できます|可能です)?|Amazonで(?:商品を)?(?:チェック|詳細を見る))[^。！？]*/gi," ");
+  t=t.replace(/(?:が|は)?(?:現在)?(?:絶賛)?(?:販売中|発売中|予約受付中|予約中|在庫あり|開催中|販売しています|開催しています|発売しました|発売開始|再入荷しました|入荷しました|残りわずか|残り僅か|本日発売|明日発売)[^。！？]*/gi," ");
   t=t.replace(/[🙋‍♀️🙋‍♂️👇👉🎀♡♥️]+/gu," ").replace(/\s+/g," ").trim();
   var parts=t.split(/[。！？]/).map(function(x){return x.trim()}).filter(function(x){
    return x.length>=18&&!/(?:Amazon|アマゾン|楽天|こちら|購入|リンク|商品ページ|20\d{2}年|20\d{2}\/\d|発売日|開催期間|予約受付|在庫あり|#pr)/i.test(x);
