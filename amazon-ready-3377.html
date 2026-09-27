@@ -163,7 +163,9 @@ function renderDiagnostics(health,stats){
  var feeds=sources.filter(function(x){return !["記事内Amazon商品リンク検索","365日以内の記事候補","過去投稿済みASIN除外"].includes(x.label)}).map(function(x){
   return "<li>"+esc(x.label||"検索元")+": "+(x.ok?"接続":"取得失敗")+(Number.isFinite(Number(x.articles))?" / 記事 "+Number(x.articles):"")+"</li>";
  }).join("");
- diagnosticsNode.innerHTML="<p>候補 "+Number(pool.articles||0)+"記事 → 検査 "+Number(scan.checkedArticles||0)+"記事 → 新規検出 "+Number(scan.productsFound||0)+"件。短縮リンク解決 "+Number(scan.shortLinksResolved||0)+"件。</p>"+
+ var statusText=scan.httpStatuses?Object.keys(scan.httpStatuses).map(function(k){return k+"="+Number(scan.httpStatuses[k])}).join(", "):"未計測";
+ diagnosticsNode.innerHTML="<p>候補 "+Number(pool.articles||0)+"記事 → 検査 "+Number(scan.checkedArticles||0)+"記事（直接記事 "+Number(scan.directPublisherChecked||0)+"） → 新規検出 "+Number(scan.productsFound||0)+"件。</p>"+
+ "<p>記事HTML取得 "+Number(scan.htmlFetched||0)+"件 / Amazon商品ページリンク "+Number(scan.amazonPdpAnchors||0)+"件 / 空応答 "+Number(scan.emptyResponses||0)+"件 / HTTP "+esc(statusText)+"。</p>"+
  "<p>最終候補 "+Number(kept.articles||0)+"記事・商品 "+Number(kept.products||0)+"件。</p>"+
  "<p>過去投稿ASINで除外 "+Number(stats.archiveExcluded||0)+"件、サーバー記録の紹介済み除外 "+Number(posted.excludedProducts||0)+"件、誤リンク報告 "+Number(stats.wrongExcluded||0)+"件、同一ASIN重複 "+Number(stats.duplicateExcluded||0)+"件。表示 "+Number(stats.shown||0)+"件。</p>"+
  "<details><summary>検索元ごとの取得結果</summary><ul>"+feeds+"</ul></details>";
@@ -291,7 +293,7 @@ async function load(force){
   var data=await requestTrend(endpoint,key);
   window.__sphPostedAsins=await previouslyPostedAsins();
   render(Array.isArray(data.items)?data.items:[],Array.isArray(data.sourceHealth)?data.sourceHealth:[]);
-  if(data.apiVersion!=="2813"){
+  if(data.apiVersion!=="2814"){
    setStatus(statusNode.textContent+" 365日候補を使うには、ロリポップ側のtrend.php更新が必要です。","empty");
   }
  }catch(error){
