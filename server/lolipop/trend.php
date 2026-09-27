@@ -37,10 +37,60 @@ function parseOfficial(string $html,string $base,string $source,string $region,a
 }
 function words(string $t):array{$s=mb_strtolower($t,'UTF-8');$s=preg_replace('/\\s+-\\s+[^-]{2,40}$/u',' ',$s);$s=preg_replace('/[^\\p{L}\\p{N}]+/u',' ',$s);$stop=['sanrio','characters','character','news','global','launches','launch','release','released','debut','new','the','and','with','for','in','on','to','of','a','an'];$p=preg_split('/\\s+/u',trim($s))?:[];return array_values(array_unique(array_filter($p,fn($w)=>mb_strlen($w,'UTF-8')>=3&&!in_array($w,$stop,true))));}
 function similarity(string $a,string $b):float{$wa=words($a);$wb=words($b);if(!$wa||!$wb)return 0;$i=count(array_intersect($wa,$wb));$u=count(array_unique(array_merge($wa,$wb)));return $u?$i/$u:0;}
-function priority(array $x):int{$t=mb_strtolower(($x['title']??'').' '.($x['summary']??''),'UTF-8');$s=0;if(preg_match('/collab|collaboration|コラボ|新作|new collection|plush|ぬい|goods|グッズ|限定|limited|pop.?up|ポップアップ|発売|release|再販|restock|キャンペーン|campaign/u',$t))$s+=30;if(($x['sourceType']??'')==='official')$s+=20;if(($x['region']??'')==='JP')$s+=12;if(preg_match('/game|rhythm|mobile game|ゲーム|決算|earnings|financial|corporate|株主/u',$t))$s-=18;return $s;}
+function priority(array $x):int{$s=!empty($x['amazonProducts'])?55:0;$t=mb_strtolower(($x['title']??'').' '.($x['summary']??''),'UTF-8');if(preg_match('/collab|collaboration|コラボ|新作|new collection|plush|ぬい|goods|グッズ|限定|limited|pop.?up|ポップアップ|発売|release|再販|restock|キャンペーン|campaign/u',$t))$s+=30;if(($x['sourceType']??'')==='official')$s+=20;if(($x['region']??'')==='JP')$s+=12;if(preg_match('/game|rhythm|mobile game|ゲーム|決算|earnings|financial|corporate|株主/u',$t))$s-=18;return $s;}
 function groupTopics(array $items):array{usort($items,fn($a,$b)=>priority($b)<=>priority($a));$g=[];foreach($items as $x){$placed=false;foreach($g as &$z){if(similarity((string)$x['title'],(string)$z['representative']['title'])>=.42){$z['items'][]=$x;if(priority($x)>priority($z['representative']))$z['representative']=$x;$placed=true;break;}}unset($z);if(!$placed)$g[]=['representative'=>$x,'items'=>[$x]];}return $g;}
 function ageH(?string $d):float{if(!$d)return 9999;$t=strtotime($d);return $t===false?9999:max(0,(time()-$t)/3600);}
 
+function isAllAboutHost(string $host):bool{return $host==='allabout.co.jp'||str_ends_with($host,'.allabout.co.jp');}
+function amazonProductCards(string $html):array{
+ if($html==='')return [];
+ libxml_use_internal_errors(true);$dom=new DOMDocument();if(!@$dom->loadHTML($html,LIBXML_NOWARNING|LIBXML_NOERROR))return [];
+ $xp=new DOMXPath($dom);$out=[];$seen=[];
+ foreach($xp->query('//a[@href]') as $a){
+  $href=trim($a->getAttribute('href'));$u=parse_url($href);$host=strtolower((string)($u['host']??''));
+  if(!in_array($host,['amazon.co.jp','www.amazon.co.jp','m.amazon.co.jp'],true))continue;
+  $path=(string)($u['path']??'');$asin='';
+  if(preg_match('~/(?:dp|gp/product|gp/aw/d|exec/obidos/ASIN)/([A-Z0-9]{10})(?:[/?]|$)~i',$path,$m))$asin=strtoupper($m[1]);
+  if($asin===''||isset($seen[$asin]))continue;
+  $title='';
+  for($node=$a->parentNode,$depth=0;$node&&$depth<6;$node=$node->parentNode,$depth++){
+   if(!$node instanceof DOMElement)continue;
+   foreach($xp->query('.//h1|.//h2|.//h3|.//h4|.//strong', $node) as $h){
+    $candidate=cleanText((string)$h->textContent);
+    if(mb_strlen($candidate)>=8&&mb_strlen($candidate)<=180&&!preg_match('/amazonで見る|楽天で見る|購入はこちら/iu',$candidate)){$title=$candidate;break;}
+   }
+   if($title!=='')break;
+  }
+  if($title==='')continue;
+  $seen[$asin]=true;
+  $out[]=['title'=>$title,'asin'=>$asin,'url'=>'https://www.amazon.co.jp/dp/'.$asin,'source'=>'記事内のAmazon商品カード'];
+  if(count($out)>=12)break;
+ }
+ return $out;
+}
+function getAllAboutAmazonProducts(string $url):array{
+ $host=strtolower((string)parse_url($url,PHP_URL_HOST));
+ if($host===''||(!isAllAboutHost($host)&&!in_array($host,['news.google.com','news.googleusercontent.com'],true)))return [];
+ $html=fetchUrl($url,5);if($html==='')return [];
+ libxml_use_internal_errors(true);$dom=new DOMDocument();if(!@$dom->loadHTML($html,LIBXML_NOWARNING|LIBXML_NOERROR))return [];
+ $xp=new DOMXPath($dom);$canonical='';
+ $nodes=$xp->query('//link[translate(@rel,"CANONICAL","canonical")="canonical"]/@href');
+ if($nodes&&$nodes->length)$canonical=trim($nodes->item(0)->nodeValue);
+ if($canonical!==''){$finalHost=strtolower((string)parse_url($canonical,PHP_URL_HOST));if(!isAllAboutHost($finalHost))return [];}
+ elseif(!isAllAboutHost($host))return [];
+ return amazonProductCards($html);
+}
+function prioritizeLinkedArticleProducts(array &$items):void{
+ $order=array_keys($items);usort($order,fn($a,$b)=>priority($items[$b])<=>priority($items[$a]));$checked=0;
+ foreach($order as $i){
+  if($checked>=5)break;
+  if(($items[$i]['sourceType']??'')!=='news')continue;
+  $host=strtolower((string)parse_url((string)($items[$i]['url']??''),PHP_URL_HOST));
+  if(!isAllAboutHost($host)&&!in_array($host,['news.google.com','news.googleusercontent.com'],true))continue;
+  $checked++;$products=getAllAboutAmazonProducts((string)$items[$i]['url']);
+  if($products){$items[$i]['amazonProducts']=$products;$items[$i]['hasAmazonProductLinks']=true;}
+ }
+}
 $expected=(string)($config['sync_key']??'');$tk=token();if($expected===''||$tk===''||!hash_equals($expected,$tk))respond(['ok'=>false,'error'=>'Unauthorized'],401);
 try{$pdo=new PDO($config['db_dsn'],$config['db_user'],$config['db_password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);}catch(Throwable $e){respond(['ok'=>false,'error'=>'Database connection failed'],500);}
 
@@ -74,7 +124,7 @@ foreach($qs as [$label,$q,$hl,$gl,$ceid,$source,$region]){$url='https://news.goo
 $b=fetchUrl('https://www.reddit.com/r/sanrio/hot.json?limit=25&raw_json=1');$health[]=['label'=>'Reddit','ok'=>$b!==''];if($b!=='')parseReddit($b,'sanrio',$items,$seen);
 
 $items=array_values(array_filter($items,function($x){$a=ageH($x['publishedAt']??null);if(($x['sourceType']??'')==='reddit'){return $a<=72&&((int)($x['votes']??0)+(int)($x['comments']??0)*3)>=12;}if(!empty($x['publishedAt']))return $a<=168;return ($x['sourceType']??'')==='official';}));
-$groups=groupTopics($items);$out=[];$seenQ=$pdo->prepare('SELECT first_seen_at FROM sanrio_trend_seen WHERE topic_key=?');$seenUp=$pdo->prepare('INSERT INTO sanrio_trend_seen(topic_key,first_seen_at,last_seen_at) VALUES(?,NOW(),NOW()) ON DUPLICATE KEY UPDATE last_seen_at=NOW()');$stateQ=$pdo->prepare('SELECT state FROM sanrio_trend_state WHERE topic_key=?');
+prioritizeLinkedArticleProducts($items);\n$groups=groupTopics($items);$out=[];$seenQ=$pdo->prepare('SELECT first_seen_at FROM sanrio_trend_seen WHERE topic_key=?');$seenUp=$pdo->prepare('INSERT INTO sanrio_trend_seen(topic_key,first_seen_at,last_seen_at) VALUES(?,NOW(),NOW()) ON DUPLICATE KEY UPDATE last_seen_at=NOW()');$stateQ=$pdo->prepare('SELECT state FROM sanrio_trend_state WHERE topic_key=?');
 foreach($groups as $g){$rep=$g['representative'];$key=substr(hash('sha256',implode('|',words((string)$rep['title']))),0,40);$seenQ->execute([$key]);$r=$seenQ->fetch();$first=$r?(string)$r['first_seen_at']:date('Y-m-d H:i:s');$seenUp->execute([$key]);$stateQ->execute([$key]);$sr=$stateQ->fetch();
  $regions=array_map(fn($x)=>(string)($x['region']??''),$g['items']);$rep['topicKey']=$key;$rep['firstSeenAt']=date(DATE_ATOM,strtotime($first));$rep['isNew']=(time()-strtotime($first))<86400;$rep['relatedCount']=count($g['items']);$rep['relatedSources']=array_values(array_unique(array_map(fn($x)=>(string)($x['source']??''),$g['items'])));$rep['relatedItems']=array_map(fn($x)=>['source'=>$x['source']??'','url'=>$x['url']??'','region'=>$x['region']??''],array_slice($g['items'],0,8));$rep['jpCount']=count(array_filter($regions,fn($r)=>$r==='JP'));$rep['foreignCount']=count(array_filter($regions,fn($r)=>$r!==''&&$r!=='JP'));$rep['userState']=$sr?(string)$sr['state']:'';$out[]=$rep;}
 usort($out,function($a,$b){$score=function($x){$age=ageH($x['publishedAt']??$x['firstSeenAt']??null);$fresh=max(0,72-min($age,144)*.75);$ahead=((int)($x['jpCount']??0)===0&&(int)($x['foreignCount']??0)>=2)?18:0;return priority($x)+$fresh+$ahead+min(20,max(0,((int)($x['relatedCount']??1)-1)*6));};return $score($b)<=>$score($a);});
