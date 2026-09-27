@@ -25,7 +25,7 @@ p{margin:0}.intro{font-size:14px;line-height:1.65;color:var(--muted)}
 .full-post .preview{font-size:12px}
 .primary,.secondary{width:100%;border:0;border-radius:13px;padding:14px;margin-top:10px;font:inherit;font-weight:800;cursor:pointer}
 .primary{background:#302832;color:#fff}.primary.done{background:#31704b}
-.secondary{background:#fff;border:1px solid var(--line);color:#302832}
+.secondary{display:block;text-align:center;text-decoration:none;background:#fff;border:1px solid var(--line);color:#302832}
 .source{margin-top:9px;font-size:12px}.source summary{cursor:pointer;color:#8c4964;font-weight:700}
 .source a{display:block;margin-top:8px;overflow-wrap:anywhere}
 .foot{font-size:11px;line-height:1.6;color:var(--muted);padding:4px}
@@ -44,7 +44,7 @@ p{margin:0}.intro{font-size:14px;line-height:1.65;color:var(--muted)}
 </header>
 <div id="status" class="status" role="status" aria-live="polite">新しい話題を確認しています…</div>
 <section id="ideas" class="list" aria-label="完成した投稿案"></section>
-<p class="foot">リンクはAmazonの検索結果を開くアフィリエイトリンクです。紹介する商品や販売状況を確認してから投稿してください。投稿には広告であることが伝わる表記を含めています。商品画像は取得・保存しません。</p>
+<p class="foot">リンクはAmazonの検索結果を開くアフィリエイトリンクです。紹介する商品や販売状況を確認してから投稿してください。投稿文には広告であることを示す #pr を含めています。商品画像は取得・保存しません。</p>
 </main>
 <script>
 (function(){
@@ -75,21 +75,31 @@ function cleanTitle(item){
  var title=clean(item.title).replace(/\s+/g," ");
  title=removeSourceSuffix(title,clean(item.source));
  title=title.replace(/\s*[-–|｜]\s*(Yahoo!ニュース|マイナビニュース|アニメ！アニメ！|ORICON NEWS|ファミ通\.com|ねとらぼ|J-CASTニュース)\s*$/i,"");
+ title=title.replace(/\s*[（(]\s*(アニメ！アニメ！|Yahoo!ニュース|マイナビニュース|ORICON NEWS|ファミ通\.com|ねとらぼ|J-CASTニュース)\s*[）)]\s*$/i,"");
  return title.replace(/\s+/g," ").trim();
 }
 function shortTitle(item){
- return cleanTitle(item).replace(/^【[^】]{1,16}】\s*/,"").slice(0,48).trim();
+ var title=cleanTitle(item).replace(/^【[^】]{1,16}】\s*/,"").trim();
+ if(title.length<=48)return title;
+ var head=title.slice(0,48);
+ var boundary=Math.max(head.lastIndexOf(" "),head.lastIndexOf("　"),head.lastIndexOf("♪"),head.lastIndexOf("！"),head.lastIndexOf("!"),head.lastIndexOf("☆"),head.lastIndexOf("】"),head.lastIndexOf("」"),head.lastIndexOf("。"),head.lastIndexOf("、"));
+ if(boundary<20)return title;
+ var mark=head.charAt(boundary);
+ return head.slice(0,boundary+(mark===" "||mark==="　"?0:1)).trim();
 }
-function makePost(item,tag){
- var title=shortTitle(item);
- var query=("サンリオ "+title+" グッズ").replace(/\s+/g," ").trim();
+function amazonUrl(item,tag){
+ var query=("サンリオ "+shortTitle(item)+" グッズ").replace(/\s+/g," ").trim();
  var url=new URL("https://www.amazon.co.jp/s");
  url.searchParams.set("k",query);
  url.searchParams.set("tag",tag);
- return "【PR】「"+title+"」が気になる方はこちら🎀\n"+url.toString()+"\n#サンリオ";
+ return url.toString();
+}
+function makePost(item,tag){
+ var title=shortTitle(item);
+ return "「"+title+"」が気になる方はこちら🎀\n"+amazonUrl(item,tag)+"\n#サンリオ #pr";
 }
 function previewPost(item){
- return "【PR】「"+shortTitle(item)+"」が気になる方はこちら🎀\nAmazonで商品を探すリンク（コピー文に含まれます）\n#サンリオ";
+ return "「"+shortTitle(item)+"」が気になる方はこちら🎀\nAmazonで商品を探すリンク（コピー文に含まれます）\n#サンリオ #pr";
 }
 function isRecent(item){
  if(!item.publishedAt)return false;
@@ -106,7 +116,7 @@ function renderIdea(item,index,tag,featured){
  var title=cleanTitle(item).slice(0,72);
  var date=item.publishedAt?new Date(item.publishedAt).toLocaleDateString("ja-JP"):"";
  var label=featured?"おすすめ":"投稿案 "+(index+1);
- return '<article class="idea"><div class="idea-head"><span class="tag">'+label+'</span><span class="tag">'+esc(item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'最近のサンリオ関連ニュースから作成</p><div class="preview">'+esc(previewPost(item))+'</div><p class="url-note">コピーすると、紹介ID付きのAmazon検索リンクも一緒に入ります。</p><details class="full-post"><summary>コピーされる投稿文を確認</summary><div class="preview">'+esc(post)+'</div></details><button class="primary copy-post" data-index="'+index+'" type="button">投稿文をコピー</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
+ return '<article class="idea"><div class="idea-head"><span class="tag">'+label+'</span><span class="tag">'+esc(item.source||"ニュース")+'</span></div><h2 class="idea-title">'+esc(title)+'</h2><p class="meta">'+(date?esc(date)+" ・ ":"")+'最近のサンリオ関連ニュースから作成</p><div class="preview">'+esc(previewPost(item))+'</div><p class="url-note">コピーすると、紹介ID付きのAmazon検索リンクも一緒に入ります。</p><details class="full-post"><summary>コピーされる投稿文を確認</summary><div class="preview">'+esc(post)+'</div></details><a class="secondary amazon-link" href="'+esc(amazonUrl(item,tag))+'" target="_blank" rel="noopener noreferrer">Amazonリンクを確認</a><button class="primary copy-post" data-index="'+index+'" type="button">投稿文をコピー</button><details class="source"><summary>出典を確認</summary><a href="'+esc(item.url||"#")+'" target="_blank" rel="noopener noreferrer">元の記事を開く</a></details></article>';
 }
 function render(items){
  var tag=clean(localStorage.getItem(TAG_NAME))||DEFAULT_TAG;
