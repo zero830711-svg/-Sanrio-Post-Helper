@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.28-3363";
+const APP_VERSION="2026.09.29-3364";
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
@@ -448,8 +448,20 @@ function mergedUsageHistory(a,b){
     candidateExcluded:ex.value,
     candidateExcludedChangedAt:ex.changedAt,
     candidateExcludedAt:ex.value?ex.changedAt:"",
-    repostCount:Math.max(Number(a&&a.repostCount)||0,Number(b&&b.repostCount)||0)
+    repostCount:Math.max(Number(a&&a.repostCount)||0,Number(b&&b.repostCount)||0),
+    repostAttempts:mergeRepostAttempts(a&&a.repostAttempts,b&&b.repostAttempts)
   };
+}
+function mergeRepostAttempts(a,b){
+  const merged=new Map();
+  for(const attempt of [...(Array.isArray(a)?a:[]),...(Array.isArray(b)?b:[])]){
+    if(!attempt||!attempt.attemptId)continue;
+    const current=merged.get(String(attempt.attemptId));
+    const currentTime=new Date(current&&current.snapshotAt||current&&current.matchedAt||current&&current.markedAt||0).getTime()||0;
+    const incomingTime=new Date(attempt.snapshotAt||attempt.matchedAt||attempt.markedAt||0).getTime()||0;
+    merged.set(String(attempt.attemptId),incomingTime>=currentTime?attempt:current);
+  }
+  return [...merged.values()].sort((x,y)=>(new Date(x.markedAt||0).getTime()||0)-(new Date(y.markedAt||0).getTime()||0)).slice(-30);
 }
 async function propagateUsageHistory(item){
   const all=await dbGetAll();
@@ -772,7 +784,25 @@ async function applyReposted(item){
   const records=matches.length?matches:[item];
   const base=Math.max(...records.map(x=>Number(x.repostCount)||0),0)+1;
   const now=new Date().toISOString();
-  const updated=records.map(x=>({...x,lastRepostedAt:now,repostCount:base}));
+  const attemptId=now+"-"+Math.random().toString(36).slice(2,9);
+  const attempt={
+    attemptId,
+    markedAt:now,
+    baseline:{
+      impressions:metricNullable(item.impressions),
+      urlClicks:metricNullable(item.urlClicks),
+      bookmarks:metricNullable(item.bookmarks),
+      likes:metricNullable(item.likes),
+      reposts:metricNullable(item.reposts),
+      capturedAt:item.analyticsImportedAt||""
+    },
+    matchedPostId:"",
+    matchScore:0,
+    matchedAt:"",
+    snapshot:null,
+    snapshotAt:""
+  };
+  const updated=records.map(x=>({...x,lastRepostedAt:now,repostCount:base,repostAttempts:mergeRepostAttempts(x.repostAttempts,[attempt])}));
   await dbPutMany(updated);
   queueCloudSync(updated,[]);
   showUndoToast(records);
@@ -1809,6 +1839,123 @@ function parseXAnalyticsDate(v){
   return Number.isFinite(t)?new Date(t).toISOString():new Date().toISOString();
 }
 
+function metricNullable(value){
+  if(value===null||value===undefined||String(value).trim()==="")return null;
+  const n=metricNumber(value);
+  return Number.isFinite(n)?n:null;
+}
+function repostTextFingerprint(text){
+  return String(text||"").toLowerCase()
+    .replace(/https?:\/\/\S+/gi," ")
+    .replace(/[#＃@＠][^\s]+/g," ")
+    .replace(/\b(?:pr|ad)\b/gi," ")
+    .replace(/[^\p{L}\p{N}]+/gu,"");
+}
+function repostTextSimilarity(a,b){
+  const aa=repostTextFingerprint(a),bb=repostTextFingerprint(b);
+  if(aa.length<24||bb.length<24)return 0;
+  if(aa===bb)return 1;
+  const grams=value=>{
+    const chars=Array.from(value),set=new Set();
+    for(let i=0;i<chars.length-1;i++)set.add(chars[i]+chars[i+1]);
+    return set;
+  };
+  const ga=grams(aa),gb=grams(bb);
+  if(!ga.size||!gb.size)return 0;
+  let shared=0;for(const gram of ga)if(gb.has(gram))shared++;
+  return 2*shared/(ga.size+gb.size);
+}
+function analyticsSnapshot(item,importedAt){
+  return {
+    impressions:metricNullable(item.impressions),
+    urlClicks:metricNullable(item.urlClicks),
+    bookmarks:metricNullable(item.bookmarks),
+    likes:metricNullable(item.likes),
+    reposts:metricNullable(item.reposts),
+    capturedAt:importedAt
+  };
+}
+function matchRepostAnalytics(archiveItems,analyticsItems,importedAt){
+  const byPostId=new Map();
+  for(const item of archiveItems){
+    if(item&&item.source==="x-analytics"&&item.postId&&String(item.text||"").trim())byPostId.set(String(item.postId),item);
+  }
+  const rows=[...byPostId.values()];
+  const claimed=new Set();
+  const updates=new Map();
+  let matched=0;
+  for(const row of analyticsItems){
+    const postId=String(row.postId||"");
+    if(!postId||!row.repostMatchDateProvided)continue;
+    const already=rows.flatMap(source=>(source.repostAttempts||[]).map(attempt=>({source,attempt})))
+      .find(pair=>String(pair.attempt.matchedPostId||"")===postId);
+    if(already){
+      const source=updates.get(already.source.id)||already.source;
+      const attempts=mergeRepostAttempts(source.repostAttempts,[]).map(attempt=>String(attempt.attemptId)===String(already.attempt.attemptId)
+        ?{...attempt,snapshot:analyticsSnapshot(row,importedAt),snapshotAt:importedAt}
+        :attempt);
+      updates.set(source.id,{...source,repostAttempts:attempts,updatedAt:importedAt});
+      matched++;
+      continue;
+    }
+    if(claimed.has(postId))continue;
+    const postedAt=new Date(row.postedAt||"").getTime();
+    if(!Number.isFinite(postedAt))continue;
+    const options=[];
+    for(const original of rows){
+      if(String(original.postId||"")===postId)continue;
+      const source=updates.get(original.id)||original;
+      for(const attempt of (source.repostAttempts||[])){
+        if(attempt.matchedPostId)continue;
+        const markedAt=new Date(attempt.markedAt||"").getTime();
+        const tolerance=row.repostMatchDateHasTime?6*60*60*1000:36*60*60*1000;
+        if(!Number.isFinite(markedAt)||postedAt<markedAt-tolerance||postedAt>markedAt+45*24*60*60*1000)continue;
+        const score=repostTextSimilarity(original.text,row.repostMatchText||row.text);
+        if(score>=0.9)options.push({original,source,attempt,score});
+      }
+    }
+    options.sort((a,b)=>b.score-a.score);
+    const best=options[0],second=options[1];
+    if(!best||second&&best.score-second.score<0.08)continue;
+    const source=updates.get(best.original.id)||best.source;
+    const attempts=(source.repostAttempts||[]).map(attempt=>String(attempt.attemptId)===String(best.attempt.attemptId)
+      ?{...attempt,matchedPostId:postId,matchScore:best.score,matchedAt:importedAt,snapshot:analyticsSnapshot(row,importedAt),snapshotAt:importedAt}
+      :attempt);
+    updates.set(source.id,{...source,repostAttempts:attempts,updatedAt:importedAt});
+    claimed.add(postId);
+    matched++;
+  }
+  return {updates:[...updates.values()],matched};
+}
+
+function percentMetric(value,denominator){
+  return value===null||value===undefined||!denominator?null:value/denominator;
+}
+function repostComparisonHtml(item){
+  const attempts=Array.isArray(item.repostAttempts)?item.repostAttempts:[];
+  const attempt=[...attempts].sort((a,b)=>(new Date(b.markedAt||0).getTime()||0)-(new Date(a.markedAt||0).getTime()||0))[0];
+  if(!attempt)return '<p class="repost-performance-note">この再投稿は比較記録がありません。次回の再投稿後、X分析CSVを読み込むと照合します。</p>';
+  if(!attempt.snapshot)return '<p class="repost-performance-note">再投稿後のX分析データを待っています。次回のポスト別アナリティクスCSVで本文が一致すれば自動照合します。</p>';
+  const base=attempt.baseline||{},next=attempt.snapshot;
+  const metrics=[
+    ["クリック率",percentMetric(base.urlClicks,base.impressions),percentMetric(next.urlClicks,next.impressions)],
+    ["保存率",percentMetric(base.bookmarks,base.impressions),percentMetric(next.bookmarks,next.impressions)]
+  ].filter(row=>row[1]!==null&&row[2]!==null);
+  if(!metrics.length)return '<p class="repost-performance-note">再投稿との照合済みですが、元投稿と再投稿の比較に必要なX分析指標がありません。</p>';
+  const fmt=value=>(value*100).toFixed(2)+"%";
+  const delta=value=>{
+    const points=value*100;
+    return (points>0?"+":"")+points.toFixed(2)+"pt";
+  };
+  const captured=value=>{
+    const date=new Date(value||"");
+    return Number.isFinite(date.getTime())?date.toLocaleDateString("ja-JP",{month:"numeric",day:"numeric"}):"不明";
+  };
+  return '<div class="repost-performance"><strong>再投稿の成績（参考）</strong><div class="repost-performance-metrics">'+metrics.map(([label,original,repost])=>
+    '<span>'+label+'：元 '+fmt(original)+' → 再 '+fmt(repost)+'（'+delta(repost-original)+'）</span>'
+  ).join("")+'</div><small>本文一致 '+Math.round(Number(attempt.matchScore||0)*100)+'% ・ 元CSV '+captured(base.capturedAt)+' / 再投稿CSV '+captured(next.capturedAt)+' ・ 取込時点の累計指標</small></div>';
+}
+
 async function importAnalyticsCSV(file){
   const raw=await file.text();
   const rows=parseCSV(raw);
@@ -1817,6 +1964,7 @@ async function importAnalyticsCSV(file){
     throw new Error("このCSVはXのポスト別アナリティクス形式ではありません");
   }
   let added=0,updated=0;
+  const importedAt=new Date().toISOString();
   const existing=await dbGetAll();
   const byId=new Map(existing.map(x=>[x.id,x]));
   const byPostKey=new Map(existing.map(x=>[canonicalPostKey(x),x]));
@@ -1833,6 +1981,10 @@ async function importAnalyticsCSV(file){
       postId,
       title:(prev&&prev.title)||csvTitle(r["ポスト本文"]),
       text:betterPostText(prev&&prev.text,r["ポスト本文"]),
+      repostAttempts:prev&&prev.repostAttempts||[],
+      repostMatchText:String(r["ポスト本文"]||""),
+      repostMatchDateProvided:!!String(r["日付"]||"").trim(),
+      repostMatchDateHasTime:/(?:T|\s)\d{1,2}:\d{2}/.test(String(r["日付"]||"")),
       xUrl:r["ポストのリンク"]||"",
       images:(prev&&prev.images)||[],
       amazon:(prev&&prev.amazon)||"",
@@ -1844,6 +1996,7 @@ async function importAnalyticsCSV(file){
       replies:String(r["返信"]||""),
       urlClicks:String(r["URLのクリック数"]||""),
       follows:String(r["新しいフォロー"]||""),
+      analyticsImportedAt:importedAt,
       memo:(prev&&prev.memo)||"",
       postedAt:parseXAnalyticsDate(r["日付"]),
       savedAt:(prev&&prev.savedAt)||parseXAnalyticsDate(r["日付"]),
@@ -1858,8 +2011,13 @@ async function importAnalyticsCSV(file){
     byId.set(id,item);
     byPostKey.set("post:"+postId,item);
   }
+  const archiveForMatching=[...existing,...pending];
+  const matches=matchRepostAnalytics(archiveForMatching,pending,importedAt);
+  pending.forEach(item=>{delete item.repostMatchText;delete item.repostMatchDateProvided;delete item.repostMatchDateHasTime});
   await dbPutMany(pending);
-  return {added,updated,total:added+updated,items:pending};
+  if(matches.updates.length)await dbPutMany(matches.updates);
+  if(matches.updates.length)await reconcileUsageHistory();
+  return {added,updated,total:added+updated,items:[...pending,...matches.updates],repostMatches:matches.matched};
 }
 
 async function getReadyItems(){
@@ -2059,8 +2217,8 @@ async function renderRecentUsed(){
   card?.classList.remove("hidden");
   root.innerHTML=items.map(x=>
     '<article class="recent-used-item">'+
-      '<div><strong>'+esc(x.title)+'</strong>'+
-      '<div class="today-meta">'+esc(new Date(x.lastRepostedAt).toLocaleDateString("ja-JP"))+' に再投稿</div></div>'+
+      '<div class="recent-used-main"><strong>'+esc(x.title)+'</strong>'+
+      '<div class="today-meta">'+esc(new Date(x.lastRepostedAt).toLocaleDateString("ja-JP"))+' に再投稿</div>'+repostComparisonHtml(x)+'</div>'+
       xOpenButton(x)+
     '</article>'
   ).join("");
@@ -2954,7 +3112,8 @@ $("importAnalyticsCsv").addEventListener("change",async e=>{
   try{
     const result=await importAnalyticsCSV(file);
     localStorage.setItem(LAST_ANALYTICS_IMPORT_KEY,new Date().toISOString());
-    status.textContent=result.total+"件を処理しました（新規 "+result.added+"件 / 更新 "+result.updated+"件）";
+    status.textContent=result.total+"件を処理しました（新規 "+result.added+"件 / 更新 "+result.updated+"件）"+
+      (result.repostMatches?" ・ 再投稿との照合 "+result.repostMatches+"件":"");
     queueCloudSync(result.items||[],[]);
     await renderArchive();
     await renderToday();

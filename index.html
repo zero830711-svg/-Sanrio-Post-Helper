@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260928-3363">
+<link rel="stylesheet" href="./styles.css?v=20260929-3364">
 </head>
 <body>
 <main class="app">
@@ -88,7 +88,7 @@
 <div class="today-head">
 <div>
 <h2 class="section-title">今週使った投稿</h2>
-<p class="backup-note">直近7日で再投稿済みにした投稿です。</p>
+<p class="backup-note">直近7日で再投稿済みにした投稿です。次回のX分析CSV取込後、本文が十分一致する投稿だけ元投稿と成績を比較します。</p>
 </div>
 </div>
 <div id="recentUsedList" class="recent-used-list"></div>
@@ -159,7 +159,7 @@
 <section class="card analytics-import-card">
 <div>
 <h2 class="section-title">X分析CSVを読み込む</h2>
-<p class="backup-note">Xの「ポスト別アナリティクスCSV」を選ぶと、投稿文・投稿日・Xリンク・表示数・いいね・保存数などをまとめて登録します。</p>
+<p class="backup-note">Xの「ポスト別アナリティクスCSV」を選ぶと、投稿文・投稿日・Xリンク・表示数・いいね・保存数などをまとめて登録します。再投稿後のCSVでは本文が高い確度で一致した投稿だけ元投稿と照合し、クリック率・保存率を比較します。</p>
 </div>
 <label class="primary analytics-import-button">CSVを選んで一括登録
 <input id="importAnalyticsCsv" type="file" accept=".csv,text/csv" hidden>
@@ -330,8 +330,8 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260928-3363"></script>
-<script src="./amazon-reports.js?v=20260928-3363"></script>
-<script src="./revenue-insights.js?v=20260928-3363"></script>
+<script src="./app.js?v=20260929-3364"></script>
+<script src="./amazon-reports.js?v=20260929-3364"></script>
+<script src="./revenue-insights.js?v=20260929-3364"></script>
 </body>
 </html>
