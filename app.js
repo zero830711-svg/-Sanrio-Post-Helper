@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.27-3362";
+const APP_VERSION="2026.09.28-3363";
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
@@ -229,7 +229,7 @@ async function createCodexReviewLink(button){
     const response=await fetch(api.toString(),{
       method:"POST",
       headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
-      body:JSON.stringify({version:APP_VERSION,scope,createdAt:new Date().toISOString(),posts}),
+      body:JSON.stringify({version:APP_VERSION,scope,createdAt:new Date().toISOString(),posts,persistent:true}),
       cache:"no-store"
     });
     let result={};
@@ -241,7 +241,7 @@ async function createCodexReviewLink(button){
     const input=$("codexShareUrl");
     if(input)input.value=shareUrl.href;
     if(linkWrap)linkWrap.classList.remove("hidden");
-    if(status)status.textContent="共有リンクを作成しました。30分後に自動で無効になります。";
+    if(status)status.textContent="個人用リンクを更新しました。URLは固定で、最新の候補に更新されました。期限はありません。";
     button.textContent="Codex確認用リンクを作る";
     copyTextFromClick(shareUrl.href,button,"リンクをコピーしました");
   }catch(error){
