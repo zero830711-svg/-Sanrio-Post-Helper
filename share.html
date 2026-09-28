@@ -9,7 +9,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>期限付き確認ページ | Sanrio Post Helper</title>
+<title>個人用確認ページ | Sanrio Post Helper</title>
 <style>
 :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#29252d;background:#fff7fb}
 *{box-sizing:border-box}
@@ -367,7 +367,10 @@ async function start(){
   if(response.status===410){state.textContent="このリンクの有効期限が切れました。アプリで新しいリンクを作ってください。";return}
   if(!response.ok||!data.ok||!data.snapshot)throw new Error(data.error||"共有データを読み込めません");
   records=Array.isArray(data.snapshot.posts)?data.snapshot.posts.map(unpackPost):[];
-  intro.textContent=(data.snapshot.scope||"投稿")+ " "+records.length+"件を表示中。リンクは "+new Date(data.expiresAt).toLocaleString("ja-JP")+" まで有効です。";
+  const updated=data.updatedAt||data.snapshot.createdAt;
+  intro.textContent=data.persistent
+   ? "個人用リンク：期限なし。"+(data.snapshot.scope||"投稿")+" "+records.length+"件を表示中。最終更新 "+(updated?new Date(updated).toLocaleString("ja-JP"):"")+"。アプリでリンクを更新すると、このURLに最新内容が反映されます。"
+   : (data.snapshot.scope||"投稿")+" "+records.length+"件を表示中。リンクは "+new Date(data.expiresAt).toLocaleString("ja-JP")+" まで有効です。";
   state.hidden=true;search.hidden=false;search.addEventListener("input",render);render();
  }catch(error){state.textContent="共有データを読み込めませんでした。リンクの期限切れ、またはサーバー未更新の可能性があります。"}
 }
