@@ -2579,6 +2579,17 @@ function showTodayDetail(item){
   $("detailMedia").innerHTML=
     imgs.map((src,index)=>'<figure class="detail-media-item"><img src="'+esc(src)+'" alt="投稿画像" loading="lazy"><div class="detail-media-actions"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'" disabled>写真を準備中…</button></div></figure>').join("")+
     vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
+  const pinPanel=$("pinterestPinPanel"),pinButton=$("detailPinterestButton"),pinSelect=$("pinterestImageSelect");
+  if(pinPanel)pinPanel.classList.add("hidden");
+  if(pinButton)pinButton.disabled=!imgs.length;
+  if(pinSelect)pinSelect.innerHTML=imgs.map((_,index)=>'<option value="'+index+'">写真 '+(index+1)+'</option>').join("");
+  const pinTitle=$("pinterestPinTitle"),pinDescription=$("pinterestPinDescription"),pinLink=$("pinterestPinLink"),pinStatus=$("pinterestPinStatus");
+  if(pinTitle)pinTitle.value=pinterestTitle(item);
+  if(pinDescription)pinDescription.value=pinterestDescription(item);
+  if(pinLink)pinLink.value="";
+  $("pinterestRightsCheck").checked=false;
+  $("pinterestFactsCheck").checked=false;
+  if(pinStatus)pinStatus.textContent=imgs.length?"投稿前に写真の利用権・情報の最新性を確認してください。":"この投稿には写真がありません。";
   $("detailCopyImage").disabled=!imgs.length;
   $("detailCopyImage").textContent=imgs.length?"本文と写真全部を1枚で保存":"投稿画像がありません";
   const allPhotosButton=$("detailDownloadAllPhotos");
@@ -2595,6 +2606,88 @@ function showTodayDetail(item){
   document.body.style.width="100%";
   document.body.style.overflow="hidden";
   preloadDetailImages(item,imgs);
+}
+function pinterestTitle(item){
+  const raw=String(item&&item.title||item&&item.text||"").replace(/https?:\/\/\S+/gi," ").replace(/[#＃][^\s]+/g," ").replace(/\s+/g," ").trim();
+  return Array.from(raw).slice(0,80).join("").replace(/[、。…・\s]+$/g,"")||"サンリオの気になるアイテム・情報";
+}
+function pinterestDescription(item){
+  const body=String(item&&item.text||"").replace(/https?:\/\/\S+/gi," ").replace(/[#＃][^\s]+/g," ").replace(/\s+/g," ").trim();
+  const short=Array.from(body).slice(0,300).join("").replace(/[、。…・\s]+$/g,"");
+  return [short,"※過去の投稿をもとにしています。販売状況・開催情報はリンク先でご確認ください。"].filter(Boolean).join("\n\n");
+}
+function pinterestTextHasApproval(){
+  const rights=$("pinterestRightsCheck"),facts=$("pinterestFactsCheck"),status=$("pinterestPinStatus");
+  if(!rights?.checked||!facts?.checked){if(status)status.textContent="写真の利用権と、説明文・リンク先の確認にチェックしてください。";return false}
+  return true;
+}
+function pinterestWrap(ctx,text,maxWidth){
+  const lines=[];let line="";
+  for(const ch of Array.from(String(text||""))){
+    if(line&&ctx.measureText(line+ch).width>maxWidth){lines.push(line);line=ch}else line+=ch;
+  }
+  if(line)lines.push(line);
+  return lines;
+}
+async function createPinterestPinBlob(){
+  const item=detailCurrentItem;
+  if(!item)throw new Error("投稿が選択されていません");
+  const index=Number($("pinterestImageSelect").value||0);
+  const src=mediaArray(item.images||(item.image?[item.image]:[]))[index];
+  if(!src)throw new Error("Pinに使う写真がありません");
+  let blob=detailImageBlobs[index];
+  if(!blob){blob=await imageBlob(src);if(detailCurrentItem===item)detailImageBlobs[index]=blob}
+  const objectUrl=URL.createObjectURL(blob);
+  try{
+    const img=new Image();img.src=objectUrl;
+    if(img.decode)await img.decode();else await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject});
+    const canvas=document.createElement("canvas");canvas.width=1000;canvas.height=1500;
+    const ctx=canvas.getContext("2d");
+    if(!ctx)throw new Error("画像を作成できません");
+    ctx.fillStyle="#fff9fc";ctx.fillRect(0,0,1000,1500);
+    const frame={x:48,y:48,w:904,h:940};
+    const ratio=Math.min(frame.w/img.naturalWidth,frame.h/img.naturalHeight);
+    const w=img.naturalWidth*ratio,h=img.naturalHeight*ratio;
+    ctx.fillStyle="#ffffff";ctx.fillRect(frame.x,frame.y,frame.w,frame.h);
+    ctx.drawImage(img,frame.x+(frame.w-w)/2,frame.y+(frame.h-h)/2,w,h);
+    ctx.fillStyle="#9a526d";ctx.font="700 26px -apple-system, BlinkMacSystemFont, sans-serif";ctx.textBaseline="top";
+    ctx.fillText("SANRIO FAN INFO",58,1030);
+    const title=String($("pinterestPinTitle").value||pinterestTitle(item)).trim();
+    let fontSize=56,lines=[];
+    do{ctx.font="700 "+fontSize+"px -apple-system, BlinkMacSystemFont, sans-serif";lines=pinterestWrap(ctx,title,880);if(lines.length<=4||fontSize<=36)break;fontSize-=4}while(true);
+    ctx.fillStyle="#302832";ctx.font="700 "+fontSize+"px -apple-system, BlinkMacSystemFont, sans-serif";
+    let y=1080;const lineHeight=Math.round(fontSize*1.24);
+    lines.slice(0,5).forEach(line=>{ctx.fillText(line,58,y);y+=lineHeight});
+    ctx.strokeStyle="#eadce4";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(58,1450);ctx.lineTo(942,1450);ctx.stroke();
+    ctx.fillStyle="#786c75";ctx.font="24px -apple-system, BlinkMacSystemFont, sans-serif";ctx.fillText("Sanrio fan info ・最新情報はリンク先で確認",58,1465);
+    return await new Promise((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error("Pin画像の書き出しに失敗しました")),"image/png"));
+  }finally{URL.revokeObjectURL(objectUrl)}
+}
+async function savePinterestPinImage(button){
+  const status=$("pinterestPinStatus");
+  if(!pinterestTextHasApproval())return;
+  const old=button.textContent;button.disabled=true;button.textContent="画像を作成中…";
+  try{
+    const blob=await createPinterestPinBlob();
+    const title=String($("pinterestPinTitle").value||"sanrio-pin").replace(/[\\/:*?"<>|]/g,"_").slice(0,60);
+    const file=new File([blob],title+"-pinterest-pin.png",{type:"image/png"});
+    if(navigator.share&&navigator.canShare?.({files:[file]})){
+      try{await navigator.share({files:[file],title:"Pinterest用Pin画像"})}catch(shareError){if(shareError?.name==="AbortError"){if(status)status.textContent="共有をキャンセルしました。もう一度タップすれば保存できます。";return}throw shareError}
+      if(status)status.textContent="共有シートを開きました。Pinterestへ共有するか、「写真に保存」を選んでください。";
+    }else{
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=file.name;a.style.display="none";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+      if(status)status.textContent="Pin画像を保存しました。Pinterestで画像を選び、タイトル・説明・リンクを設定してください。";
+    }
+  }catch(error){if(status)status.textContent="画像を作れませんでした："+(error?.message||"写真の読み込みを確認してください")}finally{button.disabled=false;button.textContent=old}
+}
+function copyPinterestPinText(button){
+  if(!pinterestTextHasApproval())return;
+  const title=String($("pinterestPinTitle").value||"").trim();
+  let description=String($("pinterestPinDescription").value||"").trim();
+  const link=String($("pinterestPinLink").value||"").trim();
+  if(/(?:amazon\.(?:co\.jp|com)|amzn\.to|rakuten\.(?:co\.jp|com))/i.test(link)&&!/(広告|アフィリエイト)/.test(description))description+="\n\n広告・アフィリエイトリンクを含みます。";
+  const text=[title,description].filter(Boolean).join("\n\n")+(link?"\n\nリンク先（Pinterestのリンク欄へ）："+link:"");
+  copyTextFromClick(text,button,"コピーしました");
 }
 async function imageBlob(src){
   try{
@@ -3192,6 +3285,19 @@ $("detailBlogPrompt")?.addEventListener("click",e=>{
 });
 $("detailThreadsPrompt")?.addEventListener("click",e=>{
   if(detailCurrentItem)copyTextFromClick(buildThreadsPrompt(detailCurrentItem),e.currentTarget,"Threads用プロンプトをコピーしました");
+});
+$("detailPinterestButton")?.addEventListener("click",()=>{
+  const panel=$("pinterestPinPanel");
+  if(!panel)return;
+  panel.classList.toggle("hidden");
+  if(!panel.classList.contains("hidden"))panel.scrollIntoView({behavior:"smooth",block:"start"});
+});
+$("pinterestSaveImage")?.addEventListener("click",e=>savePinterestPinImage(e.currentTarget));
+$("pinterestCopyText")?.addEventListener("click",e=>copyPinterestPinText(e.currentTarget));
+$("pinterestOpenCreate")?.addEventListener("click",e=>{
+  if(!pinterestTextHasApproval()){e.preventDefault();return}
+  const link=String($("pinterestPinLink").value||"").trim();
+  if(link){try{const url=new URL(link);if(!["http:","https:"].includes(url.protocol))throw new Error("unsupported protocol")}catch(error){e.preventDefault();$("pinterestPinStatus").textContent="リンク先は https:// または http:// から始まるURLを入力してください。"}}
 });
 $("closeDetailModal")?.addEventListener("click",closeTodayDetail);
 $("todayDetailModal")?.addEventListener("click",e=>{if(e.target===$("todayDetailModal"))closeTodayDetail()});
