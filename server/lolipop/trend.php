@@ -67,41 +67,43 @@ function amazonProductCards(string $html,int &$shortResolved):array{
  $articleTitleNodes=$xp->query('//h1');if($articleTitleNodes&&$articleTitleNodes->length)$articleTitle=cleanText((string)$articleTitleNodes->item(0)->textContent);
  $leadNodes=$xp->query('//*[contains(concat(" ",normalize-space(@class)," ")," article__lead ")]');if($leadNodes&&$leadNodes->length)$articleFeature=cleanText((string)$leadNodes->item(0)->textContent);
  $articleTitleNorm=mb_strtolower(preg_replace('/[^\\p{L}\\p{N}]+/u','',$articleTitle)??'','UTF-8');
- foreach($xp->query('//a[@href]') as $a){
-  $href=trim($a->getAttribute('href'));$u=parse_url($href);$host=strtolower((string)($u['host']??''));
+ // Stay inside the publisher's main article. Related-article cards often contain
+ // Amazon buttons too, but they are not products introduced by this article.
+ $containers=$xp->query('//article[.//h1]');if(!$containers||!$containers->length)$containers=$xp->query('//main');
+ $scope=$containers&&$containers->length?$containers->item(0):$dom->getElementsByTagName('body')->item(0);
+ if(!$scope)return [];
+ $nodes=$xp->query('.//*',$scope);$recommendations=false;
+ foreach($nodes as $node){
+  if(!($node instanceof DOMElement))continue;
+  $tag=strtolower($node->tagName);
+  if(in_array($tag,['h2','h3','h4','h5','h6'],true)){
+   $heading=cleanText((string)$node->textContent);
+   if(preg_match('/こちらもおすすめ|関連記事|関連記事はこちら|あわせて読みたい|合わせて読みたい|おすすめ記事|人気記事|新着記事|最近発売の.+(?:選|点|冊)|注目の.+(?:選|点|冊)/iu',$heading))$recommendations=true;
+  }
+  if($tag!=='a'||$recommendations||!$node->hasAttribute('href'))continue;
+  $a=$node;$href=trim($a->getAttribute('href'));$u=parse_url($href);$host=strtolower((string)($u['host']??''));
   $asin='';
-  if(in_array($host,['amazon.co.jp','www.amazon.co.jp','m.amazon.co.jp'],true)){
-   $asin=amazonAsinFromProductUrl($href);
-  }elseif(in_array($host,['amzn.to','www.amzn.to'],true)&&$shortResolved<3){
-   $shortResolved++;$asin=resolveAmznShortAsin($href);
-  }else continue;
+  if(in_array($host,['amazon.co.jp','www.amazon.co.jp','m.amazon.co.jp'],true))$asin=amazonAsinFromProductUrl($href);
+  elseif(in_array($host,['amzn.to','www.amzn.to'],true)&&$shortResolved<3){$shortResolved++;$asin=resolveAmznShortAsin($href);}
+  else continue;
   if($asin===''||isset($seen[$asin]))continue;
-  $title='';
-  for($node=$a->parentNode,$depth=0;$node&&$depth<6;$node=$node->parentNode,$depth++){
-   if(!($node instanceof DOMElement))continue;
-   $productTitles=$xp->query('.//*[contains(concat(" ",normalize-space(@class)," ")," article-product-item__title ")]',$node);
-   if($productTitles&&$productTitles->length){$candidate=cleanText((string)$productTitles->item(0)->textContent);if(mb_strlen($candidate)>=8&&mb_strlen($candidate)<=180)$title=$candidate;}
-   if($title!=='')break;
-   foreach($xp->query('.//h1|.//h2|.//h3|.//h4|.//strong', $node) as $h){
-    $candidate=cleanText((string)$h->textContent);
-    if(mb_strlen($candidate)>=8&&mb_strlen($candidate)<=180&&!preg_match('/amazonで見る|楽天で見る|購入はこちら/iu',$candidate)){
-     $candidateNorm=mb_strtolower(preg_replace('/[^\\p{L}\\p{N}]+/u','',$candidate)??'','UTF-8');
-     if($articleTitleNorm!==''&&$candidateNorm===$articleTitleNorm)continue;
-     $title=$candidate;break;
-    }
-   }
-   if($title!=='')break;
+  // Read the name from this product card only. Avoid borrowing a title from a
+  // neighboring card or from the article's next section.
+  $title='';$card=null;
+  for($parent=$a->parentNode,$depth=0;$parent&&$depth<5;$parent=$parent->parentNode,$depth++){
+   if(!($parent instanceof DOMElement))continue;
+   $labels=$xp->query('.//*[contains(concat(" ",normalize-space(@class)," ")," article-product-item__title ") or @itemprop="name"]',$parent);
+   if($labels&&$labels->length){$candidate=cleanText((string)$labels->item(0)->textContent);if(mb_strlen($candidate)>=8&&mb_strlen($candidate)<=180){$title=$candidate;$card=$parent;break;}}
+   if(in_array(strtolower($parent->tagName),['li'],true)){$card=$parent;break;}
   }
   if($title===''){
-   $images=$xp->query('./img[@alt]',$a);
-   if($images&&$images->length)$title=cleanText((string)$images->item(0)->getAttribute('alt'));
+   $label=productLabelFromAffiliateLink($a,$xp);
+   if($label!=='')$title=$label;
   }
+  if($title==='')continue;
   $title=usefulProductLabel($title);if($title==='')continue;
-  $productTitleComparable=preg_replace('/\\s*[（(][^（）()]{1,40}[）)]\\s*$/u','',$title)??$title;
-  $productTitleNorm=mb_strtolower(preg_replace('/[^\\p{L}\\p{N}]+/u','',$productTitleComparable)??'','UTF-8');
-  
   $seen[$asin]=true;
-  $out[]=['title'=>$title,'asin'=>$asin,'url'=>'https://www.amazon.co.jp/dp/'.$asin,'source'=>'記事内のAmazon商品リンク','feature'=>$articleFeature!==''?$articleFeature:productFeatureBeforeLink($a)];
+  $out[]=['title'=>$title,'asin'=>$asin,'url'=>'https://www.amazon.co.jp/dp/'.$asin,'source'=>'記事本文の商品リンク','feature'=>$articleFeature!==''?$articleFeature:productFeatureBeforeLink($a)];
   if(count($out)>=20)break;
  }
  return $out;
@@ -345,6 +347,12 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS sanrio_trend_seen(topic_key VARCHAR(64) N
 $pdo->exec("CREATE TABLE IF NOT EXISTS sanrio_trend_state(topic_key VARCHAR(64) NOT NULL PRIMARY KEY,state VARCHAR(16) NOT NULL,updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sanrio_trend_article_scan(url_hash CHAR(64) NOT NULL PRIMARY KEY,article_url TEXT NOT NULL,status VARCHAR(16) NOT NULL,article_json LONGTEXT NULL,checked_at DATETIME NOT NULL,KEY checked_at_idx(checked_at),KEY status_idx(status)) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 $pdo->exec("CREATE TABLE IF NOT EXISTS sanrio_trend_scan_cursor(id TINYINT NOT NULL PRIMARY KEY,cursor_hash CHAR(64) NOT NULL,updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+$pdo->exec("CREATE TABLE IF NOT EXISTS sanrio_trend_scan_meta(meta_key VARCHAR(40) NOT NULL PRIMARY KEY,meta_value VARCHAR(40) NOT NULL,updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+$scanRevision=$pdo->query("SELECT meta_value FROM sanrio_trend_scan_meta WHERE meta_key='parser_revision'")->fetchColumn();
+if((string)$scanRevision!=='2'){
+ $pdo->exec("UPDATE sanrio_trend_article_scan SET status='retry',article_json=NULL,checked_at=DATE_SUB(NOW(),INTERVAL 2 DAY) WHERE status='found'");
+ $pdo->exec("INSERT INTO sanrio_trend_scan_meta(meta_key,meta_value) VALUES('parser_revision','2') ON DUPLICATE KEY UPDATE meta_value=VALUES(meta_value),updated_at=CURRENT_TIMESTAMP");
+}
 
 if(($_GET['action']??'')==='state'){
  if($_SERVER['REQUEST_METHOD']!=='POST')respond(['ok'=>false,'error'=>'POST required'],405);
@@ -357,7 +365,7 @@ if(($_GET['action']??'')==='state'){
 }
 
 $force=isset($_GET['refresh'])&&$_GET['refresh']==='1';$s=$pdo->prepare('SELECT payload,updated_at FROM sanrio_trend_cache WHERE cache_key=?');$s->execute(['trend']);$cached=$s->fetch();
-if(!$force&&$cached&&(time()-strtotime((string)$cached['updated_at']))<1200){$p=json_decode((string)$cached['payload'],true);if(is_array($p)&&($p['apiVersion']??'')==='2817'){$p['ok']=true;$p['cached']=true;respond($p);}}
+if(!$force&&$cached&&(time()-strtotime((string)$cached['updated_at']))<1200){$p=json_decode((string)$cached['payload'],true);if(is_array($p)&&($p['apiVersion']??'')==='2818'){$p['ok']=true;$p['cached']=true;respond($p);}}
 
 $items=[];$seen=[];$health=[];
 
@@ -394,5 +402,5 @@ $groups=array_map(fn($x)=>['representative'=>$x,'items'=>[$x]],$items);$out=[];$
 foreach($groups as $g){$rep=$g['representative'];$key=substr(hash('sha256',implode('|',words((string)$rep['title']))),0,40);$seenQ->execute([$key]);$r=$seenQ->fetch();$first=$r?(string)$r['first_seen_at']:date('Y-m-d H:i:s');$seenUp->execute([$key]);$stateQ->execute([$key]);$sr=$stateQ->fetch();
  $regions=array_map(fn($x)=>(string)($x['region']??''),$g['items']);$rep['topicKey']=$key;$rep['firstSeenAt']=date(DATE_ATOM,strtotime($first));$rep['isNew']=(time()-strtotime($first))<86400;$rep['relatedCount']=count($g['items']);$rep['relatedSources']=array_values(array_unique(array_map(fn($x)=>(string)($x['source']??''),$g['items'])));$rep['relatedItems']=array_map(fn($x)=>['source'=>$x['source']??'','url'=>$x['url']??'','region'=>$x['region']??''],array_slice($g['items'],0,8));$rep['jpCount']=count(array_filter($regions,fn($r)=>$r==='JP'));$rep['foreignCount']=count(array_filter($regions,fn($r)=>$r!==''&&$r!=='JP'));$rep['userState']=$sr?(string)$sr['state']:'';$out[]=$rep;}
 usort($out,function($a,$b){$score=function($x){$age=ageH($x['publishedAt']??$x['firstSeenAt']??null);$fresh=max(0,72-min($age,144)*.75);$ahead=((int)($x['jpCount']??0)===0&&(int)($x['foreignCount']??0)>=2)?18:0;return priority($x)+$fresh+$ahead+min(20,max(0,((int)($x['relatedCount']??1)-1)*6));};return $score($b)<=>$score($a);});
-$payload=['ok'=>true,'apiVersion'=>'2817','cached'=>false,'fetchedAt'=>date(DATE_ATOM),'items'=>array_slice($out,0,80),'count'=>count($out),'groupedCount'=>count($groups),'rawCount'=>count($items),'sourceHealth'=>$health];
+$payload=['ok'=>true,'apiVersion'=>'2818','cached'=>false,'fetchedAt'=>date(DATE_ATOM),'items'=>array_slice($out,0,80),'count'=>count($out),'groupedCount'=>count($groups),'rawCount'=>count($items),'sourceHealth'=>$health];
 $save=$pdo->prepare('INSERT INTO sanrio_trend_cache(cache_key,payload) VALUES(?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload),updated_at=CURRENT_TIMESTAMP');$save->execute(['trend',json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);respond($payload);
