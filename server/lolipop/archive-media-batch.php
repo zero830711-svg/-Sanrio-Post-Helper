@@ -17,6 +17,22 @@ function share_dir(array $config):string{
 }
 function share_read(array $config,string $shareToken):array{
   if(!preg_match('/^[a-f0-9]{64}$/i',$shareToken))out(['ok'=>false,'error'=>'Invalid or expired link'],404);
+  $syncKey=(string)($config['sync_key']??'');
+  if($syncKey!==''){
+    $expected=hash_hmac('sha256','sanrio-post-helper-private-share-token-v1',$syncKey);
+    if(hash_equals($expected,strtolower($shareToken))){
+      try{
+        $pdo=new PDO((string)$config['db_dsn'],$config['db_user'],$config['db_password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);
+        $ownerHash=hash_hmac('sha256','sanrio-post-helper-private-share-owner-v1',$syncKey);
+        $q=$pdo->prepare('SELECT snapshot,updated_at FROM sanrio_post_helper_share WHERE owner_hash=? AND token_hash=?');
+        $q->execute([$ownerHash,hash('sha256',strtolower($shareToken))]);$row=$q->fetch();
+        if(!$row)out(['ok'=>false,'error'=>'Private link is not initialized'],404);
+        $snapshot=json_decode((string)$row['snapshot'],true);
+        if(!is_array($snapshot))out(['ok'=>false,'error'=>'Shared data is unavailable'],500);
+        return ['persistent'=>true,'updatedAt'=>(string)$row['updated_at'],'snapshot'=>$snapshot];
+      }catch(Throwable $e){out(['ok'=>false,'error'=>'Private share storage is unavailable'],503);}
+    }
+  }
   $mediaRoot=realpath((string)($config['media_root']??''));
   if(!$mediaRoot)out(['ok'=>false,'error'=>'Share storage is unavailable'],503);
   $dir=rtrim(sys_get_temp_dir(),DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'sanrio-post-helper-shares-'.substr(hash('sha256',$mediaRoot),0,16);
@@ -46,7 +62,8 @@ if($sharedRequest){
   $sharedRecord=share_read($config,(string)($_GET['token']??''));
   if($action==='shared'){
     header('Cache-Control: no-store, max-age=0');
-    out(['ok'=>true,'expiresAt'=>date(DATE_ATOM,(int)$sharedRecord['expiresAt']),'snapshot'=>$sharedRecord['snapshot']??[]]);
+    if(!empty($sharedRecord['persistent']))out(['ok'=>true,'persistent'=>true,'updatedAt'=>$sharedRecord['updatedAt']??null,'snapshot'=>$sharedRecord['snapshot']??[]]);
+    out(['ok'=>true,'persistent'=>false,'expiresAt'=>date(DATE_ATOM,(int)$sharedRecord['expiresAt']),'snapshot'=>$sharedRecord['snapshot']??[]]);
   }
 }
 
@@ -77,6 +94,21 @@ if($_SERVER['REQUEST_METHOD']==='POST'&&(string)($_GET['action']??'')==='share')
     ];
   }
   if(count($posts)<1)out(['ok'=>false,'error'=>'No valid posts to share'],400);
+  if(!empty($input['persistent'])){
+    $syncKey=(string)($config['sync_key']??'');if($syncKey==='')out(['ok'=>false,'error'=>'Sync key is not configured'],503);
+    $ownerHash=hash_hmac('sha256','sanrio-post-helper-private-share-owner-v1',$syncKey);
+    $shareToken=hash_hmac('sha256','sanrio-post-helper-private-share-token-v1',$syncKey);
+    $tokenHash=hash('sha256',$shareToken);
+    $snapshot=['version'=>share_text($input['version']??'',40),'scope'=>in_array($input['scope']??'', ['今日の候補','最近の保存投稿'],true)?$input['scope']:'投稿候補','createdAt'=>date(DATE_ATOM),'posts'=>$posts];
+    try{
+      $pdo=new PDO((string)$config['db_dsn'],$config['db_user'],$config['db_password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);
+      $pdo->exec("CREATE TABLE IF NOT EXISTS sanrio_post_helper_share(owner_hash CHAR(64) NOT NULL PRIMARY KEY,token_hash CHAR(64) NOT NULL UNIQUE,snapshot LONGTEXT NOT NULL,updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+      $q=$pdo->prepare('INSERT INTO sanrio_post_helper_share(owner_hash,token_hash,snapshot) VALUES(?,?,?) ON DUPLICATE KEY UPDATE token_hash=VALUES(token_hash),snapshot=VALUES(snapshot),updated_at=CURRENT_TIMESTAMP');
+      $q->execute([$ownerHash,$tokenHash,json_encode($snapshot,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_INVALID_UTF8_SUBSTITUTE)]);
+    }catch(Throwable $e){out(['ok'=>false,'error'=>'Could not save the private share link'],500);}
+    header('Cache-Control: no-store, max-age=0');
+    out(['ok'=>true,'token'=>$shareToken,'persistent'=>true,'updatedAt'=>date(DATE_ATOM)]);
+  }
   $dir=share_dir($config);
   foreach((glob($dir.DIRECTORY_SEPARATOR.'*.json')?:[]) as $old){if(!is_file($old))continue;$oldRecord=json_decode((string)@file_get_contents($old),true);if(!is_array($oldRecord)||(int)($oldRecord['expiresAt']??0)<time())@unlink($old);}
   $shareToken=bin2hex(random_bytes(32));
