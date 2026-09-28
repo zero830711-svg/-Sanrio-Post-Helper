@@ -2502,7 +2502,7 @@ function copyPromptFallback(text,title){
     panel.setAttribute("role","dialog");panel.setAttribute("aria-modal","true");
     panel.style.cssText="position:fixed;z-index:10050;left:16px;right:16px;bottom:24px;max-width:680px;margin:auto;padding:16px;background:#fff;border:2px solid #8c4964;border-radius:16px;box-shadow:0 8px 40px #0005";
     const heading=document.createElement("strong");heading.id="copyFallbackTitle";panel.appendChild(heading);
-    const note=document.createElement("p");note.id="copyFallbackNote";note.textContent="コピーできない場合は「もう一度コピー」を押してください。";note.style.cssText="margin:8px 0;font-size:14px";panel.appendChild(note);
+    const note=document.createElement("p");note.id="copyFallbackNote";note.textContent="コピーできない場合は文章欄を長押しして「コピー」を選んでください。";note.style.cssText="margin:8px 0;font-size:14px";panel.appendChild(note);
     const area=document.createElement("textarea");area.id="copyFallbackText";area.readOnly=true;area.style.cssText="width:100%;height:160px;padding:10px;font-size:14px";
     panel.appendChild(area);
     const retry=document.createElement("button");retry.type="button";retry.textContent="もう一度コピー";retry.style.cssText="margin:8px 8px 0 0;padding:10px 16px";
@@ -2512,7 +2512,7 @@ function copyPromptFallback(text,title){
         if(!navigator.clipboard?.writeText)throw new Error("clipboard unavailable");
         navigator.clipboard.writeText(value).then(()=>{
           $("copyFallbackTitle").textContent="コピーしました";
-          $("copyFallbackNote").textContent="ChatGPTの入力欄に貼り付けてください。";
+          $("copyFallbackNote").textContent="元の画面に戻り、貼り付けたい入力欄を長押しして「ペースト」を選んでください。";
         }).catch(()=>{
           $("copyFallbackTitle").textContent="自動コピーできませんでした";
           $("copyFallbackNote").textContent="文章を長押しして「コピー」を選んでください。";
@@ -2586,7 +2586,7 @@ function showTodayDetail(item){
   const pinTitle=$("pinterestPinTitle"),pinDescription=$("pinterestPinDescription"),pinLink=$("pinterestPinLink"),pinStatus=$("pinterestPinStatus");
   if(pinTitle)pinTitle.value=pinterestTitle(item);
   if(pinDescription)pinDescription.value=pinterestDescription(item);
-  if(pinLink)pinLink.value="";
+  if(pinLink)pinLink.value=pinterestAffiliateUrl(item);
   $("pinterestRightsCheck").checked=false;
   $("pinterestFactsCheck").checked=false;
   if(pinStatus)pinStatus.textContent=imgs.length?"投稿前に写真の利用権・情報の最新性を確認してください。":"この投稿には写真がありません。";
@@ -2615,6 +2615,27 @@ function pinterestDescription(item){
   const body=String(item&&item.text||"").replace(/https?:\/\/\S+/gi," ").replace(/[#＃][^\s]+/g," ").replace(/\s+/g," ").trim();
   const short=Array.from(body).slice(0,300).join("").replace(/[、。…・\s]+$/g,"");
   return [short,"※過去の投稿をもとにしています。販売状況・開催情報はリンク先でご確認ください。"].filter(Boolean).join("\n\n");
+}
+function pinterestAffiliateUrl(item){
+  const links=todayAffiliateLinks(item);
+  for(const link of links){
+    try{
+      const url=new URL(link.url),host=url.hostname.toLowerCase().replace(/^www\./,"");
+      if(host==="amzn.to"||host.endsWith(".amzn.to"))return url.toString();
+      if(host==="amazon.co.jp"||host.endsWith(".amazon.co.jp")){
+        const asin=url.pathname.match(/\/(?:dp|gp\/product|exec\/obidos\/ASIN)\/([A-Z0-9]{10})(?:[/?]|$)/i)?.[1];
+        if(asin){
+          const tag=String(localStorage.getItem("sphAmazonAssociateTagV1")||"ononbrothers2-22").trim();
+          const affiliate=new URL("https://www.amazon.co.jp/dp/"+asin.toUpperCase());
+          affiliate.searchParams.set("tag",tag);
+          return affiliate.toString();
+        }
+        if(url.searchParams.has("tag"))return url.toString();
+      }
+      if(host==="hb.afl.rakuten.co.jp"||host==="r10.to"||host.endsWith(".r10.to"))return url.toString();
+    }catch(_){/* ignore malformed archived links */}
+  }
+  return "";
 }
 function pinterestTextHasApproval(){
   const rights=$("pinterestRightsCheck"),facts=$("pinterestFactsCheck"),status=$("pinterestPinStatus");
@@ -2688,6 +2709,16 @@ function copyPinterestPinText(button){
   if(/(?:amazon\.(?:co\.jp|com)|amzn\.to|rakuten\.(?:co\.jp|com))/i.test(link)&&!/(広告|アフィリエイト)/.test(description))description+="\n\n広告・アフィリエイトリンクを含みます。";
   const text=[title,description].filter(Boolean).join("\n\n")+(link?"\n\nリンク先（Pinterestのリンク欄へ）："+link:"");
   copyTextFromClick(text,button,"コピーしました");
+}
+function copyPinterestField(kind,button){
+  if(!pinterestTextHasApproval())return;
+  const title=String($("pinterestPinTitle").value||"").trim();
+  let description=String($("pinterestPinDescription").value||"").trim();
+  const link=String($("pinterestPinLink").value||"").trim();
+  if(/(?:amazon\.(?:co\.jp|com)|amzn\.to|rakuten\.(?:co\.jp|com)|r10\.to)/i.test(link)&&!/(広告|アフィリエイト)/.test(description))description+="\n\n広告・アフィリエイトリンクを含みます。";
+  const values={title,description,link};
+  if(!values[kind]){$("pinterestPinStatus").textContent=kind==="link"?"リンク先が空欄です。記事内に紹介リンクがあるか確認してください。":"コピーする文章が空欄です。";return}
+  copyTextFromClick(values[kind],button,kind==="title"?"タイトルをコピーしました":kind==="description"?"説明文をコピーしました":"リンクをコピーしました");
 }
 async function imageBlob(src){
   try{
@@ -3293,7 +3324,7 @@ $("detailPinterestButton")?.addEventListener("click",()=>{
   if(!panel.classList.contains("hidden"))panel.scrollIntoView({behavior:"smooth",block:"start"});
 });
 $("pinterestSaveImage")?.addEventListener("click",e=>savePinterestPinImage(e.currentTarget));
-$("pinterestCopyText")?.addEventListener("click",e=>copyPinterestPinText(e.currentTarget));
+document.querySelectorAll("[data-pinterest-copy]").forEach(button=>button.addEventListener("click",e=>copyPinterestField(e.currentTarget.dataset.pinterestCopy,e.currentTarget)));
 $("pinterestOpenCreate")?.addEventListener("click",e=>{
   if(!pinterestTextHasApproval()){e.preventDefault();return}
   const link=String($("pinterestPinLink").value||"").trim();

@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20260929-3365">
+<link rel="stylesheet" href="./styles.css?v=20260929-3366">
 </head>
 <body>
 <main class="app">
@@ -312,10 +312,18 @@
 <label>使う写真<select id="pinterestImageSelect"></select></label>
 <label>Pinタイトル<input id="pinterestPinTitle" type="text" maxlength="100"></label>
 <label>説明文<textarea id="pinterestPinDescription" rows="5" maxlength="500"></textarea></label>
-<label>リンク先（任意・内容と商品が一致することを確認）<input id="pinterestPinLink" type="url" inputmode="url" placeholder="ブログ記事・商品ページなど"></label>
+<label>リンク先（投稿内の紹介リンクを自動設定）<input id="pinterestPinLink" type="url" inputmode="url" placeholder="Amazon／楽天の紹介リンク"></label>
+<p class="backup-note pinterest-link-note">投稿内のAmazon／楽天リンクを初期設定します。Amazon.co.jpの商品URLにはあなたの紹介IDを付けます。別サイトのURLは変換できません。</p>
 <label class="pinterest-check"><input id="pinterestRightsCheck" type="checkbox">この写真をPinterestで使う権利があることを確認しました</label>
 <label class="pinterest-check"><input id="pinterestFactsCheck" type="checkbox">説明文とリンク先の内容・最新情報を確認しました</label>
-<div class="pinterest-pin-actions"><button id="pinterestSaveImage" class="primary" type="button">Pin画像を保存</button><button id="pinterestCopyText" class="small-btn" type="button">タイトル・説明をコピー</button><a id="pinterestOpenCreate" class="small-btn link-btn" href="https://www.pinterest.com/pin-builder/" target="_blank" rel="noopener">PinterestでPinを作成</a></div>
+<div class="pinterest-pin-actions"><button id="pinterestSaveImage" class="primary" type="button">Pin画像を保存</button></div>
+<div class="pinterest-copy-actions" aria-label="Pinterestに貼り付ける文章をコピー">
+<button class="small-btn" type="button" data-pinterest-copy="title">タイトルをコピー</button>
+<button class="small-btn" type="button" data-pinterest-copy="description">説明文をコピー</button>
+<button class="small-btn" type="button" data-pinterest-copy="link">リンクをコピー</button>
+</div>
+<a id="pinterestOpenCreate" class="small-btn link-btn pinterest-open-create" href="https://www.pinterest.com/pin-builder/" target="_blank" rel="noopener">PinterestでPinを作成</a>
+<p class="backup-note">Pinterestを開いたら、タイトル・説明文・リンクの各欄をタップして、それぞれ「ペースト」してください。Pinterestへの自動入力・自動公開は行いません。</p>
 <p id="pinterestPinStatus" class="pinterest-pin-status" aria-live="polite"></p>
 </section>
 <section class="detail-text-section">
@@ -342,8 +350,8 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20260929-3365"></script>
-<script src="./amazon-reports.js?v=20260929-3365"></script>
-<script src="./revenue-insights.js?v=20260929-3365"></script>
+<script src="./app.js?v=20260929-3366"></script>
+<script src="./amazon-reports.js?v=20260929-3366"></script>
+<script src="./revenue-insights.js?v=20260929-3366"></script>
 </body>
 </html>
