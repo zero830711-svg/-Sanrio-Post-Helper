@@ -236,7 +236,7 @@ async function createCodexReviewLink(button){
     try{result=await response.json()}catch(e){}
     if(!response.ok||!result.ok||!result.token)throw new Error(result.error||("共有リンクの作成に失敗しました（HTTP "+response.status+"）"));
     const shareUrl=new URL("./share.html",location.href);
-    shareUrl.searchParams.set("v",APP_VERSION.replaceAll(".",""));
+    shareUrl.searchParams.set("v","private");
     shareUrl.hash="token="+encodeURIComponent(result.token);
     const input=$("codexShareUrl");
     if(input)input.value=shareUrl.href;
