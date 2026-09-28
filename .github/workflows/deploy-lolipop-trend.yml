@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "server/lolipop/trend.php"
+      - "server/lolipop/archive-media-batch.php"
       - ".github/workflows/deploy-lolipop-trend.yml"
   workflow_dispatch:
 
@@ -29,9 +30,11 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Check PHP syntax
-        run: php -l server/lolipop/trend.php
+        run: |
+          php -l server/lolipop/trend.php
+          php -l server/lolipop/archive-media-batch.php
 
-      - name: Deploy only trend.php over FTPS
+      - name: Deploy PHP endpoints over FTPS
         shell: bash
         run: |
           set -euo pipefail
@@ -48,5 +51,6 @@ jobs:
           set ssl:verify-certificate yes
           cd "$LOLIPOP_TREND_DIR"
           put server/lolipop/trend.php
+          put server/lolipop/archive-media-batch.php
           bye
           LFTP
