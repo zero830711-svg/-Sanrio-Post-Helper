@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3369";
+const APP_VERSION="2026.10.01-3370";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2125,21 +2125,24 @@ async function getRoleBasedPicks(){
     pickedTopics.add(topic);
   };
 
-  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="affiliate-priority-v1");
+  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="affiliate-three-slots-v2");
   for(const role of TODAY_ROLES){
-    const existing=sameDay.find(x=>x.recommendedRole===role&&!used.has(x.id));
+    const prioritizeLinks=TODAY_ROLES.indexOf(role)<3;
+    const existing=sameDay.find(x=>x.recommendedRole===role&&!used.has(x.id)&&(!prioritizeLinks||todayAffiliateLinks(x).length||!pool.some(y=>!used.has(y.id)&&todayAffiliateLinks(y).length)));
     keep(existing,role);
   }
 
   const remaining=()=>pool.filter(x=>!used.has(x.id));
   const scored=(list,scoreFn)=>[...list].sort((a,b)=>
-    (scoreFn(b)+selectionPriority(b)-diversityPenalty(b,recentTopics,pickedTopics))-
-    (scoreFn(a)+selectionPriority(a)-diversityPenalty(a,recentTopics,pickedTopics))
+    (scoreFn(b)-diversityPenalty(b,recentTopics,pickedTopics))-
+    (scoreFn(a)-diversityPenalty(a,recentTopics,pickedTopics))
   );
 
   for(const role of TODAY_ROLES){
     if(picked.some(x=>x._role===role))continue;
-    const candidates=remaining();
+    const available=remaining();
+    const linked=available.filter(x=>todayAffiliateLinks(x).length);
+    const candidates=TODAY_ROLES.indexOf(role)<3&&linked.length?linked:available;
     let choice=null;
 
     if(role==="過去最強"){
@@ -2176,8 +2179,8 @@ async function stampRecommendations(items){
   const today=localDayKey();
   const updates=[];
   for(const item of items){
-    if(recommendedDay(item)===today&&item.recommendedRole===item._role)continue;
-    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"affiliate-priority-v1"});
+    if(recommendedDay(item)===today&&item.recommendedRole===item._role&&item.recommendedPolicyVersion==="affiliate-three-slots-v2")continue;
+    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"affiliate-three-slots-v2"});
   }
   await dbPutMany(updates);
   if(updates.length)queueCloudSync(updates,[]);
