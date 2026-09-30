@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3375";
+const APP_VERSION="2026.10.01-3376";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2911,6 +2911,9 @@ function shareDetailToGemini(button){
   const resetTimer=setTimeout(reset,30000);
   try{
     geminiShareHandoffActive=true;
+    // Unlock the page before iOS suspends the web app for the native share sheet.
+    closeTodayDetail();
+    button.disabled=false;
     const sharing=navigator.share(data);
     Promise.resolve(sharing).then(()=>{
       if(detailCurrentItem===item&&status)status.textContent="共有画面の操作が終了しました。写真がGeminiに添付されたか確認してください。"+pasteHelp;
@@ -3213,6 +3216,8 @@ function closeTodayDetail(){
   $("detailMedia").innerHTML="";
   detailCurrentItem=null;
   detailCandidateQueue=[];
+  detailImageBlobs=[];
+  detailImageBlobErrors=[];
   detailWholeImageBlob=null;
   detailWholeImagePromise=null;
   document.body.style.position="";
