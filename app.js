@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3371";
+const APP_VERSION="2026.10.01-3372";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2650,6 +2650,7 @@ function showTodayDetail(item,continueQueue=false){
     detailCandidateQueue=index>=0?[...candidates.slice(index+1),...candidates.slice(0,index)]:candidates;
   }
   detailCurrentItem=item;
+  if($("detailGeminiStatus"))$("detailGeminiStatus").textContent="共有先にGeminiが表示されたら選択してください。写真のみ渡る場合はプロンプトをペーストしてください。動画は共有対象外です。";
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
@@ -2865,6 +2866,52 @@ function preloadDetailImages(item,images){
       if(mediaStatus)mediaStatus.textContent="写真の読み込みに失敗しました。まとめて保存ボタンで再試行できます。";
     });
   });
+}
+function shareDetailToGemini(button){
+  const item=detailCurrentItem;
+  if(!item||!button)return;
+  const status=$("detailGeminiStatus");
+  const sources=mediaArray(item.images||(item.image?[item.image]:[]));
+  const prompt=buildRewritePrompt(item,item.recommendedRole||"",recentRewriteContext(item));
+  if(sources.some((_,i)=>!detailImageBlobs[i])){
+    button.disabled=true;button.textContent="写真を準備中…";
+    Promise.all(sources.map((src,i)=>detailImageBlobs[i]?Promise.resolve(detailImageBlobs[i]):imageBlob(src).then(blob=>{
+      if(detailCurrentItem===item)detailImageBlobs[i]=blob;
+      return blob;
+    }))).then(()=>{
+      if(detailCurrentItem!==item)return;
+      if(status)status.textContent="写真を準備しました。もう一度押して共有してください。";
+    }).catch(()=>{
+      if(detailCurrentItem===item&&status)status.textContent="写真を取得できませんでした。もう一度押して再試行してください。";
+    }).finally(()=>{button.disabled=false;button.textContent="Gemini用にまとめて共有"});
+    return;
+  }
+  const files=sources.map((_,i)=>{
+    const blob=detailImageBlobs[i],ext=blob.type.includes("png")?"png":blob.type.includes("webp")?"webp":"jpg";
+    return new File([blob],safeImageName(item,i,ext),{type:blob.type||"image/jpeg"});
+  });
+  const data={title:"Sanrio 投稿作成",text:prompt};
+  if(files.length)data.files=files;
+  const supported=!!navigator.share&&(!navigator.canShare||navigator.canShare(data));
+  // Clipboard and share are started directly from the tap, without awaiting image/network work.
+  copyTextFromClick(prompt,null);
+  if(!supported){
+    if(status)status.textContent="この環境では写真の一括共有に対応していません。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
+    return;
+  }
+  button.disabled=true;
+  try{
+    const sharing=navigator.share(data);
+    Promise.resolve(sharing).then(()=>{
+      if(detailCurrentItem===item&&status)status.textContent="共有操作を完了しました。Geminiで写真とプロンプトを確認し、本文が渡っていない場合はペーストしてください。";
+    }).catch(error=>{
+      if(detailCurrentItem!==item||!status)return;
+      status.textContent=error?.name==="AbortError"?"共有をキャンセルしました。もう一度押せます。":"共有できませんでした。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
+    }).finally(()=>{button.disabled=false});
+  }catch(error){
+    button.disabled=false;
+    if(status)status.textContent="共有できませんでした。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
+  }
 }
 function downloadAllDetailPhotos(button){
   const item=detailCurrentItem;
@@ -3419,6 +3466,7 @@ async function checkLatestVersion(){
   }catch(e){}
 }
 $("detailCopyImage")?.addEventListener("click",e=>downloadWholePostImage(e.currentTarget));
+$("detailGeminiShare")?.addEventListener("click",e=>shareDetailToGemini(e.currentTarget));
 $("detailDownloadAllPhotos")?.addEventListener("click",e=>downloadAllDetailPhotos(e.currentTarget));
 $("detailMedia")?.addEventListener("click",e=>{
   const save=e.target.closest("[data-detail-download]");
