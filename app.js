@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3378";
+const APP_VERSION="2026.10.01-3379";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2485,15 +2485,14 @@ function buildBlogPrompt(item){
     "X投稿URL："+String(item.xUrl||item.tweetUrl||item.url||"なし"),
     "投稿本文：",
     String(item.text||"（本文なし）"),
-    "写真URL（画像を実際に確認できない場合、内容を推測しない）：",
-    images.length?images.map((u,i)=>(i+1)+". "+u).join("\n"):"なし",
+    images.length?("写真："+images.length+"枚をこのメッセージに添付しています。添付画像を参照してください。"):"写真：添付なし",
     videos.length?("動画URL：\n"+videos.map((u,i)=>(i+1)+". "+u).join("\n")):"動画：なし",
     "商品リンク：",
     item.amazon?("Amazon："+String(item.amazon)):"",
     item.rakuten?("楽天："+String(item.rakuten)):""
   ].filter(Boolean).join("\n");
   return [
-    "あなたはSanrioファン向けWordPressサイトの編集者です。下のXアーカイブの情報が足りない場合は、必ずGeminiのGoogle検索・ウェブ検索を使って調べ、確認できた情報を加えてWordPressアプリに貼れる記事を作ってください。Xからブログへ誘導する内容ではなく、検索から来る読者の疑問に答える独立した記事にしてください。",
+    "あなたはSanrioファン向けWordPressサイトの編集者です。下のXアーカイブの情報が足りない場合は、必ずウェブ検索を使って調べ、確認できた情報を加えてWordPressアプリに貼れる記事を作ってください。Xからブログへ誘導する内容ではなく、検索から来る読者の疑問に答える独立した記事にしてください。",
     "",
     "【必ず先にウェブ調査】",
     "記事を書く前に、商品名・ブランド名・キャラクター名・発売情報などから検索語を作り、最新情報を検索する。Sanrio、メーカー、ブランド、公式販売店のページ・公式発表を最優先し、必要なら大手販売店の商品ページで補足確認する。検索結果の見出しだけで判断せず、ページ本文を開いて内容を確認する。",
@@ -2513,7 +2512,7 @@ function buildBlogPrompt(item){
     "まず公式情報を調べ、それを加えることで読者に役立つ独自の情報が増えるか判断する。元投稿の言い換えだけになる、または確認後も情報が薄い場合は、文章を水増ししない。「まとめ記事に統合」または「見送り」とし、本文コードブロックは出さない。不足している追加材料や、まとめ記事の切り口を判定理由に短く含める。",
     "",
     "【正確性と記事作成ルール】",
-    "実際に試していない商品の使用感・効果・成分評価を体験談として書かない。化粧品などの効能を誇張しない。写真URLだけで画像を見られない場合、写っている内容を推測しない。",
+    "実際に試していない商品の使用感・効果・成分評価を体験談として書かない。化粧品などの効能を誇張しない。添付画像を実際に確認できない場合、写っている内容を推測しない。",
     "商品リンクが入力されている場合だけ使い、アフィリエイトリンクを記事に使う場合は広告・アフィリエイトであることが読者に分かる表示を入れる。存在しないリンクや内部記事URLは作らない。",
     "読者が知りたい情報を先に説明し、キーワードの不自然な繰り返しや文字数合わせの水増しをしない。",
     "以前共有されたSearch Console画面ではサイト全体の直近3か月がクリック25・表示214・CTR 11.7%・平均掲載順位6.6、「コスメキッチン マイメロ」は表示15回だった。少数の過去データなので、テーマが直接一致する場合の弱い参考情報に限り、検索需要の証明として扱わない。",
@@ -2556,8 +2555,7 @@ function buildThreadsPrompt(item){
     "元の投稿日："+formatPostedMeta(item),
     "元のX投稿本文：",
     String(item.text||"（本文なし）"),
-    "添付写真URL（実際に見られない場合は内容を推測しない）：",
-    images.length?images.map((u,i)=>(i+1)+". "+u).join("\n"):"なし",
+    images.length?("写真："+images.length+"枚をこのメッセージに添付しています。添付画像を参照してください。"):"写真：添付なし",
     videos.length?("動画URL：\n"+videos.map((u,i)=>(i+1)+". "+u).join("\n")):"動画：なし",
     "リンク候補（元投稿・保存済み情報から抽出。商品リンクと決めつけない）：",
     links.length?links.map(({label,url},i)=>(i+1)+". "+label+"： "+url).join("\n"):"なし"
@@ -2573,7 +2571,7 @@ function buildThreadsPrompt(item){
     "",
     "【事実とリンクの扱い】",
     "・元投稿の発売日、価格、予約期間、在庫、販売中などは過去の情報。現在の状態に触れる場合は公式情報をウェブ検索して本文で確認した場合だけ書く。検索できない・確認できない場合は現在も有効と断定しない",
-    "・元投稿と実際に閲覧できた添付写真にない仕様、感想、使用体験を作らない。写真URLを開けなければ画像内容を推測しない",
+    "・元投稿と実際に閲覧できた添付写真にない仕様、感想、使用体験を作らない。添付画像を確認できなければ画像内容を推測しない",
     "・X投稿URLや写真URLを購入リンクとして使わない。下のリンク候補は商品リンクとは限らない。元投稿の内容とリンク先の商品が一致し、現在のページを実際に確認できた場合だけ候補のURLをそのまま使う。短縮URLの行き先が確認できなければ使わない。別商品への転送、写真、ニュース、SNS投稿のURLは購入リンクにしない。新しい商品URLやアフィリエイトIDを作らない",
     "",
     "【返信投稿】",
@@ -2879,7 +2877,8 @@ function shareDetailToChatGPT(button,kind="x"){
   if(!item||!button)return;
   const status=$("detailChatGPTStatus");
   const sources=mediaArray(item.images||(item.image?[item.image]:[]));
-  const prompt=kind==="blog"?buildBlogPrompt(item):kind==="threads"?buildThreadsPrompt(item):buildRewritePrompt(item,item.recommendedRole||"",recentRewriteContext(item));
+  const basePrompt=kind==="blog"?buildBlogPrompt(item):kind==="threads"?buildThreadsPrompt(item):buildRewritePrompt(item,item.recommendedRole||"",recentRewriteContext(item));
+  const prompt=sources.reduce((text,url)=>text.split(String(url)).join(""),basePrompt);
   if(sources.some((_,i)=>!detailImageBlobs[i])){
     button.disabled=true;button.textContent="写真を準備中…";
     Promise.all(sources.map((src,i)=>detailImageBlobs[i]?Promise.resolve(detailImageBlobs[i]):imageBlob(src).then(blob=>{
@@ -2901,9 +2900,9 @@ function shareDetailToChatGPT(button,kind="x"){
   const supported=!!navigator.share&&(!navigator.canShare||navigator.canShare(data));
   // Avoid two asynchronous OS operations competing for the same iPhone tap.
   const copied=legacyCopyText(prompt);
-  const pasteHelp=copied?"プロンプトはコピー済みです。ChatGPTで文章が渡らない場合はペーストしてください。":"対応するプロンプトのコピーボタンを押してからChatGPTへ貼り付けてください。";
+  const pasteHelp=copied?"プロンプトはコピー済みです。ChatGPTで文章が渡らない場合はペーストしてください。":"写真と一緒に渡るプロンプトを使ってください。";
   if(!supported){
-    if(status)status.textContent="この環境では写真の一括共有に対応していません。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
+    if(status)status.textContent="この環境では写真の一括共有に対応していません。「写真をまとめて保存」を使ってください。プロンプトがコピーできていれば貼り付けられます。";
     return;
   }
   button.disabled=true;
@@ -2920,11 +2919,11 @@ function shareDetailToChatGPT(button,kind="x"){
       if(detailCurrentItem===item&&status)status.textContent="共有画面の操作が終了しました。写真とプロンプトがChatGPTに渡ったか確認してください。"+pasteHelp;
     }).catch(error=>{
       if(detailCurrentItem!==item||!status)return;
-      status.textContent=error?.name==="AbortError"?"共有をキャンセルしました。もう一度押せます。":"共有できませんでした。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
+      status.textContent=error?.name==="AbortError"?"共有をキャンセルしました。もう一度押せます。":"共有できませんでした。「写真をまとめて保存」を使ってください。プロンプトがコピーできていれば貼り付けられます。";
     }).finally(()=>{clearTimeout(resetTimer);reset()});
   }catch(error){
     clearTimeout(resetTimer);reset();
-    if(status)status.textContent="共有できませんでした。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
+    if(status)status.textContent="共有できませんでした。「写真をまとめて保存」を使ってください。プロンプトがコピーできていれば貼り付けられます。";
   }
 }
 function downloadAllDetailPhotos(button){
