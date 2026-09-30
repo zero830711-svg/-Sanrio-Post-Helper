@@ -18,7 +18,7 @@
 <p>開いたらすぐ、今日使う候補を確認。</p>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.10.01-3381</span>
+<span id="appVersionStatus">アプリ版 2026.10.01-3382</span>
 <button id="forceLatest" type="button" >最新版を読み込む</button>
 </div>
 <p class="backup-note app-update-help">更新後もホーム画面のアイコンはそのまま使えます。作り直しは不要です。この端末に保存した投稿データと同期設定は、同じURLを使う限り引き継がれます。</p>
@@ -34,23 +34,11 @@
 
 <section id="archive">
 
-<section class="card amazon-scout-entry">
-<h2 class="section-title">今日のサンリオ投稿案</h2>
-<p class="backup-note">ネット上の新しい商品紹介記事から、記事内にAmazonリンクがある商品だけを拾い、紹介ID付きの投稿案を作ります。</p>
-<a class="primary" style="display:block;text-align:center;text-decoration:none;margin-top:10px" href="./amazon-ready-3377.html?v=20260927-3406">新着記事の商品リンクから投稿案を作る</a>
-</section>
 
 
 
-<section id="trendHeroCard" class="card trend-hero-card">
-<div class="trend-head">
-<div>
-<h2 class="section-title">今日の新規ネタ 🌍</h2>
-<p class="backup-note">Trend Radarから、今いちばん投稿価値が高い1件だけ表示。</p>
-</div>
-</div>
-<div id="trendHero"></div>
-</section>
+
+
 
 <section class="card today-card">
 <div class="today-head">
@@ -66,10 +54,19 @@
 <details class="card trend-card">
 <summary>Trend Radarを開く</summary>
 <div class="trend-card-body">
+<section id="trendHeroCard" class="card trend-hero-card">
+<div class="trend-head">
+<div>
+<h2 class="section-title">今日の新規ネタ 🌍</h2>
+<p class="backup-note">Trend Radarから、関連する過去投稿を探すきっかけとして、注目の1件を表示。</p>
+</div>
+</div>
+<div id="trendHero"></div>
+</section>
 <div class="trend-head">
 <div>
 <h2 class="section-title">Trend Radar 🌍</h2>
-<p class="backup-note">24時間 / 72時間 / 7日を切替。使用済み・不要ネタは自動で除外。</p>
+<p class="backup-note">新しい話題から関連する過去投稿を探せます。類似するだけで同じ商品とは限りません。記事の情報は過去投稿のプロンプトに混ぜません。</p>
 </div>
 <button id="trendRefresh" class="small-btn" type="button">更新</button>
 </div>
@@ -350,7 +347,7 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261001-3381"></script>
+<script src="./app.js?v=20261001-3382"></script>
 <script src="./amazon-reports.js?v=20260929-3366"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
 </body>
