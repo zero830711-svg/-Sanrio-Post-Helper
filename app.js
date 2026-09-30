@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3377";
+const APP_VERSION="2026.10.01-3378";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2873,12 +2873,13 @@ function preloadDetailImages(item,images){
     });
   });
 }
-function shareDetailToChatGPT(button){
+function shareDetailToChatGPT(button,kind="x"){
+  const buttonLabel=kind==="blog"?"ブログ用：写真＋プロンプトを共有":kind==="threads"?"Threads用：写真＋プロンプトを共有":"ChatGPTに写真＋プロンプトを共有";
   const item=detailCurrentItem;
   if(!item||!button)return;
   const status=$("detailChatGPTStatus");
   const sources=mediaArray(item.images||(item.image?[item.image]:[]));
-  const prompt=buildRewritePrompt(item,item.recommendedRole||"",recentRewriteContext(item));
+  const prompt=kind==="blog"?buildBlogPrompt(item):kind==="threads"?buildThreadsPrompt(item):buildRewritePrompt(item,item.recommendedRole||"",recentRewriteContext(item));
   if(sources.some((_,i)=>!detailImageBlobs[i])){
     button.disabled=true;button.textContent="写真を準備中…";
     Promise.all(sources.map((src,i)=>detailImageBlobs[i]?Promise.resolve(detailImageBlobs[i]):imageBlob(src).then(blob=>{
@@ -2889,7 +2890,7 @@ function shareDetailToChatGPT(button){
       if(status)status.textContent="写真を準備しました。もう一度押して共有してください。";
     }).catch(()=>{
       if(detailCurrentItem===item&&status)status.textContent="写真を取得できませんでした。もう一度押して再試行してください。";
-    }).finally(()=>{button.disabled=false;button.textContent="ChatGPTに写真＋プロンプトを共有"});
+    }).finally(()=>{button.disabled=false;button.textContent=buttonLabel});
     return;
   }
   const files=sources.map((_,i)=>{
@@ -2900,7 +2901,7 @@ function shareDetailToChatGPT(button){
   const supported=!!navigator.share&&(!navigator.canShare||navigator.canShare(data));
   // Avoid two asynchronous OS operations competing for the same iPhone tap.
   const copied=legacyCopyText(prompt);
-  const pasteHelp=copied?"プロンプトはコピー済みです。ChatGPTで文章が渡らない場合はペーストしてください。":"「焼き直しプロンプトをコピー」を押してからChatGPTへ貼り付けてください。";
+  const pasteHelp=copied?"プロンプトはコピー済みです。ChatGPTで文章が渡らない場合はペーストしてください。":"対応するプロンプトのコピーボタンを押してからChatGPTへ貼り付けてください。";
   if(!supported){
     if(status)status.textContent="この環境では写真の一括共有に対応していません。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
     return;
@@ -3484,8 +3485,9 @@ $("detailCopyImage")?.addEventListener("click",e=>downloadWholePostImage(e.curre
 function recoverDetailAfterShare(){
   if(document.visibilityState==="hidden"||!chatgptShareHandoffActive)return;
   chatgptShareHandoffActive=false;
-  const button=$("detailChatGPTShare");
-  if(button){button.disabled=false;button.textContent="ChatGPTに写真＋プロンプトを共有"}
+  for(const [id,label] of [["detailChatGPTShare","ChatGPTに写真＋プロンプトを共有"],["detailBlogShare","ブログ用：写真＋プロンプトを共有"],["detailThreadsShare","Threads用：写真＋プロンプトを共有"]]){
+    const button=$(id);if(button){button.disabled=false;button.textContent=label}
+  }
   const modal=$("todayDetailModal");
   if(modal&&!modal.classList.contains("hidden"))closeTodayDetail();
   document.body.style.position="";
@@ -3499,6 +3501,8 @@ window.addEventListener("pageshow",recoverDetailAfterShare);
 document.addEventListener("visibilitychange",recoverDetailAfterShare);
 
 $("detailChatGPTShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget));
+$("detailBlogShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"blog"));
+$("detailThreadsShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"threads"));
 $("detailDownloadAllPhotos")?.addEventListener("click",e=>downloadAllDetailPhotos(e.currentTarget));
 $("detailMedia")?.addEventListener("click",e=>{
   const save=e.target.closest("[data-detail-download]");
