@@ -373,6 +373,7 @@
       const updated = Array.from(byKey.values()).sort((a,b) =>
         (a.start || "").localeCompare(b.start || "") || a.accountId.localeCompare(b.accountId));
       localStorage.setItem(STORE_KEY, JSON.stringify(updated));
+      document.dispatchEvent(new Event("affiliate-reports-changed"));
       status.textContent = files.length + "件のZIPを確認し、" + grouped.size +
         "アカウント・期間レポートに統合しました。同じレポートは更新し、他の記録は保持しました。端末内だけに保存しています。";
       render();
@@ -386,6 +387,7 @@
   clearButton.addEventListener("click", () => {
     if (!confirm("この端末に保存したAmazonレポートを削除しますか？")) return;
     localStorage.removeItem(STORE_KEY);
+    document.dispatchEvent(new Event("affiliate-reports-changed"));
     status.textContent = "この端末のAmazonレポートを削除しました。";
     render();
   });
@@ -412,6 +414,7 @@
         byKey.set(report.key, report);
       }
       localStorage.setItem(STORE_KEY, JSON.stringify(Array.from(byKey.values())));
+      document.dispatchEvent(new Event("affiliate-reports-changed"));
         history.replaceState(null, "", location.pathname + location.search);
       status.textContent = payload.reports.length + "件のAmazonレポートをこの端末に保存しました。別期間の既存データは残しています。";
       render();
