@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3373";
+const APP_VERSION="2026.10.01-3374";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2672,7 +2672,7 @@ function showTodayDetail(item,continueQueue=false){
     detailCandidateQueue=index>=0?[...candidates.slice(index+1),...candidates.slice(0,index)]:candidates;
   }
   detailCurrentItem=item;
-  if($("detailGeminiStatus"))$("detailGeminiStatus").textContent="共有先にGeminiが表示されたら選択してください。写真のみ渡る場合はプロンプトをペーストしてください。動画は共有対象外です。";
+  if($("detailGeminiStatus"))$("detailGeminiStatus").textContent="写真だけを共有し、プロンプトはコピーします。Geminiを選び、プロンプトをペーストしてください。動画は共有対象外です。";
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
@@ -2895,26 +2895,29 @@ function shareDetailToGemini(button){
     const blob=detailImageBlobs[i],ext=blob.type.includes("png")?"png":blob.type.includes("webp")?"webp":"jpg";
     return new File([blob],safeImageName(item,i,ext),{type:blob.type||"image/jpeg"});
   });
-  const data={title:"Sanrio 投稿作成",text:prompt};
-  if(files.length)data.files=files;
+  const data=files.length?{files}:{text:prompt};
   const supported=!!navigator.share&&(!navigator.canShare||navigator.canShare(data));
-  // Clipboard and share are started directly from the tap, without awaiting image/network work.
-  copyTextFromClick(prompt,null);
+  // Avoid two asynchronous OS operations competing for the same iPhone tap.
+  const copied=legacyCopyText(prompt);
+  const pasteHelp=copied?"プロンプトはコピー済みです。Geminiでペーストしてください。":"「焼き直しプロンプトをコピー」を押してからGeminiへ貼り付けてください。";
   if(!supported){
     if(status)status.textContent="この環境では写真の一括共有に対応していません。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
     return;
   }
   button.disabled=true;
+  if(status)status.textContent="写真 "+files.length+"枚を共有します。"+pasteHelp;
+  const reset=()=>{button.disabled=false};
+  const resetTimer=setTimeout(reset,30000);
   try{
     const sharing=navigator.share(data);
     Promise.resolve(sharing).then(()=>{
-      if(detailCurrentItem===item&&status)status.textContent="共有操作を完了しました。Geminiで写真とプロンプトを確認し、本文が渡っていない場合はペーストしてください。";
+      if(detailCurrentItem===item&&status)status.textContent="共有画面の操作が終了しました。写真がGeminiに添付されたか確認してください。"+pasteHelp;
     }).catch(error=>{
       if(detailCurrentItem!==item||!status)return;
       status.textContent=error?.name==="AbortError"?"共有をキャンセルしました。もう一度押せます。":"共有できませんでした。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
-    }).finally(()=>{button.disabled=false});
+    }).finally(()=>{clearTimeout(resetTimer);reset()});
   }catch(error){
-    button.disabled=false;
+    clearTimeout(resetTimer);reset();
     if(status)status.textContent="共有できませんでした。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
   }
 }
@@ -3471,6 +3474,23 @@ async function checkLatestVersion(){
   }catch(e){}
 }
 $("detailCopyImage")?.addEventListener("click",e=>downloadWholePostImage(e.currentTarget));
+function recoverDetailAfterShare(){
+  if(document.visibilityState==="hidden")return;
+  const button=$("detailGeminiShare");
+  if(button){button.disabled=false;button.textContent="Gemini用にまとめて共有"}
+  const modal=$("todayDetailModal");
+  if(modal&&!modal.classList.contains("hidden")){
+    // Reapply the modal state after returning from another iPhone app.
+    document.body.style.overflow="hidden";
+  }else{
+    document.body.style.position="";document.body.style.top="";
+    document.body.style.left="";document.body.style.right="";
+    document.body.style.width="";document.body.style.overflow="";
+  }
+}
+window.addEventListener("pageshow",recoverDetailAfterShare);
+document.addEventListener("visibilitychange",recoverDetailAfterShare);
+
 $("detailGeminiShare")?.addEventListener("click",e=>shareDetailToGemini(e.currentTarget));
 $("detailDownloadAllPhotos")?.addEventListener("click",e=>downloadAllDetailPhotos(e.currentTarget));
 $("detailMedia")?.addEventListener("click",e=>{
