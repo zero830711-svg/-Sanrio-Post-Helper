@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3376";
+const APP_VERSION="2026.10.01-3377";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2656,7 +2656,7 @@ function copyRewritePrompt(item,role,button){
 }
 
 let detailCurrentItem=null;
-let geminiShareHandoffActive=false;
+let chatgptShareHandoffActive=false;
 let detailCandidateQueue=[];
 let detailRepostBusy=false;
 let detailScrollY=0;
@@ -2673,7 +2673,7 @@ function showTodayDetail(item,continueQueue=false){
     detailCandidateQueue=index>=0?[...candidates.slice(index+1),...candidates.slice(0,index)]:candidates;
   }
   detailCurrentItem=item;
-  if($("detailGeminiStatus"))$("detailGeminiStatus").textContent="写真だけを共有し、プロンプトはコピーします。Geminiを選び、プロンプトをペーストしてください。動画は共有対象外です。";
+  if($("detailChatGPTStatus"))$("detailChatGPTStatus").textContent="写真と焼き直しプロンプトをまとめて共有します。共有先でChatGPTを選んでください。動画は共有対象外です。";
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
@@ -2873,10 +2873,10 @@ function preloadDetailImages(item,images){
     });
   });
 }
-function shareDetailToGemini(button){
+function shareDetailToChatGPT(button){
   const item=detailCurrentItem;
   if(!item||!button)return;
-  const status=$("detailGeminiStatus");
+  const status=$("detailChatGPTStatus");
   const sources=mediaArray(item.images||(item.image?[item.image]:[]));
   const prompt=buildRewritePrompt(item,item.recommendedRole||"",recentRewriteContext(item));
   if(sources.some((_,i)=>!detailImageBlobs[i])){
@@ -2889,34 +2889,34 @@ function shareDetailToGemini(button){
       if(status)status.textContent="写真を準備しました。もう一度押して共有してください。";
     }).catch(()=>{
       if(detailCurrentItem===item&&status)status.textContent="写真を取得できませんでした。もう一度押して再試行してください。";
-    }).finally(()=>{button.disabled=false;button.textContent="Gemini用にまとめて共有"});
+    }).finally(()=>{button.disabled=false;button.textContent="ChatGPTに写真＋プロンプトを共有"});
     return;
   }
   const files=sources.map((_,i)=>{
     const blob=detailImageBlobs[i],ext=blob.type.includes("png")?"png":blob.type.includes("webp")?"webp":"jpg";
     return new File([blob],safeImageName(item,i,ext),{type:blob.type||"image/jpeg"});
   });
-  const data=files.length?{files}:{text:prompt};
+  const data=files.length?{files,text:prompt}:{text:prompt};
   const supported=!!navigator.share&&(!navigator.canShare||navigator.canShare(data));
   // Avoid two asynchronous OS operations competing for the same iPhone tap.
   const copied=legacyCopyText(prompt);
-  const pasteHelp=copied?"プロンプトはコピー済みです。Geminiでペーストしてください。":"「焼き直しプロンプトをコピー」を押してからGeminiへ貼り付けてください。";
+  const pasteHelp=copied?"プロンプトはコピー済みです。ChatGPTで文章が渡らない場合はペーストしてください。":"「焼き直しプロンプトをコピー」を押してからChatGPTへ貼り付けてください。";
   if(!supported){
     if(status)status.textContent="この環境では写真の一括共有に対応していません。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
     return;
   }
   button.disabled=true;
-  if(status)status.textContent="写真 "+files.length+"枚を共有します。"+pasteHelp;
+  if(status)status.textContent="写真 "+files.length+"枚とプロンプトを共有します。"+pasteHelp;
   const reset=()=>{button.disabled=false};
   const resetTimer=setTimeout(reset,30000);
   try{
-    geminiShareHandoffActive=true;
+    chatgptShareHandoffActive=true;
     // Unlock the page before iOS suspends the web app for the native share sheet.
     closeTodayDetail();
     button.disabled=false;
     const sharing=navigator.share(data);
     Promise.resolve(sharing).then(()=>{
-      if(detailCurrentItem===item&&status)status.textContent="共有画面の操作が終了しました。写真がGeminiに添付されたか確認してください。"+pasteHelp;
+      if(detailCurrentItem===item&&status)status.textContent="共有画面の操作が終了しました。写真とプロンプトがChatGPTに渡ったか確認してください。"+pasteHelp;
     }).catch(error=>{
       if(detailCurrentItem!==item||!status)return;
       status.textContent=error?.name==="AbortError"?"共有をキャンセルしました。もう一度押せます。":"共有できませんでした。コピーしたプロンプトと「写真をまとめて保存」を使ってください。";
@@ -3482,10 +3482,10 @@ async function checkLatestVersion(){
 }
 $("detailCopyImage")?.addEventListener("click",e=>downloadWholePostImage(e.currentTarget));
 function recoverDetailAfterShare(){
-  if(document.visibilityState==="hidden"||!geminiShareHandoffActive)return;
-  geminiShareHandoffActive=false;
-  const button=$("detailGeminiShare");
-  if(button){button.disabled=false;button.textContent="Gemini用にまとめて共有"}
+  if(document.visibilityState==="hidden"||!chatgptShareHandoffActive)return;
+  chatgptShareHandoffActive=false;
+  const button=$("detailChatGPTShare");
+  if(button){button.disabled=false;button.textContent="ChatGPTに写真＋プロンプトを共有"}
   const modal=$("todayDetailModal");
   if(modal&&!modal.classList.contains("hidden"))closeTodayDetail();
   document.body.style.position="";
@@ -3498,7 +3498,7 @@ function recoverDetailAfterShare(){
 window.addEventListener("pageshow",recoverDetailAfterShare);
 document.addEventListener("visibilitychange",recoverDetailAfterShare);
 
-$("detailGeminiShare")?.addEventListener("click",e=>shareDetailToGemini(e.currentTarget));
+$("detailChatGPTShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget));
 $("detailDownloadAllPhotos")?.addEventListener("click",e=>downloadAllDetailPhotos(e.currentTarget));
 $("detailMedia")?.addEventListener("click",e=>{
   const save=e.target.closest("[data-detail-download]");
