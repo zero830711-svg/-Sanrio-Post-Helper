@@ -5,7 +5,7 @@ $origin=$_SERVER['HTTP_ORIGIN']??'';
 if($origin!==''&&in_array($origin,$config['allowed_origins']??[],true)){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}
 header('Content-Type: application/json; charset=utf-8');header('Access-Control-Allow-Headers: Authorization, Content-Type');header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 if($_SERVER['REQUEST_METHOD']==='OPTIONS'){http_response_code(204);exit;}
-function out(array $x,int $s=200):never{http_response_code($s);echo json_encode($x,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
+function out(array $x,int $s=200):void{http_response_code($s);echo json_encode($x,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
 
 function share_dir(array $config):string{
   $mediaRoot=realpath((string)($config['media_root']??''));
@@ -57,6 +57,7 @@ function share_https_url(mixed $v):?string{
 }
 $action=(string)($_GET['action']??'stats');
 $sharedRecord=null;
+$thumbnailRequest=$_SERVER['REQUEST_METHOD']==='GET'&&$action==='thumbnail';
 $sharedRequest=$_SERVER['REQUEST_METHOD']==='GET'&&in_array($action,['shared','shared_file'],true);
 if($sharedRequest){
   $sharedRecord=share_read($config,(string)($_GET['token']??''));
@@ -68,7 +69,7 @@ if($sharedRequest){
 }
 
 $h=$_SERVER['HTTP_AUTHORIZATION']??'';$token=preg_match('/^Bearer\\s+(.+)$/i',$h,$m)?trim($m[1]):'';
-if(!$sharedRequest&&(($config['sync_key']??'')===''||!hash_equals((string)$config['sync_key'],$token)))out(['ok'=>false,'error'=>'Unauthorized'],401);
+if(!$sharedRequest&&!$thumbnailRequest&&(($config['sync_key']??'')===''||!hash_equals((string)$config['sync_key'],$token)))out(['ok'=>false,'error'=>'Unauthorized'],401);
 
 
 if($_SERVER['REQUEST_METHOD']==='POST'&&(string)($_GET['action']??'')==='share'){
@@ -145,14 +146,14 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
   if($action==='stats'){
     $r=$pdo->query("SELECT COUNT(*) media_count,COUNT(DISTINCT post_id) media_posts,COALESCE(SUM(byte_size),0) bytes,SUM(media_type IN ('image','gif')) images,SUM(media_type='video') videos FROM sanrio_post_media")->fetch();
     $posts=(int)$pdo->query("SELECT COUNT(*) FROM sanrio_post_sync WHERE canonical_key LIKE 'post:%'")->fetchColumn();
-    out(['ok'=>true,'posts'=>$posts,'mediaCount'=>(int)($r['media_count']??0),'mediaPosts'=>(int)($r['media_posts']??0),'bytes'=>(int)($r['bytes']??0),'images'=>(int)($r['images']??0),'videos'=>(int)($r['videos']??0)]);
+    out(['ok'=>true,'thumbnailAvailable'=>function_exists('imagecreatetruecolor')&&function_exists('imagejpeg'),'posts'=>$posts,'mediaCount'=>(int)($r['media_count']??0),'mediaPosts'=>(int)($r['media_posts']??0),'bytes'=>(int)($r['bytes']??0),'images'=>(int)($r['images']??0),'videos'=>(int)($r['videos']??0)]);
   }
   if($action==='manifest'){
     $rows=$pdo->query("SELECT post_id,media_type,public_url FROM sanrio_post_media WHERE public_url IS NOT NULL AND public_url<>'' ORDER BY post_id,id")->fetchAll();
     $items=array_map(fn($r)=>['postId'=>(string)$r['post_id'],'mediaType'=>(string)$r['media_type'],'publicUrl'=>(string)$r['public_url']],$rows);
     out(['ok'=>true,'count'=>count($items),'items'=>$items]);
   }
-  if($action==='file'){
+  if($action==='file'||$action==='thumbnail'){
     $url=trim((string)($_GET['url']??''));
     if($url===''||strlen($url)>4096)out(['ok'=>false,'error'=>'Invalid media URL'],400);
     $lookup=$pdo->prepare("SELECT storage_path,mime_type FROM sanrio_post_media WHERE public_url=:url AND media_type IN ('image','gif') LIMIT 1");
@@ -164,6 +165,45 @@ if($_SERVER['REQUEST_METHOD']==='GET'){
     if(!$root||str_contains($relative,'..')||!preg_match('~^media/[0-9]{1,64}/[a-f0-9]{64}\\.[a-z0-9]{1,8}$~i',$relative))out(['ok'=>false,'error'=>'Invalid media path'],404);
     $path=realpath($root.DIRECTORY_SEPARATOR.str_replace('/',DIRECTORY_SEPARATOR,$relative));
     if(!$path||!str_starts_with($path,$root.DIRECTORY_SEPARATOR)||!is_file($path))out(['ok'=>false,'error'=>'Image file not found'],404);
+    if($action==='thumbnail'){
+      // Only indexed, already-public local media. Never download a caller-supplied URL.
+      if(!preg_match('~^https://~i',$url))out(['ok'=>false,'error'=>'Public HTTPS media required'],400);
+      $cache=rtrim(sys_get_temp_dir(),DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'sph-thumbnails-'.substr(hash('sha256',$root),0,16);
+      $cached=$cache.DIRECTORY_SEPARATOR.hash('sha256',$relative.'|'.filemtime($path).'|'.filesize($path).'|320-v1').'.jpg';
+      $ready=is_file($cached);
+      if(!$ready&&function_exists('imagecreatetruecolor')&&function_exists('imagejpeg')){
+        $info=@getimagesize($path);
+        $orientation=1;
+        if(is_array($info)&&$info[2]===IMAGETYPE_JPEG&&function_exists('exif_read_data')){$exif=@exif_read_data($path);$orientation=(int)($exif['Orientation']??1);}
+        if($orientation===1&&is_array($info)&&$info[0]>0&&$info[1]>0&&$info[0]*$info[1]<=12000000&&filesize($path)<=20000000){
+          $decoder=([IMAGETYPE_JPEG=>'imagecreatefromjpeg',IMAGETYPE_PNG=>'imagecreatefrompng',IMAGETYPE_GIF=>'imagecreatefromgif'])[$info[2]]??'';
+          if($decoder!==''&&function_exists($decoder)){
+            $ratio=min(1,320/max($info[0],$info[1]));
+            $w=max(1,(int)round($info[0]*$ratio));$h=max(1,(int)round($info[1]*$ratio));
+            $src=@$decoder($path);$dst=$src?@imagecreatetruecolor($w,$h):false;
+            if($src&&$dst){
+              imagefill($dst,0,0,imagecolorallocate($dst,255,255,255));
+              imagecopyresampled($dst,$src,0,0,0,0,$w,$h,$info[0],$info[1]);
+              if((is_dir($cache)||@mkdir($cache,0700,true))&&is_dir($cache)){
+                $tmp=@tempnam($cache,'thumb-');
+                if($tmp!==false){
+                  if(@imagejpeg($dst,$tmp,80)&&@rename($tmp,$cached)){$ready=true;@chmod($cached,0600);}
+                  else @unlink($tmp);
+                }
+              }
+            }
+            if($dst)imagedestroy($dst);
+            if($src)imagedestroy($src);
+          }
+        }
+      }
+      if(!$ready){header('Location: '.$url,true,302);header('Cache-Control: no-store');exit;}
+      header('Content-Type: image/jpeg');
+      header('Content-Length: '.(string)filesize($cached));
+      header('Cache-Control: public, max-age=86400');
+      header('X-Content-Type-Options: nosniff');
+      readfile($cached);exit;
+    }
     header('Content-Type: '.(string)$media['mime_type']);
     header('Content-Length: '.(string)filesize($path));
     header('Cache-Control: private, max-age=3600');
