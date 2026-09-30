@@ -1,4 +1,4 @@
-name: Deploy Sanrio trend API to Lolipop
+name: Deploy Sanrio PHP APIs to Lolipop
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - "server/lolipop/trend.php"
       - "server/lolipop/archive-media-batch.php"
+      - "server/lolipop/lovely-watch.php"
       - ".github/workflows/deploy-lolipop-trend.yml"
   workflow_dispatch:
 
@@ -33,6 +34,7 @@ jobs:
         run: |
           php -l server/lolipop/trend.php
           php -l server/lolipop/archive-media-batch.php
+          php -l server/lolipop/lovely-watch.php
 
       - name: Deploy PHP endpoints over FTPS
         shell: bash
@@ -52,5 +54,6 @@ jobs:
           cd "$LOLIPOP_TREND_DIR"
           put server/lolipop/trend.php
           put server/lolipop/archive-media-batch.php
+          put server/lolipop/lovely-watch.php
           bye
           LFTP
