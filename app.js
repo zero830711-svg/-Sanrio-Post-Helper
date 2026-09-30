@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3382";
+const APP_VERSION="2026.10.01-3383";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -855,6 +855,7 @@ async function undoLastRepost(){
 
 function recommendationReasons(x){
   const reasons=[];
+  if(x._revenueReason)reasons.push(x._revenueReason);
   if(todayAffiliateLinks(x).length)reasons.push("アフィリエイトリンクあり");
   const age=Math.max(0,Math.floor((Date.now()-lastUseTime(x))/(24*60*60*1000)));
   const impressions=metricNumber(x.impressions);
@@ -2130,7 +2131,65 @@ async function getReadyItems(){
 function selectionPriority(x){
   return todayAffiliateLinks(x).length?1200:0;
 }
+function revenueProductIds(item){
+  const ids=new Set();
+  if(/^[A-Z0-9]{10}$/i.test(String(item.asin||"")))ids.add("asin:"+String(item.asin).toUpperCase());
+  if(item.productCode&&/^[^:\s]+:[^:\s]+$/.test(String(item.productCode)))ids.add("rakuten:"+String(item.productCode));
+  const raw=[item.amazon,item.rakuten,item.affiliateUrl,item.productUrl,item.text].filter(Boolean).join(" ");
+  for(const value of raw.match(/https?:\/\/[^\s<>"'「」]+/g)||[]){
+    try{
+      let u=new URL(value.replace(/[.,。，)）]+$/g,""));
+      for(let n=0;n<2;n++){
+        const nested=u.searchParams.get("pc")||u.searchParams.get("url")||u.searchParams.get("m");
+        if(!nested||!/^https?:\/\//.test(nested))break;
+        u=new URL(nested);
+      }
+      if(/(^|\.)amazon\.co\.jp$/i.test(u.hostname)){
+        const m=u.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})(?:\/|$)/i);
+        if(m)ids.add("asin:"+m[1].toUpperCase());
+      }
+      if(u.hostname.toLowerCase()==="item.rakuten.co.jp"){
+        const parts=u.pathname.split("/").filter(Boolean);
+        if(parts.length===2)ids.add("rakuten:"+parts[0]+":"+parts[1]);
+      }
+    }catch(_){}
+  }
+  return [...ids];
+}
+function productRevenueIndex(){
+  const index=new Map();
+  const add=(id,reward)=>{
+    if(!Number.isFinite(reward)||!id)return;
+    index.set(id,(index.get(id)||0)+reward);
+  };
+  let amazon=[];
+  try{amazon=JSON.parse(localStorage.getItem("sanrioAmazonAffiliateReportsV1")||"[]")}catch(_){}
+  const latest=new Map();
+  for(const report of Array.isArray(amazon)?amazon:[]){
+    if(!Array.isArray(report.products)||!report.products.length)continue;
+    const account=String(report.accountId||report.key||"unknown");
+    const stamp=String(report.end||report.start||"")+"|"+String(report.importedAt||"");
+    if(!latest.has(account)||stamp>latest.get(account).stamp)latest.set(account,{report,stamp});
+  }
+  for(const {report} of latest.values()){
+    for(const p of report.products){
+      if(/^[A-Z0-9]{10}$/i.test(String(p.asin||"")))add("asin:"+String(p.asin).toUpperCase(),Number(p.commission)||0);
+    }
+  }
+  const reports=rakutenReportStore();
+  const months=Object.keys(reports).sort().slice(-3);
+  for(const month of months)for(const row of reports[month]?.rows||[]){
+    if(Number(row.status)!==1||Number(row.reward)<=0)continue;
+    for(const id of revenueProductIds(row))add(id,Number(row.reward));
+  }
+  return index;
+}
+function matchedProductRevenue(item,index){
+  return Math.max(0,...revenueProductIds(item).map(id=>index.get(id)||0));
+}
+
 async function getRoleBasedPicks(){
+  const revenueIndex=productRevenueIndex();
   const pool=await getReadyItems();
   if(!pool.length)return [];
   const all=await dbGetAll();
@@ -2150,12 +2209,14 @@ async function getRoleBasedPicks(){
     if(!x||used.has(x.id))return;
     const topic=reuseTopicKey(x);
     const recentSame=recentTopics.has(topic);
+    x={...x};delete x._revenueReason;
+    if(role==="クリック狙い"&&matchedProductRevenue(x,revenueIndex)>0)x._revenueReason="商品ID一致の報酬実績あり（投稿経由は不明）";
     picked.push({...x,_role:role,_topic:topic,_diverseReason:recentSame?"似たテーマを最近使用":"同テーマを最近使っていない"});
     used.add(x.id);
     pickedTopics.add(topic);
   };
 
-  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="affiliate-three-slots-v2");
+  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="product-revenue-click-v3");
   for(const role of TODAY_ROLES){
     const prioritizeLinks=TODAY_ROLES.indexOf(role)<3;
     const existing=sameDay.find(x=>x.recommendedRole===role&&!used.has(x.id)&&(!prioritizeLinks||todayAffiliateLinks(x).length||!pool.some(y=>!used.has(y.id)&&todayAffiliateLinks(y).length)));
@@ -2181,10 +2242,9 @@ async function getRoleBasedPicks(){
         x=>evergreenScore(x)+Math.log10(metricNumber(x.impressions)+1)*35
       )[0]||null;
     }else if(role==="クリック狙い"){
-      choice=scored(
-        candidates.filter(x=>metricNumber(x.impressions)>=1000&&metricNumber(x.urlClicks)>0),
-        clickScore
-      )[0]||null;
+      const earning=candidates.filter(x=>matchedProductRevenue(x,revenueIndex)>0);
+      choice=earning.length?scored(earning,x=>clickScore(x)+Math.log10(matchedProductRevenue(x,revenueIndex)+1)*25)[0]:
+        scored(candidates.filter(x=>metricNumber(x.impressions)>=1000&&metricNumber(x.urlClicks)>0),clickScore)[0]||null;
     }else if(role==="保存狙い"){
       choice=scored(
         candidates.filter(x=>metricNumber(x.impressions)>=1000&&metricNumber(x.bookmarks)>0),
@@ -2209,8 +2269,8 @@ async function stampRecommendations(items){
   const today=localDayKey();
   const updates=[];
   for(const item of items){
-    if(recommendedDay(item)===today&&item.recommendedRole===item._role&&item.recommendedPolicyVersion==="affiliate-three-slots-v2")continue;
-    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"affiliate-three-slots-v2"});
+    if(recommendedDay(item)===today&&item.recommendedRole===item._role&&item.recommendedPolicyVersion==="product-revenue-click-v3")continue;
+    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"product-revenue-click-v3"});
   }
   await dbPutMany(updates);
   if(updates.length)queueCloudSync(updates,[]);
@@ -3294,6 +3354,15 @@ function loadRakutenXlsx(){
   }
   return rakutenXlsxLoader;
 }
+async function refreshRevenueRecommendations(){
+  const all=await dbGetAll();
+  const updates=all.filter(x=>recommendedDay(x)===localDayKey()&&x.recommendedRole==="クリック狙い")
+    .map(x=>({...x,recommendedPolicyVersion:"revenue-report-updated",updatedAt:new Date().toISOString()}));
+  if(updates.length){await dbPutMany(updates);queueCloudSync(updates,[])}
+  await renderToday();
+}
+document.addEventListener("affiliate-reports-changed",()=>refreshRevenueRecommendations().catch(console.error));
+
 function rakutenReportStore(){
   try{return JSON.parse(localStorage.getItem(RAKUTEN_REPORT_KEY)||"{}")}catch(e){return {}}
 }
@@ -3323,7 +3392,7 @@ async function parseRakutenOrderFile(file){
   if(headerAt<0)throw new Error(file.name+" の「発生日」列が見つかりません。楽天の注文別成果Excelを選んでください");
   const headers=rows[headerAt].map(v=>String(v||"").trim());
   const col=name=>headers.indexOf(name);
-  const idx={date:col("発生日"),reward:col("成果報酬"),rate:col("料率"),amount:col("売上金額"),genre:col("ジャンル名"),shop:col("ショップ名"),item:col("商品名"),status:col("ステータス"),link:col("リンクタイプ"),device:col("デバイスタイプ"),measurement:col("計測ID")};
+  const idx={date:col("発生日"),reward:col("成果報酬"),rate:col("料率"),amount:col("売上金額"),genre:col("ジャンル名"),shop:col("ショップ名"),item:col("商品名"),status:col("ステータス"),link:col("リンクタイプ"),device:col("デバイスタイプ"),measurement:col("計測ID"),productCode:col("商品コード"),productUrl:col("商品URL")};
   if(idx.date<0||idx.reward<0||idx.item<0||idx.status<0)throw new Error(file.name+" の列形式が想定と異なります");
   const first=String(rows[0]?.find(v=>v!=null)||"");
   const period=first.match(/(20[0-9]{2})[./-](0?[1-9]|1[0-2])/);
@@ -3345,7 +3414,9 @@ async function parseRakutenOrderFile(file){
       status:statusCode,
       linkType:rakutenReportNumber(r[idx.link]),
       deviceType:rakutenReportNumber(r[idx.device]),
-      measurementId:String(r[idx.measurement]||"")
+      measurementId:String(r[idx.measurement]||""),
+      productCode:String(r[idx.productCode]||""),
+      productUrl:String(r[idx.productUrl]||"")
     });
   }
   if(!data.length)throw new Error(file.name+" から明細を読み取れませんでした");
@@ -3410,6 +3481,7 @@ $("importRakutenOrders")?.addEventListener("change",async e=>{
     parsed.forEach(report=>{reports[report.month]=report});
     localStorage.setItem(RAKUTEN_REPORT_KEY,JSON.stringify(reports));
     renderRakutenReports();
+    await refreshRevenueRecommendations();
     status.textContent=parsed.map(x=>x.month).join("、")+" の明細を読み込みました。同じ月は今回のファイルで更新しました。";
   }catch(err){
     status.textContent=err.message||"楽天Excelを読み込めませんでした";
@@ -3419,6 +3491,7 @@ $("importRakutenOrders")?.addEventListener("change",async e=>{
 $("clearRakutenOrders")?.addEventListener("click",()=>{
   if(!confirm("この端末に保存した楽天注文レポートをすべて削除します。よろしいですか？"))return;
   localStorage.removeItem(RAKUTEN_REPORT_KEY);
+  refreshRevenueRecommendations().catch(console.error);
   renderRakutenReports();
   $("rakutenImportStatus").textContent="保存済みレポートを削除しました。";
 });
