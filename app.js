@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3385";
+const APP_VERSION="2026.10.01-3386";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -910,6 +910,7 @@ async function undoLastRepost(){
 
 function recommendationReasons(x){
   const reasons=[];
+  if(x._seasonReason)reasons.push(x._seasonReason);
   const intervalReason=reuseIntervalReason(x);if(intervalReason)reasons.push(intervalReason);
   if(x._revenueReason)reasons.push(x._revenueReason);
   if(todayAffiliateLinks(x).length)reasons.push("アフィリエイトリンクあり");
@@ -2246,6 +2247,32 @@ function matchedProductRevenue(item,index){
   return Math.max(0,...revenueProductIds(item).map(id=>index.get(id)||0));
 }
 
+function seasonalReuseTheme(item,now=Date.now()){
+  const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Tokyo",year:"numeric",month:"numeric"}).formatToParts(new Date(now));
+  const month=Number(parts.find(x=>x.type==="month").value),year=Number(parts.find(x=>x.type==="year").value);
+  const text=[item.title,item.text].filter(Boolean).join(" ").replace(/https?:\/\/\S+/gi," ");
+  // Seasonal priority applies to reusable product themes, not dated events or offers.
+  if(/開催|イベント|キャンペーン|フェア|抽選|応募|締切|締め切り|受付期間|予約期間|期間限定|終了|完売/.test(text))return "";
+  const years=[...text.matchAll(/(?:^|[^0-9])(20[0-9]{2})(?:年|年度|[./-][0-9]{1,2}|(?:\s*)(?:限定|モデル|版|ver|デザイン))/gi)].map(x=>Number(x[1]));
+  for(const match of text.matchAll(/(?:ハロウィン|クリスマス|halloween|christmas)[\s・:：-]*(20[0-9]{2})|(20[0-9]{2})[\s・:：-]*(?:ハロウィン|クリスマス|halloween|christmas)/gi))years.push(Number(match[1]||match[2]));
+  if(years.some(x=>x!==year)||/(?:今年|本年|今季|今シーズン)限定/.test(text))return "";
+  const themes=[
+    {name:"ハロウィン",months:[9,10],re:/ハロウィ[ンー]|halloween/i},
+    {name:"クリスマス",months:[11,12],re:/クリスマス|christmas/i},
+    {name:"お正月",months:[12,1],re:/お正月|正月|迎春/},
+    {name:"バレンタイン",months:[1,2],re:/バレンタイン|valentine/i},
+    {name:"ホワイトデー",months:[2,3],re:/ホワイトデー|white\s*day/i},
+    {name:"入園・入学",months:[1,2,3,4],re:/入園|入学|新学期|新生活/},
+    {name:"桜・お花見",months:[2,3,4],re:/桜|さくら|お花見/},
+    {name:"梅雨・雨の日",months:[5,6,7],re:/梅雨|雨の日|レイングッズ|レインコート/},
+    {name:"夏",months:[6,7,8],re:/夏デザイン|夏柄|夏向け|夏グッズ|夏休み|サマー|熱中症対策|暑さ対策/},
+    {name:"秋",months:[9,10,11],re:/秋デザイン|秋柄|秋向け|秋グッズ|紅葉/},
+    {name:"冬",months:[11,12,1,2],re:/冬デザイン|冬柄|冬向け|冬グッズ|防寒|寒さ対策/},
+    {name:"春",months:[2,3,4,5],re:/春デザイン|春柄|春向け|春グッズ/}
+  ];
+  return themes.find(x=>x.months.includes(month)&&x.re.test(text))?.name||"";
+}
+
 async function getRoleBasedPicks(){
   const revenueIndex=productRevenueIndex();
   const pool=await getReadyItems();
@@ -2267,14 +2294,15 @@ async function getRoleBasedPicks(){
     if(!x||used.has(x.id))return;
     const topic=reuseTopicKey(x);
     const recentSame=recentTopics.has(topic);
-    x={...x};delete x._revenueReason;
+    x={...x};delete x._revenueReason;delete x._seasonReason;
+    if(role==="別テーマ"){const season=seasonalReuseTheme(x);if(season)x._seasonReason=season+"の時期に合わせた候補（販売状況は要確認）";}
     if(role==="クリック狙い"&&matchedProductRevenue(x,revenueIndex)>0)x._revenueReason="商品ID一致の報酬実績あり（投稿経由は不明）";
     picked.push({...x,_role:role,_topic:topic,_diverseReason:recentSame?"似たテーマを最近使用":"同テーマを最近使っていない"});
     used.add(x.id);
     pickedTopics.add(topic);
   };
 
-  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="adaptive-reuse-v4");
+  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="seasonal-theme-v5");
   for(const role of TODAY_ROLES){
     const prioritizeLinks=TODAY_ROLES.indexOf(role)<3;
     const existing=sameDay.find(x=>x.recommendedRole===role&&!used.has(x.id)&&(!prioritizeLinks||todayAffiliateLinks(x).length||!pool.some(y=>!used.has(y.id)&&todayAffiliateLinks(y).length)));
@@ -2315,7 +2343,9 @@ async function getRoleBasedPicks(){
       )[0]||null;
     }else if(role==="別テーマ"){
       const unusedTheme=candidates.filter(x=>!recentTopics.has(reuseTopicKey(x))&&!pickedTopics.has(reuseTopicKey(x)));
-      choice=scored(unusedTheme.length?unusedTheme:candidates,evergreenScore)[0]||null;
+      const diverse=unusedTheme.length?unusedTheme:candidates;
+      const seasonal=diverse.filter(x=>seasonalReuseTheme(x));
+      choice=scored(seasonal.length?seasonal:diverse,evergreenScore)[0]||null;
     }
 
     if(!choice)choice=scored(candidates,evergreenScore)[0]||null;
@@ -2327,8 +2357,8 @@ async function stampRecommendations(items){
   const today=localDayKey();
   const updates=[];
   for(const item of items){
-    if(recommendedDay(item)===today&&item.recommendedRole===item._role&&item.recommendedPolicyVersion==="adaptive-reuse-v4")continue;
-    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"adaptive-reuse-v4"});
+    if(recommendedDay(item)===today&&item.recommendedRole===item._role&&item.recommendedPolicyVersion==="seasonal-theme-v5")continue;
+    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"seasonal-theme-v5"});
   }
   await dbPutMany(updates);
   if(updates.length)queueCloudSync(updates,[]);
