@@ -115,6 +115,6 @@ GitHub Pages の画面はそのまま使い、投稿データだけをロリポ�
 
 ### ロリポップへの追加
 
-`server/lolipop/lovely-watch.php` を既存の `api2580.php` と同じディレクトリへ配置してください。既存の `config.php` と同期キーを利用し、DB変更・既存PHP上書きは不要です。PHP 7.4以降、DOMとcURL拡張が必要です。
+設定済みのGitHub Actions FTPS配信で `server/lolipop/lovely-watch.php` を既存のAPIディレクトリへ自動配置します。対象は `trend.php`、`archive-media-batch.php`、`lovely-watch.php` です。手動アップロードは不要です。既存の `config.php` と同期キーを利用し、DB変更は不要です。PHP 7.4以降、DOMとcURL拡張が必要です。FTP設定が未登録の場合はワークフローの配信ステップがスキップされるため、Actionsで配信の完了を確認してください。
 
 通常は欄を開いた時に自動更新します。定期取得する場合はロリポップのcronで、サーバー上のPHP実行ファイルから `lovely-watch.php --refresh` を1時間に1回実行してください（PHPとファイルの絶対パスは契約環境で確認）。CLIの `--refresh` だけは同期キーを引数に渡さず動作します。ブラウザーからのアクセスには既存の同期キーが必要です。
