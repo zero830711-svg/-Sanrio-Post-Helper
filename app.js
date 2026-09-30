@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3386";
+const APP_VERSION="2026.10.01-3387";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2273,6 +2273,18 @@ function seasonalReuseTheme(item,now=Date.now()){
   return themes.find(x=>x.months.includes(month)&&x.re.test(text))?.name||"";
 }
 
+function singleCandidateCharacter(item){
+  let text=[item.title,item.text].filter(Boolean).join(" ").replace(/https?:\/\/\S+/gi," ");
+  const found=new Set();
+  // Remove recognized names so Charmmy Kitty does not also count as Hello Kitty.
+  for(const character of CHARACTER_DEFS){
+    if(!character.re.test(text))continue;
+    found.add(character.key);
+    text=text.replace(new RegExp(character.re.source,"gi")," ");
+  }
+  return found.size===1?[...found][0]:"";
+}
+
 async function getRoleBasedPicks(){
   const revenueIndex=productRevenueIndex();
   const pool=await getReadyItems();
@@ -2289,6 +2301,9 @@ async function getRoleBasedPicks(){
     }).map(reuseTopicKey)
   );
   const pickedTopics=new Set();
+  const characterCounts=new Map();
+  const characterById=new Map(pool.map(x=>[x.id,singleCandidateCharacter(x)]));
+  const withinCharacterLimit=x=>{const character=characterById.get(x.id);return !character||(characterCounts.get(character)||0)<2};
 
   const keep=(x,role)=>{
     if(!x||used.has(x.id))return;
@@ -2300,12 +2315,15 @@ async function getRoleBasedPicks(){
     picked.push({...x,_role:role,_topic:topic,_diverseReason:recentSame?"似たテーマを最近使用":"同テーマを最近使っていない"});
     used.add(x.id);
     pickedTopics.add(topic);
+    const character=characterById.get(x.id);
+    if(character)characterCounts.set(character,(characterCounts.get(character)||0)+1);
   };
 
-  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="seasonal-theme-v5");
+  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="character-balance-v6");
   for(const role of TODAY_ROLES){
     const prioritizeLinks=TODAY_ROLES.indexOf(role)<3;
-    const existing=sameDay.find(x=>x.recommendedRole===role&&!used.has(x.id)&&(!prioritizeLinks||todayAffiliateLinks(x).length||!pool.some(y=>!used.has(y.id)&&todayAffiliateLinks(y).length)));
+    const alternatives=pool.filter(x=>!used.has(x.id)&&withinCharacterLimit(x));
+    const existing=sameDay.find(x=>x.recommendedRole===role&&!used.has(x.id)&&(withinCharacterLimit(x)||!alternatives.length)&&(!prioritizeLinks||todayAffiliateLinks(x).length||!pool.some(y=>!used.has(y.id)&&todayAffiliateLinks(y).length)));
     keep(existing,role);
   }
 
@@ -2317,7 +2335,9 @@ async function getRoleBasedPicks(){
 
   for(const role of TODAY_ROLES){
     if(picked.some(x=>x._role===role))continue;
-    const available=remaining();
+    const remainingItems=remaining();
+    const balanced=remainingItems.filter(withinCharacterLimit);
+    const available=balanced.length?balanced:remainingItems;
     const linked=available.filter(x=>todayAffiliateLinks(x).length);
     const candidates=TODAY_ROLES.indexOf(role)<3&&linked.length?linked:available;
     let choice=null;
@@ -2357,8 +2377,8 @@ async function stampRecommendations(items){
   const today=localDayKey();
   const updates=[];
   for(const item of items){
-    if(recommendedDay(item)===today&&item.recommendedRole===item._role&&item.recommendedPolicyVersion==="seasonal-theme-v5")continue;
-    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"seasonal-theme-v5"});
+    if(recommendedDay(item)===today&&item.recommendedRole===item._role&&item.recommendedPolicyVersion==="character-balance-v6")continue;
+    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"character-balance-v6"});
   }
   await dbPutMany(updates);
   if(updates.length)queueCloudSync(updates,[]);
