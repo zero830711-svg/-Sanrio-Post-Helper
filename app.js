@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3381";
+const APP_VERSION="2026.10.01-3382";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -979,7 +979,8 @@ function rankingRows(items,metric){
         '<strong>'+esc(shortLabel(x))+'</strong>'+
         '<span>表示 '+metricNumber(x.impressions).toLocaleString()+' ・ '+(metric==="click"?"クリック ":"保存 ")+value.toLocaleString()+'</span>'+
         '<div class="ranking-actions">'+
-          (x.xUrl?'<a href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">X</a>':'')+
+          '<button class="small-btn" type="button" data-trend-post-id="'+esc(String(x.id))+'">投稿詳細</button>'+
+      (x.xUrl?'<a href="'+esc(x.xUrl)+'" target="_blank" rel="noopener">X</a>':'')+
           '<button data-analytics-action="copy" data-id="'+x.id+'">コピー</button>'+
           '<button data-analytics-action="pin" data-id="'+x.id+'">今日の候補にする</button>'+
           '<button data-analytics-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
@@ -1523,7 +1524,15 @@ function trendSourceLabel(item){
   if(item.sourceType==="reddit")return "Reddit";
   return item.region==="JP"?"国内ニュース":item.region==="KR"?"韓国ニュース":"海外ニュース";
 }
-async function renderTrendRadar(force=false){
+let trendRadarLoaded=false;
+let trendRadarLoading=null;
+function renderTrendRadar(force=false){
+  if(!document.querySelector(".trend-card")?.open)return Promise.resolve([]);
+  if(trendRadarLoading)return trendRadarLoading;
+  trendRadarLoading=renderTrendRadarContent(force).finally(()=>{trendRadarLoading=null});
+  return trendRadarLoading;
+}
+async function renderTrendRadarContent(force=false){
   const root=$("trendList"),status=$("trendStatus");
   if(!root||!status)return [];
   if(!cloudConfigured()){
@@ -1614,6 +1623,7 @@ async function renderTrendRadar(force=false){
       hero.innerHTML=best?cardHtml(best,0,true):'<div class="empty compact-empty">今すぐ使う新規ネタはありません。</div>';
       hero._trendRows=best?[best]:[];
     }
+    trendRadarLoaded=true;
     return rows;
   }catch(e){
     status.textContent="取得失敗："+e.message;
@@ -3546,6 +3556,7 @@ $("forceLatest")?.addEventListener("click",()=>{
   location.replace(url.toString());
 });
 
+document.querySelector(".trend-card")?.addEventListener("toggle",e=>{if(e.currentTarget.open&&!trendRadarLoaded)renderTrendRadar(false).catch(console.error)});
 $("trendRefresh")?.addEventListener("click",()=>renderTrendRadar(true));
 document.querySelectorAll(".trend-range").forEach(btn=>btn.addEventListener("click",()=>{
   trendRangeHours=Number(btn.dataset.trendRange)||24;
@@ -3553,6 +3564,14 @@ document.querySelectorAll(".trend-range").forEach(btn=>btn.addEventListener("cli
   renderTrendRadar(false);
 }));
 async function handleTrendAction(e,root){
+  const detail=e.target.closest("[data-trend-post-id]");
+  if(detail){
+    const history=await dbGetAll();
+    const post=history.find(x=>String(x.id)===detail.dataset.trendPostId);
+    if(post)showTodayDetail(post);
+    else alert("この過去投稿は見つかりませんでした。Trend Radarを更新してください。");
+    return;
+  }
   const btn=e.target.closest("[data-trend-action]");if(!btn)return;
   const rows=root._trendRows||[];
   const item=rows.find((x,i)=>String(x.id||i)===String(btn.dataset.trendId));if(!item)return;
@@ -3870,7 +3889,7 @@ $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))close
   try{await reconcileUsageHistory()}catch(e){console.error("reconcileUsageHistory",e)}
   try{await maybeSyncArchiveMediaLinks()}catch(e){console.error("archive media sync",e)}
   try{await renderArchiveCloudStatus()}catch(e){console.error("archive cloud status",e)}
-  try{await renderTrendRadar(false)}catch(e){console.error("renderTrendRadar",e)}
+
   try{await renderToday()}catch(e){
     console.error("renderToday",e);
     const root=$("todayList"); if(root)root.innerHTML='<div class="empty">候補の読み込みに失敗しました。最新版を読み込んでも直らない場合は管理画面を確認してください。</div>';
