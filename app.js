@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3384";
+const APP_VERSION="2026.10.01-3385";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -522,10 +522,42 @@ function lastUseTime(x){
   const t=new Date(raw).getTime();
   return Number.isFinite(t)?t:0;
 }
+function adaptiveReusePolicy(item){
+  const fallback={days:30,reason:"",ratio:null};
+  const attempts=(Array.isArray(item.repostAttempts)?item.repostAttempts:[])
+    .filter(a=>a.matchedPostId&&Number(a.matchScore)>=0.9&&a.baseline&&a.snapshot)
+    .sort((a,b)=>(Date.parse(b.markedAt)||0)-(Date.parse(a.markedAt)||0));
+  // Compare the latest matched attempt only; do not fall back to an older decline.
+  const a=attempts[0];if(!a)return fallback;
+  const base=a.baseline,next=a.snapshot;
+  const bi=metricNullable(base.impressions),bc=metricNullable(base.urlClicks);
+  const ni=metricNullable(next.impressions),nc=metricNullable(next.urlClicks);
+  if(bi===null||bc===null||ni===null||nc===null||bi<1000||ni<1000||bc<10||nc<0||bc>bi||nc>ni)return fallback;
+  const originalAt=Date.parse(base.postedAt||item.postedAt||"");
+  const repostAt=Date.parse(next.postedAt||"");
+  const baseAt=Date.parse(base.capturedAt||""),nextAt=Date.parse(next.capturedAt||"");
+  if(!Number.isFinite(originalAt)||!Number.isFinite(repostAt)||!Number.isFinite(baseAt)||!Number.isFinite(nextAt)||
+    baseAt-originalAt<7*86400000||nextAt-repostAt<7*86400000)return fallback;
+  const ratio=(nc/ni)/(bc/bi);
+  const days=ratio<0.4?90:ratio<0.7?60:30;
+  return {days,ratio,reason:days>30?"前回クリック率が元投稿の"+Math.round(ratio*100)+"%：再投稿間隔を"+days+"日に延長":""};
+}
+function cooldownProductKeys(item){
+  if(separatedProductIds.has(String(item.id)))return [];
+  return [...new Set([...productGroupKeys(item),...revenueProductIds(item)])];
+}
+function reuseIntervalReason(item,now=Date.now()){
+  const policy=adaptiveReusePolicy(item);
+  if(policy.days===30)return "";
+  const last=lastUseTime(item);
+  const remaining=Math.max(0,Math.ceil((last+policy.days*86400000-now)/86400000));
+  return policy.reason+(remaining>0?"（候補復帰まで約"+remaining+"日）":"（候補に復帰）");
+}
+
 function isReadyForReuse(x){
   const t=lastUseTime(x);
   if(!t)return true;
-  return (Date.now()-t)>=30*24*60*60*1000;
+  return (Date.now()-t)>=adaptiveReusePolicy(x).days*86400000;
 }
 function stableDayJitter(x){
   const key=String(x.postId||x.id||"");
@@ -692,24 +724,27 @@ function hasNewProductInformation(x){
   return /(再入荷|再販|発売日変更|日程変更|新色|新カラー|新デザイン|販売開始|予約開始|受付開始|在庫復活|追加販売|再受注)/i.test(String(x.title||"")+" "+String(x.text||""));
 }
 function recentProductIndex(all,now=Date.now()){
-  const index=new Map(),cutoff=now-30*86400000;
+  const index=new Map(),cutoff=now-90*86400000;
   for(const item of all){
     const time=Math.max(Date.parse(item.postedAt)||0,Date.parse(item.lastRepostedAt)||0);
     if(time<cutoff)continue;
-    for(const key of productGroupKeys(item)){
+    const policy=adaptiveReusePolicy(item);
+    for(const key of cooldownProductKeys(item)){
       if(!index.has(key))index.set(key,[]);
-      index.get(key).push({id:item.id,time});
+      index.get(key).push({id:item.id,time,days:key.startsWith("name:")?30:policy.days,reason:policy.reason});
     }
   }
   return index;
 }
 function recentSameProductReason(x,all,now=Date.now(),index=null){
-  const keys=productGroupKeys(x);if(!keys.length||hasNewProductInformation(x))return "";
-  const cutoff=now-30*24*60*60*1000;
-  const recent=index?Math.max(0,...keys.flatMap(key=>(index.get(key)||[]).filter(o=>o.id!==x.id).map(o=>o.time))):all.filter(o=>o.id!==x.id&&productGroupKeys(o).some(key=>keys.includes(key))).map(o=>Math.max(
-    new Date(o.postedAt||"").getTime()||0,new Date(o.lastRepostedAt||"").getTime()||0
-  )).filter(t=>t>=cutoff).sort((a,b)=>b-a)[0];
-  return recent?"同じ商品を"+Math.max(1,Math.floor((now-recent)/86400000))+"日前に投稿済み":"";
+  const keys=cooldownProductKeys(x);if(!keys.length||hasNewProductInformation(x))return "";
+  const lookup=index||recentProductIndex(all,now);
+  const blocked=keys.flatMap(key=>lookup.get(key)||[])
+    .filter(o=>o.id!==x.id&&o.time+o.days*86400000>now)
+    .sort((a,b)=>(b.time+b.days*86400000)-(a.time+a.days*86400000))[0];
+  if(!blocked)return "";
+  return blocked.days>30?"同じ商品："+blocked.reason+"（候補復帰まで約"+Math.max(1,Math.ceil((blocked.time+blocked.days*86400000-now)/86400000))+"日）":
+    "同じ商品を"+Math.max(1,Math.floor((now-blocked.time)/86400000))+"日前に投稿済み";
 }
 function reuseTopicKey(x){
   const t=(" "+String(x.title||"")+" "+String(x.text||"")+" ").toLowerCase();
@@ -845,6 +880,7 @@ async function applyReposted(item){
       bookmarks:metricNullable(item.bookmarks),
       likes:metricNullable(item.likes),
       reposts:metricNullable(item.reposts),
+      postedAt:item.postedAt||"",
       capturedAt:item.analyticsImportedAt||""
     },
     matchedPostId:"",
@@ -874,6 +910,7 @@ async function undoLastRepost(){
 
 function recommendationReasons(x){
   const reasons=[];
+  const intervalReason=reuseIntervalReason(x);if(intervalReason)reasons.push(intervalReason);
   if(x._revenueReason)reasons.push(x._revenueReason);
   if(todayAffiliateLinks(x).length)reasons.push("アフィリエイトリンクあり");
   const age=Math.max(0,Math.floor((Date.now()-lastUseTime(x))/(24*60*60*1000)));
@@ -1987,6 +2024,7 @@ function analyticsSnapshot(item,importedAt){
     bookmarks:metricNullable(item.bookmarks),
     likes:metricNullable(item.likes),
     reposts:metricNullable(item.reposts),
+    postedAt:item.postedAt||"",
     capturedAt:importedAt
   };
 }
@@ -2052,6 +2090,7 @@ function repostComparisonHtml(item){
   if(!attempt)return '<p class="repost-performance-note">この再投稿は比較記録がありません。次回の再投稿後、X分析CSVを読み込むと照合します。</p>';
   if(!attempt.snapshot)return '<p class="repost-performance-note">再投稿後のX分析データを待っています。次回のポスト別アナリティクスCSVで本文が一致すれば自動照合します。</p>';
   const base=attempt.baseline||{},next=attempt.snapshot;
+  const intervalNote=reuseIntervalReason(item);
   const metrics=[
     ["クリック率",percentMetric(base.urlClicks,base.impressions),percentMetric(next.urlClicks,next.impressions)],
     ["保存率",percentMetric(base.bookmarks,base.impressions),percentMetric(next.bookmarks,next.impressions)]
@@ -2068,7 +2107,7 @@ function repostComparisonHtml(item){
   };
   return '<div class="repost-performance"><strong>再投稿の成績（参考）</strong><div class="repost-performance-metrics">'+metrics.map(([label,original,repost])=>
     '<span>'+label+'：元 '+fmt(original)+' → 再 '+fmt(repost)+'（'+delta(repost-original)+'）</span>'
-  ).join("")+'</div><small>本文一致 '+Math.round(Number(attempt.matchScore||0)*100)+'% ・ 元CSV '+captured(base.capturedAt)+' / 再投稿CSV '+captured(next.capturedAt)+' ・ 取込時点の累計指標</small></div>';
+  ).join("")+'</div>'+(intervalNote?'<p class="repost-performance-note">'+esc(intervalNote)+'</p>':'')+'<small>本文一致 '+Math.round(Number(attempt.matchScore||0)*100)+'% ・ 元CSV '+captured(base.capturedAt)+' / 再投稿CSV '+captured(next.capturedAt)+' ・ 取込時点の累計指標</small></div>';
 }
 
 async function importAnalyticsCSV(file){
@@ -2235,7 +2274,7 @@ async function getRoleBasedPicks(){
     pickedTopics.add(topic);
   };
 
-  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="product-revenue-click-v3");
+  const sameDay=pool.filter(x=>recommendedDay(x)===today&&x.recommendedPolicyVersion==="adaptive-reuse-v4");
   for(const role of TODAY_ROLES){
     const prioritizeLinks=TODAY_ROLES.indexOf(role)<3;
     const existing=sameDay.find(x=>x.recommendedRole===role&&!used.has(x.id)&&(!prioritizeLinks||todayAffiliateLinks(x).length||!pool.some(y=>!used.has(y.id)&&todayAffiliateLinks(y).length)));
@@ -2288,8 +2327,8 @@ async function stampRecommendations(items){
   const today=localDayKey();
   const updates=[];
   for(const item of items){
-    if(recommendedDay(item)===today&&item.recommendedRole===item._role&&item.recommendedPolicyVersion==="product-revenue-click-v3")continue;
-    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"product-revenue-click-v3"});
+    if(recommendedDay(item)===today&&item.recommendedRole===item._role&&item.recommendedPolicyVersion==="adaptive-reuse-v4")continue;
+    updates.push({...item,recommendedAt:new Date().toISOString(),recommendedRole:item._role||item.recommendedRole||"鉄板再利用",recommendedPolicyVersion:"adaptive-reuse-v4"});
   }
   await dbPutMany(updates);
   if(updates.length)queueCloudSync(updates,[]);
@@ -2464,7 +2503,9 @@ async function renderArchive(){
   else items.sort((a,b)=>String(b.postedAt||b.savedAt||"").localeCompare(String(a.postedAt||a.savedAt||"")));
   const root=$("archiveList");
   if(!items.length){root.innerHTML='<div class="empty">保存した人気投稿はまだありません。</div>';return}
+  const archiveProductIndex=recentProductIndex(all);
   const renderItem=(x,showProductActions=false)=>{
+    const intervalReason=reuseIntervalReason(x)||recentSameProductReason(x,all,Date.now(),archiveProductIndex);
     const imgs=mediaArray(x.images||(x.image?[x.image]:[])), vids=mediaArray(x.videos);
     return `<article class="archive-item">
       <div class="thumb-wrap">${imgs[0]?listImageHtml(imgs[0],"archive-thumb"):(vids.length?'<div class="archive-thumb archive-video-thumb">🎬</div>':'<div class="archive-thumb"></div>')}${(imgs.length||vids.length)?'<span class="image-count">'+(imgs.length?imgs.length+'枚':'')+(imgs.length&&vids.length?' / ':'')+(vids.length?vids.length+'動画':'')+'</span>':''}</div>
@@ -2472,6 +2513,7 @@ async function renderArchive(){
         <h3>${esc(x.title||shortLabel(x))}${x.source==="x-analytics"?'<span class="edited-badge">X分析</span>':''}${x.source==="x-archive"?'<span class="edited-badge">Xアーカイブ</span>':''}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
         <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}${isCandidateExcluded(x)?' ・ 候補から除外中':''}${isLowValueCandidate(x)?' ・ 自動除外：'+lowValueReason(x):''}</p>
         ${(x.impressions||x.likes||x.bookmarks)?'<div class="metric-chips">'+(x.impressions?'<span>表示 '+esc(x.impressions)+'</span>':'')+(x.likes?'<span>♥ '+esc(x.likes)+'</span>':'')+(x.bookmarks?'<span>保存 '+esc(x.bookmarks)+'</span>':'')+'</div>':''}
+        ${intervalReason?'<p class="repost-performance-note">'+esc(intervalReason)+'</p>':""}
         <p>${esc(x.text)}</p>
         <div class="archive-actions primary-actions">${xOpenButton(x)}<button class="small-btn detail-btn" data-action="detail" data-id="${x.id}">内容を全部見る</button><button class="small-btn" data-action="reposted" data-id="${x.id}">再投稿済みにする</button></div>
         <details class="card-more"><summary>その他</summary><div class="archive-actions more-actions">
