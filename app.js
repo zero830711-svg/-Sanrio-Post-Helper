@@ -49,7 +49,8 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.29-3364";
+const APP_VERSION="2026.09.30-3367";
+let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
 let separatedProductIds=new Set();
@@ -78,7 +79,10 @@ async function dbGetAll(){
   const db=await openDB();
   return new Promise((resolve,reject)=>{
     const tx=db.transaction(STORE,"readonly");const req=tx.objectStore(STORE).getAll();
-    req.onsuccess=()=>resolve(req.result.sort((a,b)=>(b.savedAt||"").localeCompare(a.savedAt||"")));
+    req.onsuccess=()=>{
+      rewriteContextItems=req.result;
+      resolve(req.result.sort((a,b)=>(b.savedAt||"").localeCompare(a.savedAt||"")));
+    };
     req.onerror=()=>reject(req.error);
   });
 }
@@ -2354,7 +2358,7 @@ function buildRewritePrompt(item,role,recent=[]){
     item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):"",
     item.urlClicks?("クリック "+metricNumber(item.urlClicks).toLocaleString()):""
   ].filter(Boolean).join(" / ");
-  const recentText=recent.slice(0,5).map((x,i)=>(i+1)+". "+(x.title||shortLabel(x))).join("\n");
+  const recentText=recent.slice(0,5).map((x,i)=>(i+1)+". "+Array.from(String(x.text||x.title||"").replace(/https?:\/\/\S+/g,"").replace(/\s+/g," ").trim()).slice(0,100).join("")).join("\n");
   return [
     "X（Sanrio fan info）向けに、下の過去投稿を『焼き直し投稿』として1案作ってください。",
     "",
@@ -2380,7 +2384,7 @@ function buildRewritePrompt(item,role,recent=[]){
     "",
     "【元投稿】",
     String(item.text||""),
-    recentText?("\n【最近使った投稿（表現・テーマの重複を避ける）】\n"+recentText):"",
+    recentText?("\n【直近で再投稿済みにした元投稿の書き出し（実際の完成文ではありません。似た導入・言い回しを避け、今回の事実として混ぜない）】\n"+recentText):"",
     "",
     "出力形式は厳守：完成した投稿文だけを、必ず ```text で始まり ``` で終わるコードブロック1つに入れてください。コードブロック外に説明・前置き・補足を書かず、ブロック内には投稿文だけを入れてください。"
   ].filter(Boolean).join("\n");
@@ -2551,9 +2555,16 @@ function copyTextFromClick(text,button,label){
   copyPromptFallback(text,"コピーできませんでした");
   if(button)button.textContent="文章を選択してコピー";
 }
+function recentRewriteContext(item,items=rewriteContextItems){
+  const seen=new Set([canonicalPostKey(item)]);
+  return items.filter(x=>Number.isFinite(Date.parse(x.lastRepostedAt))&&clean(x.text||x.title))
+    .slice().sort((a,b)=>Date.parse(b.lastRepostedAt)-Date.parse(a.lastRepostedAt))
+    .filter(x=>{const key=canonicalPostKey(x);if(seen.has(key))return false;seen.add(key);return true})
+    .slice(0,5);
+}
 function copyRewritePrompt(item,role,button){
   if(!item)return;
-  const prompt=buildRewritePrompt(item,role,[]);
+  const prompt=buildRewritePrompt(item,role,recentRewriteContext(item));
   copyTextFromClick(prompt,button,"プロンプトをコピーしました");
 }
 
