@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3372";
+const APP_VERSION="2026.10.01-3373";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -189,7 +189,7 @@ async function archiveMediaRequest(action="stats"){
   const {key}=cloudSettings();
   if(!key)throw new Error("同期キーを設定してください");
   const u=new URL(archiveMediaApiUrl());u.searchParams.set("action",action);
-  const r=await fetch(u.toString(),{headers:{Authorization:"Bearer "+key},cache:"no-store"});
+  const r=await fetchWithTimeout(u.toString(),{headers:{Authorization:"Bearer "+key},cache:"no-store"});
   const t=await r.text();let d={};try{d=t?JSON.parse(t):{}}catch(e){throw new Error("アーカイブAPIの応答を読めません")}
   if(!r.ok||d.ok===false)throw new Error(d.error||("HTTP "+r.status));
   return d;
@@ -672,10 +672,22 @@ function productGroupKey(x){return productGroupKeys(x)[0]||"";}
 function hasNewProductInformation(x){
   return /(再入荷|再販|発売日変更|日程変更|新色|新カラー|新デザイン|販売開始|予約開始|受付開始|在庫復活|追加販売|再受注)/i.test(String(x.title||"")+" "+String(x.text||""));
 }
-function recentSameProductReason(x,all,now=Date.now()){
+function recentProductIndex(all,now=Date.now()){
+  const index=new Map(),cutoff=now-30*86400000;
+  for(const item of all){
+    const time=Math.max(Date.parse(item.postedAt)||0,Date.parse(item.lastRepostedAt)||0);
+    if(time<cutoff)continue;
+    for(const key of productGroupKeys(item)){
+      if(!index.has(key))index.set(key,[]);
+      index.get(key).push({id:item.id,time});
+    }
+  }
+  return index;
+}
+function recentSameProductReason(x,all,now=Date.now(),index=null){
   const keys=productGroupKeys(x);if(!keys.length||hasNewProductInformation(x))return "";
   const cutoff=now-30*24*60*60*1000;
-  const recent=all.filter(o=>o.id!==x.id&&productGroupKeys(o).some(key=>keys.includes(key))).map(o=>Math.max(
+  const recent=index?Math.max(0,...keys.flatMap(key=>(index.get(key)||[]).filter(o=>o.id!==x.id).map(o=>o.time))):all.filter(o=>o.id!==x.id&&productGroupKeys(o).some(key=>keys.includes(key))).map(o=>Math.max(
     new Date(o.postedAt||"").getTime()||0,new Date(o.lastRepostedAt||"").getTime()||0
   )).filter(t=>t>=cutoff).sort((a,b)=>b-a)[0];
   return recent?"同じ商品を"+Math.max(1,Math.floor((now-recent)/86400000))+"日前に投稿済み":"";
@@ -1018,13 +1030,20 @@ function cloudSettings(){
     key:clean($("cloudSyncKey")?.value)||localStorage.getItem(CLOUD_SYNC_KEY_KEY)||""
   };
 }
+async function fetchWithTimeout(url,options={}){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),20000);
+  try{return await fetch(url,{...options,signal:controller.signal})}
+  catch(e){if(controller.signal.aborted)throw new Error("通信が20秒以内に応答しませんでした");throw e}
+  finally{clearTimeout(timer)}
+}
 async function cloudRequest(action,options={}){
   const {url,key}=cloudSettings();
   if(!url||!key)throw new Error("API URLと同期キーを入力してください");
   const target=new URL(url);
   target.searchParams.set("action",action);
   const headers={...(options.headers||{}),"Authorization":"Bearer "+key};
-  const res=await fetch(target.toString(),{...options,headers,cache:"no-store"});
+  const res=await fetchWithTimeout(target.toString(),{...options,headers,cache:"no-store"});
   const text=await res.text();
   let data={};
   try{data=text?JSON.parse(text):{}}catch(e){throw new Error("サーバー応答をJSONとして読めません")}
@@ -2088,8 +2107,9 @@ async function importAnalyticsCSV(file){
 
 async function getReadyItems(){
   const all=await dbGetAll();
+  const now=Date.now(),productIndex=recentProductIndex(all,now);
   return all
-    .filter(x=>isRecommendationEligible(x)&&canRecommendToday(x)&&!recentSameProductReason(x,all))
+    .filter(x=>isRecommendationEligible(x)&&canRecommendToday(x)&&!recentSameProductReason(x,all,now,productIndex))
     .sort((a,b)=>{
       const at=recommendedDay(a)===localDayKey()?1:0;
       const bt=recommendedDay(b)===localDayKey()?1:0;
@@ -2324,6 +2344,8 @@ async function renderRevenuePick(){
 }
 
 async function renderArchive(){
+  const panel=document.querySelector(".archive-browse");
+  if(panel&&!panel.open)return;
   const q=clean($("archiveSearch").value).toLowerCase();
   const selectedCharacter=characterDefForQuery(q);
   const all=await dbGetAll(), flexIds=searchIds(all,q), keyCounts=new Map();
@@ -2838,24 +2860,7 @@ function preloadDetailImages(item,images){
       const loaded=detailImageBlobs.filter(Boolean).length;
       if(allPhotosButton){allPhotosButton.disabled=loaded!==images.length;allPhotosButton.textContent=loaded===images.length?images.length+"枚をまとめて保存":"写真を準備中… ("+loaded+"/"+images.length+")"}
       if(mediaStatus)mediaStatus.textContent="写真 "+loaded+" / "+images.length+" 枚を読み込みました。";
-      if(loaded===images.length&&!detailWholeImagePromise&&!detailWholeImageBlob){
-        if(mediaStatus)mediaStatus.textContent="本文と写真全部を1枚にまとめています…";
-        detailWholeImagePromise=createPostImage(item).then(blob=>{
-          if(detailCurrentItem!==item)return blob;
-          detailWholeImageBlob=blob;
-          if(saveButton){saveButton.disabled=false;saveButton.textContent="本文と写真全部を1枚で保存"}
-          if(mediaStatus)mediaStatus.textContent="本文と全写真を1枚にしました。保存ボタンを押せます。";
-          return blob;
-        }).catch(error=>{
-          if(detailCurrentItem===item){
-            detailWholeImagePromise=null;
-            if(saveButton){saveButton.disabled=false;saveButton.textContent="本文と写真を1枚にして保存"}
-            if(mediaStatus)mediaStatus.textContent="画像の作成に失敗しました。保存ボタンを押すと再試行します。";
-          }
-          throw error;
-        });
-        detailWholeImagePromise.catch(()=>{});
-      }
+      if(loaded===images.length&&mediaStatus)mediaStatus.textContent="写真の準備ができました。共有・保存できます。";
     }).catch(error=>{
       if(detailCurrentItem!==item)return;
       detailImageBlobErrors[index]=error;
@@ -3533,6 +3538,7 @@ async function handleTrendAction(e,root){
 $("trendList")?.addEventListener("click",e=>handleTrendAction(e,$("trendList")));
 $("trendHero")?.addEventListener("click",e=>handleTrendAction(e,$("trendHero")));
 
+document.querySelector(".archive-browse")?.addEventListener("toggle",e=>{if(e.currentTarget.open)renderArchive().catch(console.error)});
 document.querySelector(".analytics-dashboard")?.addEventListener("toggle",e=>{
   if(e.currentTarget.open)requestAnimationFrame(()=>renderAnalytics());
 });
@@ -3816,6 +3822,8 @@ $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))close
   loadCloudSettings();
   restoreCloudPending();
   renderCloudStatus();
+  try{await renderToday();await renderTodayProgress();await renderDataFreshness()}catch(e){console.error("local startup",e)}
+  await new Promise(resolve=>setTimeout(resolve,0));
   try{await migrateLegacy()}catch(e){console.error("migrateLegacy",e)}
   if(cloudConfigured()){
     if(cloudPendingCount())await flushCloudChanges();
