@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3383";
+const APP_VERSION="2026.10.01-3384";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -283,6 +283,7 @@ async function renderArchiveCloudStatus(){
   root.textContent="ロリポップを確認中…";
   try{
     const d=await archiveMediaRequest("stats");
+    listThumbnailsAvailable=d.thumbnailAvailable===true;
     root.innerHTML=['<span>投稿DB '+Number(d.posts||0).toLocaleString()+'件</span>','<span>メディア付き '+Number(d.mediaPosts||0).toLocaleString()+'投稿</span>','<span>写真 '+Number(d.images||0).toLocaleString()+'枚</span>','<span>動画 '+Number(d.videos||0).toLocaleString()+'本</span>','<span>容量 '+byteText(d.bytes||0)+'</span>','<span>端末で表示可能 '+localMedia.toLocaleString()+'投稿</span>'].join("");
   }catch(e){root.innerHTML='<strong>状態取得失敗：'+esc(e.message)+'</strong>'}
 }
@@ -648,6 +649,24 @@ function isLowValueCandidate(x){return !!lowValueReason(x)}
 function isRecommendationEligible(x){
   return safeReuseItem(x)&&!isCandidateExcluded(x)&&!isLowValueCandidate(x);
 }
+let listThumbnailsAvailable=false;
+function listThumbnailUrl(src){
+  if(!listThumbnailsAvailable)return src;
+  try{
+    const original=new URL(src);
+    const api=new URL(archiveMediaApiUrl());
+    if(original.origin!==api.origin||!/^\/.*\/media\/[0-9]{1,64}\/[a-f0-9]{64}\.(?:jpg|jpeg|png|gif)$/i.test(original.pathname))return src;
+    api.searchParams.set("action","thumbnail");api.searchParams.set("url",src);
+    return api.toString();
+  }catch(_){return src}
+}
+function listImageHtml(src,className="",errorCode=""){
+  const preview=listThumbnailUrl(src);
+  const fallback="if(this.dataset.original){const src=this.dataset.original;delete this.dataset.original;this.src=src;}else{"+errorCode+"}";
+  return '<img'+(className?' class="'+esc(className)+'"':'')+' src="'+esc(preview)+'"'+
+    (preview!==src?' data-original="'+esc(src)+'"':'')+' alt="" loading="lazy" decoding="async" onerror="'+esc(fallback)+'">';
+}
+
 function productGroupKeys(x){
   if(separatedProductIds.has(String(x.id)))return [];
   const keys=[];
@@ -2324,7 +2343,7 @@ async function renderToday(){
     const vids=mediaArray(x.videos);
     const thumbs=imgs.slice(0,4).map((src,n)=>
       '<div class="today-media-thumb" aria-label="画像'+(n+1)+'">'+
-      '<img src="'+esc(src)+'" alt="" loading="lazy" onerror="this.closest(\'.today-media-thumb\').classList.add(\'media-load-failed\')">'+
+      listImageHtml(src,"","this.closest('.today-media-thumb').classList.add('media-load-failed')")+
       '</div>'
     ).join("");
     const mediaBox=(thumbs||vids.length)
@@ -2448,7 +2467,7 @@ async function renderArchive(){
   const renderItem=(x,showProductActions=false)=>{
     const imgs=mediaArray(x.images||(x.image?[x.image]:[])), vids=mediaArray(x.videos);
     return `<article class="archive-item">
-      <div class="thumb-wrap">${imgs[0]?'<img class="archive-thumb" src="'+esc(imgs[0])+'" alt="" loading="lazy">':(vids.length?'<div class="archive-thumb archive-video-thumb">🎬</div>':'<div class="archive-thumb"></div>')}${(imgs.length||vids.length)?'<span class="image-count">'+(imgs.length?imgs.length+'枚':'')+(imgs.length&&vids.length?' / ':'')+(vids.length?vids.length+'動画':'')+'</span>':''}</div>
+      <div class="thumb-wrap">${imgs[0]?listImageHtml(imgs[0],"archive-thumb"):(vids.length?'<div class="archive-thumb archive-video-thumb">🎬</div>':'<div class="archive-thumb"></div>')}${(imgs.length||vids.length)?'<span class="image-count">'+(imgs.length?imgs.length+'枚':'')+(imgs.length&&vids.length?' / ':'')+(vids.length?vids.length+'動画':'')+'</span>':''}</div>
       <div class="archive-body">
         <h3>${esc(x.title||shortLabel(x))}${x.source==="x-analytics"?'<span class="edited-badge">X分析</span>':''}${x.source==="x-archive"?'<span class="edited-badge">Xアーカイブ</span>':''}${x.updatedAt?'<span class="edited-badge">修正済</span>':''}</h3>
         <p class="status-line">${x.lastRepostedAt?'最終再投稿：'+new Date(x.lastRepostedAt).toLocaleDateString('ja-JP'):'まだ再投稿していません'}${x.repostCount?' ・ '+x.repostCount+'回':''}${isCandidateExcluded(x)?' ・ 候補から除外中':''}${isLowValueCandidate(x)?' ・ 自動除外：'+lowValueReason(x):''}</p>
@@ -2480,7 +2499,7 @@ async function renderArchive(){
       const best=group.reduce((b,x)=>metricNumber(x.impressions)>metricNumber(b.impressions)?x:b,group[0]);
       const image=mediaArray(best.images||(best.image?[best.image]:[]))[0];
       const label=String(best.title||shortLabel(best)).slice(0,90), date=postedTime(group[0])?new Date(postedTime(group[0])).toLocaleDateString("ja-JP"):"日付不明";
-      return '<details class="archive-product-group"><summary>'+(image?'<img class="product-group-thumb" src="'+esc(image)+'" alt="" loading="lazy">':'<span class="product-group-thumb product-group-placeholder">商品</span>')+
+      return '<details class="archive-product-group"><summary>'+(image?listImageHtml(image,"product-group-thumb"):'<span class="product-group-thumb product-group-placeholder">商品</span>')+
         '<span class="product-group-summary"><strong>'+esc(label)+'</strong><span>'+group.length+'件の投稿 ・ 最新 '+esc(date)+'</span><span>最高表示 '+Math.max(...group.map(x=>metricNumber(x.impressions))).toLocaleString()+' ・ 最高いいね '+Math.max(...group.map(x=>metricNumber(x.likes))).toLocaleString()+'</span></span><span class="product-group-open">投稿を見る</span></summary><div class="product-group-posts">'+group.map(x=>renderItem(x,true)).join("")+'</div></details>';
     }).join("");
     root.innerHTML='<div class="archive-count">'+visible.length+' / '+groups.length+'商品グループ（投稿 '+items.length+'件）</div>'+cards+(visible.length<groups.length?'<button class="load-more" data-action="more">さらに50件表示</button>':'');
