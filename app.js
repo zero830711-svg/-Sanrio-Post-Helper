@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.30-3367";
+const APP_VERSION="2026.09.30-3368";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -66,6 +66,22 @@ let cloudSyncBusy=false;
 let cloudApplyingRemote=false;
 const cloudDirtyIds=new Set();
 const cloudDeletedIds=new Set();
+const CLOUD_PENDING_KEY="sanrioCloudPendingV1";
+let cloudInFlightDirty=[];
+let cloudInFlightDeleted=[];
+function persistCloudPending(){
+  try{localStorage.setItem(CLOUD_PENDING_KEY,JSON.stringify({
+    dirty:[...new Set([...cloudInFlightDirty,...cloudDirtyIds])].filter(id=>!cloudDeletedIds.has(id)),
+    deleted:[...new Set([...cloudInFlightDeleted,...cloudDeletedIds])].filter(id=>!cloudDirtyIds.has(id))
+  }))}catch(e){console.error("pending sync storage",e)}
+}
+function restoreCloudPending(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(CLOUD_PENDING_KEY)||"{}");
+    for(const id of Array.isArray(saved.dirty)?saved.dirty:[])if(typeof id==="string")cloudDirtyIds.add(id);
+    for(const id of Array.isArray(saved.deleted)?saved.deleted:[])if(typeof id==="string"){cloudDeletedIds.add(id);cloudDirtyIds.delete(id)}
+  }catch(e){console.error("pending sync restore",e)}
+}
 
 function openDB(){
   return new Promise((resolve,reject)=>{
@@ -1084,6 +1100,7 @@ function queueCloudSync(items=[],deletedIds=[]){
       cloudDeletedIds.add(String(id));
     }
   }
+  persistCloudPending();
   if(!cloudPendingCount())return;
   renderCloudStatus("未同期 "+cloudPendingCount()+"件（まもなく自動保存）");
   markCloudStatusChip();
@@ -1125,6 +1142,9 @@ async function flushCloudChanges(){
   if(!dirty.length&&!deleted.length)return;
   dirty.forEach(id=>cloudDirtyIds.delete(id));
   deleted.forEach(id=>cloudDeletedIds.delete(id));
+  cloudInFlightDirty=dirty;
+  cloudInFlightDeleted=deleted;
+  persistCloudPending();
   cloudSyncBusy=true;
   renderCloudStatus("自動同期中…");
   try{
@@ -1139,10 +1159,13 @@ async function flushCloudChanges(){
     localStorage.setItem(LAST_CLOUD_SYNC_KEY,now);
     renderCloudStatus("自動同期済み："+new Date(now).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}));
   }catch(e){
-    dirty.forEach(id=>cloudDirtyIds.add(id));
-    deleted.forEach(id=>cloudDeletedIds.add(id));
+    dirty.forEach(id=>{if(!cloudDeletedIds.has(id))cloudDirtyIds.add(id)});
+    deleted.forEach(id=>{if(!cloudDirtyIds.has(id))cloudDeletedIds.add(id)});
     renderCloudStatus("自動同期失敗："+e.message,true);
   }finally{
+    cloudInFlightDirty=[];
+    cloudInFlightDeleted=[];
+    persistCloudPending();
     cloudSyncBusy=false;
     markCloudStatusChip();
     if(cloudPendingCount()){
@@ -1173,8 +1196,8 @@ async function cloudPushAll(){
   try{
     const items=await dbGetAll();
     await sendCloudItems(items,{progress:true});
-    cloudDirtyIds.clear();
-    cloudDeletedIds.clear();
+    // Pending changes and deletions are acknowledged only by the differential sync.
+    if(cloudPendingCount())queueCloudSync();
     const now=new Date().toISOString();
     localStorage.setItem(LAST_CLOUD_SYNC_KEY,now);
     renderCloudStatus("クラウド保存完了："+items.length+"件");
@@ -1198,6 +1221,7 @@ async function cloudPullMerge(options={}){
     const deletes=[];
     for(const incomingRaw of remote){
       const incoming={...incomingRaw};
+      if(cloudDeletedIds.has(String(incoming.id)))continue;
       const current=byId.get(String(incoming.id))||byKey.get(canonicalPostKey(incoming));
       if(incoming._deleted){
         const deletedT=itemFreshnessTime(incoming);
@@ -2375,7 +2399,7 @@ function buildRewritePrompt(item,role,recent=[]){
     "・ハッシュタグは必要なら0〜2個",
     "・投稿文の最後に必ず「#pr」を付ける（すでにある場合は重複させない）。「#pr」は280字以内に含める",
     "・絵文字は使いすぎない",
-    "・URLが元投稿にある場合、必要なら最後に残す",
+    "・URLが元投稿にある場合、必要なら本文の後に残す。出力順は「本文 → 商品リンク（使う場合）→ #pr」とし、#prを必ず投稿文の最後に置く",
     "",
     "【候補の役割】 "+(role||item.recommendedRole||"過去最強"),
     "【テーマ】 "+reuseTopicKey(item).replace("|"," / "),
@@ -3661,9 +3685,11 @@ $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))close
 (async()=>{
   checkLatestVersion();
   loadCloudSettings();
+  restoreCloudPending();
   renderCloudStatus();
   try{await migrateLegacy()}catch(e){console.error("migrateLegacy",e)}
   if(cloudConfigured()){
+    if(cloudPendingCount())await flushCloudChanges();
     renderCloudStatus("起動時にクラウド確認中…");
     try{await cloudPullMerge({silent:true,refresh:false})}catch(e){console.error("startup cloud pull",e)}
   }
@@ -3688,6 +3714,7 @@ $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))close
   try{await renderArchive()}catch(e){console.error("renderArchive",e)}
   if(cloudConfigured()){
     const last=localStorage.getItem(LAST_CLOUD_SYNC_KEY);
-    if(last)renderCloudStatus("自動同期済み："+new Date(last).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}));
+    if(cloudPendingCount())queueCloudSync();
+    else if(last)renderCloudStatus("自動同期済み："+new Date(last).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}));
   }
 })();
