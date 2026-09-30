@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3374";
+const APP_VERSION="2026.10.01-3375";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2656,6 +2656,7 @@ function copyRewritePrompt(item,role,button){
 }
 
 let detailCurrentItem=null;
+let geminiShareHandoffActive=false;
 let detailCandidateQueue=[];
 let detailRepostBusy=false;
 let detailScrollY=0;
@@ -2909,6 +2910,7 @@ function shareDetailToGemini(button){
   const reset=()=>{button.disabled=false};
   const resetTimer=setTimeout(reset,30000);
   try{
+    geminiShareHandoffActive=true;
     const sharing=navigator.share(data);
     Promise.resolve(sharing).then(()=>{
       if(detailCurrentItem===item&&status)status.textContent="共有画面の操作が終了しました。写真がGeminiに添付されたか確認してください。"+pasteHelp;
@@ -3475,18 +3477,18 @@ async function checkLatestVersion(){
 }
 $("detailCopyImage")?.addEventListener("click",e=>downloadWholePostImage(e.currentTarget));
 function recoverDetailAfterShare(){
-  if(document.visibilityState==="hidden")return;
+  if(document.visibilityState==="hidden"||!geminiShareHandoffActive)return;
+  geminiShareHandoffActive=false;
   const button=$("detailGeminiShare");
   if(button){button.disabled=false;button.textContent="Gemini用にまとめて共有"}
   const modal=$("todayDetailModal");
-  if(modal&&!modal.classList.contains("hidden")){
-    // Reapply the modal state after returning from another iPhone app.
-    document.body.style.overflow="hidden";
-  }else{
-    document.body.style.position="";document.body.style.top="";
-    document.body.style.left="";document.body.style.right="";
-    document.body.style.width="";document.body.style.overflow="";
-  }
+  if(modal&&!modal.classList.contains("hidden"))closeTodayDetail();
+  document.body.style.position="";
+  document.body.style.top="";
+  document.body.style.left="";
+  document.body.style.right="";
+  document.body.style.width="";
+  document.body.style.overflow="";
 }
 window.addEventListener("pageshow",recoverDetailAfterShare);
 document.addEventListener("visibilitychange",recoverDetailAfterShare);
