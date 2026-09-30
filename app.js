@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.09.30-3368";
+const APP_VERSION="2026.10.01-3369";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -1086,6 +1086,35 @@ function cloudPendingCount(){
 function markCloudStatusChip(){
   renderDataFreshness().catch(()=>{});
 }
+const cloudIdleWaiters=[];
+function setCloudBusy(busy){
+  cloudSyncBusy=busy;
+  for(const id of ["cloudPush","cloudPull","cloudTest","cloudSaveSettings"]){
+    const button=$(id);if(button)button.disabled=busy;
+  }
+  if(!busy){const waiting=cloudIdleWaiters.splice(0);waiting.forEach(resolve=>resolve())}
+}
+async function acquireCloudOperation(){
+  while(cloudSyncBusy)await new Promise(resolve=>cloudIdleWaiters.push(resolve));
+  setCloudBusy(true);
+}
+function cloudErrorMessage(error,kind){
+  const raw=String(error?.message||error||"不明なエラー");
+  const detail=/Load failed|Failed to fetch|NetworkError|fetch failed/i.test(raw)
+    ?"通信に失敗しました（原因は特定できません）":raw;
+  const pending=cloudPendingCount();
+  if(kind==="save")return "クラウド保存未完了："+detail+"。端末の投稿データは保持しています。"+
+    (pending?"未同期 "+pending+"件は自動再送し、次回起動時にも再送します。":"「クラウドへ保存」で再試行してください。");
+  return (kind==="connect"?"接続確認失敗：":"クラウド読込失敗：")+detail+"。端末の投稿データは保持しています。"+
+    (pending?"未同期 "+pending+"件は再送待ちです。":"");
+}
+function releaseCloudOperation(){
+  setCloudBusy(false);
+  if(cloudPendingCount()&&cloudConfigured()){
+    if(cloudSyncTimer)clearTimeout(cloudSyncTimer);
+    cloudSyncTimer=setTimeout(()=>flushCloudChanges(),5000);
+  }
+}
 function queueCloudSync(items=[],deletedIds=[]){
   if(cloudApplyingRemote||!cloudConfigured())return;
   for(const item of items){
@@ -1145,7 +1174,7 @@ async function flushCloudChanges(){
   cloudInFlightDirty=dirty;
   cloudInFlightDeleted=deleted;
   persistCloudPending();
-  cloudSyncBusy=true;
+  setCloudBusy(true);
   renderCloudStatus("自動同期中…");
   try{
     if(deleted.length)await sendCloudDeletes(deleted);
@@ -1161,12 +1190,12 @@ async function flushCloudChanges(){
   }catch(e){
     dirty.forEach(id=>{if(!cloudDeletedIds.has(id))cloudDirtyIds.add(id)});
     deleted.forEach(id=>{if(!cloudDirtyIds.has(id))cloudDeletedIds.add(id)});
-    renderCloudStatus("自動同期失敗："+e.message,true);
+    renderCloudStatus(cloudErrorMessage(e,"save"),true);
   }finally{
     cloudInFlightDirty=[];
     cloudInFlightDeleted=[];
     persistCloudPending();
-    cloudSyncBusy=false;
+    setCloudBusy(false);
     markCloudStatusChip();
     if(cloudPendingCount()){
       if(cloudSyncTimer)clearTimeout(cloudSyncTimer);
@@ -1175,12 +1204,14 @@ async function flushCloudChanges(){
   }
 }
 async function cloudPing(){
+  await acquireCloudOperation();
   renderCloudStatus("接続確認中…");
   try{
     const data=await cloudRequest("ping");
     saveCloudSettings();
     renderCloudStatus("接続OK"+(data.apiVersion?" ・ API "+data.apiVersion:"")+(data.serverTime?" ・ "+data.serverTime:""));
-  }catch(e){renderCloudStatus("接続失敗："+e.message,true)}
+  }catch(e){renderCloudStatus(cloudErrorMessage(e,"connect"),true)}
+  finally{releaseCloudOperation()}
 }
 function utf8ToBase64(str){
   const bytes=new TextEncoder().encode(str);
@@ -1192,9 +1223,11 @@ function utf8ToBase64(str){
   return btoa(binary);
 }
 async function cloudPushAll(){
+  await acquireCloudOperation();
+  let items=null;
   renderCloudStatus("クラウドへ保存中…");
   try{
-    const items=await dbGetAll();
+    items=await dbGetAll();
     await sendCloudItems(items,{progress:true});
     // Pending changes and deletions are acknowledged only by the differential sync.
     if(cloudPendingCount())queueCloudSync();
@@ -1202,12 +1235,16 @@ async function cloudPushAll(){
     localStorage.setItem(LAST_CLOUD_SYNC_KEY,now);
     renderCloudStatus("クラウド保存完了："+items.length+"件");
     markCloudStatusChip();
-  }catch(e){renderCloudStatus("保存失敗："+e.message,true)}
+  }catch(e){
+    if(items)queueCloudSync(items.filter(x=>!cloudDeletedIds.has(String(x.id))),[]);
+    renderCloudStatus(cloudErrorMessage(e,"save"),true);
+  }finally{releaseCloudOperation()}
 }
 async function cloudPullMerge(options={}){
   const silent=!!options.silent;
   const refresh=options.refresh!==false;
   if(!cloudConfigured())return {ok:false,count:0};
+  await acquireCloudOperation();
   if(!silent)renderCloudStatus("クラウドから読込中…");
   cloudApplyingRemote=true;
   const pushBack=[];
@@ -1273,11 +1310,12 @@ async function cloudPullMerge(options={}){
     if(!silent)renderCloudStatus("統合完了："+remote.filter(x=>!x._deleted).length+"件"+(deletes.length?" / 削除反映 "+deletes.length+"件":""));
     return {ok:true,count:remote.length,deletes};
   }catch(e){
-    if(!silent)renderCloudStatus("読込失敗："+e.message,true);
+    if(!silent)renderCloudStatus(cloudErrorMessage(e,"pull"),true);
     else console.error("auto cloud pull",e);
     return {ok:false,count:0,error:e};
   }finally{
     cloudApplyingRemote=false;
+    releaseCloudOperation();
     if(pushBack.length)queueCloudSync(pushBack,[]);
     markCloudStatusChip();
   }
