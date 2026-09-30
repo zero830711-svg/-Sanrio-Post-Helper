@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3370";
+const APP_VERSION="2026.10.01-3371";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2634,14 +2634,21 @@ function copyRewritePrompt(item,role,button){
 }
 
 let detailCurrentItem=null;
+let detailCandidateQueue=[];
+let detailRepostBusy=false;
 let detailScrollY=0;
 let detailImageBlobs=[];
 let detailImageBlobErrors=[];
 let detailWholeImageBlob=null;
 let detailWholeImagePromise=null;
 let todayPicksById=new Map();
-function showTodayDetail(item){
+function showTodayDetail(item,continueQueue=false){
   if(!item)return;
+  if(!continueQueue){
+    const candidates=[...todayPicksById.values()];
+    const index=candidates.findIndex(x=>canonicalPostKey(x)===canonicalPostKey(item));
+    detailCandidateQueue=index>=0?[...candidates.slice(index+1),...candidates.slice(0,index)]:candidates;
+  }
   detailCurrentItem=item;
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const vids=mediaArray(item.videos);
@@ -2674,7 +2681,7 @@ function showTodayDetail(item){
   $("detailMediaCount").textContent=(imgs.length?imgs.length+"枚":"")+(imgs.length&&vids.length?" / ":"")+(vids.length?vids.length+"動画":"");
   const rewrite=$("detailRewritePrompt");
   if(rewrite){rewrite.dataset.id=item.id;rewrite.dataset.role=item.recommendedRole||""}
-  detailScrollY=window.scrollY||window.pageYOffset||0;
+  if($("todayDetailModal").classList.contains("hidden"))detailScrollY=window.scrollY||window.pageYOffset||0;
   $("todayDetailModal").classList.remove("hidden");
   document.body.style.position="fixed";
   document.body.style.top="-"+detailScrollY+"px";
@@ -2682,6 +2689,7 @@ function showTodayDetail(item){
   document.body.style.right="0";
   document.body.style.width="100%";
   document.body.style.overflow="hidden";
+  $("todayDetailModal").scrollTop=0;
   preloadDetailImages(item,imgs);
 }
 function pinterestTitle(item){
@@ -3113,10 +3121,41 @@ function copyDetailPostImage(button){
   }
 }
 
+async function repostDetailAndAdvance(){
+  if(!detailCurrentItem||detailRepostBusy)return;
+  const item=detailCurrentItem;
+  const button=$("detailRepostNext");
+  detailRepostBusy=true;
+  if(button){button.disabled=true;button.textContent="記録中…"}
+  try{
+    await applyReposted(item);
+    const all=await dbGetAll();
+    let next=null;
+    while(detailCandidateQueue.length&&!next){
+      const candidate=detailCandidateQueue.shift();
+      const current=all.find(x=>canonicalPostKey(x)===canonicalPostKey(candidate));
+      if(current&&isRecommendationEligible(current)&&canRecommendToday(current))next=current;
+    }
+    if(detailCurrentItem===item){
+      if(next)showTodayDetail(next,true);
+      else closeTodayDetail();
+    }
+    await renderToday();
+    await renderRecentUsed();
+    await renderTodayProgress();
+  }catch(e){
+    console.error("detail repost",e);
+    alert("記録・表示更新を完了できませんでした。一覧の再投稿済み状態を確認してください。");
+  }finally{
+    detailRepostBusy=false;
+    if(button){button.disabled=false;button.textContent="再投稿済み → 次の候補"}
+  }
+}
 function closeTodayDetail(){
   $("todayDetailModal").classList.add("hidden");
   $("detailMedia").innerHTML="";
   detailCurrentItem=null;
+  detailCandidateQueue=[];
   detailWholeImageBlob=null;
   detailWholeImagePromise=null;
   document.body.style.position="";
@@ -3407,6 +3446,7 @@ $("pinterestOpenCreate")?.addEventListener("click",e=>{
   const link=String($("pinterestPinLink").value||"").trim();
   if(link){try{const url=new URL(link);if(!["http:","https:"].includes(url.protocol))throw new Error("unsupported protocol")}catch(error){e.preventDefault();$("pinterestPinStatus").textContent="リンク先は https:// または http:// から始まるURLを入力してください。"}}
 });
+$("detailRepostNext")?.addEventListener("click",repostDetailAndAdvance);
 $("closeDetailModal")?.addEventListener("click",closeTodayDetail);
 $("todayDetailModal")?.addEventListener("click",e=>{if(e.target===$("todayDetailModal"))closeTodayDetail()});
 $("forceLatest")?.addEventListener("click",()=>{
