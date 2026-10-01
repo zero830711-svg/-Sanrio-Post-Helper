@@ -3100,7 +3100,7 @@ function downloadWholePostImage(button){
     const file=new File([detailWholeImageBlob],safeImageName(item,0,"png"),{type:"image/png"});
     try{
       if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-        const sharing=navigator.share({files:[file],title:"本文と写真全部"});
+        const sharing=navigator.share({files:[file],title:"本文と選んだ写真"});
         button.textContent="共有シートで「写真に保存」を選んでください";
         sharing.catch(error=>{if(error?.name!=="AbortError")button.textContent="もう一度タップして保存"});
         return;
@@ -3112,7 +3112,7 @@ function downloadWholePostImage(button){
   }
   const mediaStatus=$("detailMediaStatus");
   button.textContent="本文と写真を1枚に作成中…";
-  if(mediaStatus)mediaStatus.textContent="本文と写真全部を1枚にまとめています。";
+  if(mediaStatus)mediaStatus.textContent="本文と選んだ写真を1枚にまとめています。";
   const pending=detailWholeImagePromise||createPostImage(item,detailPhotoSelection.slice());
   detailWholeImagePromise=pending;
   pending.then(blob=>{
@@ -3121,7 +3121,7 @@ function downloadWholePostImage(button){
     button.textContent="画像ができました。もう一度押して保存";
     if(mediaStatus)mediaStatus.textContent="画像ができました。もう一度ボタンを押して保存してください。";
   }).catch(error=>{
-    if(detailCurrentItem!==item)return;
+    if(detailCurrentItem!==item||detailWholeImagePromise!==pending)return;
     detailWholeImagePromise=null;
     button.textContent="本文と写真を1枚にして保存";
     if(mediaStatus)mediaStatus.textContent="作成できませんでした："+(error?.message||"写真を読み込めません");
