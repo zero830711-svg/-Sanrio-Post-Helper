@@ -2876,7 +2876,7 @@ function updateDetailPhotoControls(){
  const all=$("detailDownloadAllPhotos");
  if(all){all.disabled=!count;all.textContent=count?(ready?count+"枚をまとめて保存":"選んだ写真を読み込み直す"):"写真を選んでください";}
  $("detailCopyImage").disabled=!count;
- $("detailCopyImage").textContent=count?"本文と選んだ写真を1枚で保存":"写真を選んでください";
+ $("detailCopyImage").textContent=count?"本文＋写真を1枚で保存":"写真を選んでください";
 }
 function renderDetailPhotos(){
  const item=detailCurrentItem;if(!item)return;
@@ -2909,13 +2909,13 @@ function showTodayDetail(item,continueQueue=false){
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
-  $("detailMeta").textContent=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):""].filter(Boolean).join(" ・ ");
-  $("detailCandidateTools").innerHTML='<div class="today-affiliate-badges">'+todayAffiliateBadges(item)+'</div><div class="metric-chips">'+todayMetricChips(item,item._role)+'</div>'+todayAffiliateLinkButtons(item)+xOpenButton(item,"Xアプリ")+
+  $("detailMeta").textContent=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):"",metricNumber(item.impressions)&&item.bookmarks!==null&&item.bookmarks!==undefined&&String(item.bookmarks).trim()!==""?("保存率 "+percentText(metricRate(item.bookmarks,item.impressions))):"",metricNumber(item.urlClicks)?("クリック "+metricNumber(item.urlClicks).toLocaleString()):""].filter(Boolean).join(" ・ ");
+  $("detailCandidateTools").innerHTML='<div class="today-affiliate-badges">'+todayAffiliateBadges(item)+'</div>'+todayAffiliateLinkButtons(item)+xOpenButton(item,"Xアプリ")+
     '<p class="recommend-reason">選定理由：'+esc([...recommendationReasons(item),item._diverseReason].filter(Boolean).join("・"))+'</p>';
   $("detailFreshness").textContent=freshnessReviewReason(item)||"";$("detailFreshness").hidden=!freshnessReviewReason(item);
   $("detailText").textContent=item.text||"";
   $("detailTextPreview").textContent=String(item.text||"").replace(/\n{3,}/g,"\n\n");
-  $("detailTextMore").open=false;$("detailExtraTools").open=false;
+  $("detailTextMore").open=false;
   detailImageBlobs=imgs.map(()=>null);
   detailImageBlobErrors=imgs.map(()=>null);
   const choice=detailPhotoChoices.get(canonicalPostKey(item));
@@ -2977,7 +2977,7 @@ function preloadDetailImages(item,images){
       detailImageBlobErrors[index]=error;
       const save=$("detailMedia").querySelector('[data-detail-download="'+index+'"]');
       if(save){save.disabled=false;save.textContent="画像を再読み込み";save.title=error?.message||""}
-      if(saveButton){saveButton.disabled=false;saveButton.textContent="本文と写真を1枚にして保存"}
+      if(saveButton){saveButton.disabled=false;saveButton.textContent="本文＋写真を1枚で保存"}
       if(allPhotosButton){allPhotosButton.disabled=false;allPhotosButton.textContent="写真を読み込み直す ("+detailImageBlobs.filter(Boolean).length+"/"+images.length+")"}
       if(mediaStatus)mediaStatus.textContent="写真の読み込みに失敗しました。まとめて保存ボタンで再試行できます。";
       updateDetailPhotoControls();
@@ -3123,7 +3123,7 @@ function downloadWholePostImage(button){
   }).catch(error=>{
     if(detailCurrentItem!==item||detailWholeImagePromise!==pending)return;
     detailWholeImagePromise=null;
-    button.textContent="本文と写真を1枚にして保存";
+    button.textContent="本文＋写真を1枚で保存";
     if(mediaStatus)mediaStatus.textContent="作成できませんでした："+(error?.message||"写真を読み込めません");
   });
 }
