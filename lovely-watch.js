@@ -1,7 +1,7 @@
 /* Loaded without network activity; discovery starts only when its section opens. */
 const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
-  let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false;
+  let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new';
   let editorGeneration=0,imageBusy=0;
   const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
   const detailCache=new Map();let chooseSequence=0,detailLoading=false;
@@ -78,12 +78,52 @@ const lovelyWatch = (()=>{
       if(!el('lovelyRakuten').value.trim()){el('lovelyRakuten').value=url;el('lovelyConfirmed').checked=false;persist();el('rakutenAutoStatus').textContent='商品コードが一致する自分の楽天リンクを入力しました。商品・写真の一致を確認してください。'}else el('rakutenAutoStatus').textContent='入力済みの楽天リンクを使用します。';
     }catch(e){if(selected===item)el('rakutenAutoStatus').textContent=e.message}finally{affiliateBusy=false;button.disabled=false;if(selected&&(selected!==item||revision!==settingsRevision)&&!el('lovelyRakuten').value.trim())autoRakuten(selected)}
   }
-  function usedIds(items){const ids=new Set();for(const item of items)for(const id of revenueProductIds(item))ids.add(id);return ids;}
-  function visibleItems(items,ids,hidden){return items.filter(x=>!hidden[x.url]&&!(x.productIds||[]).some(id=>ids.has(id)));}
+  function janIds(item){
+    const ids=new Set();
+    for(const value of [item.jan,item.productInfo?.jan])if(/^\d{13}$/.test(String(value||'')))ids.add('jan:'+value);
+    for(const match of String(item.text||'').matchAll(/JAN(?:コード)?[\s：:]*([0-9]{13})(?![0-9])/gi))ids.add('jan:'+match[1]);
+    return [...ids];
+  }
+  function usedIds(items){const ids=new Set();for(const item of items)for(const id of [...revenueProductIds(item),...janIds(item)])ids.add(id);return ids;}
+  function candidateIds(item,known={}){
+    const direct=(item.productIds||[]).filter(id=>/^(rakuten:[^:\s]+:[^:\s]+|asin:[A-Z0-9]{10})$/.test(id));
+    const info=known[item.url]||{};
+    return [...new Set([...direct,...janIds(item),...(direct.length<=1?janIds(info):[])])];
+  }
+  function groupedItems(items,ids,hidden={},known={}){
+    const groups=new Map(),aliases=new Map();
+    for(const item of items){
+      if(hidden[item.url]&&hidden[item.url]!=='used')continue;
+      const keys=candidateIds(item,known),jan=keys.find(id=>id.startsWith('jan:'));
+      const productKeys=keys.filter(id=>!id.startsWith('jan:'));
+      const tokens=[...(jan?[jan]:[]),...(productKeys.length?['products:'+productKeys.slice().sort().join('|')]:[])];
+      let key=tokens.map(t=>aliases.get(t)).find(Boolean)||'url:'+item.url;
+      for(const token of tokens){const otherKey=aliases.get(token);if(otherKey&&otherKey!==key){const target=groups.get(key),other=groups.get(otherKey);if(target&&other){target.articles.push(...other.articles);const rank={new:0,review:1,used:2,update:3};if(rank[other.status]>rank[target.status]){target.status=other.status;target.item=other.item;}groups.delete(otherKey);for(const [alias,value] of aliases)if(value===otherKey)aliases.set(alias,key);}}aliases.set(token,key);}
+      const matched=keys.filter(id=>ids.has(id));
+      // A matching JAN identifies one product; mixed product lists stay reviewable.
+      const introduced=hidden[item.url]==='used'||(jan?ids.has(jan)||matched.some(id=>!id.startsWith('jan:')):keys.length>0&&matched.length===keys.length);
+      const update=/再入荷|再販|再販売|予約再開|受付再開|販売再開|発売日.{0,8}(変更|決定)|発売延期|発売開始|販売開始/.test(item.title||'');
+      const status=hidden[item.url]==='used'?'used':introduced?(update?'update':'used'):(matched.length?'review':'new');
+      const old=groups.get(key);
+      if(old){old.articles.push(item);const rank={new:0,review:1,used:2,update:3};if(rank[status]>rank[old.status])old.status=status;if(status==='update'||(old.status!=='update'&&String(item.date||'')>String(old.item.date||'')))old.item=item;}
+      else groups.set(key,{item,status,articles:[item]});
+    }
+    return [...groups.values()].sort((a,b)=>String(b.item.date||'').localeCompare(String(a.item.date||'')));
+  }
+  function visibleItems(items,ids,hidden){return groupedItems(items,ids,hidden).filter(x=>x.status!=='used').map(x=>x.item);}
   function render(){
-    const visible=visibleItems(rows,historyIds,state().hidden||{});
-    el('lovelyList').innerHTML=visible.map(x=>'<div class="lovely-row"><div><strong>'+escape(x.title)+'</strong><p class="backup-note">記事掲載日 '+escape(x.date||'不明')+'（発売日とは限りません）</p></div><button class="small-btn" type="button" data-lovely-select="'+escape(x.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">未紹介の候補がありません。商品ID一致の保存済み投稿と、見送った記事は除外しています。</p>';
-    el('lovelyCount').textContent=rows.length+'件取得 ／ 未紹介候補 '+visible.length+'件';
+    const value=state(),groups=groupedItems(rows,historyIds,value.hidden||{},value.identities||{});
+    const visible=groups.filter(x=>filterMode==='all'||(filterMode==='used'?x.status==='used':x.status!=='used'));
+    const labels={new:'未紹介候補',used:'紹介済み',update:'更新候補（要確認）',review:'一部紹介済み・要確認'};
+    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row"><div><strong>'+escape(g.item.title)+'</strong><p class="backup-note">'+labels[g.status]+(g.articles.length>1?' ／ 同じ商品 '+g.articles.length+'記事':'')+'</p><p class="backup-note">記事掲載日 '+escape(g.item.date||'不明')+'（発売日とは限りません）</p>'+(g.articles.length>1?'<details><summary>ほかの記事を確認</summary>'+g.articles.filter(x=>x.url!==g.item.url).map(x=>'<p><a href="'+escape(x.url)+'" target="_blank" rel="noopener noreferrer">'+escape(x.title)+'</a></p>').join('')+'</details>':'')+'</div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
+    el('lovelyCount').textContent='未紹介・要確認 '+groups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+groups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+groups.filter(x=>x.status==='used').length+'件';
+  }
+  function rememberIdentity(item){
+    if(!item?.productInfo?.jan)return;
+    const s=state();s.identities=s.identities||{};delete s.identities[item.url];
+    s.identities[item.url]={jan:item.productInfo.jan};s.identities=Object.fromEntries(Object.entries(s.identities).slice(-500));
+    try{localStorage.setItem(KEY,JSON.stringify(s))}catch(_){}
+    render();
   }
   async function refresh(){
     if(busy)return;busy=true;el('lovelyRefresh').disabled=true;el('lovelyStatus').textContent='新着を確認中…';
@@ -167,6 +207,7 @@ const lovelyWatch = (()=>{
     el('lovelyStatus').textContent='商品情報を取得中…';el('lovelyEditor').scrollIntoView({block:'start'});
     try{
       const data=await request('detail',url);
+      rememberIdentity(data.item);
       detailCache.delete(url);detailCache.set(url,{time:Date.now(),item:data.item});
       if(detailCache.size>20)detailCache.delete(detailCache.keys().next().value);
       if(sequence!==chooseSequence)return;
@@ -234,6 +275,11 @@ const lovelyWatch = (()=>{
   });
   el('rakutenRetry')?.addEventListener('click',()=>{if(selected)autoRakuten(selected)});
   el('lovelyRefresh')?.addEventListener('click',refresh);
+  el('lovelyFilter')?.addEventListener('change',async e=>{
+    filterMode=['new','used','all'].includes(e.target.value)?e.target.value:'new';
+    render();
+    try{historyIds=usedIds(await dbGetAll());render()}catch(_){el('lovelyStatus').textContent='過去投稿の照合を更新できませんでした。新着を確認して再試行してください。'}
+  });
   el('lovelyList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-select]');if(b)choose(b.dataset.lovelySelect)});
   el('lovelyProductInfo')?.addEventListener('change',e=>{
     const b=e.target.closest('[data-lovely-image]');if(!b)return;
@@ -276,6 +322,7 @@ const lovelyWatch = (()=>{
   el('lovelyDone')?.addEventListener('click',()=>hide('used'));
   el('lovelySkip')?.addEventListener('click',()=>hide('skip'));
   el('lovelyRestore')?.addEventListener('click',()=>{const s=state();s.hidden={};localStorage.setItem(KEY,JSON.stringify(s));render()});
-  return {visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten};
+  return {groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten};
 })();
+
 
