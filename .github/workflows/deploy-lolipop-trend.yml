@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "server/lolipop/news.php"
+      - "tests/news-parser.php"
       - "server/lolipop/trend.php"
       - "server/lolipop/archive-media-batch.php"
       - "server/lolipop/lovely-watch.php"
