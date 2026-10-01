@@ -2852,7 +2852,7 @@ function showTodayDetail(item,continueQueue=false){
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
   $("detailMeta").textContent=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):""].filter(Boolean).join(" ・ ");
-  $("detailCandidateTools").innerHTML=todayAffiliateLinkButtons(item)+xOpenButton(item,"Xアプリ")+
+  $("detailCandidateTools").innerHTML='<div class="today-affiliate-badges">'+todayAffiliateBadges(item)+'</div><div class="metric-chips">'+todayMetricChips(item,item._role)+'</div>'+todayAffiliateLinkButtons(item)+xOpenButton(item,"Xアプリ")+
     '<p class="recommend-reason">選定理由：'+esc([...recommendationReasons(item),item._diverseReason].filter(Boolean).join("・"))+'</p>';
   $("detailFreshness").textContent=freshnessReviewReason(item)||"";$("detailFreshness").hidden=!freshnessReviewReason(item);
   $("detailText").textContent=item.text||"";
@@ -3978,7 +3978,7 @@ async function dismissDetailCandidate(exclude){
   if(exclude)await setCandidateExcluded(item,true);
   else {item.skippedAt=new Date().toISOString();await dbPut(item);queueCloudSync([item],[]);await propagateUsageHistory(item);}
   await renderToday();await renderRevenuePick();await renderRecentUsed();await renderArchive();await renderTodayProgress();closeTodayDetail();
- }finally{button.disabled=false;}
+ }catch(e){console.error("detail candidate",e);alert("記録できませんでした。もう一度お試しください。");}finally{button.disabled=false;}
 }
 $("detailCandidateSkip").addEventListener("click",()=>dismissDetailCandidate(false));
 $("detailCandidateExclude").addEventListener("click",()=>dismissDetailCandidate(true));
