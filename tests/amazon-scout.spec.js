@@ -1,11 +1,26 @@
 const { test, expect } = require("@playwright/test");
 
-test("トップから完成した投稿案ページを開ける", async ({ page }) => {
+test("トップから新着商品タブを開き、今日の候補へ戻れる", async ({ page }) => {
   const response = await page.goto("/", { waitUntil: "domcontentloaded" });
   expect(response && response.status()).toBe(200);
-  await page.getByRole("link", { name: "新着記事の商品リンクから投稿案を作る" }).click();
-  await expect(page).toHaveURL(/amazon-ready-3377\.html/);
-  await expect(page.getByRole("heading", { name: "新着記事の商品リンクから投稿案" })).toBeVisible();
+
+  const todayTab = page.getByRole("tab", { name: "今日の候補", exact: true });
+  const newTab = page.getByRole("tab", { name: "新着商品", exact: true });
+  await expect(todayTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#todayHomePanel")).toBeVisible();
+  await expect(page.locator("#lovelyPanel")).not.toBeVisible();
+
+  await newTab.click();
+  await expect(newTab).toHaveAttribute("aria-selected", "true");
+  await expect(todayTab).toHaveAttribute("aria-selected", "false");
+  await expect(page.locator("#lovelyPanel")).toBeVisible();
+  await expect(page.locator("#lovelyRefresh")).toBeVisible();
+  await expect(page.locator("#todayHomePanel")).not.toBeVisible();
+
+  await todayTab.click();
+  await expect(todayTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#todayHomePanel")).toBeVisible();
+  await expect(page.locator("#lovelyPanel")).not.toBeVisible();
 });
 
 test("Amazon商品候補ページがiPhone幅で開き、検索例ボタンが使える", async ({ page }) => {
