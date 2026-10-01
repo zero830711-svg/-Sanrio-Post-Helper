@@ -111,11 +111,24 @@ const lovelyWatch = (()=>{
     return [...groups.values()].sort((a,b)=>String(b.item.date||'').localeCompare(String(a.item.date||'')));
   }
   function visibleItems(items,ids,hidden){return groupedItems(items,ids,hidden).filter(x=>x.status!=='used').map(x=>x.item);}
+  function thumbnailUrl(value){
+    try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname)?u.href:''}catch(_){return ''}
+  }
+  function thumbnailHtml(item){
+    const url=thumbnailUrl(item.thumbnail);
+    return '<span class="lovely-thumb">'+(url?'<img src="'+escape(url)+'" alt="" width="72" height="72" loading="lazy" decoding="async" referrerpolicy="no-referrer"><span hidden>画像なし</span>':'<span>画像なし</span>')+'</span>';
+  }
+  function markViewed(url){
+    const s=state();s.viewed=s.viewed||{};delete s.viewed[url];s.viewed[url]=true;
+    s.viewed=Object.fromEntries(Object.entries(s.viewed).slice(-500));
+    try{localStorage.setItem(KEY,JSON.stringify(s))}catch(_){}
+    render();
+  }
   function render(){
     const value=state(),groups=groupedItems(rows,historyIds,value.hidden||{},value.identities||{});
     const visible=groups.filter(x=>filterMode==='all'||(filterMode==='used'?x.status==='used':x.status!=='used'));
     const labels={new:'未紹介候補',used:'紹介済み',update:'更新候補（要確認）',review:'一部紹介済み・要確認'};
-    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row"><div><strong>'+escape(g.item.title)+'</strong><p class="backup-note">'+labels[g.status]+(g.articles.length>1?' ／ 同じ商品 '+g.articles.length+'記事':'')+'</p><p class="backup-note">記事掲載日 '+escape(g.item.date||'不明')+'（発売日とは限りません）</p>'+(g.articles.length>1?'<details><summary>ほかの記事を確認</summary>'+g.articles.filter(x=>x.url!==g.item.url).map(x=>'<p><a href="'+escape(x.url)+'" target="_blank" rel="noopener noreferrer">'+escape(x.title)+'</a></p>').join('')+'</details>':'')+'</div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
+    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong>'+ (g.articles.some(x=>value.viewed?.[x.url])?'<span class="lovely-viewed" title="投稿準備を開いた候補です。商品情報の確認完了を意味しません。">確認済み</span>':'')+'<p class="backup-note">'+labels[g.status]+(g.articles.length>1?' ／ 同じ商品 '+g.articles.length+'記事':'')+'</p><p class="backup-note">記事掲載日 '+escape(g.item.date||'不明')+'（発売日とは限りません）</p>'+(g.articles.length>1?'<details><summary>ほかの記事を確認</summary>'+g.articles.filter(x=>x.url!==g.item.url).map(x=>'<p><a href="'+escape(x.url)+'" target="_blank" rel="noopener noreferrer">'+escape(x.title)+'</a></p>').join('')+'</details>':'')+'</div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
     el('lovelyCount').textContent='未紹介・要確認 '+groups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+groups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+groups.filter(x=>x.status==='used').length+'件';
   }
   function rememberIdentity(item){
@@ -199,6 +212,7 @@ const lovelyWatch = (()=>{
     }
   }
   async function choose(url){
+    markViewed(url);
     const sequence=++chooseSequence,cached=detailCache.get(url),draft=state().draft;
     if(cached&&Date.now()-cached.time<900000){detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;edit({...cached.item,...(draft?.url===url?{ownAmazon:draft.ownAmazon,ownRakuten:draft.ownRakuten,note:draft.note}:{})});autoRakuten(selected);el('lovelyEditor').scrollIntoView({block:'start'});return;}
     edit({...((draft?.url===url?draft:null)||rows.find(x=>x.url===url)||{title:'商品情報を確認中…'}),url});
@@ -280,6 +294,7 @@ const lovelyWatch = (()=>{
     render();
     try{historyIds=usedIds(await dbGetAll());render()}catch(_){el('lovelyStatus').textContent='過去投稿の照合を更新できませんでした。新着を確認して再試行してください。'}
   });
+  el('lovelyList')?.addEventListener('error',e=>{const img=e.target;if(img.tagName==='IMG'&&img.closest('.lovely-thumb')){img.hidden=true;const fallback=img.nextElementSibling;if(fallback)fallback.hidden=false;}},true);
   el('lovelyList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-select]');if(b)choose(b.dataset.lovelySelect)});
   el('lovelyProductInfo')?.addEventListener('change',e=>{
     const b=e.target.closest('[data-lovely-image]');if(!b)return;
@@ -322,7 +337,8 @@ const lovelyWatch = (()=>{
   el('lovelyDone')?.addEventListener('click',()=>hide('used'));
   el('lovelySkip')?.addEventListener('click',()=>hide('skip'));
   el('lovelyRestore')?.addEventListener('click',()=>{const s=state();s.hidden={};localStorage.setItem(KEY,JSON.stringify(s));render()});
-  return {groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten};
+  return {thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten};
 })();
+
 
 
