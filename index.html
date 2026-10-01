@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261001-3390-prep2">
+<link rel="stylesheet" href="./styles.css?v=20261001-3390-compact3">
 </head>
 <body>
 <main class="app">
@@ -372,7 +372,26 @@
 </div>
 <div class="detail-sheet">
 <h2 id="detailTitle"></h2>
-<div class="detail-action-row"><button id="detailRepostNext" class="small-btn" type="button">再投稿済み → 次の候補</button></div><div class="detail-action-row"><button id="detailChatGPTShare" class="small-btn" type="button">ChatGPTに写真＋プロンプトを共有</button></div><p id="detailChatGPTStatus" class="backup-note" aria-live="polite"></p><div id="detailMeta" class="detail-meta"></div><div class="detail-action-row"><button id="detailCopyImage" class="small-btn detail-copy-image-btn" type="button">本文と写真全部を1枚で保存</button></div><div class="detail-action-row blog-prompt-row"><button id="detailBlogShare" class="small-btn" type="button">ブログ用：写真＋プロンプトを共有</button></div><div class="detail-action-row blog-prompt-row"><button id="detailThreadsShare" class="small-btn" type="button">Threads用：写真＋プロンプトを共有</button></div><div class="detail-action-row pinterest-prompt-row"><button id="detailPinterestButton" class="small-btn pinterest-prompt-btn" type="button">Pinterest用Pinを準備</button></div>
+<div id="detailMeta" class="detail-meta"></div>
+<div class="detail-share-actions" aria-label="写真とプロンプトをChatGPTに共有">
+<button id="detailChatGPTShare" class="small-btn" type="button">X用を共有</button>
+<button id="detailThreadsShare" class="small-btn" type="button">Threads用を共有</button>
+<button id="detailBlogShare" class="small-btn" type="button">ブログ用を共有</button>
+</div>
+<p id="detailChatGPTStatus" class="backup-note" aria-live="polite"></p>
+<section class="detail-text-section">
+<h3>投稿本文</h3>
+<details id="detailTextMore"><summary>全文を表示</summary><p id="detailText"></p></details>
+<p id="detailTextPreview"></p>
+</section>
+<section class="detail-media-section">
+<h3>写真・動画 <span class="detail-zoom-hint">写真をタップで拡大</span></h3>
+<p id="detailMediaStatus" class="detail-media-status" aria-live="polite"></p>
+<div id="detailMedia" class="detail-media"></div>
+</section>
+<div class="detail-action-row"><button id="detailRepostNext" class="small-btn" type="button">再投稿済み → 次の候補</button></div>
+<details id="detailExtraTools" class="detail-extra-tools"><summary>保存・その他の操作</summary>
+<div class="detail-action-row"><button id="detailCopyImage" class="small-btn detail-copy-image-btn" type="button">本文と写真全部を1枚で保存</button><button id="detailDownloadAllPhotos" class="small-btn" type="button" disabled>写真を準備中…</button><button id="detailPinterestButton" class="small-btn pinterest-prompt-btn" type="button">Pinterest用Pinを準備</button></div>
 <section id="pinterestPinPanel" class="pinterest-pin-panel hidden" aria-label="Pinterest用Pin作成">
 <h3>Pinterest用Pinを準備</h3>
 <p class="backup-note">縦長2:3（1000×1500px）の画像と、検索向けタイトル・説明文を作ります。Pinterestへの公開は行いません。写真をPinterestで使う権利があるものだけ利用し、アフィリエイトリンクなら説明文に広告であることを明記してください。</p>
@@ -393,16 +412,7 @@
 <p class="backup-note">Pinterestを開いたら、タイトル・説明文・リンクの各欄をタップして、それぞれ「ペースト」してください。Pinterestへの自動入力・自動公開は行いません。</p>
 <p id="pinterestPinStatus" class="pinterest-pin-status" aria-live="polite"></p>
 </section>
-<section class="detail-text-section">
-<h3>以前の投稿文</h3>
-<p id="detailText"></p>
-</section>
-<section class="detail-media-section">
-<h3>投稿した写真・動画</h3>
-<p id="detailMediaStatus" class="detail-media-status" aria-live="polite"></p>
-<button id="detailDownloadAllPhotos" class="small-btn detail-download-all-btn" type="button" disabled>写真を準備中…</button>
-<div id="detailMedia" class="detail-media"></div>
-</section>
+</details>
 </div>
 </div>
 
@@ -417,13 +427,14 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261001-3390-home1"></script>
+<script src="./app.js?v=20261001-3390-compact3"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261001-3390-prep2"></script>
+<script src="./lovely-watch.js?v=20261001-3390-compact3"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
 </body>
 </html>
+
 
 
 
