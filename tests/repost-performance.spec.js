@@ -4,19 +4,25 @@ const postText = "ハローキティの新作マスコットが登場。小さ�
 
 async function importBackup(page, items) {
   page.on("dialog", dialog => dialog.accept());
+  await page.locator(".management > summary").click();
   await page.locator("#importBackup").setInputFiles({
     name: "fixture.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify({ items }))
   });
+  await page.locator(".archive-browse > summary").click();
   await expect(page.locator("#archiveList .archive-item")).toHaveCount(items.length);
 }
 
 async function markReposted(page, count = 1) {
-  for (let i = 0; i < count; i++) {
-    await page.locator('#archiveList button[data-action="reposted"]').first().click();
+  const ids = await page.locator('#archiveList button[data-action="reposted"]').evaluateAll(buttons => buttons.map(button => button.dataset.id));
+  for (const id of ids.slice(0, count)) {
+    const button = page.locator(`#archiveList button[data-action="reposted"][data-id="${id}"]`);
+    await button.click();
+    await expect(button.locator("xpath=ancestor::article").locator(".status-line")).toContainText("最終再投稿：");
   }
   await expect(page.locator("#recentUsedCard")).toBeVisible();
+  await expect(page.locator("#recentUsedList .recent-used-item")).toHaveCount(count);
 }
 
 async function importAnalytics(page, row) {
@@ -86,3 +92,4 @@ test("同じ本文の候補が複数ある場合は自動で結び付けない",
   await expect(page.locator("#analyticsImportStatus")).toContainText("照合 0件");
   await expect(page.locator("#recentUsedList").getByText("再投稿後のX分析データを待っています")).toHaveCount(2);
 });
+
