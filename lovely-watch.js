@@ -5,6 +5,13 @@ const lovelyWatch = (()=>{
   let editorGeneration=0,imageBusy=0;
   const pickedImages=new Set();
   const el=id=>document.getElementById(id);
+  const affiliateOpen=el('lovelyRakutenAffiliateOpen');
+  const iosChrome=/iPad|iPhone|iPod/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(affiliateOpen&&iosChrome){
+    affiliateOpen.href='googlechromes://affiliate.rakuten.co.jp/';
+    affiliateOpen.removeAttribute('target');
+    affiliateOpen.textContent='楽天アフィリエイトをChromeで開く';
+  }
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function state(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
   function persist(){
