@@ -11,10 +11,11 @@ async function seed(page){
  });
 }
 test('候補を小さく表示し、補助操作を必要な時だけ開ける',async({page})=>{
- await seed(page);const cards=page.locator('.today-compact-card');await expect(cards).toHaveCount(2);
- for(const c of await cards.all()){expect((await c.boundingBox()).height).toBeLessThan(270);}
- await expect(cards.nth(1).getByRole('button',{name:'内容・共有'})).toBeInViewport();
- await cards.first().getByText('その他',{exact:true}).click();await expect(cards.first().getByRole('button',{name:'見送る',exact:true})).toBeVisible();
+ await seed(page);const cards=page.locator('.today-news-row');await expect(cards).toHaveCount(2);
+ for(const c of await cards.all()){expect((await c.boundingBox()).height).toBeLessThan(150);}
+ await expect(cards.nth(1).getByRole('button',{name:'投稿準備'})).toBeInViewport();
+ await expect(cards.first().getByRole('button')).toHaveCount(1);
+ await cards.first().getByRole('button',{name:'投稿準備'}).click();await expect(page.locator('#detailCandidateSkip')).toBeVisible();
 });
 test('全文画面で本文と写真を先に確認し、拡大から戻れる',async({page})=>{
  await seed(page);await page.evaluate(()=>showTodayDetail(compactFixture));
@@ -25,22 +26,35 @@ test('全文画面で本文と写真を先に確認し、拡大から戻れる',
  await page.locator('#detailExtraTools summary').click();await expect(page.locator('#detailCopyImage')).toBeVisible();
 });
 
-test('その他の楽天・Amazon操作がカード全幅で横書きに収まる',async({page})=>{
+test('一覧は右の1ボタンで開き、詳細のリンクを横書きで確認できる',async({page})=>{
  for(const width of [390,375,320]){
   await page.setViewportSize({width,height:844});await seed(page);
-  const card=page.locator('.today-compact-card').first(),more=card.locator('.today-other-actions'),body=card.locator('.today-other-body');
-  const closedHeight=(await card.boundingBox()).height;
-  await more.locator('summary').click();await expect(body).toBeVisible();
-  const bodyBox=await body.boundingBox(),actionsBox=await card.locator('.today-quick-actions').boundingBox();
-  expect(bodyBox.width).toBeGreaterThan(actionsBox.width-2);
-  // Narrow screens intentionally stack each stock link and copy button.\n  expect(bodyBox.height).toBeLessThan(width<380?340:280);
+  const card=page.locator('.today-news-row').first();
+  await expect(card.getByRole('button')).toHaveCount(1);
+  await card.getByRole('button',{name:'投稿準備'}).click();
+  await expect(page.locator('#todayDetailModal')).toBeVisible();
+  await page.locator('#detailExtraTools summary').click();
+  const body=page.locator('#detailCandidateTools');
+  await expect(body.locator('.today-affiliate-link-row')).toHaveCount(2);
   for(const row of await body.locator('.today-affiliate-link-row').all()){
    const link=await row.locator('a').boundingBox();expect(link.width).toBeGreaterThan(130);expect(link.height).toBeLessThan(70);
   }
-  await expect(body.locator('.today-affiliate-link-row')).toHaveCount(2);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-  await more.locator('summary').click();await expect(body).not.toBeVisible();
-  expect((await card.boundingBox()).height).toBeCloseTo(closedHeight,0);
-  await card.getByRole('button',{name:'内容・共有'}).click();await expect(page.locator('#todayDetailModal')).toBeVisible();
+  await page.locator('#closeDetailModal').click();
  }
+});
+test('新着商品も写真と右の1ボタンで開き、戻れる',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ const item={url:'https://lovelyfancy.example/product1',title:'サンリオの新作リボン付きマスコット',date:'2026-10-01',products:[],images:[]};
+ await page.route('**/lovely-watch.php?**',route=>{
+  const action=new URL(route.request().url()).searchParams.get('action');
+  return route.fulfill({json:action==='list'?{ok:true,items:[item],fetchedAt:'2026-10-01T12:00:00Z'}:action==='settings'?{ok:true,configured:true}:{ok:true,item}});
+ });
+ await page.goto('/');
+ await page.getByRole('tab',{name:'新着商品',exact:true}).click();
+ const row=page.locator('#lovelyList .lovely-row');await expect(row).toHaveCount(1);
+ expect((await row.boundingBox()).height).toBeLessThan(150);await expect(row.getByRole('button')).toHaveCount(1);
+ await row.getByRole('button',{name:'投稿準備'}).click();
+ await expect(page.locator('#lovelyEditor')).toBeVisible();await expect(page.locator('#lovelyBrowse')).not.toBeVisible();
+ await page.locator('#lovelyBack').click();await expect(row).toBeVisible();
 });
