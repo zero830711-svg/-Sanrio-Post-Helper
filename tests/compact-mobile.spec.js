@@ -17,13 +17,13 @@ test('候補を小さく表示し、補助操作を必要な時だけ開ける',
  await expect(cards.first().getByRole('button')).toHaveCount(1);
  await cards.first().getByRole('button',{name:'投稿準備'}).click();await expect(page.locator('#detailCandidateSkip')).toBeVisible();
 });
-test('全文画面で本文と写真を先に確認し、拡大から戻れる',async({page})=>{
+test('詳細の操作を上部に表示し、本文と写真の拡大から戻れる',async({page})=>{
  await seed(page);await page.evaluate(()=>showTodayDetail(compactFixture));
- await expect(page.locator('#detailTextPreview')).toBeVisible();await expect(page.locator('#detailText')).not.toBeVisible();await expect(page.locator('#detailCopyImage')).not.toBeVisible();
+ await expect(page.locator('#detailTextPreview')).toBeVisible();await expect(page.locator('#detailText')).not.toBeVisible();await expect(page.locator('#detailCopyImage')).toBeVisible();
  for(const id of ['detailChatGPTShare','detailThreadsShare','detailBlogShare']){await expect(page.locator('#'+id)).toBeVisible();expect((await page.locator('#'+id).boundingBox()).height).toBeGreaterThanOrEqual(44);}
  await page.locator('#detailTextMore summary').click();await expect(page.locator('#detailText')).toBeVisible();await expect(page.locator('#detailTextPreview')).not.toBeVisible();await page.locator('#detailTextMore summary').click();
  await page.getByRole('button',{name:'写真1を拡大',exact:true}).click();await expect(page.locator('#imageModal')).toBeVisible();await page.locator('#closeModal').click();await expect(page.locator('#todayDetailModal')).toBeVisible();
- await page.locator('#detailExtraTools summary').click();await expect(page.locator('#detailCopyImage')).toBeVisible();
+ await expect(page.locator('#detailCopyImage')).toBeVisible();
 });
 
 test('一覧は右の1ボタンで開き、詳細のリンクを横書きで確認できる',async({page})=>{
@@ -33,7 +33,7 @@ test('一覧は右の1ボタンで開き、詳細のリンクを横書きで確�
   await expect(card.getByRole('button')).toHaveCount(1);
   await card.getByRole('button',{name:'投稿準備'}).click();
   await expect(page.locator('#todayDetailModal')).toBeVisible();
-  await page.locator('#detailExtraTools summary').click();
+  
   const body=page.locator('#detailCandidateTools');
   await expect(body.locator('.today-affiliate-link-row')).toHaveCount(2);
   for(const row of await body.locator('.today-affiliate-link-row').all()){
@@ -110,7 +110,7 @@ test('候補の写真を4枚まで選び、並べた順で共有・保存する'
  await expect.poll(()=>page.evaluate(()=>window.photoShare?.photos)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
  await page.evaluate(()=>{showTodayDetail(compactFixture);detailImageBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/png'}));renderDetailPhotos();});
  expect(await page.evaluate(()=>detailPhotoSelection)).toEqual([4,1,2,3]);
- await page.locator('#detailExtraTools summary').click();await page.locator('#detailDownloadAllPhotos').click();
+ await page.locator('#detailDownloadAllPhotos').click();
  await expect.poll(()=>page.evaluate(()=>window.photoShare?.photos)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
  expect(await page.evaluate(()=>detailSelectedItem().images)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
 });
@@ -122,4 +122,26 @@ test('写真がない候補は写真付き候補の後に表示する',async({pa
   await renderToday();
  });
  expect(await page.locator('.today-news-row button').evaluateAll(nodes=>nodes.map(n=>n.dataset.id))).toEqual(['with-photo','no-photo']);
+});
+
+test('保存とリンクの操作を折りたたまず上部にまとめ、数値を重複させない',async({page})=>{
+ for(const width of [390,320]){
+  await page.setViewportSize({width,height:844});await seed(page);await page.evaluate(()=>showTodayDetail(compactFixture));
+  const tools=page.locator('#detailExtraTools');
+  expect(await tools.evaluate(el=>el.tagName)).toBe('DIV');await expect(tools.locator('summary')).toHaveCount(0);
+  await expect(page.locator('#detailMeta')).toContainText('♥ 1,500');
+  await expect(page.locator('#detailMeta')).toContainText('保存率');
+  await expect(page.locator('#detailCandidateTools .metric-chips')).toHaveCount(0);
+  const content=await page.locator('.detail-sheet').textContent();expect(content.match(/1,500/g)).toHaveLength(1);
+  await expect(page.locator('#detailCandidateSkip')).toHaveCount(1);
+  await expect(page.locator('#detailCopyImage')).toHaveCount(1);
+  const bottom=await tools.evaluate(el=>el.getBoundingClientRect().bottom),textTop=await page.locator('.detail-text-section').evaluate(el=>el.getBoundingClientRect().top);
+  expect(bottom).toBeLessThanOrEqual(textTop);
+  for(const button of await tools.locator('button').all()){
+   expect(await button.evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeLessThanOrEqual(12);
+   expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  }
+  expect(await page.locator('#todayDetailModal').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBeTruthy();
+  await page.locator('#closeDetailModal').click();
+ }
 });
