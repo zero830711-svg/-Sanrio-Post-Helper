@@ -3494,7 +3494,7 @@ $("importAnalyticsCsv").addEventListener("change",async e=>{
     const result=await importAnalyticsCSV(file);
     localStorage.setItem(LAST_ANALYTICS_IMPORT_KEY,new Date().toISOString());
     status.textContent=result.total+"件を処理しました（新規 "+result.added+"件 / 更新 "+result.updated+"件）"+
-      (result.repostMatches?" ・ 再投稿との照合 "+result.repostMatches+"件":"");
+      " ・ 再投稿との照合 "+result.repostMatches+"件";
     queueCloudSync(result.items||[],[]);
     await renderArchive();
     await renderToday();
@@ -3984,5 +3984,6 @@ for(const [id,view] of [["homeTodayTab","today"],["homeNewTab","new"]]){
     else if(last)renderCloudStatus("自動同期済み："+new Date(last).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}));
   }
 })();
+
 
 
