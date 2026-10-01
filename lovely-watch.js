@@ -128,7 +128,7 @@ const lovelyWatch = (()=>{
     const value=state(),groups=groupedItems(rows,historyIds,value.hidden||{},value.identities||{});
     const visible=groups.filter(x=>filterMode==='all'||(filterMode==='used'?x.status==='used':x.status!=='used'));
     const labels={new:'未紹介候補',used:'紹介済み',update:'更新候補（要確認）',review:'一部紹介済み・要確認'};
-    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong>'+ (g.articles.some(x=>value.viewed?.[x.url])?'<span class="lovely-viewed" title="投稿準備を開いた候補です。商品情報の確認完了を意味しません。">確認済み</span>':'')+'<p class="backup-note">'+labels[g.status]+(g.articles.length>1?' ／ 同じ商品 '+g.articles.length+'記事':'')+'</p><p class="backup-note">記事掲載日 '+escape(g.item.date||'不明')+'（発売日とは限りません）</p>'+(g.articles.length>1?'<details><summary>ほかの記事を確認</summary>'+g.articles.filter(x=>x.url!==g.item.url).map(x=>'<p><a href="'+escape(x.url)+'" target="_blank" rel="noopener noreferrer">'+escape(x.title)+'</a></p>').join('')+'</details>':'')+'</div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
+    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><span class="backup-note">'+labels[g.status]+'</span><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong><span class="backup-note">掲載 '+escape(g.item.date||'日付不明')+'</span></div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
     el('lovelyCount').textContent='未紹介・要確認 '+groups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+groups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+groups.filter(x=>x.status==='used').length+'件';
   }
   function rememberIdentity(item){
@@ -172,6 +172,8 @@ const lovelyWatch = (()=>{
   }
   function edit(item){
     editorGeneration++;selected=item;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();imageBusy=0;el('lovelyTitle').textContent=item.title;
+    const group=groupedItems(rows,historyIds,state().hidden||{},state().identities||{}).find(g=>g.articles.some(a=>a.url===item.url));
+    el('lovelyRelatedArticles').innerHTML=group&&group.articles.length>1?'<details><summary>同じ商品のほかの記事</summary>'+group.articles.filter(a=>a.url!==item.url).map(a=>'<p><a target="_blank" rel="noopener noreferrer" href="'+escape(a.url)+'">'+escape(a.title)+'</a></p>').join('')+'</details>':'';
     el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='写真未添付';el('lovelyImageRetry').hidden=true;el('lovelyConfirmed').checked=false;
     el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=savedRakuten(item)||item.ownRakuten||'';el('lovelyNote').value=item.note||'';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
