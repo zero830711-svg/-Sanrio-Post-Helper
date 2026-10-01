@@ -134,23 +134,85 @@ function lw_fetch(string $url,int $limit=1500000,bool $image=false): string {
     if ($ok===false || $status!==200) throw new RuntimeException('ブログに接続できませんでした。時間を置いて再試行してください。');
     return $body;
 }
+function lw_settings_path(): string { return __DIR__.'/.rakuten-settings.php'; }
+function lw_settings(): array {
+    $path=lw_settings_path();
+    if(!is_file($path))return [];
+    $data=require $path;return is_array($data)?$data:[];
+}
+function lw_validate_settings(array $data): array {
+    $out=[];foreach(['applicationId','affiliateId','accessKey'] as $name)$out[$name]=trim((string)($data[$name]??''));
+    if(!preg_match('/^[a-zA-Z0-9-]{8,100}$/D',$out['applicationId']))throw new RuntimeException('アプリIDを確認してください。');
+    if(!preg_match('/^[a-fA-F0-9]{8}(?:\.[a-fA-F0-9]{8}){3}$/D',$out['affiliateId']))throw new RuntimeException('アフィリエイトIDを確認してください。');
+    if(!preg_match('/^[a-zA-Z0-9._~+\/=:-]{16,512}$/D',$out['accessKey']))throw new RuntimeException('アクセスキーを確認してください。');
+    return $out;
+}
+function lw_save_settings(array $data): void {
+    $data=lw_validate_settings($data);$path=lw_settings_path();
+    $tmp=tempnam(sys_get_temp_dir(),'sph-rak-settings-');if($tmp===false)throw new RuntimeException('設定保存先を作れません。');
+    try {
+        if(!chmod($tmp,0600)||file_put_contents($tmp,"<?php\n// Private runtime settings. Never deploy or commit this file.\nreturn ".var_export($data,true).";\n",LOCK_EX)===false||!rename($tmp,$path))throw new RuntimeException('設定を保存できませんでした。');
+    } finally {if(is_file($tmp))unlink($tmp);}
+}
+function lw_affiliate_result(array $data,string $code,string $affiliateId): array {
+    $items=$data['items']??$data['Items']??[];
+    if(!is_array($items)||count($items)!==1)throw new RuntimeException('商品を1件に特定できませんでした。手動でリンクを入力してください。');
+    $item=$items[0]['item']??$items[0]['Item']??$items[0];
+    if(!is_array($item)||($item['itemCode']??'')!==$code)throw new RuntimeException('商品コードが一致しません。自動入力しませんでした。');
+    $url=(string)($item['affiliateUrl']??'');$p=parse_url($url);
+    if(!$p||($p['scheme']??'')!=='https'||($p['host']??'')!=='hb.afl.rakuten.co.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||strpos($p['path']??'','/'.$affiliateId.'/')===false)throw new RuntimeException('自分の楽天紹介リンクを確認できませんでした。');
+    return ['url'=>$url,'itemCode'=>$code,'title'=>(string)($item['itemName']??''),'checkedAt'=>gmdate('c')];
+}
+function lw_affiliate(string $code,array $settings): array {
+    if(!preg_match('/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D',$code))throw new RuntimeException('商品コードを取得できませんでした。');
+    $settings=lw_validate_settings($settings);
+    $base=sys_get_temp_dir().'/sph-rakuten-'.hash('sha256',__DIR__.'|'.json_encode($settings));
+    $cache=$base.'-'.hash('sha256',$code).'.json';
+    if(is_file($cache)&&filemtime($cache)>time()-900){$cached=json_decode((string)file_get_contents($cache),true);if(is_array($cached))return $cached;}
+    $lock=fopen($base.'.lock','c');if(!$lock)throw new RuntimeException('APIの準備に失敗しました。');chmod($base.'.lock',0600);
+    if(!flock($lock,LOCK_EX|LOCK_NB)){fclose($lock);throw new RuntimeException('楽天APIを利用中です。少し待って再試行してください。');}
+    try {
+        $last=(float)stream_get_contents($lock);if(microtime(true)-$last<1)throw new RuntimeException('1秒ほど待って再試行してください。');
+        ftruncate($lock,0);rewind($lock);fwrite($lock,(string)microtime(true));fflush($lock);
+        $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'itemCode'=>$code,'availability'=>0,'formatVersion'=>2,'elements'=>'itemCode,itemName,affiliateUrl']);
+        $ch=curl_init($url);$body='';
+        curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>function($ch,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>500000)return 0;$body.=$bytes;return strlen($bytes);}]);
+        $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+        if($ok===false)throw new RuntimeException('楽天APIへの接続に失敗しました。再試行してください。');
+        if($status!==200)throw new RuntimeException('楽天APIエラー（HTTP '.$status.'）。ID・キー・許可サイト・API権限を確認してください。');
+        $data=json_decode($body,true);if(!is_array($data))throw new RuntimeException('楽天APIの応答を確認できませんでした。');
+        $result=lw_affiliate_result($data,$code,$settings['affiliateId']);
+        $tmp=tempnam(sys_get_temp_dir(),'sph-rak-');if($tmp!==false){chmod($tmp,0600);file_put_contents($tmp,json_encode($result));rename($tmp,$cache);}
+        return $result;
+    }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+
 if (defined('LW_TEST_ONLY')) return;
 $config=require __DIR__.'/config.php';
 $cron=PHP_SAPI==='cli' && in_array('--refresh',$argv??[],true);
 $origin=$_SERVER['HTTP_ORIGIN']??'';
 if ($origin && in_array($origin,$config['allowed_origins']??[],true)) {header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}
-header('Access-Control-Allow-Headers: Authorization, Content-Type');header('Access-Control-Allow-Methods: GET, OPTIONS');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
+header('Access-Control-Allow-Headers: Authorization, Content-Type');header('Access-Control-Allow-Methods: GET, POST, OPTIONS');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
 if (($_SERVER['REQUEST_METHOD']??'')==='OPTIONS') {http_response_code(204);exit;}
 function lw_out(array $data,int $code=200): void {http_response_code($code);echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
 $expected=(string)($config['sync_key']??'');$token='';
 if(preg_match('/^Bearer\s+(.+)$/i',$_SERVER['HTTP_AUTHORIZATION']??'',$m))$token=trim($m[1]);
 if(!$cron && (!$expected || !$token || !hash_equals($expected,$token)))lw_out(['ok'=>false,'error'=>'Unauthorized'],401);
-if(!$cron && ($_SERVER['REQUEST_METHOD']??'')!=='GET')lw_out(['ok'=>false,'error'=>'GET required'],405);
+if(!$cron && ($_SERVER['REQUEST_METHOD']??'')!=='GET' && !(($_GET['action']??'')==='settings' && ($_SERVER['REQUEST_METHOD']??'')==='POST'))lw_out(['ok'=>false,'error'=>'GET required'],405);
 try {
+    if(!$cron && ($_GET['action']??'')==='settings'){
+        if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
+            if(!in_array($origin,$config['allowed_origins']??[],true))lw_out(['ok'=>false,'error'=>'許可されたアプリから設定してください。'],403);
+            $raw=file_get_contents('php://input',false,null,0,4097);if(strlen($raw)>4096)lw_out(['ok'=>false,'error'=>'設定が長すぎます。'],400);
+            $input=json_decode($raw,true);if(!is_array($input))lw_out(['ok'=>false,'error'=>'設定を確認してください。'],400);
+            lw_save_settings($input);
+        }
+        lw_out(['ok'=>true,'configured'=>count(lw_settings())===3]);
+    }
     if(!class_exists('DOMDocument') || !function_exists('curl_init'))throw new RuntimeException('PHPのDOM・cURL拡張が必要です。');
     $action=$cron?'list':($_GET['action']??'list');
     if ($action==='list') $url='https://lovely-fancy.net/';
-    elseif ($action==='detail'||$action==='image') {$url=lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
+    elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
     $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3389|'.$url).'.json';
@@ -163,6 +225,12 @@ try {
         $tmp=$cache.'.tmp';file_put_contents($tmp,json_encode($result,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));chmod($tmp,0600);rename($tmp,$cache);
     }
     flock($lock,LOCK_UN);fclose($lock);
+    if($action==='affiliate'){
+        $info=$result['item']['productInfo']??null;
+        if(!$info)lw_out(['ok'=>false,'error'=>'楽天の商品情報を確認できませんでした。リンクを手動で入力できます。'],400);
+        $settings=lw_settings();if(!$settings)lw_out(['ok'=>false,'error'=>'楽天API設定を保存すると自動入力できます。'],400);
+        lw_out(['ok'=>true,'affiliate'=>lw_affiliate((string)$info['itemCode'],$settings)]);
+    }
     if($action==='image'){
         $index=filter_var($_GET['index']??null,FILTER_VALIDATE_INT);
         $images=$result['item']['productInfo']['images']??[];
@@ -173,3 +241,4 @@ try {
     }
     lw_out($result);
 } catch (Throwable $e) { lw_out(['ok'=>false,'error'=>$e->getMessage()],502); }
+
