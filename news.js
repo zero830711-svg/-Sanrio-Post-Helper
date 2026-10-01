@@ -1,6 +1,6 @@
 function newsReadMarks(){try{return JSON.parse(localStorage.getItem('sanrioNewsMarks')||'{}')||{};}catch{return {};}}
 /* News preparation: fetch files before the user taps native share. */
-const newsState={item:null,files:[],selected:[],seq:0,busy:false,items:[],warnings:[],marks:newsReadMarks(),drafts:new Map(),browseY:0};
+const newsState={item:null,files:[],selected:[],seq:0,busy:false,limit:5,items:[],warnings:[],marks:newsReadMarks(),drafts:new Map(),browseY:0};
 function newsApiUrl(action,url='',index=0){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/news.php'));u.searchParams.set('action',action);if(url)u.searchParams.set('url',url);if(action==='image')u.searchParams.set('index',String(index));return u.toString();}
 async function newsRequest(action,url='',index=0){const {key}=cloudSettings();if(!key)throw new Error('同期キーを設定してください。');const r=await fetch(newsApiUrl(action,url,index),{headers:{Authorization:'Bearer '+key},cache:'no-store',signal:AbortSignal.timeout(25000)});if(action==='image'&&r.ok){const b=await r.blob();if(!/^image\/(jpeg|png|webp)$/.test(b.type))throw new Error('画像形式を確認できません。');return new File([b],'news-'+(index+1)+'.'+(b.type==='image/png'?'png':b.type==='image/webp'?'webp':'jpg'),{type:b.type});}const d=await r.json();if(!r.ok||d.ok===false)throw new Error(d.error||'ニュースを取得できませんでした。');return d;}
 function newsHighlight(item){
@@ -64,7 +64,7 @@ function newsPhotosRender(){
 function newsRender(){
  const filter=$('newsFilter').value;const rows=newsState.items.filter(i=>filter==='all'||(filter==='hidden'?!!newsState.marks[i.url]:!newsState.marks[i.url]));
  $('newsList').replaceChildren();
- for(const item of rows){
+ for(const item of rows.slice(0,newsState.limit)){
  const row=document.createElement('article');row.className='news-row';
  const info=document.createElement('div');info.className='news-row-info';
  const title=document.createElement('strong');title.textContent=item.title;
@@ -78,7 +78,8 @@ function newsRender(){
  if(newsState.marks[item.url]){const restore=document.createElement('button');restore.type='button';restore.className='small-btn news-restore';restore.textContent='戻す';restore.addEventListener('click',()=>newsMark(item.url,null));row.append(restore);}
  $('newsList').append(row);
  }
- $('newsStatus').textContent=rows.length+'件'+(newsState.warnings.length?' ・ 一部の取得に失敗しました':'')+(rows.length?'':' ・ 表示するニュースはありません');
+ const more=$('newsMore');more.hidden=rows.length<=newsState.limit;more.textContent='もっと見る（あと'+Math.max(0,rows.length-newsState.limit)+'件）';
+ $('newsStatus').textContent=Math.min(newsState.limit,rows.length)+' / '+rows.length+'件'+(newsState.warnings.length?' ・ 一部の取得に失敗しました':'')+(rows.length?'':' ・ 表示するニュースはありません');
 }
 function newsKeepDraft(){if(newsState.item&&!$('newsShare').disabled)newsState.drafts.set(newsState.item.url,{item:newsState.item,text:$('newsText').value,files:newsState.files.slice(),selected:newsState.selected.slice()});}
 function newsReturn(){newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;window.scrollTo({top:newsState.browseY,behavior:'instant'});}
@@ -88,7 +89,7 @@ function newsMark(url,kind){
  const editing=newsState.item?.url===url;if(editing)newsReturn();
  newsRender();if(editing)window.scrollTo({top:newsState.browseY,behavior:'instant'});
 }
-async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsState.items=d.items;newsState.warnings=d.warnings||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
+async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsState.items=d.items;newsState.limit=5;newsState.warnings=d.warnings||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
 async function newsPrepare(url){newsKeepDraft();if(!$('newsBrowse').hidden)newsState.browseY=window.scrollY;const cached=newsState.drafts.get(url);const seq=++newsState.seq;newsState.item=null;newsState.files=[];newsState.selected=[];const editor=$('newsEditor');$('newsBrowse').after(editor);$('newsBrowse').hidden=true;editor.hidden=false;$('newsTitle').textContent='投稿を準備中…';$('newsSource').textContent='';$('newsSource').removeAttribute('href');$('newsDate').textContent='';$('newsFacts').textContent='';editor.prepend($('newsEditorStatus'));editor.scrollIntoView({block:'start',behavior:'instant'});$('newsShare').disabled=true;$('newsDone').disabled=true;$('newsSkip').disabled=true;$('newsEditorStatus').textContent='本文・写真を準備中…';$('newsImages').replaceChildren();$('newsText').value='';try{const d=cached?{item:cached.item}:await newsRequest('detail',url);if(seq!==newsState.seq)return;newsState.item=d.item;$('newsDone').disabled=false;$('newsSkip').disabled=false;$('newsTitle').textContent=d.item.title;$('newsSource').href=d.item.url;$('newsSource').textContent=d.item.source+'の記事を確認';$('newsDate').textContent=d.item.date?'発表日：'+d.item.date+'（発売日とは別）':'発表日を元記事で確認';$('newsText').value=cached?cached.text:newsDraft(d.item);$('newsFacts').textContent=(d.item.paragraphs||[]).slice(0,6).join('\n\n');let failed=0;const results=cached?cached.files.map(value=>({status:'fulfilled',value})):await Promise.allSettled(d.item.images.map((_,i)=>newsRequest('image',url,i)));if(seq!==newsState.seq)return;for(const r of results){if(r.status==='fulfilled')newsState.files.push(r.value);else failed++;}newsState.selected=cached?cached.selected.slice():newsState.files.map((_,i)=>i).slice(0,4);newsPhotosRender();$('newsEditorStatus').textContent='写真 '+newsState.files.length+'枚を準備'+(failed?' ・ '+failed+'枚は取得できませんでした':'')+'。本文と画像を確認して共有してください。';$('newsShare').disabled=false;}catch(e){if(seq===newsState.seq)$('newsEditorStatus').textContent=e.message;}}
 $('newsRefresh').addEventListener('click',newsLoad);
 $('newsOpen').addEventListener('click',()=>newsPrepare($('newsUrl').value.trim()));
@@ -99,6 +100,7 @@ $('newsSavePhotos').addEventListener('click',()=>{for(const f of newsChosenFiles
 
 $('newsBack').addEventListener('click',newsReturn);
 
-$('newsFilter').addEventListener('change',newsRender);
+$('newsMore').addEventListener('click',()=>{const y=window.scrollY;newsState.limit+=5;newsRender();window.scrollTo({top:y,behavior:'instant'});});
+$('newsFilter').addEventListener('change',()=>{newsState.limit=5;newsRender();});
 $('newsDone').addEventListener('click',()=>{if(newsState.item)newsMark(newsState.item.url,'done');});
 $('newsSkip').addEventListener('click',()=>{if(newsState.item)newsMark(newsState.item.url,'skip');});
