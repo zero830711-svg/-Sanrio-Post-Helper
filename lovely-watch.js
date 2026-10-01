@@ -3,7 +3,8 @@ const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
   let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false;
   let editorGeneration=0,imageBusy=0;
-  const pickedImages=new Set();
+  const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
+  const detailCache=new Map();let chooseSequence=0,detailLoading=false;
   const el=id=>document.getElementById(id);
   const affiliateOpen=el('lovelyRakutenAffiliateOpen');
   const iosChrome=/iPad|iPhone|iPod/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -92,8 +93,8 @@ const lovelyWatch = (()=>{
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;el('lovelyRefresh').disabled=false}
   }
   function edit(item){
-    editorGeneration++;selected=item;files=[];pickedImages.clear();imageBusy=0;el('lovelyEditor').hidden=false;el('lovelyTitle').textContent=item.title;
-    el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='写真未添付';el('lovelyConfirmed').checked=false;
+    editorGeneration++;selected=item;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();imageBusy=0;el('lovelyEditor').hidden=false;el('lovelyTitle').textContent=item.title;
+    el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='写真未添付';el('lovelyImageRetry').hidden=true;el('lovelyConfirmed').checked=false;
     el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=savedRakuten(item)||item.ownRakuten||'';el('lovelyNote').value=item.note||'';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
     el('lovelyReview').textContent=item.needsReview?'主商品リンクは要確認です。自分で商品を特定してから進めてください。':'記事の主商品リンク候補です。販売ページで商品・セット内容を確認してください。';
@@ -117,29 +118,62 @@ const lovelyWatch = (()=>{
     const root=el('lovelyProductInfo');if(!root)return;
     const info=item.productInfo;
     if(!info){root.innerHTML='<p class="backup-note">'+escape(item.productError||'商品情報は未取得です。販売ページを確認して補足してください。')+'</p>';return}
-    root.innerHTML='<h4>楽天ページから取得した商品情報</h4><p class="backup-note">確認 '+escape(new Date(info.checkedAt).toLocaleString('ja-JP'))+'。価格・在庫はプロンプトに追加しません。取得した情報も商品との一致を確認してください。</p><ul>'+productFacts(info).map(x=>'<li>'+escape(x)+'</li>').join('')+'</ul><div class="lovely-product-images">'+(info.images||[]).map((url,index)=>'<div><a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escape(url)+'" alt="商品ページの画像候補 '+(index+1)+'" loading="lazy" decoding="async"></a><button type="button" class="small-btn" data-lovely-image="'+index+'">この画像を共有に使う</button></div>').join('')+'</div><p class="backup-note">画像の利用可否を確認してから選んでください。別の商品・種類の写真は使わないでください。画像を取得できない場合は保存した写真を添付できます。</p>';
+    root.innerHTML='<h4>楽天ページから取得した商品情報</h4><p class="backup-note">確認 '+escape(new Date(info.checkedAt).toLocaleString('ja-JP'))+'。価格・在庫はプロンプトに追加しません。取得した情報も商品との一致を確認してください。</p><ul>'+productFacts(info).map(x=>'<li>'+escape(x)+'</li>').join('')+'</ul><div class="lovely-product-images">'+(info.images||[]).map((url,index)=>'<div><a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escape(url)+'" alt="商品ページの画像候補 '+(index+1)+'" loading="lazy" decoding="async"></a><label><input type="checkbox" data-lovely-image="'+index+'"> この写真を共有する</label><p id="lovelyImageStatus'+index+'" class="backup-note" aria-live="polite"></p></div>').join('')+'</div><p class="backup-note">画像の利用可否を確認してから選んでください。別の商品・種類の写真は使わないでください。画像を取得できない場合は保存した写真を添付できます。</p>';
   }
-  async function pickImage(index,button){
-    if(!selected||pickedImages.has(index))return;
-    if(files.length+imageBusy>=4){el('lovelyPhotoCount').textContent='共有できる写真は4枚までです。';return}
-    const item=selected,generation=editorGeneration;button.disabled=true;button.textContent='画像を準備中…';imageBusy++;
+  function syncImages(){
+    files=[...imageChoices].sort((a,b)=>a-b).map(i=>imageFiles.get(i)).filter(Boolean);
+    const failed=[...imageChoices].filter(i=>imageErrors.has(i));
+    el('lovelyPhotoCount').textContent=imageChoices.size?imageChoices.size+'枚選択 ／ '+files.length+'枚準備済み'+(imageBusy?' ／ 取得中…':''):'写真未添付';
+    el('lovelyImageRetry').hidden=!failed.length;
+    for(const i of imageChoices){
+      const status=el('lovelyImageStatus'+i);
+      if(status)status.textContent=imageErrors.get(i)||(imageFiles.has(i)?'共有の準備完了':'取得中…');
+    }
+  }
+  function queueImages(){
+    if(!selected)return;
+    for(const i of imageChoices){
+      if(imageBusy>=2)break;
+      if(!imageFiles.has(i)&&!imageActive.has(i)&&!imageErrors.has(i))pickImage(i);
+    }
+    syncImages();
+  }
+  async function pickImage(index){
+    if(!selected||!selected.productInfo?.images?.[index])return;
+    const item=selected,generation=editorGeneration;imageActive.add(index);imageBusy++;
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),40000);
     try{
       const target=endpoint();target.searchParams.set('action','image');target.searchParams.set('url',item.url);target.searchParams.set('index',index);
       const res=await fetch(target,{headers:{Authorization:'Bearer '+cloudSettings().key},cache:'no-store',signal:controller.signal});
-      if(!res.ok)throw new Error('画像を取得できませんでした。手動で写真を添付してください。');
-      const blob=await res.blob();if(!['image/jpeg','image/png','image/webp'].includes(blob.type)||blob.size>6000000)throw new Error('この画像は共有に使えません。');
-      if(generation!==editorGeneration)return;
-      if(files.reduce((n,f)=>n+f.size,blob.size)>20*1024*1024)throw new Error('写真の合計を20MB以内にしてください。');
-      const ext=blob.type==='image/jpeg'?'jpg':blob.type==='image/png'?'png':'webp';files.push(new File([blob],'product-'+(index+1)+'.'+ext,{type:blob.type}));pickedImages.add(index);
-      el('lovelyPhotos').value='';el('lovelyConfirmed').checked=false;el('lovelyPhotoCount').textContent=files.length+'枚選択';button.textContent='共有用に選択済み';
-    }catch(e){if(generation===editorGeneration){el('lovelyPhotoCount').textContent=e.name==='AbortError'?'画像の取得がタイムアウトしました。写真を手動で添付できます。':e.message;button.disabled=false;button.textContent='この画像を共有に使う'}}
-    finally{clearTimeout(timer);if(generation===editorGeneration)imageBusy--}
+      if(!res.ok)throw new Error('取得失敗。再試行するか、この写真のチェックを外してください。');
+      const blob=await res.blob();
+      if(!['image/jpeg','image/png','image/webp'].includes(blob.type)||blob.size>6000000)throw new Error('この画像は共有に使えません。');
+      if(generation!==editorGeneration||!imageChoices.has(index))return;
+      if([...imageFiles.values()].reduce((n,f)=>n+f.size,blob.size)>20*1024*1024)throw new Error('写真の合計を20MB以内にしてください。');
+      const ext=blob.type==='image/jpeg'?'jpg':blob.type==='image/png'?'png':'webp';
+      imageFiles.set(index,new File([blob],'product-'+(index+1)+'.'+ext,{type:blob.type}));
+    }catch(e){if(generation===editorGeneration)imageErrors.set(index,e.name==='AbortError'?'取得がタイムアウトしました。再試行できます。':e.message)}
+    finally{
+      clearTimeout(timer);
+      if(generation===editorGeneration){imageBusy--;imageActive.delete(index);queueImages();}
+    }
   }
   async function choose(url){
-    if(busy)return;busy=true;el('lovelyStatus').textContent='主商品リンクを確認中…';
-    try{const data=await request('detail',url);edit(data.item);autoRakuten(selected);el('lovelyEditor').scrollIntoView({block:'start'});el('lovelyStatus').textContent='主商品欄を取得しました。';}
-    catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false}
+    const sequence=++chooseSequence,cached=detailCache.get(url),draft=state().draft;
+    if(cached&&Date.now()-cached.time<900000){detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;edit({...cached.item,...(draft?.url===url?{ownAmazon:draft.ownAmazon,ownRakuten:draft.ownRakuten,note:draft.note}:{})});autoRakuten(selected);el('lovelyEditor').scrollIntoView({block:'start'});return;}
+    edit({...((draft?.url===url?draft:null)||rows.find(x=>x.url===url)||{title:'商品情報を確認中…'}),url});
+    detailLoading=true;el('lovelyPhotos').disabled=true;el('lovelyConfirmed').disabled=true;
+    el('lovelyProductInfo').textContent='記事と楽天の商品ページを確認しています…';
+    el('lovelyStatus').textContent='商品情報を取得中…';el('lovelyEditor').scrollIntoView({block:'start'});
+    try{
+      const data=await request('detail',url);
+      detailCache.delete(url);detailCache.set(url,{time:Date.now(),item:data.item});
+      if(detailCache.size>20)detailCache.delete(detailCache.keys().next().value);
+      if(sequence!==chooseSequence)return;
+      edit({...data.item,ownAmazon:el('lovelyAmazon').value.trim(),ownRakuten:el('lovelyRakuten').value.trim(),note:el('lovelyNote').value.trim()});
+      autoRakuten(selected);el('lovelyStatus').textContent='主商品欄を取得しました。';
+    }catch(e){if(sequence===chooseSequence){el('lovelyStatus').textContent=e.message;el('lovelyProductInfo').textContent='商品情報を取得できませんでした。写真とリンクを手動で追加できます。';}}
+    finally{if(sequence===chooseSequence){detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;}}
   }
   function ownLink(url,store){
     if(!url)return '';let u;try{u=new URL(url)}catch(e){throw new Error(store+'リンクを確認してください。')}
@@ -168,6 +202,8 @@ const lovelyWatch = (()=>{
   function share(){
     const status=el('lovelyShareStatus');try{
       if(!selected)throw new Error('商品を選んでください。');
+      if(detailLoading)throw new Error('商品情報の取得が終わってから共有してください。');
+      if(imageChoices.size&&files.length!==imageChoices.size)throw new Error('選んだ写真の準備が終わっていません。取得失敗の写真は再試行するか、チェックを外してください。');
       if(imageBusy)throw new Error('画像の準備が終わってから共有してください。');
       if(!el('lovelyConfirmed').checked)throw new Error('商品・リンク・写真の確認欄にチェックしてください。');
       const amazon=ownLink(el('lovelyAmazon').value.trim(),'Amazon'),rakuten=ownLink(el('lovelyRakuten').value.trim(),'楽天');
@@ -179,10 +215,10 @@ const lovelyWatch = (()=>{
       navigator.share({files:files.slice(),text}).then(()=>{status.textContent='共有画面を閉じました。投稿後は「投稿済み」を押してください。'}).catch(e=>{status.textContent=e.name==='AbortError'?'共有をキャンセルしました。':'共有できませんでした：'+e.message});
     }catch(e){status.textContent=e.message}
   }
-  function hide(reason){if(!selected)return;const s=state();s.hidden=s.hidden||{};s.hidden[selected.url]=reason;
+  function hide(reason){if(!selected)return;chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;const s=state();s.hidden=s.hidden||{};s.hidden[selected.url]=reason;
     const entries=Object.entries(s.hidden);s.hidden=Object.fromEntries(entries.slice(-500));s.draft=null;
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){el('lovelyShareStatus').textContent='記録を保存できませんでした。';return}
-    editorGeneration++;imageBusy=0;selected=null;files=[];pickedImages.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();
+    editorGeneration++;imageBusy=0;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();
   }
   el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft)edit(draft)}});
   el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
@@ -199,7 +235,19 @@ const lovelyWatch = (()=>{
   el('rakutenRetry')?.addEventListener('click',()=>{if(selected)autoRakuten(selected)});
   el('lovelyRefresh')?.addEventListener('click',refresh);
   el('lovelyList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-select]');if(b)choose(b.dataset.lovelySelect)});
-  el('lovelyProductInfo')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-image]');if(b)pickImage(Number(b.dataset.lovelyImage),b)});
+  el('lovelyProductInfo')?.addEventListener('change',e=>{
+    const b=e.target.closest('[data-lovely-image]');if(!b)return;
+    if(detailLoading){b.checked=false;return;}
+    const index=Number(b.dataset.lovelyImage);
+    if(!Number.isInteger(index)||!selected?.productInfo?.images?.[index])return;
+    if(b.checked){
+      if(imageChoices.size>=4){b.checked=false;el('lovelyPhotoCount').textContent='写真は4枚まで選べます。';return;}
+      if(!imageChoices.size&&files.length){files=[];el('lovelyPhotos').value='';}
+      imageChoices.add(index);imageErrors.delete(index);
+    }else{imageChoices.delete(index);imageFiles.delete(index);imageErrors.delete(index);const status=el('lovelyImageStatus'+index);if(status)status.textContent='';}
+    el('lovelyConfirmed').checked=false;queueImages();
+  });
+  el('lovelyImageRetry')?.addEventListener('click',()=>{for(const i of imageChoices)imageErrors.delete(i);queueImages();});
   el('lovelyRakutenPaste')?.addEventListener('click',async()=>{
     const input=el('lovelyRakuten'),status=el('rakutenAutoStatus'),item=selected,previous=input.value;
     const manual=()=>{input.focus();input.select();status.textContent='この欄を長押しして、コピーした楽天の短縮URLを貼り付けてください。';};
@@ -218,8 +266,9 @@ const lovelyWatch = (()=>{
   });
   for(const id of ['lovelyAmazon','lovelyRakuten','lovelyNote'])el(id)?.addEventListener('input',()=>{el('lovelyConfirmed').checked=false;persist()});
   el('lovelyPhotos')?.addEventListener('change',e=>{
-    const incoming=Array.from(e.target.files||[]);editorGeneration++;imageBusy=0;files=[];pickedImages.clear();el('lovelyConfirmed').checked=false;
+    const incoming=Array.from(e.target.files||[]);editorGeneration++;imageBusy=0;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyConfirmed').checked=false;
     if(selected)renderProduct(selected);
+    el('lovelyImageRetry').hidden=true;
     if(incoming.length>4||incoming.some(f=>!/^image\/(jpeg|png|webp)$/.test(f.type))||incoming.reduce((n,f)=>n+f.size,0)>20*1024*1024){e.target.value='';el('lovelyPhotoCount').textContent='JPEG・PNG・WebPを4枚以内、合計20MB以内で選んでください。';return}
     files=incoming;el('lovelyPhotoCount').textContent=files.length+'枚選択';
   });
