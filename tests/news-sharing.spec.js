@@ -58,3 +58,16 @@ test('ニュースの写真を先に取得し、編集した本文と一緒に�
  await page.getByRole('tab',{name:'今日の候補',exact:true}).click();
  await expect(page.locator('#newsPanel')).not.toBeVisible();
 });
+
+test('ニュース本文から商品ラインナップを優先し、確認できた日程と価格をまとめる',async({page})=>{
+ await page.goto('/');await page.waitForFunction(()=>typeof newsDraft==='function');
+ const result=await page.evaluate(()=>{
+  const item={title:'クロミの新作グッズが登場',url:'https://www.sanrio.co.jp/news/goods/example/',paragraphs:['かわいいデザインの新作が登場するよ！',...Array(13).fill('イベントについてのご案内です。'),'毛布やコスメケースなど、ヒョウ柄のアイテムが揃います。','送料は500円です。'],facts:[{kind:'price',text:'1回880円（税込）です。'},{kind:'schedule',text:'10月3日から順次発売予定です。'}]};
+  return {highlight:newsHighlight(item),draft:newsDraft(item),empty:newsDraft({title:'新作ニュース',url:item.url,paragraphs:[],facts:[]}),long:newsDraft({...item,title:'とても長い商品ニュース'.repeat(12),paragraphs:['かわいいデザインのバッグやポーチなどが揃います。']})};
+ });
+ expect(result.highlight).toBe('毛布やコスメケースなど、ヒョウ柄のアイテムが揃います');
+ expect(result.draft).toContain(result.highlight);expect(result.draft).toContain('📅 10月3日から順次発売予定');expect(result.draft).toContain('💰 1回880円（税込）');
+ expect(result.draft).not.toContain('送料');expect(result.empty).not.toMatch(/📅|💰|発売|販売中/);
+ expect(Array.from(result.long).length).toBeLessThanOrEqual(280);
+ expect(result.long).toContain('https://www.sanrio.co.jp/news/goods/example/');
+});
