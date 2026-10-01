@@ -3928,23 +3928,13 @@ $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))close
 
 
 function setHomeView(view){
-  const today=document.getElementById("todayHomePanel"),fresh=document.getElementById("lovelyPanel");
-  const todayTab=document.getElementById("homeTodayTab"),newTab=document.getElementById("homeNewTab");
-  if(!today||!fresh||!todayTab||!newTab)return;
-  const isNew=view==="new";
-  today.hidden=isNew;fresh.hidden=!isNew;fresh.open=isNew;
-  todayTab.setAttribute("aria-selected",String(!isNew));newTab.setAttribute("aria-selected",String(isNew));
-  todayTab.tabIndex=isNew?-1:0;newTab.tabIndex=isNew?0:-1;
+ const tabs=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["new","homeNewTab","lovelyPanel"]];
+ for(const [name,id,panel] of tabs){const b=$(id),p=$(panel);if(!b||!p)continue;const on=name===view;p.hidden=!on;if(panel==="lovelyPanel")p.open=on;b.setAttribute("aria-selected",String(on));b.tabIndex=on?0:-1;}
+ if(view==="news"&&!$("newsList").children.length&&typeof newsLoad==="function")newsLoad();
 }
-for(const [id,view] of [["homeTodayTab","today"],["homeNewTab","new"]]){
-  const button=document.getElementById(id);
-  button?.addEventListener("click",()=>setHomeView(view));
-  button?.addEventListener("keydown",e=>{
-    if(!["ArrowLeft","ArrowRight","Home","End"].includes(e.key))return;
-    e.preventDefault();
-    const next=e.key==="Home"?"today":e.key==="End"?"new":view==="today"?"new":"today";
-    setHomeView(next);document.getElementById(next==="new"?"homeNewTab":"homeTodayTab").focus();
-  });
+for(const [id,view] of [["homeTodayTab","today"],["homeNewsTab","news"],["homeNewTab","new"]]){
+ const button=$(id);button?.addEventListener("click",()=>setHomeView(view));
+ button?.addEventListener("keydown",e=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(e.key))return;e.preventDefault();const views=["today","news","new"],ids=["homeTodayTab","homeNewsTab","homeNewTab"];let n=e.key==="Home"?0:e.key==="End"?2:(views.indexOf(view)+(e.key==="ArrowRight"?1:2))%3;setHomeView(views[n]);$(ids[n]).focus();});
 }
 
 (async()=>{
@@ -3985,6 +3975,7 @@ for(const [id,view] of [["homeTodayTab","today"],["homeNewTab","new"]]){
     else if(last)renderCloudStatus("自動同期済み："+new Date(last).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}));
   }
 })();
+
 
 
 
