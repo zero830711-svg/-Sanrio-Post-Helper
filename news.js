@@ -46,18 +46,42 @@ function newsDraft(item){
  return heading+intro+factBlock+footer;
 }
 function newsDateLabel(value){const m=String(value||'').match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);return m?Number(m[2])+'/'+Number(m[3]):value;}
-function newsChosenFiles(){return newsState.selected.map(i=>newsState.files[i]);}
+function newsChosenFiles(){return newsState.selected.map(i=>newsState.files[i]).filter(Boolean);}
+function newsPhotoReady(){return newsState.selected.every(i=>!!newsState.files[i]);}
+function newsPhotoStatus(){
+ if(!newsState.item)return;
+ const ready=newsPhotoReady(),entry=newsState.drafts.get(newsState.item.url);
+ $('newsShare').disabled=!ready;$('newsSavePhotos').disabled=!ready||!newsState.selected.length;
+ const loaded=newsState.files.filter(Boolean).length,total=newsState.files.length;
+ const failed=entry?.errors?.filter(Boolean).length||0;
+ $('newsEditorStatus').textContent=failed?'一部の写真を取得できませんでした。使わない写真は選択を外してください。':loaded<total?'本文は編集できます。写真を準備中（'+loaded+' / '+total+'枚）':'写真 '+loaded+'枚を準備。本文と画像を確認して共有してください。';
+}
+function newsPhotoArrived(entry,index){
+ if(!newsState.item||newsState.drafts.get(newsState.item.url)!==entry)return;
+ const img=$('newsImages').querySelector('[data-news-photo="'+index+'"]');
+ if(img&&entry.files[index]){const u=URL.createObjectURL(entry.files[index]);img.onload=()=>URL.revokeObjectURL(u);img.onerror=()=>URL.revokeObjectURL(u);img.src=u;}
+ newsPhotoStatus();
+}
+function newsLoadPhotos(entry){
+ entry.loading=entry.loading||[];entry.errors=entry.errors||[];
+ entry.item.images.forEach((_,i)=>{
+  if(entry.files[i]||entry.loading[i])return;
+  entry.loading[i]=true;entry.errors[i]=null;
+  newsRequest('image',entry.item.url,i).then(file=>{entry.files[i]=file;}).catch(error=>{entry.errors[i]=error.message;}).finally(()=>{entry.loading[i]=false;newsPhotoArrived(entry,i);});
+ });
+}
 function newsPhotosRender(){
  const box=$('newsImages');box.replaceChildren();
  [...newsState.selected,...newsState.files.map((_,i)=>i).filter(i=>!newsState.selected.includes(i))].forEach(i=>{const file=newsState.files[i];
  const card=document.createElement('div');card.className='news-photo';
- const img=document.createElement('img');img.src=URL.createObjectURL(file);img.alt='記事の写真 '+(i+1);img.onload=()=>URL.revokeObjectURL(img.src);
+ const img=document.createElement('img');img.alt='記事の写真 '+(i+1);img.dataset.newsPhoto=String(i);img.referrerPolicy='no-referrer';
+ if(file){const u=URL.createObjectURL(file);img.src=u;img.onload=()=>URL.revokeObjectURL(u);img.onerror=()=>URL.revokeObjectURL(u);}else img.src=newsState.item.images[i];
  const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=newsState.selected.includes(i);
  const pos=newsState.selected.indexOf(i);
  label.append(check,document.createTextNode(pos>=0?(pos+1)+'枚目':'使わない'));
- check.addEventListener('change',()=>{if(check.checked){if(newsState.selected.length>=4){check.checked=false;$('newsEditorStatus').textContent='写真は4枚まで選べます。';return;}newsState.selected.push(i);}else newsState.selected=newsState.selected.filter(n=>n!==i);newsPhotosRender();});
+ check.addEventListener('change',()=>{if(check.checked){if(newsState.selected.length>=4){check.checked=false;$('newsEditorStatus').textContent='写真は4枚まで選べます。';return;}newsState.selected.push(i);}else newsState.selected=newsState.selected.filter(n=>n!==i);newsKeepDraft();newsPhotosRender();newsPhotoStatus();});
  const controls=document.createElement('div');controls.className='news-photo-controls';
- ['前へ','後へ'].forEach((text,n)=>{const b=document.createElement('button');b.type='button';b.className='small-btn';b.textContent=text;b.setAttribute('aria-label','写真'+(i+1)+'を'+text);b.disabled=pos<0||(n===0?pos===0:pos===newsState.selected.length-1);b.onclick=()=>{const target=pos+(n===0?-1:1);[newsState.selected[pos],newsState.selected[target]]=[newsState.selected[target],newsState.selected[pos]];newsPhotosRender();};controls.append(b);});
+ ['前へ','後へ'].forEach((text,n)=>{const b=document.createElement('button');b.type='button';b.className='small-btn';b.textContent=text;b.setAttribute('aria-label','写真'+(i+1)+'を'+text);b.disabled=pos<0||(n===0?pos===0:pos===newsState.selected.length-1);b.onclick=()=>{const target=pos+(n===0?-1:1);[newsState.selected[pos],newsState.selected[target]]=[newsState.selected[target],newsState.selected[pos]];newsKeepDraft();newsPhotosRender();newsPhotoStatus();};controls.append(b);});
  card.append(img,label,controls);box.append(card);
  });
 }
@@ -81,7 +105,11 @@ function newsRender(){
  const more=$('newsMore');more.hidden=rows.length<=newsState.limit;more.textContent='もっと見る（あと'+Math.max(0,rows.length-newsState.limit)+'件）';
  $('newsStatus').textContent=Math.min(newsState.limit,rows.length)+' / '+rows.length+'件'+(newsState.warnings.length?' ・ 一部の取得に失敗しました':'')+(rows.length?'':' ・ 表示するニュースはありません');
 }
-function newsKeepDraft(){if(newsState.item&&!$('newsShare').disabled)newsState.drafts.set(newsState.item.url,{item:newsState.item,text:$('newsText').value,files:newsState.files.slice(),selected:newsState.selected.slice()});}
+function newsKeepDraft(){
+ if(!newsState.item)return;
+ const entry=newsState.drafts.get(newsState.item.url);
+ if(entry){entry.text=$('newsText').value;entry.selected=newsState.selected.slice();}
+}
 function newsReturn(){newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;window.scrollTo({top:newsState.browseY,behavior:'instant'});}
 function newsMark(url,kind){
  const prev=newsState.marks[url];if(kind)newsState.marks[url]={kind,at:new Date().toISOString()};else delete newsState.marks[url];
@@ -90,12 +118,40 @@ function newsMark(url,kind){
  newsRender();if(editing)window.scrollTo({top:newsState.browseY,behavior:'instant'});
 }
 async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsState.items=d.items;newsState.limit=5;newsState.warnings=d.warnings||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
-async function newsPrepare(url){newsKeepDraft();if(!$('newsBrowse').hidden)newsState.browseY=window.scrollY;const cached=newsState.drafts.get(url);const seq=++newsState.seq;newsState.item=null;newsState.files=[];newsState.selected=[];const editor=$('newsEditor');$('newsBrowse').after(editor);$('newsBrowse').hidden=true;editor.hidden=false;$('newsTitle').textContent='投稿を準備中…';$('newsSource').textContent='';$('newsSource').removeAttribute('href');$('newsDate').textContent='';$('newsFacts').textContent='';editor.prepend($('newsEditorStatus'));editor.scrollIntoView({block:'start',behavior:'instant'});$('newsShare').disabled=true;$('newsDone').disabled=true;$('newsSkip').disabled=true;$('newsEditorStatus').textContent='本文・写真を準備中…';$('newsImages').replaceChildren();$('newsText').value='';try{const d=cached?{item:cached.item}:await newsRequest('detail',url);if(seq!==newsState.seq)return;newsState.item=d.item;$('newsDone').disabled=false;$('newsSkip').disabled=false;$('newsTitle').textContent=d.item.title;$('newsSource').href=d.item.url;$('newsSource').textContent=d.item.source+'の記事を確認';$('newsDate').textContent=d.item.date?'発表日：'+d.item.date+'（発売日とは別）':'発表日を元記事で確認';$('newsText').value=cached?cached.text:newsDraft(d.item);$('newsFacts').textContent=(d.item.paragraphs||[]).slice(0,6).join('\n\n');let failed=0;const results=cached?cached.files.map(value=>({status:'fulfilled',value})):await Promise.allSettled(d.item.images.map((_,i)=>newsRequest('image',url,i)));if(seq!==newsState.seq)return;for(const r of results){if(r.status==='fulfilled')newsState.files.push(r.value);else failed++;}newsState.selected=cached?cached.selected.slice():newsState.files.map((_,i)=>i).slice(0,4);newsPhotosRender();$('newsEditorStatus').textContent='写真 '+newsState.files.length+'枚を準備'+(failed?' ・ '+failed+'枚は取得できませんでした':'')+'。本文と画像を確認して共有してください。';$('newsShare').disabled=false;}catch(e){if(seq===newsState.seq)$('newsEditorStatus').textContent=e.message;}}
+async function newsPrepare(url){
+ newsKeepDraft();if(!$('newsBrowse').hidden)newsState.browseY=window.scrollY;
+ const seq=++newsState.seq;newsState.item=null;newsState.files=[];newsState.selected=[];
+ const editor=$('newsEditor');$('newsBrowse').after(editor);$('newsBrowse').hidden=true;editor.hidden=false;
+ const listed=newsState.items.find(item=>item.url===url);
+ $('newsTitle').textContent=listed?.title||'投稿を準備中…';
+ $('newsSource').textContent='';$('newsSource').removeAttribute('href');$('newsDate').textContent='';$('newsFacts').textContent='';
+ editor.prepend($('newsEditorStatus'));editor.scrollIntoView({block:'start',behavior:'instant'});
+ $('newsShare').disabled=true;$('newsSavePhotos').disabled=true;$('newsDone').disabled=true;$('newsSkip').disabled=true;
+ $('newsEditorStatus').textContent='記事を確認中…';$('newsImages').replaceChildren();$('newsText').value='';
+ try{
+  let entry=newsState.drafts.get(url);
+  if(!entry){
+   const d=await newsRequest('detail',url);if(seq!==newsState.seq)return;
+   const item={...d.item,images:d.item.images||[]};
+   entry={item,text:newsDraft(item),files:item.images.map(()=>null),selected:item.images.map((_,i)=>i).slice(0,4),errors:[],loading:[]};
+   newsState.drafts.set(url,entry);
+  }
+  if(seq!==newsState.seq)return;
+  newsState.item=entry.item;newsState.files=entry.files;newsState.selected=entry.selected.slice();
+  $('newsDone').disabled=false;$('newsSkip').disabled=false;
+  $('newsTitle').textContent=entry.item.title;$('newsSource').href=entry.item.url;$('newsSource').textContent=entry.item.source+'の記事を確認';
+  $('newsDate').textContent=entry.item.date?'発表日：'+entry.item.date+'（発売日とは別）':'発表日を元記事で確認';
+  $('newsText').value=entry.text;$('newsFacts').textContent=(entry.item.paragraphs||[]).slice(0,6).join('\n\n');
+  // Show every preview before waiting for downloadable photo files.
+  newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();
+ }catch(e){if(seq===newsState.seq)$('newsEditorStatus').textContent=e.message;}
+}
+$('newsText').addEventListener('input',newsKeepDraft);
 $('newsRefresh').addEventListener('click',newsLoad);
 $('newsOpen').addEventListener('click',()=>newsPrepare($('newsUrl').value.trim()));
 $('newsExample').addEventListener('click',()=>{const url='https://prtimes.jp/main/html/rd/p/000000122.000013308.html';$('newsUrl').value=url;newsPrepare(url);});
 $('newsCopy').addEventListener('click',()=>copyTextFromClick($('newsText').value,$('newsCopy'),'投稿文をコピーしました'));
-$('newsShare').addEventListener('click',async()=>{const text=$('newsText').value.trim();if(!text)return;const data={text,files:newsChosenFiles()};try{if(data.files.length&&navigator.canShare?.(data)){await navigator.share(data);$('newsEditorStatus').textContent='共有先でXを選び、本文・写真を確認して投稿してください。';}else if(navigator.share){await navigator.share({text});$('newsEditorStatus').textContent='本文を共有しました。写真は「写真を保存」から添付できます。';}else{copyTextFromClick(text,$('newsCopy'),'本文をコピーしました');window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text),'_blank','noopener');}}catch(e){if(e.name!=='AbortError')$('newsEditorStatus').textContent='共有できませんでした。投稿文をコピーし、写真を保存してXに添付してください。';}});
+$('newsShare').addEventListener('click',async()=>{const text=$('newsText').value.trim();if(!text||!newsPhotoReady())return;newsKeepDraft();const data={text,files:newsChosenFiles()};try{if(data.files.length&&navigator.canShare?.(data)){await navigator.share(data);$('newsEditorStatus').textContent='共有先でXを選び、本文・写真を確認して投稿してください。';}else if(navigator.share){await navigator.share({text});$('newsEditorStatus').textContent='本文を共有しました。写真は「写真を保存」から添付できます。';}else{copyTextFromClick(text,$('newsCopy'),'本文をコピーしました');window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text),'_blank','noopener');}}catch(e){if(e.name!=='AbortError')$('newsEditorStatus').textContent='共有できませんでした。投稿文をコピーし、写真を保存してXに添付してください。';}});
 $('newsSavePhotos').addEventListener('click',()=>{for(const f of newsChosenFiles()){const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(u),60000);}});
 
 $('newsBack').addEventListener('click',newsReturn);
