@@ -91,3 +91,35 @@ test('今日の候補を5件ずつ追加し、重複なく追加候補の詳細�
  const ids=await page.locator('.today-news-row button').evaluateAll(buttons=>buttons.map(b=>b.dataset.id));
  expect(new Set(ids).size).toBe(11);
 });
+
+test('候補の写真を4枚まで選び、並べた順で共有・保存する',async({page})=>{
+ await seed(page);
+ await page.evaluate(()=>{
+  compactFixture.images=Array.from({length:5},(_,i)=>'https://example.invalid/photo-'+i+'.png');
+  imageBlob=async src=>new Blob([src],{type:'image/png'});
+  Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
+  Object.defineProperty(navigator,'share',{value:async data=>{window.photoShare={text:data.text,photos:await Promise.all(data.files.map(f=>f.text()))};},configurable:true});
+  showTodayDetail(compactFixture);
+  detailImageBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/png'}));renderDetailPhotos();
+ });
+ await expect(page.locator('[data-detail-select]:checked')).toHaveCount(4);
+ await page.locator('[data-detail-select="4"]').check();await expect(page.locator('[data-detail-select="4"]')).not.toBeChecked();
+ await page.locator('[data-detail-select="0"]').uncheck();await page.locator('[data-detail-select="4"]').check();
+ for(let i=0;i<3;i++)await page.getByRole('button',{name:'写真5を前へ',exact:true}).click();
+ await page.locator('#detailChatGPTShare').click();
+ await expect.poll(()=>page.evaluate(()=>window.photoShare?.photos)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
+ await page.evaluate(()=>{showTodayDetail(compactFixture);detailImageBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/png'}));renderDetailPhotos();});
+ expect(await page.evaluate(()=>detailPhotoSelection)).toEqual([4,1,2,3]);
+ await page.locator('#detailExtraTools summary').click();await page.locator('#detailDownloadAllPhotos').click();
+ await expect.poll(()=>page.evaluate(()=>window.photoShare?.photos)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
+ expect(await page.evaluate(()=>detailSelectedItem().images)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
+});
+test('写真がない候補は写真付き候補の後に表示する',async({page})=>{
+ await seed(page);
+ await page.evaluate(async()=>{
+  const empty={...compactFixture,id:'no-photo',images:[],impressions:999999};
+  getRoleBasedPicks=async()=>[empty,{...compactFixture,id:'with-photo'}];getReadyItems=async()=>[];
+  await renderToday();
+ });
+ expect(await page.locator('.today-news-row button').evaluateAll(nodes=>nodes.map(n=>n.dataset.id))).toEqual(['with-photo','no-photo']);
+});
