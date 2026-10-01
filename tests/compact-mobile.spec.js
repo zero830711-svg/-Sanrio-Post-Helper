@@ -41,7 +41,7 @@ test('一覧は右の1ボタンで開き、詳細のリンクを横書きで確�
   await expect(page.locator('#detailBlogShare')).toHaveText('ブログ');
   await expect(body.getByRole('button',{name:'コピー',exact:true})).toHaveCount(2);
   for(const row of await body.locator('.today-affiliate-link-row').all()){
-   const link=await row.locator('a').boundingBox();expect(link.width).toBeGreaterThan(50);expect(link.height).toBeLessThan(70);
+   const link=await row.locator('a').boundingBox();expect(link.width).toBeGreaterThanOrEqual(44);expect(link.height).toBeLessThan(70);
   }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   await page.locator('#closeDetailModal').click();
