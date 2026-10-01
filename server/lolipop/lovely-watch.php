@@ -43,6 +43,15 @@ function lw_product(string $href): ?array {
     // Search links must never be promoted to product links.
     return null;
 }
+// List previews only; these URLs are never accepted by the image sharing proxy.
+function lw_thumbnail_url(string $url): string {
+    $url=html_entity_decode(trim($url),ENT_QUOTES|ENT_HTML5,'UTF-8');
+    if(strpos($url,'//')===0)$url='https:'.$url;
+    if(strpos($url,'/wp-content/uploads/')===0)$url='https://lovely-fancy.net'.$url;
+    $parts=parse_url($url);
+    if(($parts['scheme']??'')!=='https'||($parts['host']??'')!=='lovely-fancy.net'||isset($parts['port'])||isset($parts['user'])||isset($parts['pass']))return '';
+    return preg_match('~^/wp-content/uploads/[0-9]{4}/[0-9]{2}/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$~D',$parts['path']??'')?$url:'';
+}
 function lw_list(string $html): array {
     $x=lw_doc($html); $rows=[];
     foreach ($x->query('//article[contains(concat(" ",normalize-space(@class)," ")," post-list ")]') as $article) {
@@ -52,7 +61,12 @@ function lw_list(string $html): array {
         $url=''; foreach ($x->query('.//a[@rel="bookmark"]',$article) as $a) { $url=lw_article_url($a->getAttribute('href')); if ($url) break; }
         if (!$url) continue;
         $ids=[]; foreach ($x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," btn-float ")]//a[@href]',$article) as $a) { $p=lw_product($a->getAttribute('href')); if ($p) $ids[]=$p['id']; }
-        $rows[$url]=['url'=>$url,'title'=>$title,'date'=>str_replace('.','-',lw_text($x->query('.//time',$article)->item(0))),'productIds'=>array_values(array_unique($ids))];
+        $thumbnail='';
+        foreach($x->query('.//img[contains(concat(" ",normalize-space(@class)," ")," archives-eyecatch-image ") or contains(concat(" ",normalize-space(@class)," ")," wp-post-image ")]',$article) as $img){
+            foreach(['data-src','src'] as $attr){$thumbnail=lw_thumbnail_url($img->getAttribute($attr));if($thumbnail)break;}
+            if($thumbnail)break;
+        }
+        $rows[$url]=['thumbnail'=>$thumbnail,'url'=>$url,'title'=>$title,'date'=>str_replace('.','-',lw_text($x->query('.//time',$article)->item(0))),'productIds'=>array_values(array_unique($ids))];
     }
     if (!$rows) throw new RuntimeException('新着の商品欄を取得できませんでした。サイトの構造変更やアクセス制限の可能性があります。');
     return array_values($rows);
@@ -250,7 +264,7 @@ try {
     elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
-    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3389|'.$url).'.json';
+    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3390-thumbnails1|'.$url).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
     $result=!$cron && is_file($cache)&&filemtime($cache)>time()-900?json_decode((string)file_get_contents($cache),true):null;
     if (!is_array($result)) {
@@ -276,4 +290,5 @@ try {
     }
     lw_out($result);
 } catch (Throwable $e) { lw_out(['ok'=>false,'error'=>$e->getMessage()],502); }
+
 
