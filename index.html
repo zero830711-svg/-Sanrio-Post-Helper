@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261001-3390-news9">
+<link rel="stylesheet" href="./styles.css?v=20261001-3390-news10">
 </head>
 <body>
 <main class="app">
@@ -54,6 +54,7 @@
 <div class="today-head"><h2 class="section-title">新作ニュース</h2><button id="newsRefresh" class="small-btn" type="button">更新</button></div>
 <p class="backup-note">サンリオ公式・PR TIMESから投稿を準備</p>
 <details><summary>記事URLから開く</summary><label>記事URL<input id="newsUrl" type="url" placeholder="https://prtimes.jp/..."></label><button id="newsOpen" class="small-btn" type="button">投稿準備</button><button id="newsExample" class="small-btn" type="button">ワークマンの記事で試す</button></details>
+<label class="news-filter">表示<select id="newsFilter"><option value="new">未投稿</option><option value="hidden">投稿済み・見送り</option><option value="all">すべて</option></select></label>
 <p id="newsStatus" class="backup-note" aria-live="polite"></p><div id="newsList"></div>
 <section id="newsEditor" hidden><button id="newsBack" class="small-btn" type="button">ニュース一覧へ戻る</button><h3 id="newsTitle"></h3><a id="newsSource" target="_blank" rel="noopener noreferrer"></a><p id="newsDate" class="backup-note"></p>
 <label>投稿文（編集できます）<textarea id="newsText" rows="6"></textarea></label>
@@ -61,6 +62,7 @@
 <div id="newsImages" class="news-images"></div><p class="backup-note">画像の利用条件・商品との一致を元記事で確認してください。</p>
 <button id="newsShare" class="small-btn primary" type="button" disabled>本文＋写真を共有</button>
 <div class="cloud-sync-actions"><button id="newsCopy" class="small-btn" type="button">投稿文をコピー</button><button id="newsSavePhotos" class="small-btn" type="button">写真を保存</button></div>
+<div class="cloud-sync-actions"><button id="newsDone" class="small-btn" type="button" disabled>投稿済み</button><button id="newsSkip" class="small-btn" type="button" disabled>見送る</button></div><p class="backup-note">投稿済み・見送りはこの端末に保存。「表示」から戻せます。</p>
 <p id="newsEditorStatus" class="backup-note" aria-live="polite"></p></section>
 </section>
 
@@ -423,12 +425,12 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261001-3390-news9"></script>
+<script src="./app.js?v=20261001-3390-news10"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261001-3390-news9"></script>
+<script src="./lovely-watch.js?v=20261001-3390-news10"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
-<script src="./news.js?v=20261001-3390-news9"></script>
+<script src="./news.js?v=20261001-3390-news10"></script>
 </body>
 </html>
 
