@@ -49,14 +49,14 @@ function newsDateLabel(value){const m=String(value||'').match(/^(\d{4})[-/](\d{2
 
 function newsScheduleLabel(item){
  const texts=[...(item.facts||[]).filter(f=>f.kind==='schedule').map(f=>f.text),item.title||''];
- const date='(?:[0-9]{4}年)?[0-9]{1,2}(?:月[0-9]{1,2}日?|/[0-9]{1,2}|月(?:上旬|中旬|下旬))';
- const span='('+date+'(?:\\s*[～〜~－-]\\s*'+date+')?)';
+ const date='(?:[0-9]{4}年)?[0-9]{1,2}(?:月[0-9]{1,2}日?|/[0-9]{1,2}|月(?:上旬|中旬|下旬)?)';
+ const span='('+date+'(?:\\s*(?:[～〜~－-]|から)\\s*'+date+')?)';
  for(const raw of texts){
   const text=String(raw).normalize('NFKC').replace(/[（(][月火水木金土日](?:曜日)?[）)]/g,'').replace(/\s+/g,'');
   let m=text.match(new RegExp(span+'([^0-9。]{0,12})(発売|販売開始|開催|開始)'));
   if(!m){const p=text.match(new RegExp('(発売日|発売|販売開始|開催期間|開催|キャンペーン期間|実施期間)[:：]?'+span+'([^。]{0,8})'));if(p)m=[p[0],p[2],p[3],/発売|販売/.test(p[1])?'発売':'開催'];}
   if(!m)continue;
-  const when=m[1].replace(/[0-9]{4}年/g,'').replace(/([0-9]+)月([0-9]+)日?/g,'$1/$2').replace(/[～~－-]/g,'〜');
+  const when=m[1].replace(/[0-9]{4}年/g,'').replace(/([0-9]+)月([0-9]+)日?/g,'$1/$2').replace(/[～~－-]|から/g,'〜');
   const context=text.slice(m.index,m.index+m[0].length+4)+m[2],kind=/発売|販売/.test(m[3])?'発売':'開催';
   return when+(context.includes('順次')?'順次':'')+kind+(context.includes('予定')?'予定':'');
  }
@@ -162,7 +162,7 @@ function newsKeepDraft(){
  const entry=newsState.drafts.get(newsState.item.url);
  if(entry){entry.text=$('newsText').value;entry.selected=newsState.selected.slice();}
 }
-function newsReturn(){newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;window.scrollTo({top:newsState.browseY,behavior:'instant'});}
+function newsReturn(){newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;newsRender();window.scrollTo({top:newsState.browseY,behavior:'instant'});}
 function newsMark(url,kind){
  const group=newsGroups().find(g=>g.members.some(m=>m.url===url)),urls=group?group.members.map(m=>m.url):[url];
  const prev={...newsState.marks};for(const u of urls){if(kind)newsState.marks[u]={kind,at:new Date().toISOString()};else delete newsState.marks[u];}
