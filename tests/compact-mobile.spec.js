@@ -162,3 +162,17 @@ test('共有と写真保存を1行にまとめ、詳細を開いた時に写真�
  await expect(page.locator('#detailTextPreview')).toBeVisible();
  await page.locator('#detailTextMore summary').click();await expect(page.locator('#detailText')).toHaveText(/お気に入り/);
 });
+
+test('写真なしの役割候補は追加候補の写真付き投稿より後に表示する',async({page})=>{
+ await seed(page);
+ await page.evaluate(async()=>{
+  const rows=Array.from({length:8},(_,i)=>({...compactFixture,id:'photo-priority-'+i,title:'写真優先候補'+i+'の商品',text:'写真優先候補'+i+'の商品紹介',images:i===4?[]:compactFixture.images}));
+  getRoleBasedPicks=async()=>rows.slice(0,5);getReadyItems=async()=>rows;
+  todayAdditionalLimit=0;await renderToday();
+ });
+ await expect(page.locator('.today-news-row')).toHaveCount(5);
+ await expect(page.locator('.today-rank-inline')).toHaveCount(0);
+ await page.locator('#todayMore').click();
+ await expect(page.locator('.today-news-row')).toHaveCount(8);
+ await expect(page.locator('.today-news-row').last().locator('h3')).toHaveText('写真優先候補4の商品');
+});
