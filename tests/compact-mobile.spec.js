@@ -103,7 +103,7 @@ test('候補の写真を4枚まで選び、並べた順で共有・保存する'
   detailImageBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/png'}));renderDetailPhotos();
  });
  await expect(page.locator('[data-detail-select]:checked')).toHaveCount(4);
- await page.locator('[data-detail-select="4"]').check();await expect(page.locator('[data-detail-select="4"]')).not.toBeChecked();
+ await page.locator('[data-detail-select="4"]').click();await expect(page.locator('[data-detail-select="4"]')).not.toBeChecked();
  await page.locator('[data-detail-select="0"]').uncheck();await page.locator('[data-detail-select="4"]').check();
  for(let i=0;i<3;i++)await page.getByRole('button',{name:'写真5を前へ',exact:true}).click();
  await page.locator('#detailChatGPTShare').click();
