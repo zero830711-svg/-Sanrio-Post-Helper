@@ -404,7 +404,7 @@ function todayAffiliateLinks(item){
   }
   return [...found.values()];
 }
-function todayAffiliateLinkButtons(item){
+function todayAffiliateLinkButtons(item,compact=false){
   const links=todayAffiliateLinks(item);
   if(!links.length)return "";
   const totals=links.reduce((map,link)=>map.set(link.kind,(map.get(link.kind)||0)+1),new Map());
@@ -412,10 +412,10 @@ function todayAffiliateLinkButtons(item){
   return '<div class="today-affiliate-links" aria-label="Amazon・楽天リンク">'+links.map(link=>{
     const storeName=link.kind==="amazon"?"Amazon":"楽天";
     const number=(seen.get(link.kind)||0)+1;seen.set(link.kind,number);
-    const label=totals.get(link.kind)>1?storeName+"リンク "+number:storeName+"で在庫を確認";
+    const label=compact?(storeName+(totals.get(link.kind)>1?" "+number:"")):totals.get(link.kind)>1?storeName+"リンク "+number:storeName+"で在庫を確認";
     return '<div class="today-affiliate-link-row">'+
       '<a class="today-affiliate-open affiliate-open-'+link.kind+'" href="'+esc(link.url)+'" target="_blank" rel="sponsored nofollow noopener noreferrer">'+label+' ↗</a>'+
-      '<button class="small-btn today-affiliate-copy" type="button" data-today-action="copy-affiliate" data-affiliate-url="'+esc(link.url)+'">リンクをコピー</button>'+
+      '<button class="small-btn today-affiliate-copy" type="button" data-today-action="copy-affiliate" data-affiliate-url="'+esc(link.url)+'">'+(compact?"コピー":"リンクをコピー")+'</button>'+
     '</div>';
   }).join("")+'</div>';
 }
@@ -2874,9 +2874,7 @@ function updateDetailPhotoControls(){
  const count=detailPhotoSelection.length;
  const ready=detailPhotoSelection.every(i=>!!detailImageBlobs[i]);
  const all=$("detailDownloadAllPhotos");
- if(all){all.disabled=!count;all.textContent=count?(ready?count+"枚をまとめて保存":"選んだ写真を読み込み直す"):"写真を選んでください";}
- $("detailCopyImage").disabled=!count;
- $("detailCopyImage").textContent=count?"本文＋写真を1枚で保存":"写真を選んでください";
+ if(all){all.disabled=!count;all.textContent=count?(ready?"写真"+count+"枚を保存":"選んだ写真を読み込み直す"):"写真を選んでください";}
 }
 function renderDetailPhotos(){
  const item=detailCurrentItem;if(!item)return;
@@ -2910,7 +2908,7 @@ function showTodayDetail(item,continueQueue=false){
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
   $("detailMeta").textContent=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):"",metricNumber(item.impressions)&&item.bookmarks!==null&&item.bookmarks!==undefined&&String(item.bookmarks).trim()!==""?("保存率 "+percentText(metricRate(item.bookmarks,item.impressions))):"",metricNumber(item.urlClicks)?("クリック "+metricNumber(item.urlClicks).toLocaleString()):""].filter(Boolean).join(" ・ ");
-  $("detailCandidateTools").innerHTML='<div class="today-affiliate-badges">'+todayAffiliateBadges(item)+'</div>'+todayAffiliateLinkButtons(item)+xOpenButton(item,"Xアプリ")+
+  $("detailCandidateTools").innerHTML='<div class="today-affiliate-badges">'+todayAffiliateBadges(item)+'</div>'+todayAffiliateLinkButtons(item,true)+xOpenButton(item,"Xアプリ")+
     '<p class="recommend-reason">選定理由：'+esc([...recommendationReasons(item),item._diverseReason].filter(Boolean).join("・"))+'</p>';
   $("detailFreshness").textContent=freshnessReviewReason(item)||"";$("detailFreshness").hidden=!freshnessReviewReason(item);
   $("detailText").textContent=item.text||"";
@@ -2958,7 +2956,6 @@ async function imageBlob(src){
   }
 }
 function preloadDetailImages(item,images){
-  const saveButton=$("detailCopyImage");
   const allPhotosButton=$("detailDownloadAllPhotos");
   const mediaStatus=$("detailMediaStatus");
   images.forEach((src,index)=>{
@@ -2977,7 +2974,6 @@ function preloadDetailImages(item,images){
       detailImageBlobErrors[index]=error;
       const save=$("detailMedia").querySelector('[data-detail-download="'+index+'"]');
       if(save){save.disabled=false;save.textContent="画像を再読み込み";save.title=error?.message||""}
-      if(saveButton){saveButton.disabled=false;saveButton.textContent="本文＋写真を1枚で保存"}
       if(allPhotosButton){allPhotosButton.disabled=false;allPhotosButton.textContent="写真を読み込み直す ("+detailImageBlobs.filter(Boolean).length+"/"+images.length+")"}
       if(mediaStatus)mediaStatus.textContent="写真の読み込みに失敗しました。まとめて保存ボタンで再試行できます。";
       updateDetailPhotoControls();
@@ -2985,7 +2981,7 @@ function preloadDetailImages(item,images){
   });
 }
 function shareDetailToChatGPT(button,kind="x"){
-  const buttonLabel=kind==="blog"?"ブログ用を共有":kind==="threads"?"Threads用を共有":"ChatGPT";
+  const buttonLabel=kind==="blog"?"ブログ":kind==="threads"?"Threads":"ChatGPT";
   const item=detailCurrentItem;
   if(!item||!button)return;
   const status=$("detailChatGPTStatus");
@@ -3613,11 +3609,10 @@ async function checkLatestVersion(){
     }
   }catch(e){}
 }
-$("detailCopyImage")?.addEventListener("click",e=>downloadWholePostImage(e.currentTarget));
 function recoverDetailAfterShare(){
   if(document.visibilityState==="hidden"||!chatgptShareHandoffActive)return;
   chatgptShareHandoffActive=false;
-  for(const [id,label] of [["detailChatGPTShare","ChatGPT"],["detailBlogShare","ブログ用を共有"],["detailThreadsShare","Threads用を共有"]]){
+  for(const [id,label] of [["detailChatGPTShare","ChatGPT"],["detailBlogShare","ブログ"],["detailThreadsShare","Threads"]]){
     const button=$(id);if(button){button.disabled=false;button.textContent=label}
   }
   const modal=$("todayDetailModal");
