@@ -2329,6 +2329,7 @@ async function getRoleBasedPicks(){
 
   const remaining=()=>pool.filter(x=>!used.has(x.id));
   const scored=(list,scoreFn)=>[...list].sort((a,b)=>
+    Number(candidateHasPhotos(b))-Number(candidateHasPhotos(a))||
     (scoreFn(b)-diversityPenalty(b,recentTopics,pickedTopics))-
     (scoreFn(a)-diversityPenalty(a,recentTopics,pickedTopics))
   );
@@ -2422,7 +2423,7 @@ function additionalTodayPicks(pool,base){
  const keysFor=x=>[...productGroupKeys(x).filter(key=>key.startsWith("name:")),...revenueProductIds(x)];
  const products=new Set(base.flatMap(keysFor));
  const result=[];
- for(const x of [...pool].sort((a,b)=>recommendationScore(b)-recommendationScore(a))){
+ for(const x of [...pool].sort((a,b)=>Number(candidateHasPhotos(b))-Number(candidateHasPhotos(a))||recommendationScore(b)-recommendationScore(a))){
   const keys=keysFor(x);
   if(posts.has(canonicalPostKey(x))||keys.some(key=>products.has(key)))continue;
   result.push({...x,_role:"追加候補"});
@@ -2435,7 +2436,7 @@ async function renderToday(){
   if(todayListDay!==localDayKey()){todayAdditionalLimit=0;todayListDay=localDayKey();}
   const base=await getRoleBasedPicks();
   const extra=additionalTodayPicks(await getReadyItems(),base);
-  const items=[...base,...extra.slice(0,todayAdditionalLimit)];
+  const items=[...base,...extra.slice(0,todayAdditionalLimit)].sort((a,b)=>Number(candidateHasPhotos(b))-Number(candidateHasPhotos(a)));
   const more=$("todayMore"),status=$("todayMoreStatus");
   more.hidden=extra.length<=todayAdditionalLimit;
   more.textContent="もっと見る（あと"+Math.max(0,extra.length-todayAdditionalLimit)+"件）";
@@ -2855,12 +2856,47 @@ let detailCandidateQueue=[];
 let detailRepostBusy=false;
 let detailScrollY=0;
 let detailImageBlobs=[];
+let detailPhotoSelection=[];
+const detailPhotoChoices=new Map();
 let detailImageBlobErrors=[];
 let detailWholeImageBlob=null;
 let detailWholeImagePromise=null;
 let todayPicksById=new Map();
 let todayAdditionalLimit=0;
 let todayListDay="";
+function candidateHasPhotos(item){return mediaArray(item.images||(item.image?[item.image]:[])).length>0;}
+function detailSelectedItem(){
+ const item=detailCurrentItem;if(!item)return null;
+ const images=mediaArray(item.images||(item.image?[item.image]:[]));
+ return {...item,image:"",images:detailPhotoSelection.map(i=>images[i])};
+}
+function updateDetailPhotoControls(){
+ const count=detailPhotoSelection.length;
+ const ready=detailPhotoSelection.every(i=>!!detailImageBlobs[i]);
+ const all=$("detailDownloadAllPhotos");
+ if(all){all.disabled=!count;all.textContent=count?(ready?count+"枚をまとめて保存":"選んだ写真を読み込み直す"):"写真を選んでください";}
+ $("detailCopyImage").disabled=!count;
+ $("detailCopyImage").textContent=count?"本文と選んだ写真を1枚で保存":"写真を選んでください";
+}
+function renderDetailPhotos(){
+ const item=detailCurrentItem;if(!item)return;
+ const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
+ const order=[...detailPhotoSelection,...imgs.map((_,i)=>i).filter(i=>!detailPhotoSelection.includes(i))];
+ $("detailMedia").innerHTML=order.map(index=>{
+  const pos=detailPhotoSelection.indexOf(index),ready=!!detailImageBlobs[index];
+  return '<figure class="detail-media-item"><button class="detail-image-zoom" type="button" data-detail-zoom="'+index+'" aria-label="写真'+(index+1)+'を拡大"><img src="'+esc(imgs[index])+'" alt="投稿画像" loading="lazy"></button>'+
+   '<label class="detail-photo-select"><input type="checkbox" data-detail-select="'+index+'" '+(pos>=0?'checked':'')+'>'+ (pos>=0?(pos+1)+'枚目':'使わない')+'</label>'+
+   '<div class="detail-photo-order"><button class="small-btn" data-detail-move="'+index+'" data-direction="-1" aria-label="写真'+(index+1)+'を前へ" '+(pos<=0?'disabled':'')+'>前へ</button><button class="small-btn" data-detail-move="'+index+'" data-direction="1" aria-label="写真'+(index+1)+'を後へ" '+(pos<0||pos===detailPhotoSelection.length-1?'disabled':'')+'>後へ</button></div>'+
+   '<div class="detail-media-actions"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'" '+(!ready&&!detailImageBlobErrors[index]?'disabled':'')+'>'+(ready?'この写真を保存':detailImageBlobErrors[index]?'画像を再読み込み':'写真を準備中…')+'</button></div></figure>';
+ }).join("")+mediaArray(item.videos).map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
+ updateDetailPhotoControls();
+}
+function keepDetailPhotoChoice(){
+ if(!detailCurrentItem)return;
+ detailPhotoChoices.set(canonicalPostKey(detailCurrentItem),{sources:JSON.stringify(mediaArray(detailCurrentItem.images||(detailCurrentItem.image?[detailCurrentItem.image]:[]))),indices:detailPhotoSelection.slice()});
+ detailWholeImageBlob=null;detailWholeImagePromise=null;
+ renderDetailPhotos();
+}
 function showTodayDetail(item,continueQueue=false){
   if(!item)return;
   if(!continueQueue){
@@ -2882,16 +2918,12 @@ function showTodayDetail(item,continueQueue=false){
   $("detailTextMore").open=false;$("detailExtraTools").open=false;
   detailImageBlobs=imgs.map(()=>null);
   detailImageBlobErrors=imgs.map(()=>null);
+  const choice=detailPhotoChoices.get(canonicalPostKey(item));
+  detailPhotoSelection=choice?.sources===JSON.stringify(imgs)?choice.indices.slice():imgs.map((_,i)=>i).slice(0,4);
   detailWholeImageBlob=null;
   detailWholeImagePromise=null;
   const mediaStatus=$("detailMediaStatus");if(mediaStatus)mediaStatus.textContent=imgs.length?"写真を準備しています…":"";
-  $("detailMedia").innerHTML=
-    imgs.map((src,index)=>'<figure class="detail-media-item"><button class="detail-image-zoom" type="button" data-detail-zoom="'+index+'" aria-label="写真'+(index+1)+'を拡大"><img src="'+esc(src)+'" alt="投稿画像" loading="lazy"></button><div class="detail-media-actions"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'" disabled>写真を準備中…</button></div></figure>').join("")+
-    vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
-  $("detailCopyImage").disabled=!imgs.length;
-  $("detailCopyImage").textContent=imgs.length?"本文と写真全部を1枚で保存":"投稿画像がありません";
-  const allPhotosButton=$("detailDownloadAllPhotos");
-  if(allPhotosButton){allPhotosButton.disabled=!imgs.length;allPhotosButton.textContent=imgs.length?imgs.length+"枚を準備中…":"投稿画像がありません"}
+  renderDetailPhotos();
   $("detailMediaCount").textContent=(imgs.length?imgs.length+"枚":"")+(imgs.length&&vids.length?" / ":"")+(vids.length?vids.length+"動画":"");
   const rewrite=$("detailRewritePrompt");
   if(rewrite){rewrite.dataset.id=item.id;rewrite.dataset.role=item.recommendedRole||""}
@@ -2939,6 +2971,7 @@ function preloadDetailImages(item,images){
       if(allPhotosButton){allPhotosButton.disabled=loaded!==images.length;allPhotosButton.textContent=loaded===images.length?images.length+"枚をまとめて保存":"写真を準備中… ("+loaded+"/"+images.length+")"}
       if(mediaStatus)mediaStatus.textContent="写真 "+loaded+" / "+images.length+" 枚を読み込みました。";
       if(loaded===images.length&&mediaStatus)mediaStatus.textContent="写真の準備ができました。共有・保存できます。";
+      updateDetailPhotoControls();
     }).catch(error=>{
       if(detailCurrentItem!==item)return;
       detailImageBlobErrors[index]=error;
@@ -2947,6 +2980,7 @@ function preloadDetailImages(item,images){
       if(saveButton){saveButton.disabled=false;saveButton.textContent="本文と写真を1枚にして保存"}
       if(allPhotosButton){allPhotosButton.disabled=false;allPhotosButton.textContent="写真を読み込み直す ("+detailImageBlobs.filter(Boolean).length+"/"+images.length+")"}
       if(mediaStatus)mediaStatus.textContent="写真の読み込みに失敗しました。まとめて保存ボタンで再試行できます。";
+      updateDetailPhotoControls();
     });
   });
 }
@@ -2955,12 +2989,14 @@ function shareDetailToChatGPT(button,kind="x"){
   const item=detailCurrentItem;
   if(!item||!button)return;
   const status=$("detailChatGPTStatus");
+  const indices=detailPhotoSelection.slice();
   const sources=mediaArray(item.images||(item.image?[item.image]:[]));
-  const basePrompt=kind==="blog"?buildBlogPrompt(item):kind==="threads"?buildThreadsPrompt(item):buildRewritePrompt(item,item.recommendedRole||"",recentRewriteContext(item));
+  const selectedItem=detailSelectedItem();
+  const basePrompt=kind==="blog"?buildBlogPrompt(selectedItem):kind==="threads"?buildThreadsPrompt(selectedItem):buildRewritePrompt(selectedItem,item.recommendedRole||"",recentRewriteContext(item));
   const prompt=sources.reduce((text,url)=>text.split(String(url)).join(""),basePrompt);
-  if(sources.some((_,i)=>!detailImageBlobs[i])){
+  if(indices.some(i=>!detailImageBlobs[i])){
     button.disabled=true;button.textContent="写真を準備中…";
-    Promise.all(sources.map((src,i)=>detailImageBlobs[i]?Promise.resolve(detailImageBlobs[i]):imageBlob(src).then(blob=>{
+    Promise.all(indices.map(i=>detailImageBlobs[i]?Promise.resolve(detailImageBlobs[i]):imageBlob(sources[i]).then(blob=>{
       if(detailCurrentItem===item)detailImageBlobs[i]=blob;
       return blob;
     }))).then(()=>{
@@ -2971,9 +3007,9 @@ function shareDetailToChatGPT(button,kind="x"){
     }).finally(()=>{button.disabled=false;button.textContent=buttonLabel});
     return;
   }
-  const files=sources.map((_,i)=>{
+  const files=indices.map((i,position)=>{
     const blob=detailImageBlobs[i],ext=blob.type.includes("png")?"png":blob.type.includes("webp")?"webp":"jpg";
-    return new File([blob],safeImageName(item,i,ext),{type:blob.type||"image/jpeg"});
+    return new File([blob],safeImageName(item,position,ext),{type:blob.type||"image/jpeg"});
   });
   const data=files.length?{files,text:prompt}:{text:prompt};
   const supported=!!navigator.share&&(!navigator.canShare||navigator.canShare(data));
@@ -3008,18 +3044,20 @@ function shareDetailToChatGPT(button,kind="x"){
 function downloadAllDetailPhotos(button){
   const item=detailCurrentItem;
   if(!item||!button)return;
+  const indices=detailPhotoSelection.slice();
   const sources=mediaArray(item.images||(item.image?[item.image]:[]));
-  const loaded=detailImageBlobs.filter(Boolean).length;
-  if(loaded!==sources.length){
+  if(!indices.length)return;
+  const loaded=indices.filter(i=>detailImageBlobs[i]).length;
+  if(loaded!==indices.length){
     button.disabled=true;
     button.textContent="写真を読み込み中…";
-    Promise.all(sources.map((src,index)=>detailImageBlobs[index]?Promise.resolve(detailImageBlobs[index]):imageBlob(src).then(blob=>{if(detailCurrentItem===item)detailImageBlobs[index]=blob;return blob})))
+    Promise.all(indices.map(index=>detailImageBlobs[index]?Promise.resolve(detailImageBlobs[index]):imageBlob(sources[index]).then(blob=>{if(detailCurrentItem===item)detailImageBlobs[index]=blob;return blob})))
       .then(()=>{
         if(detailCurrentItem!==item)return;
         button.disabled=false;
-        button.textContent="写真"+sources.length+"枚を準備しました。もう一度タップ";
+        button.textContent="写真"+indices.length+"枚を準備しました。もう一度タップ";
         const status=$("detailMediaStatus");
-        if(status)status.textContent="写真全部を準備しました。もう一度まとめて保存を押してください。";
+        if(status)status.textContent="選んだ写真を準備しました。もう一度まとめて保存を押してください。";
       })
       .catch(error=>{
         if(detailCurrentItem!==item)return;
@@ -3030,13 +3068,14 @@ function downloadAllDetailPhotos(button){
       });
     return;
   }
-  const files=detailImageBlobs.map((blob,index)=>{
+  const files=indices.map((sourceIndex,index)=>{
+    const blob=detailImageBlobs[sourceIndex];
     const ext=(blob.type||"").includes("png")?"png":(blob.type||"").includes("webp")?"webp":"jpg";
     return new File([blob],safeImageName(item,index,ext),{type:blob.type||"image/jpeg"});
   });
   try{
     if(navigator.share&&navigator.canShare?.({files})){
-      const sharing=navigator.share({files,title:sources.length+"枚の投稿写真"});
+      const sharing=navigator.share({files,title:indices.length+"枚の投稿写真"});
       button.textContent="共有シートで「写真に保存」を選んでください";
       const status=$("detailMediaStatus");
       if(status)status.textContent="共有シートで「写真に保存」を選ぶと、"+files.length+"枚をまとめて保存できます。";
@@ -3045,7 +3084,7 @@ function downloadAllDetailPhotos(button){
     }
   }catch(error){}
   files.forEach(file=>{
-    const blob=detailImageBlobs[files.indexOf(file)];
+    const blob=detailImageBlobs[indices[files.indexOf(file)]];
     const url=URL.createObjectURL(blob),a=document.createElement("a");
     a.href=url;a.download=file.name;a.style.display="none";document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),30000);
@@ -3074,10 +3113,10 @@ function downloadWholePostImage(button){
   const mediaStatus=$("detailMediaStatus");
   button.textContent="本文と写真を1枚に作成中…";
   if(mediaStatus)mediaStatus.textContent="本文と写真全部を1枚にまとめています。";
-  const pending=detailWholeImagePromise||createPostImage(item);
+  const pending=detailWholeImagePromise||createPostImage(item,detailPhotoSelection.slice());
   detailWholeImagePromise=pending;
   pending.then(blob=>{
-    if(detailCurrentItem!==item)return;
+    if(detailCurrentItem!==item||detailWholeImagePromise!==pending)return;
     detailWholeImageBlob=blob;
     button.textContent="画像ができました。もう一度押して保存";
     if(mediaStatus)mediaStatus.textContent="画像ができました。もう一度ボタンを押して保存してください。";
@@ -3137,13 +3176,15 @@ function wrapCanvasText(ctx,text,maxWidth){
   }
   return output;
 }
-async function createPostImage(item){
-  const sources=mediaArray(item.images||(item.image?[item.image]:[]));
+async function createPostImage(item,selection=null){
+  const originals=mediaArray(item.images||(item.image?[item.image]:[]));
+  const indices=selection||originals.map((_,i)=>i);
+  const sources=indices.map(i=>originals[i]);
   if(!sources.length)throw new Error("投稿画像がありません");
   const pictures=[];
   for(let index=0;index<sources.length;index++){
-    let blob=detailImageBlobs[index];
-    if(!blob){blob=await imageBlob(sources[index]);if(detailCurrentItem===item)detailImageBlobs[index]=blob}
+    let blob=detailImageBlobs[indices[index]];
+    if(!blob){blob=await imageBlob(sources[index]);if(detailCurrentItem===item)detailImageBlobs[indices[index]]=blob}
     const objectUrl=URL.createObjectURL(blob),img=new Image();
     try{
       await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error("写真"+(index+1)+"を読み込めませんでした"));img.src=objectUrl});
@@ -3595,7 +3636,17 @@ $("detailChatGPTShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.curr
 $("detailBlogShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"blog"));
 $("detailThreadsShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"threads"));
 $("detailDownloadAllPhotos")?.addEventListener("click",e=>downloadAllDetailPhotos(e.currentTarget));
+$("detailMedia")?.addEventListener("change",e=>{
+ const check=e.target.closest("[data-detail-select]");if(!check)return;
+ const i=Number(check.dataset.detailSelect);
+ if(check.checked){if(detailPhotoSelection.length>=4){check.checked=false;$("detailMediaStatus").textContent="写真は4枚まで選べます。";return;}detailPhotoSelection.push(i);}
+ else detailPhotoSelection=detailPhotoSelection.filter(n=>n!==i);
+ keepDetailPhotoChoice();
+});
 $("detailMedia")?.addEventListener("click",e=>{
+ const move=e.target.closest("[data-detail-move]");
+ if(move){const pos=detailPhotoSelection.indexOf(Number(move.dataset.detailMove)),next=pos+Number(move.dataset.direction);if(pos>=0&&next>=0&&next<detailPhotoSelection.length){[detailPhotoSelection[pos],detailPhotoSelection[next]]=[detailPhotoSelection[next],detailPhotoSelection[pos]];keepDetailPhotoChoice();}return;}
+
   const zoom=e.target.closest("[data-detail-zoom]");
   if(zoom&&detailCurrentItem){const imgs=mediaArray(detailCurrentItem.images||(detailCurrentItem.image?[detailCurrentItem.image]:[]));const src=imgs[Number(zoom.dataset.detailZoom)];if(src){showImages([src]);$("imageModal").scrollTop=0;}return;}
   const save=e.target.closest("[data-detail-download]");
