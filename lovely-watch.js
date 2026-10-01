@@ -70,6 +70,9 @@ const lovelyWatch = (()=>{
     el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=item.ownRakuten||'';el('lovelyNote').value=item.note||'';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
     el('lovelyReview').textContent=item.needsReview?'主商品リンクは要確認です。自分で商品を特定してから進めてください。':'記事の主商品リンク候補です。販売ページで商品・セット内容を確認してください。';
+    const productUrl=item.productInfo?.url||(item.products||[]).find(p=>p.store==='楽天')?.url||'';
+    const productBox=el('lovelyRakutenProductBox');
+    if(productBox){productBox.hidden=!productUrl;el('lovelyRakutenProductUrl').value=productUrl;el('lovelyRakutenProductCopyStatus').textContent='';}
     renderProduct(item);
     el('rakutenAutoStatus').textContent='';
     el('lovelyAmazonSearch').href='https://www.amazon.co.jp/s?k='+encodeURIComponent(item.title);
@@ -157,6 +160,15 @@ const lovelyWatch = (()=>{
   el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft)edit(draft)}});
   el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
   el('rakutenSaveSettings')?.addEventListener('click',saveSettings);
+  el('lovelyRakutenProductCopy')?.addEventListener('click',async()=>{
+    const input=el('lovelyRakutenProductUrl'),status=el('lovelyRakutenProductCopyStatus');
+    if(!input?.value)return;
+    try{
+      if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(input.value);
+      else{input.focus();input.select();if(!document.execCommand('copy'))throw new Error('copy');}
+      status.textContent='商品URLをコピーしました。楽天アフィリエイトの「URLを入力してリンクを作成」に貼り付けてください。';
+    }catch(e){input.focus();input.select();input.setSelectionRange(0,input.value.length);status.textContent='コピーできませんでした。選択された商品URLを長押ししてコピーしてください。';}
+  });
   el('rakutenRetry')?.addEventListener('click',()=>{if(selected)autoRakuten(selected)});
   el('lovelyRefresh')?.addEventListener('click',refresh);
   el('lovelyList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-select]');if(b)choose(b.dataset.lovelySelect)});
