@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261002-3390-news22">
+<link rel="stylesheet" href="./styles.css?v=20261002-3390-detail23">
 </head>
 <body>
 <main class="app">
@@ -397,6 +397,7 @@
 <button id="detailBlogShare" class="small-btn" type="button">ブログ用を共有</button>
 </div>
 <p id="detailChatGPTStatus" class="backup-note" aria-live="polite"></p>
+<div id="detailExtraTools" class="detail-top-tools" aria-label="リンク・保存・候補の操作"><div id="detailCandidateTools"></div><div class="detail-save-row"><button id="detailCopyImage" class="small-btn detail-copy-image-btn" type="button">本文＋写真を1枚で保存</button><button id="detailDownloadAllPhotos" class="small-btn" type="button" disabled>写真を準備中…</button></div><div class="detail-action-row"><button id="detailCandidateSkip" class="small-btn" type="button">見送る</button><button id="detailCandidateExclude" class="small-btn" type="button">候補にしない</button><button id="detailRepostNext" class="small-btn" type="button">再投稿済み → 次の候補</button></div></div>
 <section class="detail-text-section">
 <h3>投稿本文</h3>
 <details id="detailTextMore"><summary>全文を表示</summary><p id="detailText"></p></details>
@@ -407,11 +408,8 @@
 <p id="detailMediaStatus" class="detail-media-status" aria-live="polite"></p>
 <p class="backup-note">使う写真を4枚まで選択。「前へ／後へ」で順番を変更できます。</p><div id="detailMedia" class="detail-media"></div>
 </section>
-<div class="detail-action-row"><button id="detailCandidateSkip" class="small-btn" type="button">見送る</button><button id="detailCandidateExclude" class="small-btn" type="button">候補にしない</button><button id="detailRepostNext" class="small-btn" type="button">再投稿済み → 次の候補</button></div>
-<details id="detailExtraTools" class="detail-extra-tools"><summary>保存・その他の操作</summary>
-<div id="detailCandidateTools"></div><div class="detail-action-row"><button id="detailCopyImage" class="small-btn detail-copy-image-btn" type="button">本文と写真全部を1枚で保存</button><button id="detailDownloadAllPhotos" class="small-btn" type="button" disabled>写真を準備中…</button></div>
 
-</details>
+
 </div>
 </div>
 
@@ -426,12 +424,12 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261002-3390-news22"></script>
+<script src="./app.js?v=20261002-3390-detail23"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261002-3390-news22"></script>
+<script src="./lovely-watch.js?v=20261002-3390-detail23"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
-<script src="./news.js?v=20261002-3390-news22"></script>
+<script src="./news.js?v=20261002-3390-detail23"></script>
 </body>
 </html>
 
