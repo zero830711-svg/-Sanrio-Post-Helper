@@ -2440,27 +2440,24 @@ async function renderToday(){
       :'<div class="today-rank today-rank-inline">'+(i+1)+'</div>';
     const plainText=String(x.text||"").replace(/https?:\/\/[^\s]+/g,"[リンク]").replace(/\s+/g," ").trim();
     const excerpt=plainText.length>64?plainText.slice(0,64)+"…":plainText;
-    return '<article class="today-item featured today-item-full">'+
-      '<div class="today-main">'+
+    return '<article class="today-item featured today-item-full today-compact-card">'+
+      '<div class="today-main"><div class="today-overview">'+mediaBox+'<div class="today-summary">'+
         '<div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div>'+
-        '<div class="today-affiliate-badges">'+todayAffiliateBadges(x)+'</div>'+
-        todayAffiliateLinkButtons(x)+
         '<h3>'+esc(x.title||shortLabel(x))+'</h3>'+
         '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
-        (excerpt?'<p class="today-preview today-candidate-excerpt">'+esc(excerpt)+'</p>':'')+
+        '<div class="today-affiliate-badges">'+todayAffiliateBadges(x)+'</div></div></div>'+
         (freshnessReviewReason(x)?'<div class="freshness-review" role="note">⚠️ '+esc(freshnessReviewReason(x))+'</div>':'')+
-        '<div class="recommend-reason">選定理由：'+esc([...recommendationReasons(x),x._diverseReason].filter(Boolean).join("・"))+'</div>'+
-        mediaBox+
         '<div class="metric-chips">'+todayMetricChips(x,x._role)+'</div>'+
-        '<div class="today-actions today-actions-compact">'+
-          xOpenButton(x,"Xアプリ")+
-          '<button class="small-btn detail-btn" data-today-action="detail" data-id="'+x.id+'">全部見る</button>'+
+        '<div class="today-quick-actions">'+
+          '<button class="small-btn detail-btn" data-today-action="detail" data-id="'+x.id+'">内容・共有</button>'+
           '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済み</button>'+
-          '<button class="small-btn skip-btn" data-today-action="skip" data-id="'+x.id+'">見送る</button>'+
-          '<button class="small-btn exclude-btn" data-today-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
-        '</div>'+
-      '</div>'+
-    '</article>';
+          '<details class="today-other-actions"><summary>その他</summary><div class="today-other-body">'+
+            todayAffiliateLinkButtons(x)+xOpenButton(x,"Xアプリ")+
+            '<button class="small-btn skip-btn" data-today-action="skip" data-id="'+x.id+'">見送る</button>'+
+            '<button class="small-btn exclude-btn" data-today-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
+            '<p class="recommend-reason">選定理由：'+esc([...recommendationReasons(x),x._diverseReason].filter(Boolean).join("・"))+'</p>'+
+          '</div></details></div></div></article>';
+
   }).join("");
 }
 
@@ -2610,7 +2607,7 @@ function showImages(images){showMedia(images,[])}
 function closeImages(){
   $("imageModal").classList.add("hidden");
   $("modalImages").innerHTML="";
-  document.body.style.overflow="";
+  document.body.style.overflow=$("todayDetailModal").classList.contains("hidden")?"":"hidden";
 }
 function rewriteGoalForRole(role){
   if(role==="クリック狙い")return "リンクを押したくなる導入にしつつ、煽りすぎず内容がすぐ分かる投稿";
@@ -2862,19 +2859,21 @@ function showTodayDetail(item,continueQueue=false){
     detailCandidateQueue=index>=0?[...candidates.slice(index+1),...candidates.slice(0,index)]:candidates;
   }
   detailCurrentItem=item;
-  if($("detailChatGPTStatus"))$("detailChatGPTStatus").textContent="写真と焼き直しプロンプトをまとめて共有します。共有先でChatGPTを選んでください。動画は共有対象外です。";
+  if($("detailChatGPTStatus"))$("detailChatGPTStatus").textContent="写真＋プロンプトを共有。共有先でChatGPTを選択（動画は対象外）。";
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
   $("detailMeta").textContent=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):""].filter(Boolean).join(" ・ ");
   $("detailText").textContent=item.text||"";
+  $("detailTextPreview").textContent=String(item.text||"").replace(/\n{3,}/g,"\n\n");
+  $("detailTextMore").open=false;$("detailExtraTools").open=false;
   detailImageBlobs=imgs.map(()=>null);
   detailImageBlobErrors=imgs.map(()=>null);
   detailWholeImageBlob=null;
   detailWholeImagePromise=null;
   const mediaStatus=$("detailMediaStatus");if(mediaStatus)mediaStatus.textContent=imgs.length?"写真を準備しています…":"";
   $("detailMedia").innerHTML=
-    imgs.map((src,index)=>'<figure class="detail-media-item"><img src="'+esc(src)+'" alt="投稿画像" loading="lazy"><div class="detail-media-actions"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'" disabled>写真を準備中…</button></div></figure>').join("")+
+    imgs.map((src,index)=>'<figure class="detail-media-item"><button class="detail-image-zoom" type="button" data-detail-zoom="'+index+'" aria-label="写真'+(index+1)+'を拡大"><img src="'+esc(src)+'" alt="投稿画像" loading="lazy"></button><div class="detail-media-actions"><button class="small-btn detail-download-btn" type="button" data-detail-download="'+index+'" disabled>写真を準備中…</button></div></figure>').join("")+
     vids.map(src=>'<video src="'+esc(src)+'" controls playsinline preload="metadata"></video>').join("");
   const pinPanel=$("pinterestPinPanel"),pinButton=$("detailPinterestButton"),pinSelect=$("pinterestImageSelect");
   if(pinPanel)pinPanel.classList.add("hidden");
@@ -3063,7 +3062,7 @@ function preloadDetailImages(item,images){
   });
 }
 function shareDetailToChatGPT(button,kind="x"){
-  const buttonLabel=kind==="blog"?"ブログ用：写真＋プロンプトを共有":kind==="threads"?"Threads用：写真＋プロンプトを共有":"ChatGPTに写真＋プロンプトを共有";
+  const buttonLabel=kind==="blog"?"ブログ用を共有":kind==="threads"?"Threads用を共有":"X用を共有";
   const item=detailCurrentItem;
   if(!item||!button)return;
   const status=$("detailChatGPTStatus");
@@ -3688,7 +3687,7 @@ $("detailCopyImage")?.addEventListener("click",e=>downloadWholePostImage(e.curre
 function recoverDetailAfterShare(){
   if(document.visibilityState==="hidden"||!chatgptShareHandoffActive)return;
   chatgptShareHandoffActive=false;
-  for(const [id,label] of [["detailChatGPTShare","ChatGPTに写真＋プロンプトを共有"],["detailBlogShare","ブログ用：写真＋プロンプトを共有"],["detailThreadsShare","Threads用：写真＋プロンプトを共有"]]){
+  for(const [id,label] of [["detailChatGPTShare","X用を共有"],["detailBlogShare","ブログ用を共有"],["detailThreadsShare","Threads用を共有"]]){
     const button=$(id);if(button){button.disabled=false;button.textContent=label}
   }
   const modal=$("todayDetailModal");
@@ -3708,6 +3707,8 @@ $("detailBlogShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.current
 $("detailThreadsShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"threads"));
 $("detailDownloadAllPhotos")?.addEventListener("click",e=>downloadAllDetailPhotos(e.currentTarget));
 $("detailMedia")?.addEventListener("click",e=>{
+  const zoom=e.target.closest("[data-detail-zoom]");
+  if(zoom&&detailCurrentItem){const imgs=mediaArray(detailCurrentItem.images||(detailCurrentItem.image?[detailCurrentItem.image]:[]));const src=imgs[Number(zoom.dataset.detailZoom)];if(src){showImages([src]);$("imageModal").scrollTop=0;}return;}
   const save=e.target.closest("[data-detail-download]");
   if(save)downloadDetailImage(Number(save.dataset.detailDownload),save);
 });
@@ -4120,3 +4121,4 @@ for(const [id,view] of [["homeTodayTab","today"],["homeNewTab","new"]]){
     else if(last)renderCloudStatus("自動同期済み："+new Date(last).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}));
   }
 })();
+
