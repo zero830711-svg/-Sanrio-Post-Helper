@@ -291,3 +291,5 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .home-header .home-info>summary::-webkit-details-marker{display:none}
 .home-header .home-info>summary::before{content:"▸";font-size:11px}
 .home-header .home-info[open]>summary::before{content:"▾"}
+
+.detail-photo-select{display:flex;align-items:center;gap:6px;font-size:12px;min-height:36px;margin:4px 0}.detail-photo-select input{width:18px;height:18px;padding:0}.detail-photo-order{display:flex;gap:6px}.detail-photo-order button{flex:1;font-size:12px;min-height:44px;padding:6px}.detail-photo-order button:disabled{opacity:.4}
