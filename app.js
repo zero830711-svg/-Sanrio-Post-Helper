@@ -2440,23 +2440,10 @@ async function renderToday(){
       :'<div class="today-rank today-rank-inline">'+(i+1)+'</div>';
     const plainText=String(x.text||"").replace(/https?:\/\/[^\s]+/g,"[リンク]").replace(/\s+/g," ").trim();
     const excerpt=plainText.length>64?plainText.slice(0,64)+"…":plainText;
-    return '<article class="today-item featured today-item-full today-compact-card">'+
-      '<div class="today-main"><div class="today-overview">'+mediaBox+'<div class="today-summary">'+
-        '<div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div>'+
-        '<h3>'+esc(x.title||shortLabel(x))+'</h3>'+
-        '<div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+
-        '<div class="today-affiliate-badges">'+todayAffiliateBadges(x)+'</div></div></div>'+
-        (freshnessReviewReason(x)?'<div class="freshness-review" role="note">⚠️ '+esc(freshnessReviewReason(x))+'</div>':'')+
-        '<div class="metric-chips">'+todayMetricChips(x,x._role)+'</div>'+
-        '<div class="today-quick-actions">'+
-          '<button class="small-btn detail-btn" data-today-action="detail" data-id="'+x.id+'">内容・共有</button>'+
-          '<button class="small-btn" data-today-action="reposted" data-id="'+x.id+'">再投稿済み</button>'+
-          '<details class="today-other-actions"><summary>その他</summary><div class="today-other-body">'+
-            todayAffiliateLinkButtons(x)+xOpenButton(x,"Xアプリ")+
-            '<button class="small-btn skip-btn" data-today-action="skip" data-id="'+x.id+'">見送る</button>'+
-            '<button class="small-btn exclude-btn" data-today-action="exclude" data-id="'+x.id+'">候補にしない</button>'+
-            '<p class="recommend-reason">選定理由：'+esc([...recommendationReasons(x),x._diverseReason].filter(Boolean).join("・"))+'</p>'+
-          '</div></details></div></div></article>';
+    return '<article class="today-item today-news-row">'+
+      mediaBox+'<div class="today-summary"><div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div>'+
+      '<h3>'+esc(x.title||shortLabel(x))+'</h3><div class="today-meta">'+esc(formatPostedMeta(x))+'</div></div>'+
+      '<button class="small-btn" data-today-action="detail" data-id="'+esc(x.id)+'">投稿準備</button></article>';
 
   }).join("");
 }
@@ -2865,6 +2852,9 @@ function showTodayDetail(item,continueQueue=false){
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
   $("detailMeta").textContent=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):""].filter(Boolean).join(" ・ ");
+  $("detailCandidateTools").innerHTML=todayAffiliateLinkButtons(item)+xOpenButton(item,"Xアプリ")+
+    '<p class="recommend-reason">選定理由：'+esc([...recommendationReasons(item),item._diverseReason].filter(Boolean).join("・"))+'</p>';
+  $("detailFreshness").textContent=freshnessReviewReason(item)||"";$("detailFreshness").hidden=!freshnessReviewReason(item);
   $("detailText").textContent=item.text||"";
   $("detailTextPreview").textContent=String(item.text||"").replace(/\n{3,}/g,"\n\n");
   $("detailTextMore").open=false;$("detailExtraTools").open=false;
@@ -3703,7 +3693,7 @@ $("todayList").addEventListener("click",async e=>{
   if(!item)return;
   if(btn.dataset.todayAction==="sharex")await shareToX(item,btn);
   if(btn.dataset.todayAction==="media")showMedia(item.images||(item.image?[item.image]:[]),item.videos||[]);
-  if(btn.dataset.todayAction==="detail")showTodayDetail(item);
+  if(btn.dataset.todayAction==="detail")showTodayDetail(todayPicksById.get(String(item.id))||item);
   if(btn.dataset.todayAction==="rewrite")copyRewritePrompt(item,btn.dataset.role||item.recommendedRole||"",btn);
   if(btn.dataset.todayAction==="copy"){
     await navigator.clipboard.writeText(item.text||"");
@@ -3979,3 +3969,16 @@ for(const [id,view] of [["homeTodayTab","today"],["homeNewsTab","news"],["homeNe
 
 
 
+
+$("detailCandidateTools").addEventListener("click",e=>{const b=e.target.closest('[data-today-action="copy-affiliate"]');if(b)copyTextFromClick(b.dataset.affiliateUrl||"",b,"リンクをコピーしました");});
+async function dismissDetailCandidate(exclude){
+ const item=detailCurrentItem;if(!item)return;
+ const button=$(exclude?"detailCandidateExclude":"detailCandidateSkip");button.disabled=true;
+ try{
+  if(exclude)await setCandidateExcluded(item,true);
+  else {item.skippedAt=new Date().toISOString();await dbPut(item);queueCloudSync([item],[]);await propagateUsageHistory(item);}
+  await renderToday();await renderRevenuePick();await renderRecentUsed();await renderArchive();await renderTodayProgress();closeTodayDetail();
+ }finally{button.disabled=false;}
+}
+$("detailCandidateSkip").addEventListener("click",()=>dismissDetailCandidate(false));
+$("detailCandidateExclude").addEventListener("click",()=>dismissDetailCandidate(true));
