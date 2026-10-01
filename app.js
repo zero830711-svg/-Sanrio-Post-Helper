@@ -2619,7 +2619,20 @@ function rewriteGoalForRole(role){
   if(role==="別テーマ")return "最近の投稿と雰囲気が被らず、タイムラインに変化が出る投稿";
   return "過去に反応が良かった要素を残しつつ、同じ文章に見えない再投稿";
 }
+function promptItemWithSavedRakuten(item){
+  if(typeof lovelyWatch==='undefined')return item;
+  const short=lovelyWatch.savedRakuten(item);if(!short)return item;
+  const ids=revenueProductIds(item).filter(id=>id.startsWith("rakuten:"));
+  if(ids.length!==1)return item;
+  const replace=value=>String(value||"").replace(/https?:\/\/[^\s<>"'「」『』]+/gi,raw=>{
+    const url=raw.replace(/[.,!?。，！？;；:：)）\]】」』]+$/g,"");
+    let host="";try{host=new URL(url).hostname}catch(_){}
+    return (revenueProductIds({productUrl:url}).includes(ids[0])||["a.r10.to","hb.afl.rakuten.co.jp"].includes(host))?short+raw.slice(url.length):raw;
+  });
+  return {...item,text:replace(item.text),rakuten:short};
+}
 function buildRewritePrompt(item,role,recent=[]){
+  item=promptItemWithSavedRakuten(item);
   const links=threadsSourceLinks(item);
   const metrics=[
     item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",
@@ -2662,6 +2675,7 @@ function buildRewritePrompt(item,role,recent=[]){
   ].filter(Boolean).join("\n");
 }
 function buildBlogPrompt(item){
+  item=promptItemWithSavedRakuten(item);
   const images=mediaArray(item.images||(item.image?[item.image]:[]));
   const videos=mediaArray(item.videos);
   const links=threadsSourceLinks(item);
@@ -2733,6 +2747,7 @@ function threadsSourceLinks(item){
   return links;
 }
 function buildThreadsPrompt(item){
+  item=promptItemWithSavedRakuten(item);
   const images=mediaArray(item.images||(item.image?[item.image]:[]));
   const videos=mediaArray(item.videos);
   const links=threadsSourceLinks(item);
