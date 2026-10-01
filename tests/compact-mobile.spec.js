@@ -5,6 +5,7 @@ async function seed(page){
  await page.evaluate(async()=>{
   const svg='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="pink"/></svg>');
   window.compactFixture={id:'compact-fixture',title:'サンリオのかわいい商品を紹介する見やすい投稿',text:'商品について確認した内容です。\n'.repeat(15)+'https://amzn.to/example',images:[svg,svg,svg],amazon:'https://amzn.to/example',rakuten:'https://a.r10.to/example',impressions:50000,likes:1500,bookmarks:260};
+  await dbPutMany([compactFixture,{...compactFixture,id:'compact-fixture-2'}]);
   getRoleBasedPicks=async()=>[compactFixture,{...compactFixture,id:'compact-fixture-2'}];stampRecommendations=async()=>{};preloadDetailImages=()=>{};
   await renderToday();document.querySelector('#todayHomePanel').scrollIntoView();
  });
