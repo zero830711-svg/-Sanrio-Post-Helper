@@ -2419,10 +2419,11 @@ async function renderTodayProgress(){
 }
 function additionalTodayPicks(pool,base){
  const posts=new Set(base.map(canonicalPostKey));
- const products=new Set(base.flatMap(cooldownProductKeys));
+ const keysFor=x=>[...productGroupKeys(x).filter(key=>key.startsWith("name:")),...revenueProductIds(x)];
+ const products=new Set(base.flatMap(keysFor));
  const result=[];
  for(const x of [...pool].sort((a,b)=>recommendationScore(b)-recommendationScore(a))){
-  const keys=cooldownProductKeys(x);
+  const keys=keysFor(x);
   if(posts.has(canonicalPostKey(x))||keys.some(key=>products.has(key)))continue;
   result.push({...x,_role:"追加候補"});
   posts.add(canonicalPostKey(x));keys.forEach(key=>products.add(key));
