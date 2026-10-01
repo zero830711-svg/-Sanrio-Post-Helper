@@ -19,11 +19,11 @@ test('候補を小さく表示し、補助操作を必要な時だけ開ける',
 });
 test('詳細の操作を上部に表示し、本文と写真の拡大から戻れる',async({page})=>{
  await seed(page);await page.evaluate(()=>showTodayDetail(compactFixture));
- await expect(page.locator('#detailTextPreview')).toBeVisible();await expect(page.locator('#detailText')).not.toBeVisible();await expect(page.locator('#detailCopyImage')).toBeVisible();
+ await expect(page.locator('#detailTextPreview')).toBeVisible();await expect(page.locator('#detailText')).not.toBeVisible();await expect(page.locator('#detailCopyImage')).toHaveCount(0);
  for(const id of ['detailChatGPTShare','detailThreadsShare','detailBlogShare']){await expect(page.locator('#'+id)).toBeVisible();expect((await page.locator('#'+id).boundingBox()).height).toBeGreaterThanOrEqual(44);}
  await page.locator('#detailTextMore summary').click();await expect(page.locator('#detailText')).toBeVisible();await expect(page.locator('#detailTextPreview')).not.toBeVisible();await page.locator('#detailTextMore summary').click();
  await page.getByRole('button',{name:'写真1を拡大',exact:true}).click();await expect(page.locator('#imageModal')).toBeVisible();await page.locator('#closeModal').click();await expect(page.locator('#todayDetailModal')).toBeVisible();
- await expect(page.locator('#detailCopyImage')).toBeVisible();
+ await expect(page.locator('#detailCopyImage')).toHaveCount(0);
 });
 
 test('一覧は右の1ボタンで開き、詳細のリンクを横書きで確認できる',async({page})=>{
@@ -36,8 +36,12 @@ test('一覧は右の1ボタンで開き、詳細のリンクを横書きで確�
   
   const body=page.locator('#detailCandidateTools');
   await expect(body.locator('.today-affiliate-link-row')).toHaveCount(2);
+  await expect(page.locator('#detailChatGPTShare')).toHaveText('ChatGPT');
+  await expect(page.locator('#detailThreadsShare')).toHaveText('Threads');
+  await expect(page.locator('#detailBlogShare')).toHaveText('ブログ');
+  await expect(body.getByRole('button',{name:'コピー',exact:true})).toHaveCount(2);
   for(const row of await body.locator('.today-affiliate-link-row').all()){
-   const link=await row.locator('a').boundingBox();expect(link.width).toBeGreaterThan(130);expect(link.height).toBeLessThan(70);
+   const link=await row.locator('a').boundingBox();expect(link.width).toBeGreaterThan(50);expect(link.height).toBeLessThan(70);
   }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   await page.locator('#closeDetailModal').click();
@@ -134,7 +138,7 @@ test('保存とリンクの操作を折りたたまず上部にまとめ、数�
   await expect(page.locator('#detailCandidateTools .metric-chips')).toHaveCount(0);
   const content=await page.locator('.detail-sheet').textContent();expect(content.match(/1,500/g)).toHaveLength(1);
   await expect(page.locator('#detailCandidateSkip')).toHaveCount(1);
-  await expect(page.locator('#detailCopyImage')).toHaveCount(1);
+  await expect(page.locator('#detailCopyImage')).toHaveCount(0);
   const bottom=await tools.evaluate(el=>el.getBoundingClientRect().bottom),textTop=await page.locator('.detail-text-section').evaluate(el=>el.getBoundingClientRect().top);
   expect(bottom).toBeLessThanOrEqual(textTop);
   for(const button of await tools.locator('button').all()){
