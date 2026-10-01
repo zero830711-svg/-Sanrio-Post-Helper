@@ -12,16 +12,43 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(value))}catch(e){el('lovelyStatus').textContent='この端末への下書き保存に失敗しました。空き容量を確認してください。'}
   }
   function endpoint(){const u=new URL(cloudSettings().url);u.pathname=u.pathname.replace(/[^/]+$/,'lovely-watch.php');u.search='';u.hash='';return u;}
-  async function request(action,url=''){
+  async function request(action,url='',payload=null){
     const key=cloudSettings().key;if(!key)throw new Error('管理画面で同期キーを設定してください。');
     const target=endpoint();target.searchParams.set('action',action);if(url)target.searchParams.set('url',url);
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),40000);
     try{
-      const res=await fetch(target,{headers:{Authorization:'Bearer '+key},cache:'no-store',signal:controller.signal});
+      const res=await fetch(target,{method:payload?'POST':'GET',body:payload?JSON.stringify(payload):undefined,headers:{Authorization:'Bearer '+key,...(payload?{'Content-Type':'application/json'}:{})},cache:'no-store',signal:controller.signal});
       if(res.status===404)throw new Error('ロリポップに lovely-watch.php を配置してください。');
       let data;try{data=await res.json()}catch(e){throw new Error('新着APIの応答を読めません。PHPの配置を確認してください。')}
       if(!res.ok||!data.ok)throw new Error(data.error||'取得に失敗しました。');return data;
     }catch(e){if(e.name==='AbortError')throw new Error('取得がタイムアウトしました。再試行してください。');throw e}finally{clearTimeout(timer)}
+  }
+  async function settingsStatus(){
+    try{const data=await request('settings');el('rakutenSettingsStatus').textContent=data.configured?'設定保存済み。変更する場合は3項目を入力してください。':'未設定です。3項目を入力して保存してください。'}catch(e){el('rakutenSettingsStatus').textContent=e.message}
+  }
+  async function saveSettings(){
+    const button=el('rakutenSaveSettings');button.disabled=true;
+    try{
+      await request('settings','',{applicationId:el('rakutenAppId').value.trim(),affiliateId:el('rakutenAffiliateId').value.trim(),accessKey:el('rakutenAccessKey').value.trim()});
+      settingsRevision++;
+      for(const id of ['rakutenAppId','rakutenAffiliateId','rakutenAccessKey'])el(id).value='';
+      el('rakutenSettingsStatus').textContent='保存しました。楽天の商品を選ぶと紹介リンクを取得します。';
+      if(selected&&!el('lovelyRakuten').value.trim())autoRakuten(selected);
+    }catch(e){el('rakutenSettingsStatus').textContent=e.message}finally{button.disabled=false}
+  }
+  let affiliateBusy=false,settingsRevision=0;
+  async function autoRakuten(item){
+    if(!item?.productInfo)return;
+    if(el('lovelyRakuten').value.trim()){el('rakutenAutoStatus').textContent='入力済みの楽天リンクを使用します。';return}
+    if(affiliateBusy)return;
+    const revision=settingsRevision;affiliateBusy=true;const button=el('rakutenRetry');button.disabled=true;el('rakutenAutoStatus').textContent='自分の楽天リンクを取得中…';
+    try{
+      const data=await request('affiliate',item.url);
+      if(selected!==item||revision!==settingsRevision)return;
+      if(data.affiliate?.itemCode!==item.productInfo.itemCode)throw new Error('商品コードが一致しないため自動入力しませんでした。');
+      const url=ownLink(data.affiliate.url,'楽天');
+      if(!el('lovelyRakuten').value.trim()){el('lovelyRakuten').value=url;el('lovelyConfirmed').checked=false;persist();el('rakutenAutoStatus').textContent='商品コードが一致する自分の楽天リンクを入力しました。商品・写真の一致を確認してください。'}else el('rakutenAutoStatus').textContent='入力済みの楽天リンクを使用します。';
+    }catch(e){if(selected===item)el('rakutenAutoStatus').textContent=e.message}finally{affiliateBusy=false;button.disabled=false;if(selected&&(selected!==item||revision!==settingsRevision)&&!el('lovelyRakuten').value.trim())autoRakuten(selected)}
   }
   function usedIds(items){const ids=new Set();for(const item of items)for(const id of revenueProductIds(item))ids.add(id);return ids;}
   function visibleItems(items,ids,hidden){return items.filter(x=>!hidden[x.url]&&!(x.productIds||[]).some(id=>ids.has(id)));}
@@ -44,6 +71,7 @@ const lovelyWatch = (()=>{
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
     el('lovelyReview').textContent=item.needsReview?'主商品リンクは要確認です。自分で商品を特定してから進めてください。':'記事の主商品リンク候補です。販売ページで商品・セット内容を確認してください。';
     renderProduct(item);
+    el('rakutenAutoStatus').textContent='';
     el('lovelyAmazonSearch').href='https://www.amazon.co.jp/s?k='+encodeURIComponent(item.title);
     el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.title)+'/';
     el('lovelyShareStatus').textContent='';persist();
@@ -80,7 +108,7 @@ const lovelyWatch = (()=>{
   }
   async function choose(url){
     if(busy)return;busy=true;el('lovelyStatus').textContent='主商品リンクを確認中…';
-    try{const data=await request('detail',url);edit(data.item);el('lovelyEditor').scrollIntoView({block:'start'});el('lovelyStatus').textContent='主商品欄を取得しました。';}
+    try{const data=await request('detail',url);edit(data.item);autoRakuten(selected);el('lovelyEditor').scrollIntoView({block:'start'});el('lovelyStatus').textContent='主商品欄を取得しました。';}
     catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false}
   }
   function ownLink(url,store){
@@ -127,6 +155,9 @@ const lovelyWatch = (()=>{
     editorGeneration++;imageBusy=0;selected=null;files=[];pickedImages.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();
   }
   el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft)edit(draft)}});
+  el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
+  el('rakutenSaveSettings')?.addEventListener('click',saveSettings);
+  el('rakutenRetry')?.addEventListener('click',()=>{if(selected)autoRakuten(selected)});
   el('lovelyRefresh')?.addEventListener('click',refresh);
   el('lovelyList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-select]');if(b)choose(b.dataset.lovelySelect)});
   el('lovelyProductInfo')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-image]');if(b)pickImage(Number(b.dataset.lovelyImage),b)});
@@ -143,3 +174,4 @@ const lovelyWatch = (()=>{
   el('lovelyRestore')?.addEventListener('click',()=>{const s=state();s.hidden={};localStorage.setItem(KEY,JSON.stringify(s));render()});
   return {visibleItems,usedIds,ownLink,prompt,productFacts};
 })();
+
