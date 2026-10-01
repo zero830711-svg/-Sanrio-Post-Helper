@@ -34,6 +34,7 @@ jobs:
       - name: Check PHP syntax
         run: |
           php -l server/lolipop/news.php
+          php tests/news-parser.php
           php -l server/lolipop/trend.php
           php -l server/lolipop/archive-media-batch.php
           php -l server/lolipop/lovely-watch.php
