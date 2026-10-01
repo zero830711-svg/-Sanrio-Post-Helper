@@ -58,3 +58,16 @@ test('新着商品も写真と右の1ボタンで開き、戻れる',async({page
  await expect(page.locator('#lovelyEditor')).toBeVisible();await expect(page.locator('#lovelyBrowse')).not.toBeVisible();
  await page.locator('#lovelyBack').click();await expect(row).toBeVisible();
 });
+
+test('ホーム見出しを1行にまとめ、候補を上からすぐ確認できる',async({page})=>{
+ for(const width of [390,320]){
+  await page.setViewportSize({width,height:844});await seed(page);await page.evaluate(()=>scrollTo(0,0));
+  const header=page.locator('.home-header');expect((await header.boundingBox()).height).toBeLessThan(70);
+  const badge=await header.locator('.badge').boundingBox(), title=await header.locator('h1').boundingBox();
+  expect(Math.abs(badge.y-title.y)).toBeLessThan(8);
+  expect((await page.locator('.today-news-row').first().boundingBox()).y).toBeLessThan(250);
+  await expect(page.locator('.today-news-row').nth(1).getByRole('button',{name:'投稿準備'})).toBeInViewport();
+  await header.locator('.home-info>summary').click();await expect(page.locator('#forceLatest')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+ }
+});
