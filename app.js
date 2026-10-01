@@ -2903,7 +2903,7 @@ function showTodayDetail(item,continueQueue=false){
     detailCandidateQueue=index>=0?[...candidates.slice(index+1),...candidates.slice(0,index)]:candidates;
   }
   detailCurrentItem=item;
-  if($("detailChatGPTStatus"))$("detailChatGPTStatus").textContent="写真＋プロンプトを共有。共有先でChatGPTを選択（動画は対象外）。";
+  if($("detailChatGPTStatus"))$("detailChatGPTStatus").textContent="写真＋プロンプトを共有先のChatGPTへ（動画は対象外）。";
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
