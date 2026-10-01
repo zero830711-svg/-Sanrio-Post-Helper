@@ -14,8 +14,28 @@ const lovelyWatch = (()=>{
   }
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function state(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+  function shortUrl(value){try{const url=ownLink(value,'楽天');return new URL(url).hostname==='a.r10.to'&&new URL(url).pathname!=='/'?url:''}catch(e){return ''}}
+  function productKey(item){
+    const url=item?.productInfo?.url;
+    if(url){const ids=revenueProductIds({productUrl:url}).filter(id=>id.startsWith('rakuten:'));if(ids.length===1)return ids[0];}
+    const ids=revenueProductIds(item||{}).filter(id=>id.startsWith('rakuten:'));
+    return ids.length===1?ids[0]:'';
+  }
+  function savedRakuten(item){const key=productKey(item);return key?shortUrl(state().shortLinks?.[key]?.url||''):'';}
+  function linkControls(){
+    const short=shortUrl(el('lovelyRakuten').value.trim()),box=el('lovelyRakutenProductBox');
+    if(box)box.open=!short;
+    const retry=el('rakutenRetry');if(retry)retry.hidden=!!short;
+  }
   function persist(){
     const value=state();value.draft=selected?{...selected,ownAmazon:el('lovelyAmazon').value.trim(),ownRakuten:el('lovelyRakuten').value.trim(),note:el('lovelyNote').value.trim()}:null;
+    const key=productKey(selected),url=shortUrl(el('lovelyRakuten').value.trim());
+    if(key&&url){
+      value.shortLinks=value.shortLinks||{};
+      delete value.shortLinks[key];value.shortLinks[key]={url};
+      value.shortLinks=Object.fromEntries(Object.entries(value.shortLinks).slice(-500));
+    }else if(key&&value.shortLinks){delete value.shortLinks[key];}
+    linkControls();
     try{localStorage.setItem(KEY,JSON.stringify(value))}catch(e){el('lovelyStatus').textContent='この端末への下書き保存に失敗しました。空き容量を確認してください。'}
   }
   function endpoint(){const u=new URL(cloudSettings().url);u.pathname=u.pathname.replace(/[^/]+$/,'lovely-watch.php');u.search='';u.hash='';return u;}
@@ -74,14 +94,14 @@ const lovelyWatch = (()=>{
   function edit(item){
     editorGeneration++;selected=item;files=[];pickedImages.clear();imageBusy=0;el('lovelyEditor').hidden=false;el('lovelyTitle').textContent=item.title;
     el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='写真未添付';el('lovelyConfirmed').checked=false;
-    el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=item.ownRakuten||'';el('lovelyNote').value=item.note||'';
+    el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=savedRakuten(item)||item.ownRakuten||'';el('lovelyNote').value=item.note||'';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
     el('lovelyReview').textContent=item.needsReview?'主商品リンクは要確認です。自分で商品を特定してから進めてください。':'記事の主商品リンク候補です。販売ページで商品・セット内容を確認してください。';
     const productUrl=item.productInfo?.url||(item.products||[]).find(p=>p.store==='楽天')?.url||'';
     const productBox=el('lovelyRakutenProductBox');
     if(productBox){productBox.hidden=!productUrl;el('lovelyRakutenProductUrl').value=productUrl;el('lovelyRakutenProductCopyStatus').textContent='';}
     renderProduct(item);
-    el('rakutenAutoStatus').textContent='';
+    el('rakutenAutoStatus').textContent=savedRakuten(item)?'同じ商品の保存済み短縮URLを入力しました。商品・写真を確認してください。':'';
     el('lovelyAmazonSearch').href='https://www.amazon.co.jp/s?k='+encodeURIComponent(item.title);
     el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.title)+'/';
     el('lovelyShareStatus').textContent='';persist();
@@ -207,6 +227,6 @@ const lovelyWatch = (()=>{
   el('lovelyDone')?.addEventListener('click',()=>hide('used'));
   el('lovelySkip')?.addEventListener('click',()=>hide('skip'));
   el('lovelyRestore')?.addEventListener('click',()=>{const s=state();s.hidden={};localStorage.setItem(KEY,JSON.stringify(s));render()});
-  return {visibleItems,usedIds,ownLink,prompt,productFacts};
+  return {visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten};
 })();
 
