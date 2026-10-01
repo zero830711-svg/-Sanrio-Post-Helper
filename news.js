@@ -25,8 +25,18 @@ function newsPhotosRender(){
  card.append(img,label,controls);box.append(card);
  });
 }
+const newsCharacters={kuromi:/クロミ|kuromi/i,kitty:/キティ|hello\s*kitty/i,cinnamoroll:/シナモ(?:ロール|ン)|cinnamoroll/i,purin:/ポムポムプリン|pompompurin/i,myMelody:/マイメロ(?:ディ)?|my\s*melody/i,pochacco:/ポチャッコ|pochacco/i,hangyodon:/ハンギョドン|hangyodon/i,allCharacters:/サンリオキャラクターズ|sanrio\s*characters/i};
+function newsMatches(item){
+ const title=String(item.title||'');const character=$('newsCharacter').value,type=$('newsType').value,source=$('newsSourceFilter').value;
+ if(character!=='all'&&!newsCharacters[character]?.test(title))return false;
+ if(source!=='all'&&item.source!==(source==='official'?'サンリオ公式':'PR TIMES'))return false;
+ const event=/イベント|キャンペーン|開催|フェア|撮影会|展示|周年祭|ポップアップ|POP.?UP/i.test(title);
+ const collaboration=/コラボ|×|タイアップ|collab/i.test(title);
+ const goods=/グッズ|商品|アイテム|発売|新作|新製品|アパレル|くじ|フィギュア|バッグ|アクセサリー/i.test(title)||!event;
+ return type==='all'||(type==='goods'&&goods)||(type==='collaboration'&&collaboration)||(type==='event'&&event);
+}
 function newsRender(){
- const filter=$('newsFilter').value;const rows=newsState.items.filter(i=>filter==='all'||(filter==='hidden'?!!newsState.marks[i.url]:!newsState.marks[i.url]));
+ const filter=$('newsFilter').value;const rows=newsState.items.filter(newsMatches).filter(i=>filter==='all'||(filter==='hidden'?!!newsState.marks[i.url]:!newsState.marks[i.url]));
  $('newsList').replaceChildren();
  for(const item of rows){
  const row=document.createElement('article');row.className='news-row';
@@ -66,3 +76,6 @@ $('newsBack').addEventListener('click',newsReturn);
 $('newsFilter').addEventListener('change',newsRender);
 $('newsDone').addEventListener('click',()=>{if(newsState.item)newsMark(newsState.item.url,'done');});
 $('newsSkip').addEventListener('click',()=>{if(newsState.item)newsMark(newsState.item.url,'skip');});
+
+['newsCharacter','newsType','newsSourceFilter'].forEach(id=>$(id).addEventListener('change',newsRender));
+$('newsFilterReset').addEventListener('click',()=>{['newsCharacter','newsType','newsSourceFilter'].forEach(id=>$(id).value='all');newsRender();});
