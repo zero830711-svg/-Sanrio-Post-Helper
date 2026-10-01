@@ -129,3 +129,46 @@ test('選んだ写真を取得できないときは、不完全な写真共有�
  await page.locator('.news-photo').filter({has:page.getByAltText('記事の写真 2',{exact:true})}).getByRole('checkbox').uncheck();
  await expect(page.locator('#newsShare')).toBeEnabled();
 });
+
+
+test('一覧の日程は発表日と分け、明記された発売・開催日だけを表示する',async({page})=>{
+ await page.goto('/');await page.waitForFunction(()=>typeof newsScheduleLabel==='function');
+ const labels=await page.evaluate(()=>[
+  newsScheduleLabel({title:'10/3（土）〜順次発売！「クロミ当りくじ」'}),
+  newsScheduleLabel({title:'サンリオ新作',facts:[{kind:'schedule',text:'開催期間：10月7日（水）～11月8日（日）'}]}),
+  newsScheduleLabel({title:'10月上旬発売予定の新作'}),
+  newsScheduleLabel({title:'10月1日発表のニュース',date:'2026-10-01'}),
+  newsScheduleLabel({title:'ニュース',facts:[{kind:'schedule',text:'10月1日発表、10月3日発売予定です。'}]})
+ ]);
+ expect(labels).toEqual(['10/3順次発売','10/7〜11/8開催','10月上旬発売予定','','10/3発売予定']);
+});
+
+test('公式とPR TIMESの同じ商品ニュースをまとめ、両方の記事を確認できる',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ const official={title:'3caratから「おとなのカラビナ」が登場！',source:'サンリオ公式',date:'2026-10-01',url:'https://www.sanrio.co.jp/news/goods/carabiner/',images:[],paragraphs:[],facts:[{kind:'schedule',text:'10月3日発売予定'}]};
+ const press={...official,title:'新作グッズ「おとなのカラビナ」を発売',source:'PR TIMES',url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html'};
+ const other={...press,title:'第2弾「おとなのカラビナ」を発売',url:'https://prtimes.jp/main/html/rd/p/000000123.000013308.html'};
+ await page.route('**/news.php?**',route=>{const action=new URL(route.request().url()).searchParams.get('action');return route.fulfill({json:action==='list'?{ok:true,items:[press,official,other]}:{ok:true,item:official}});});
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
+ await expect(page.locator('#newsList article')).toHaveCount(2);
+ await expect(page.locator('#newsList article').first()).toContainText('サンリオ公式');
+ await expect(page.locator('#newsList article').first()).toContainText('PR TIMES');
+ await expect(page.locator('.news-schedule').first()).toHaveText('10/3発売予定');
+ await page.locator('#newsList article').first().getByRole('button',{name:'投稿準備'}).click();
+ await expect(page.locator('#newsRelatedSources a')).toHaveCount(2);
+ await expect(page.locator('#newsRelatedSources a').filter({hasText:'PR TIMES'})).toHaveAttribute('href',press.url);
+ await page.locator('#newsDone').click();
+ await expect(page.locator('#newsList article')).toHaveCount(1);
+ expect(await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('sanrioNewsMarks'))))).toEqual(expect.arrayContaining([official.url,press.url]));
+ await page.locator('#newsFilter').selectOption('hidden');
+ await expect(page.locator('#newsList article')).toHaveCount(1);
+ await page.locator('#newsList').getByRole('button',{name:'戻す'}).click();
+ await page.locator('#newsFilter').selectOption('new');await expect(page.locator('#newsList article')).toHaveCount(2);
+ const safe=await page.evaluate(()=>{const a={source:'サンリオ公式',title:'「クロミ当りくじ」',date:'2026-10-01'};const b={...a,source:'PR TIMES'};return [
+  newsSameStory(a,{...b,title:'「ハローキティ当りくじ」'}),
+  newsSameStory(a,{...b,date:'2025-10-01'}),
+  newsSameStory({...a,facts:[{kind:'schedule',text:'10月3日発売'}]},{...b,facts:[{kind:'schedule',text:'11月3日発売'}]}),
+  newsSameStory({...a,title:'サンリオ新作ニュース1'},{...b,title:'サンリオ新作ニュース2'})
+ ];});
+ expect(safe).toEqual([false,false,false,false]);
+});
