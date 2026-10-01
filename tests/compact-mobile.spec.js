@@ -33,7 +33,7 @@ test('その他の楽天・Amazon操作がカード全幅で横書きに収ま�
   await more.locator('summary').click();await expect(body).toBeVisible();
   const bodyBox=await body.boundingBox(),actionsBox=await card.locator('.today-quick-actions').boundingBox();
   expect(bodyBox.width).toBeGreaterThan(actionsBox.width-2);
-  expect(bodyBox.height).toBeLessThan(280);
+  // Narrow screens intentionally stack each stock link and copy button.\n  expect(bodyBox.height).toBeLessThan(width<380?340:280);
   for(const row of await body.locator('.today-affiliate-link-row').all()){
    const link=await row.locator('a').boundingBox();expect(link.width).toBeGreaterThan(130);expect(link.height).toBeLessThan(70);
   }
