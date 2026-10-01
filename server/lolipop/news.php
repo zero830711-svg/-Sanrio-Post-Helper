@@ -23,7 +23,7 @@ function news_fetch(string $u,int $limit=2000000):string {
 function news_doc(string $s):DOMXPath{$d=new DOMDocument();libxml_use_internal_errors(true);$d->loadHTML('<?xml encoding="UTF-8">'.str_replace("\0",'',$s),LIBXML_NONET);libxml_clear_errors();return new DOMXPath($d);}
 function news_text(?DOMNode $n):string{return trim(preg_replace('/\s+/u',' ',$n?$n->textContent:'')??'');}
 function news_detail(string $u):array{
- $cache=sys_get_temp_dir().'/sph-news-v2-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-v3-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
  $a=news_parse(news_fetch($u),$u);file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
 }
 function news_parse(string $html,string $u):array{
@@ -32,7 +32,7 @@ function news_parse(string $html,string $u):array{
  if(!$title||!$bodies->length)throw new RuntimeException('記事の本文を確認できませんでした。');
  $images=[];$lines=[];
  foreach($bodies as $body){
- foreach($x->query('.//img[@src]',$body)as $im){$v=news_image_url($im->getAttribute('src'));if($v&&!in_array($v,$images,true)&&count($images)<4)$images[]=$v;}
+ foreach($x->query('.//img[@src]',$body)as $im){$v=news_image_url($im->getAttribute('src'));if($v&&!in_array($v,$images,true)&&count($images)<8)$images[]=$v;}
  foreach($x->query('.//p | .//li | .//tr | .//dl',$body)as $node){$t=news_text($node);if(mb_strlen($t)>=8&&mb_strlen($t)<=600&&!in_array($t,$lines,true)&&count($lines)<60)$lines[]=$t;}
  }
  $date=news_text($x->query('//time/@datetime')->item(0));if(!$date)$date=news_text($x->query('//time')->item(0));
