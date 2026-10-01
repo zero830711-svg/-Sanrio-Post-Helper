@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261001-3390-compact3">
+<link rel="stylesheet" href="./styles.css?v=20261001-3390-nopin4">
 </head>
 <body>
 <main class="app">
@@ -391,27 +391,8 @@
 </section>
 <div class="detail-action-row"><button id="detailRepostNext" class="small-btn" type="button">再投稿済み → 次の候補</button></div>
 <details id="detailExtraTools" class="detail-extra-tools"><summary>保存・その他の操作</summary>
-<div class="detail-action-row"><button id="detailCopyImage" class="small-btn detail-copy-image-btn" type="button">本文と写真全部を1枚で保存</button><button id="detailDownloadAllPhotos" class="small-btn" type="button" disabled>写真を準備中…</button><button id="detailPinterestButton" class="small-btn pinterest-prompt-btn" type="button">Pinterest用Pinを準備</button></div>
-<section id="pinterestPinPanel" class="pinterest-pin-panel hidden" aria-label="Pinterest用Pin作成">
-<h3>Pinterest用Pinを準備</h3>
-<p class="backup-note">縦長2:3（1000×1500px）の画像と、検索向けタイトル・説明文を作ります。Pinterestへの公開は行いません。写真をPinterestで使う権利があるものだけ利用し、アフィリエイトリンクなら説明文に広告であることを明記してください。</p>
-<label>使う写真<select id="pinterestImageSelect"></select></label>
-<label>Pinタイトル<input id="pinterestPinTitle" type="text" maxlength="100"></label>
-<label>説明文<textarea id="pinterestPinDescription" rows="5" maxlength="500"></textarea></label>
-<label>リンク先（投稿内の紹介リンクを自動設定）<input id="pinterestPinLink" type="url" inputmode="url" placeholder="Amazon／楽天の紹介リンク"></label>
-<p class="backup-note pinterest-link-note">投稿内のAmazon／楽天リンクを初期設定します。Amazon.co.jpの商品URLにはあなたの紹介IDを付けます。別サイトのURLは変換できません。</p>
-<label class="pinterest-check"><input id="pinterestRightsCheck" type="checkbox">この写真をPinterestで使う権利があることを確認しました</label>
-<label class="pinterest-check"><input id="pinterestFactsCheck" type="checkbox">説明文とリンク先の内容・最新情報を確認しました</label>
-<div class="pinterest-pin-actions"><button id="pinterestSaveImage" class="primary" type="button">Pin画像を保存</button></div>
-<div class="pinterest-copy-actions" aria-label="Pinterestに貼り付ける文章をコピー">
-<button class="small-btn" type="button" data-pinterest-copy="title">タイトルをコピー</button>
-<button class="small-btn" type="button" data-pinterest-copy="description">説明文をコピー</button>
-<button class="small-btn" type="button" data-pinterest-copy="link">リンクをコピー</button>
-</div>
-<a id="pinterestOpenCreate" class="small-btn link-btn pinterest-open-create" href="https://www.pinterest.com/pin-builder/" target="_blank" rel="noopener">PinterestでPinを作成</a>
-<p class="backup-note">Pinterestを開いたら、タイトル・説明文・リンクの各欄をタップして、それぞれ「ペースト」してください。Pinterestへの自動入力・自動公開は行いません。</p>
-<p id="pinterestPinStatus" class="pinterest-pin-status" aria-live="polite"></p>
-</section>
+<div class="detail-action-row"><button id="detailCopyImage" class="small-btn detail-copy-image-btn" type="button">本文と写真全部を1枚で保存</button><button id="detailDownloadAllPhotos" class="small-btn" type="button" disabled>写真を準備中…</button></div>
+
 </details>
 </div>
 </div>
@@ -427,13 +408,14 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261001-3390-compact3"></script>
+<script src="./app.js?v=20261001-3390-nopin4"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261001-3390-compact3"></script>
+<script src="./lovely-watch.js?v=20261001-3390-nopin4"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
 </body>
 </html>
+
 
 
 
