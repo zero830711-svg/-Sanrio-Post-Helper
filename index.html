@@ -78,12 +78,13 @@
 <div id="lovelyProductInfo" aria-live="polite"></div>
 <div class="cloud-sync-actions"><a id="lovelyAmazonSearch" class="small-btn link-btn" target="_blank" rel="noopener noreferrer">Amazonで探す</a><a id="lovelyRakutenSearch" class="small-btn link-btn" target="_blank" rel="noopener noreferrer">楽天で探す</a></div>
 <label>自分のAmazonアフィリエイトリンク<input id="lovelyAmazon" type="url" placeholder="SiteStripeの商品リンク"></label>
-<div id="lovelyRakutenProductBox" hidden>
+<details id="lovelyRakutenProductBox" hidden open>
+<summary>楽天の短縮URLを作成・変更</summary>
 <label>楽天の商品URL（短縮URL作成用）<input id="lovelyRakutenProductUrl" type="url" readonly aria-label="楽天の通常の商品URL"></label>
 <button id="lovelyRakutenProductCopy" type="button" class="small-btn">商品URLをコピー</button>
 <a class="small-btn link-btn" id="lovelyRakutenAffiliateOpen" href="https://affiliate.rakuten.co.jp/" target="_blank" rel="noopener noreferrer">楽天アフィリエイトを開く</a>
 <p id="lovelyRakutenProductCopyStatus" class="backup-note" aria-live="polite"></p>
-</div>
+</details>
 <label>楽天の短縮URLを貼り付け<input id="lovelyRakuten" type="url" placeholder="https://a.r10.to/..." autocomplete="off"></label>
 <button id="lovelyRakutenPaste" type="button" class="small-btn">短縮URLを貼り付け</button>
 <p id="rakutenAutoStatus" class="backup-note" aria-live="polite"></p>
@@ -398,10 +399,10 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261001-3390"></script>
+<script src="./app.js?v=20261001-3390-reuse1"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261001-3390-paste1"></script>
+<script src="./lovely-watch.js?v=20261001-3390-reuse1"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
 </body>
 </html>
