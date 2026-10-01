@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3389";
+const APP_VERSION="2026.10.01-3390";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -3740,7 +3740,7 @@ $("forceLatest")?.addEventListener("click",()=>{
   location.replace(url.toString());
 });
 
-document.querySelector(".trend-card")?.addEventListener("toggle",e=>{if(e.currentTarget.open&&!trendRadarLoaded)renderTrendRadar(false).catch(console.error)});
+document.querySelector("details.trend-card:not(#lovelyPanel)")?.addEventListener("toggle",e=>{if(e.currentTarget.open&&!trendRadarLoaded)renderTrendRadar(false).catch(console.error)});
 $("trendRefresh")?.addEventListener("click",()=>renderTrendRadar(true));
 document.querySelectorAll(".trend-range").forEach(btn=>btn.addEventListener("click",()=>{
   trendRangeHours=Number(btn.dataset.trendRange)||24;
