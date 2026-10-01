@@ -22,21 +22,32 @@ function news_fetch(string $u,int $limit=2000000):string {
 function news_doc(string $s):DOMXPath{$d=new DOMDocument();libxml_use_internal_errors(true);$d->loadHTML('<?xml encoding="UTF-8">'.str_replace("\0",'',$s),LIBXML_NONET);libxml_clear_errors();return new DOMXPath($d);}
 function news_text(?DOMNode $n):string{return trim(preg_replace('/\s+/u',' ',$n?$n->textContent:'')??'');}
 function news_detail(string $u):array{
- $cache=sys_get_temp_dir().'/sph-news-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-v2-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
  $a=news_parse(news_fetch($u),$u);file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
 }
 function news_parse(string $html,string $u):array{
  $x=news_doc($html);$pr=strpos($u,'https://prtimes.jp/')===0;
- $title=news_text($x->query('//h1')->item(0));$body=$x->query($pr?'//*[@id="press-release-body"]':'//section[contains(concat(" ",normalize-space(@class)," ")," c-detail-content ") or contains(concat(" ",normalize-space(@class)," ")," c-detail-head ")]')->item(0);
- if(!$title||!$body)throw new RuntimeException('記事の本文を確認できませんでした。');
- $images=[];foreach($x->query('.//img[@src]',$body)as $im){$v=news_image_url($im->getAttribute('src'));if($v&&!in_array($v,$images,true))$images[]=$v;if(count($images)>=4)break;}
- $lines=[];foreach($x->query('.//p',$body)as $p){$t=news_text($p);if(mb_strlen($t)>=12&&mb_strlen($t)<=500)$lines[]=$t;if(count($lines)>=12)break;}
- $date=news_text($x->query('//time/@datetime')->item(0));if(!$date)$date=news_text($x->query('//time')->item(0));if(!$date&&preg_match('/([0-9]{4})年([0-9]{1,2})月([0-9]{1,2})日/u',news_text($x->query('//meta[@name="description"]/@content')->item(0)),$m))$date=sprintf('%04d-%02d-%02d',(int)$m[1],(int)$m[2],(int)$m[3]);
- $a=['url'=>$u,'source'=>$pr?'PR TIMES':'サンリオ公式','title'=>$title,'date'=>$date,'paragraphs'=>$lines,'images'=>$images];return $a;
+ $title=news_text($x->query('//h1')->item(0));$bodies=$x->query($pr?'//*[@id="press-release-body"]':'//section[contains(concat(" ",normalize-space(@class)," ")," c-detail-content ") or contains(concat(" ",normalize-space(@class)," ")," c-detail-head ")]');
+ if(!$title||!$bodies->length)throw new RuntimeException('記事の本文を確認できませんでした。');
+ $images=[];$lines=[];
+ foreach($bodies as $body){
+ foreach($x->query('.//img[@src]',$body)as $im){$v=news_image_url($im->getAttribute('src'));if($v&&!in_array($v,$images,true)&&count($images)<4)$images[]=$v;}
+ foreach($x->query('.//p | .//li | .//tr | .//dl',$body)as $node){$t=news_text($node);if(mb_strlen($t)>=8&&mb_strlen($t)<=600&&!in_array($t,$lines,true)&&count($lines)<60)$lines[]=$t;}
+ }
+ $date=news_text($x->query('//time/@datetime')->item(0));if(!$date)$date=news_text($x->query('//time')->item(0));
+ if(!$date)$date=news_text($x->query('//*[contains(concat(" ",normalize-space(@class)," ")," c-detail-date ")]')->item(0));
+ if(!$date&&preg_match('/([0-9]{4})年([0-9]{1,2})月([0-9]{1,2})日/u',news_text($x->query('//meta[@name="description"]/@content')->item(0)),$m))$date=sprintf('%04d-%02d-%02d',(int)$m[1],(int)$m[2],(int)$m[3]);
+ $facts=[];
+ foreach($lines as $line){foreach(preg_split('/(?<=[。！？])/u',$line)as $s){$s=trim($s);if(mb_strlen($s)>100||mb_strlen($s)<8)continue;
+ $kind='';if(preg_match('/(?:発売|販売開始|開催|キャンペーン期間|実施期間|期間)[^。]*[0-9０-９]+(?:月|\/)|[0-9０-９]+(?:月|\/)[^。]*(?:発売|開催|まで|から|より)/u',$s))$kind='schedule';
+ elseif(preg_match('/[0-9０-９][0-9０-９,，]*(?:円|万円)/u',$s)&&preg_match('/価格|税込|税抜|販売|各|円/u',$s)&&!preg_match('/送料|送料無料|購入すると|以上.*購入/u',$s))$kind='price';
+ if($kind&&!isset($facts[$kind]))$facts[$kind]=['kind'=>$kind,'text'=>$s];
+ }}
+ $a=['url'=>$u,'source'=>$pr?'PR TIMES':'サンリオ公式','title'=>$title,'date'=>$date,'paragraphs'=>array_slice($lines,0,20),'facts'=>array_values($facts),'images'=>$images];return $a;
 }
 function news_list():array{
- $cache=sys_get_temp_dir().'/sph-news-list-'.hash('sha256',__DIR__).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
- $rows=[];$errors=[];foreach(['https://www.sanrio.co.jp/news/goods/','https://prtimes.jp/topics/keywords/'.rawurlencode('サンリオ')] as $feed){try{$x=news_doc(news_fetch($feed));foreach($x->query('//a[@href]')as $a){$u=$a->getAttribute('href');if(strpos($u,'/news/goods/')===0)$u='https://www.sanrio.co.jp'.$u;if(strpos($u,'/main/html/rd/p/')===0)$u='https://prtimes.jp'.$u;$u=news_url($u);if(!$u||isset($rows[$u]))continue;$title=news_text($a);if(!$title){$im=$x->query('.//img',$a)->item(0);$title=$im?$im->getAttribute('alt'):'';}if(mb_strlen($title)<5)continue;$im=$x->query('.//img',$a)->item(0);$thumb=$im?news_image_url($im->getAttribute('src')):'';$rows[$u]=['url'=>$u,'title'=>mb_substr($title,0,160),'source'=>strpos($u,'prtimes.jp')!==false?'PR TIMES':'サンリオ公式','image'=>$thumb];if(count($rows)>=30)break;}}catch(Throwable $e){$errors[]=$e->getMessage();}}
+ $cache=sys_get_temp_dir().'/sph-news-list-v2-'.hash('sha256',__DIR__).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
+ $rows=[];$errors=[];foreach(['https://www.sanrio.co.jp/news/goods/','https://prtimes.jp/topics/keywords/'.rawurlencode('サンリオ')] as $feed){try{$x=news_doc(news_fetch($feed));foreach($x->query('//a[@href]')as $a){$u=$a->getAttribute('href');if(strpos($u,'/news/goods/')===0)$u='https://www.sanrio.co.jp'.$u;if(strpos($u,'/main/html/rd/p/')===0)$u='https://prtimes.jp'.$u;$u=news_url($u);if(!$u||isset($rows[$u]))continue;$tn=$x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," c-title ")]',$a)->item(0);$title=news_text($tn?:$a);if(!$title){$im=$x->query('.//img',$a)->item(0);$title=$im?$im->getAttribute('alt'):'';}if(mb_strlen($title)<5)continue;$im=$x->query('.//img',$a)->item(0);$thumb=$im?news_image_url($im->getAttribute('src')?:$im->getAttribute('data-src')):'';$date=news_text($x->query('.//time/@datetime | .//*[contains(concat(" ",normalize-space(@class)," ")," c-date ")]',$a)->item(0));if(!$date){$parent=$a->parentNode;$date=news_text($x->query('.//time/@datetime | .//time',$parent)->item(0));}$rows[$u]=['url'=>$u,'title'=>mb_substr($title,0,160),'source'=>strpos($u,'prtimes.jp')!==false?'PR TIMES':'サンリオ公式','image'=>$thumb,'date'=>$date];if(count($rows)>=30)break;}}catch(Throwable $e){$errors[]=$e->getMessage();}}
  if(!$rows)throw new RuntimeException('ニュース一覧を取得できませんでした。記事URLから開けます。');$result=['items'=>array_values($rows),'warnings'=>$errors,'fetchedAt'=>gmdate('c')];file_put_contents($cache,json_encode($result),LOCK_EX);@chmod($cache,0600);return $result;
 }
 if(defined('SPH_NEWS_TEST'))return;
