@@ -17,6 +17,7 @@ test('ニュースの写真を先に取得し、編集した本文と一緒に�
  await expect(page.locator('#lovelyPanel')).not.toBeVisible();
  await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  await expect(page.locator('#newsShare')).toBeEnabled();
+ await expect(page.locator('#newsBrowse')).not.toBeVisible();
  await expect(page.locator('#newsImages img')).toHaveCount(5);
  expect(await page.locator('#newsEditor').evaluate(el=>el.getBoundingClientRect().top)).toBeGreaterThanOrEqual(-1);
  expect(await page.locator('#newsEditor').evaluate(el=>el.getBoundingClientRect().top)).toBeLessThan(100);
@@ -27,6 +28,13 @@ test('ニュースの写真を先に取得し、編集した本文と一緒に�
  await page.locator('.news-photo').filter({has:page.getByAltText('記事の写真 1', {exact:true})}).getByRole('checkbox').uncheck();
  await page.locator('.news-photo').filter({has:page.getByAltText('記事の写真 5', {exact:true})}).getByRole('checkbox').check();
  await page.locator('#newsText').fill('確認済みの紹介文\n詳細：https://prtimes.jp/main/html/rd/p/000000122.000013308.html');
+ await page.locator('#newsBack').click();
+ await expect(page.locator('#newsBrowse')).toBeVisible();
+ await expect(page.locator('#newsEditor')).not.toBeVisible();
+ await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
+ await expect(page.locator('#newsText')).toHaveValue(/確認済みの紹介文/);
+ await expect(page.locator('#newsImages .news-photo').first()).toContainText('1枚目');
+ await expect(page.locator('#newsImages .news-photo').first().locator('img')).toHaveAttribute('alt','記事の写真 2');
  await page.locator('#newsShare').click();
  const shared=await page.evaluate(()=>window.sharedNews);
  expect(shared.text).toContain('確認済みの紹介文');
