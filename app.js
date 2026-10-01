@@ -2985,7 +2985,7 @@ function preloadDetailImages(item,images){
   });
 }
 function shareDetailToChatGPT(button,kind="x"){
-  const buttonLabel=kind==="blog"?"ブログ用を共有":kind==="threads"?"Threads用を共有":"X用を共有";
+  const buttonLabel=kind==="blog"?"ブログ用を共有":kind==="threads"?"Threads用を共有":"ChatGPT";
   const item=detailCurrentItem;
   if(!item||!button)return;
   const status=$("detailChatGPTStatus");
@@ -3617,7 +3617,7 @@ $("detailCopyImage")?.addEventListener("click",e=>downloadWholePostImage(e.curre
 function recoverDetailAfterShare(){
   if(document.visibilityState==="hidden"||!chatgptShareHandoffActive)return;
   chatgptShareHandoffActive=false;
-  for(const [id,label] of [["detailChatGPTShare","X用を共有"],["detailBlogShare","ブログ用を共有"],["detailThreadsShare","Threads用を共有"]]){
+  for(const [id,label] of [["detailChatGPTShare","ChatGPT"],["detailBlogShare","ブログ用を共有"],["detailThreadsShare","Threads用を共有"]]){
     const button=$(id);if(button){button.disabled=false;button.textContent=label}
   }
   const modal=$("todayDetailModal");
