@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261001-3390-news12">
+<link rel="stylesheet" href="./styles.css?v=20261001-3390-news13">
 </head>
 <body>
 <main class="app">
@@ -55,6 +55,11 @@
 <p class="backup-note">サンリオ公式・PR TIMESから投稿を準備</p>
 <details><summary>記事URLから開く</summary><label>記事URL<input id="newsUrl" type="url" placeholder="https://prtimes.jp/..."></label><button id="newsOpen" class="small-btn" type="button">投稿準備</button><button id="newsExample" class="small-btn" type="button">ワークマンの記事で試す</button></details>
 <label class="news-filter">表示<select id="newsFilter"><option value="new">未投稿</option><option value="hidden">投稿済み・見送り</option><option value="all">すべて</option></select></label>
+<div class="news-refine">
+<label>キャラ<select id="newsCharacter"><option value="all">すべて</option><option value="kuromi">クロミ</option><option value="kitty">キティ</option><option value="cinnamoroll">シナモロール</option><option value="purin">ポムポムプリン</option><option value="myMelody">マイメロディ</option><option value="pochacco">ポチャッコ</option><option value="hangyodon">ハンギョドン</option><option value="allCharacters">キャラクターズ</option></select></label>
+<label>種類<select id="newsType"><option value="all">すべて</option><option value="goods">グッズ</option><option value="collaboration">コラボ</option><option value="event">イベント・キャンペーン</option></select></label>
+<label>情報源<select id="newsSourceFilter"><option value="all">すべて</option><option value="official">サンリオ公式</option><option value="pr">PR TIMES</option></select></label>
+</div><div class="news-refine-note"><span>キャラ・種類は見出しから判定</span><button id="newsFilterReset" class="small-btn" type="button">絞り込み解除</button></div>
 <p id="newsStatus" class="backup-note" aria-live="polite"></p><div id="newsList"></div>
 </div><section id="newsEditor" hidden><button id="newsBack" class="small-btn" type="button">ニュース一覧へ戻る</button><h3 id="newsTitle"></h3><a id="newsSource" target="_blank" rel="noopener noreferrer"></a><p id="newsDate" class="backup-note"></p>
 <label>投稿文（編集できます）<textarea id="newsText" rows="6"></textarea></label>
@@ -425,12 +430,12 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261001-3390-news12"></script>
+<script src="./app.js?v=20261001-3390-news13"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261001-3390-news12"></script>
+<script src="./lovely-watch.js?v=20261001-3390-news13"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
-<script src="./news.js?v=20261001-3390-news12"></script>
+<script src="./news.js?v=20261001-3390-news13"></script>
 </body>
 </html>
 
