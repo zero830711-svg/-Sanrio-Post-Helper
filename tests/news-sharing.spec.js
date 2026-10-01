@@ -71,3 +71,18 @@ test('ニュース本文から商品ラインナップを優先し、確認で�
  expect(Array.from(result.long).length).toBeLessThanOrEqual(280);
  expect(result.long).toContain('https://www.sanrio.co.jp/news/goods/example/');
 });
+
+test('ニュースを5件ずつ表示し、戻った時も表示件数を維持する',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ const items=Array.from({length:12},(_,i)=>({title:'サンリオ新作ニュース'+i,source:'サンリオ公式',url:'https://www.sanrio.co.jp/news/goods/test-'+i+'/',images:[],paragraphs:[]}));
+ await page.route('**/news.php?**',route=>{
+  const u=new URL(route.request().url());return route.fulfill({json:u.searchParams.get('action')==='list'?{ok:true,items}:{ok:true,item:items.find(i=>i.url===u.searchParams.get('url'))}});
+ });
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
+ await expect(page.locator('#newsList article')).toHaveCount(5);await expect(page.locator('#newsMore')).toHaveText('もっと見る（あと7件）');
+ await page.locator('#newsMore').click();await expect(page.locator('#newsList article')).toHaveCount(10);
+ await page.locator('#newsList article').nth(6).getByRole('button',{name:'投稿準備'}).click();await expect(page.locator('#newsShare')).toBeEnabled();
+ await page.locator('#newsBack').click();await expect(page.locator('#newsList article')).toHaveCount(10);
+ await page.locator('#newsMore').click();await expect(page.locator('#newsList article')).toHaveCount(12);await expect(page.locator('#newsMore')).not.toBeVisible();
+ await page.locator('#newsFilter').selectOption('all');await expect(page.locator('#newsList article')).toHaveCount(5);
+});
