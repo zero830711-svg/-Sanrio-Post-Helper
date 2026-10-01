@@ -2436,7 +2436,8 @@ async function renderToday(){
   if(todayListDay!==localDayKey()){todayAdditionalLimit=0;todayListDay=localDayKey();}
   const base=await getRoleBasedPicks();
   const extra=additionalTodayPicks(await getReadyItems(),base);
-  const items=[...base,...extra.slice(0,todayAdditionalLimit)].sort((a,b)=>Number(candidateHasPhotos(b))-Number(candidateHasPhotos(a)));
+  const ranked=[...base,...extra].sort((a,b)=>Number(candidateHasPhotos(b))-Number(candidateHasPhotos(a)));
+  const items=ranked.slice(0,base.length+todayAdditionalLimit);
   const more=$("todayMore"),status=$("todayMoreStatus");
   more.hidden=extra.length<=todayAdditionalLimit;
   more.textContent="もっと見る（あと"+Math.max(0,extra.length-todayAdditionalLimit)+"件）";
