@@ -18,6 +18,8 @@ test('ニュースの写真を先に取得し、編集した本文と一緒に�
  await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  await expect(page.locator('#newsShare')).toBeEnabled();
  await expect(page.locator('#newsImages img')).toHaveCount(1);
+ expect(await page.locator('#newsEditor').evaluate(el=>el.getBoundingClientRect().top)).toBeGreaterThanOrEqual(-1);
+ expect(await page.locator('#newsEditor').evaluate(el=>el.getBoundingClientRect().top)).toBeLessThan(100);
  await page.locator('#newsText').fill('確認済みの紹介文\n詳細：https://prtimes.jp/main/html/rd/p/000000122.000013308.html');
  await page.locator('#newsShare').click();
  const shared=await page.evaluate(()=>window.sharedNews);
