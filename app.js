@@ -2417,9 +2417,28 @@ async function renderTodayProgress(){
   const skipped=new Set(items.filter(x=>x.skippedAt&&localDayKey(new Date(x.skippedAt))===today).map(canonicalPostKey)).size;
   root.innerHTML='<span>今日：再投稿 <strong>'+reposted+'</strong>件</span><span>見送り <strong>'+skipped+'</strong>件</span>';
 }
+function additionalTodayPicks(pool,base){
+ const posts=new Set(base.map(canonicalPostKey));
+ const products=new Set(base.flatMap(cooldownProductKeys));
+ const result=[];
+ for(const x of [...pool].sort((a,b)=>recommendationScore(b)-recommendationScore(a))){
+  const keys=cooldownProductKeys(x);
+  if(posts.has(canonicalPostKey(x))||keys.some(key=>products.has(key)))continue;
+  result.push({...x,_role:"追加候補"});
+  posts.add(canonicalPostKey(x));keys.forEach(key=>products.add(key));
+ }
+ return result;
+}
 async function renderToday(){
   const root=$("todayList");
-  const items=await getRoleBasedPicks();
+  if(todayListDay!==localDayKey()){todayAdditionalLimit=0;todayListDay=localDayKey();}
+  const base=await getRoleBasedPicks();
+  const extra=additionalTodayPicks(await getReadyItems(),base);
+  const items=[...base,...extra.slice(0,todayAdditionalLimit)];
+  const more=$("todayMore"),status=$("todayMoreStatus");
+  more.hidden=extra.length<=todayAdditionalLimit;
+  more.textContent="もっと見る（あと"+Math.max(0,extra.length-todayAdditionalLimit)+"件）";
+  status.textContent=todayAdditionalLimit?(items.length+"件を表示"+(more.hidden?" ・ すべて表示しました":"")):"";
   if(!items.length){
     todayPicksById=new Map();
     root.innerHTML='<div class="empty">今すぐ出せる候補はありません。</div>';
@@ -2839,6 +2858,8 @@ let detailImageBlobErrors=[];
 let detailWholeImageBlob=null;
 let detailWholeImagePromise=null;
 let todayPicksById=new Map();
+let todayAdditionalLimit=0;
+let todayListDay="";
 function showTodayDetail(item,continueQueue=false){
   if(!item)return;
   if(!continueQueue){
@@ -3672,6 +3693,13 @@ document.querySelector(".analytics-dashboard")?.addEventListener("click",async e
 
 
 
+$("todayMore").addEventListener("click",async()=>{
+ const btn=$("todayMore");if(btn.disabled)return;
+ btn.disabled=true;const y=window.scrollY;const before=todayAdditionalLimit;todayAdditionalLimit+=5;
+ try{await renderToday();window.scrollTo({top:y,behavior:"instant"});}
+ catch(e){todayAdditionalLimit=before;$("todayMoreStatus").textContent="取得できませんでした。もう一度お試しください。";console.error(e);}
+ finally{btn.disabled=false;}
+});
 $("todayList").addEventListener("click",async e=>{
   const btn=e.target.closest("[data-today-action]");
   if(!btn)return;
