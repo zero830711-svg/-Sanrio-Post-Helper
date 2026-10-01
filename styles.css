@@ -269,3 +269,14 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .news-photo{min-width:0;border:1px solid var(--line);border-radius:10px;padding:6px}.news-photo label{display:flex;align-items:center;gap:6px;font-size:12px;margin:4px 0}.news-photo input{width:auto;margin:0}.news-photo-controls{display:flex;gap:4px}.news-photo-controls .small-btn{flex:1;min-width:0;min-height:44px;padding:5px;font-size:12px}.news-photo-controls button:disabled{opacity:.4}
 
 #newsBrowse[hidden]{display:none!important}
+
+/* Shared compact discovery layout: photo, title and one action. */
+#todayList{gap:0}.today-item.today-news-row{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:8px;align-items:center;margin:0;padding:12px 0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none}
+.today-news-row .today-media-grid{width:64px;margin:0;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px}.today-news-row .today-rank{width:64px;height:64px;margin:0}.today-news-row .today-summary{min-width:0}.today-news-row .today-rank-label{font-size:11px;margin:0 0 4px}.today-item.today-news-row h3{font-size:13px;line-height:1.45;margin:0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.today-news-row .today-meta{font-size:11px;margin:4px 0 0}.today-news-row>button{font-size:12px;padding:9px 10px;min-height:44px;white-space:nowrap}
+#lovelyPanel .lovely-row.lovely-preview-row{grid-template-columns:64px minmax(0,1fr) auto;gap:8px;align-items:center;padding:12px 0}
+#lovelyPanel .lovely-row>button{grid-column:3;justify-self:end;font-size:12px;padding:9px 10px;min-height:44px;white-space:nowrap}
+#lovelyPanel .lovely-thumb,#lovelyPanel .lovely-thumb img{width:64px;height:64px}#lovelyPanel .lovely-thumb{grid-row:1}
+#lovelyPanel .lovely-row-title{font-size:13px;line-height:1.45;-webkit-line-clamp:3}
+#lovelyPanel .lovely-row .backup-note{display:block;font-size:11px;margin:0 0 4px}
+#lovelyPanel .lovely-list-help{font-size:12px;color:var(--muted);margin:6px 0}#lovelyPanel label:has(> #lovelyFilter){font-size:12px;display:flex;align-items:center;gap:8px}#lovelyFilter{width:auto;font-size:13px;padding:6px}
+#detailCandidateTools .today-affiliate-links{margin:8px 0}#detailCandidateTools .small-btn{font-size:12px;min-height:44px}#detailCandidateTools .recommend-reason{font-size:11px}
