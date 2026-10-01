@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261001-3390-label7">
+<link rel="stylesheet" href="./styles.css?v=20261001-3390-news8">
 </head>
 <body>
 <main class="app">
@@ -26,6 +26,7 @@
 </header>
 <div class="home-tabs" role="tablist" aria-label="投稿候補の切り替え">
 <button id="homeTodayTab" type="button" role="tab" aria-controls="todayHomePanel" aria-selected="true">今日の候補</button>
+<button id="homeNewsTab" type="button" role="tab" aria-controls="newsPanel" aria-selected="false" tabindex="-1">新作ニュース</button>
 <button id="homeNewTab" type="button" role="tab" aria-controls="lovelyPanel" aria-selected="false" tabindex="-1">新着商品</button>
 </div>
 
@@ -47,6 +48,20 @@
 </div>
 <div id="todayList" class="today-list"></div>
 <details class="today-selection-help"><summary>候補の選び方</summary><p class="backup-note">過去投稿から「過去最強 / クリック / 保存」の3枠はAmazon・楽天リンク付き優先、「久しぶり / 別テーマ」の2枠は反応とテーマの変化を重視して自動選定。クリック枠は商品IDが完全一致する報酬実績を優先します（Amazonはアカウントごとの最新商品レポート、楽天は直近3か月の保存済みレポートの確定報酬。投稿経由は不明）。「別テーマ」は季節に合う商品テーマを優先します。単独キャラクターは原則2件まで。複数キャラクターは別扱いとし、候補不足時は制限を緩めます。リンク付き候補が不足する場合は通常候補で補います。似た内容の連投を避け、同じ商品は基本30日空けます。十分なX比較実績がありクリック率が低下した場合は60日・90日に自動延長します（再入荷・発売日変更などの新情報は同商品制限の対象外）。</p></details>
+</section>
+
+<section id="newsPanel" class="card" role="tabpanel" aria-labelledby="homeNewsTab" hidden>
+<div class="today-head"><h2 class="section-title">新作ニュース</h2><button id="newsRefresh" class="small-btn" type="button">更新</button></div>
+<p class="backup-note">サンリオ公式・PR TIMESから投稿を準備</p>
+<details><summary>記事URLから開く</summary><label>記事URL<input id="newsUrl" type="url" placeholder="https://prtimes.jp/..."></label><button id="newsOpen" class="small-btn" type="button">投稿準備</button><button id="newsExample" class="small-btn" type="button">ワークマンの記事で試す</button></details>
+<p id="newsStatus" class="backup-note" aria-live="polite"></p><div id="newsList"></div>
+<section id="newsEditor" hidden><h3 id="newsTitle"></h3><a id="newsSource" target="_blank" rel="noopener noreferrer"></a><p id="newsDate" class="backup-note"></p>
+<label>投稿文（編集できます）<textarea id="newsText" rows="6"></textarea></label>
+<details><summary>記事の情報を確認</summary><p id="newsFacts" class="backup-note"></p></details>
+<div id="newsImages" class="news-images"></div><p class="backup-note">画像の利用条件・商品との一致を元記事で確認してください。</p>
+<button id="newsShare" class="small-btn primary" type="button" disabled>本文＋写真を共有</button>
+<div class="cloud-sync-actions"><button id="newsCopy" class="small-btn" type="button">投稿文をコピー</button><button id="newsSavePhotos" class="small-btn" type="button">写真を保存</button></div>
+<p id="newsEditorStatus" class="backup-note" aria-live="polite"></p></section>
 </section>
 
 <details id="lovelyPanel" class="card trend-card" role="tabpanel" aria-labelledby="homeNewTab" hidden>
@@ -408,13 +423,15 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261001-3390-label7"></script>
+<script src="./app.js?v=20261001-3390-news8"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261001-3390-label7"></script>
+<script src="./lovely-watch.js?v=20261001-3390-news8"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
+<script src="./news.js?v=20261001-3390-news8"></script>
 </body>
 </html>
+
 
 
 
