@@ -86,3 +86,46 @@ test('ニュースを5件ずつ表示し、戻った時も表示件数を維持�
  await page.locator('#newsMore').click();await expect(page.locator('#newsList article')).toHaveCount(12);await expect(page.locator('#newsMore')).not.toBeVisible();
  await page.locator('#newsFilter').selectOption('all');await expect(page.locator('#newsList article')).toHaveCount(5);
 });
+
+test('写真ファイルの取得中に本文とプレビューを確認し、編集した状態で開き直せる',async({page})=>{
+ await page.addInitScript(()=>{
+  localStorage.setItem('sanrioCloudSyncKey','test-key');
+  Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
+  Object.defineProperty(navigator,'share',{value:async data=>{window.fastShared=data.files.map(f=>f.name);},configurable:true});
+ });
+ const item={title:'サンリオの新作リボングッズ',source:'PR TIMES',url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',images:['https://example.invalid/1.png','https://example.invalid/2.png'],paragraphs:['リボンをあしらったかわいいデザインです。']};
+ const pending=[];let details=0,images=0;
+ await page.route('**/news.php?**',async route=>{
+  const action=new URL(route.request().url()).searchParams.get('action');
+  if(action==='image'){images++;await new Promise(resolve=>pending.push(async()=>{await route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64')});resolve();}));return;}
+  if(action==='detail')details++;
+  await route.fulfill({json:action==='list'?{ok:true,items:[item]}:{ok:true,item}});
+ });
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
+ await page.locator('#newsList').getByRole('button',{name:'投稿準備'}).click();
+ await expect(page.locator('#newsImages img')).toHaveCount(2);
+ await expect(page.locator('#newsText')).toHaveValue(/リボン/);await expect(page.locator('#newsShare')).toBeDisabled();
+ await page.locator('#newsText').fill('写真の取得を待たずに編集した本文');
+ await page.getByRole('button',{name:'写真2を前へ',exact:true}).click();
+ await expect.poll(()=>pending.length).toBe(2);
+ await page.locator('#newsBack').click();await page.locator('#newsList').getByRole('button',{name:'投稿準備'}).click();
+ await expect(page.locator('#newsText')).toHaveValue('写真の取得を待たずに編集した本文');
+ await expect(page.locator('#newsImages img').first()).toHaveAttribute('alt','記事の写真 2');
+ expect(details).toBe(1);expect(images).toBe(2);
+ await Promise.all(pending.map(release=>release()));
+ await expect(page.locator('#newsShare')).toBeEnabled();await page.locator('#newsShare').click();
+ expect(await page.evaluate(()=>window.fastShared)).toEqual(['news-2.png','news-1.png']);
+});
+test('選んだ写真を取得できないときは、不完全な写真共有をしない',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ const item={title:'サンリオ新作',source:'サンリオ公式',url:'https://www.sanrio.co.jp/news/goods/example/',images:['https://example.invalid/1.png','https://example.invalid/2.png'],paragraphs:[]};
+ await page.route('**/news.php?**',route=>{
+  const u=new URL(route.request().url()),action=u.searchParams.get('action');
+  if(action==='image')return u.searchParams.get('index')==='1'?route.fulfill({status:502,json:{ok:false,error:'写真を取得できません'}}):route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64')});
+  return route.fulfill({json:action==='list'?{ok:true,items:[item]}:{ok:true,item}});
+ });
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備'}).click();
+ await expect(page.locator('#newsEditorStatus')).toContainText('一部の写真を取得できません');await expect(page.locator('#newsShare')).toBeDisabled();
+ await page.locator('.news-photo').filter({has:page.getByAltText('記事の写真 2',{exact:true})}).getByRole('checkbox').uncheck();
+ await expect(page.locator('#newsShare')).toBeEnabled();
+});
