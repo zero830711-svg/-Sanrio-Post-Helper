@@ -293,3 +293,5 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .home-header .home-info[open]>summary::before{content:"▾"}
 
 .detail-photo-select{display:flex;align-items:center;gap:6px;font-size:12px;min-height:36px;margin:4px 0}.detail-photo-select input{width:18px;height:18px;padding:0}.detail-photo-order{display:flex;gap:6px}.detail-photo-order button{flex:1;font-size:12px;min-height:44px;padding:6px}.detail-photo-order button:disabled{opacity:.4}
+
+#newsPanel .news-schedule{display:block;font-size:11px;font-weight:700;color:#8c4964;margin-top:3px}.news-related-sources{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin:6px 0}.news-related-sources[hidden]{display:none}
