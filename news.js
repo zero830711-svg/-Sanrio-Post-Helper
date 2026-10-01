@@ -3,11 +3,25 @@ function newsReadMarks(){try{return JSON.parse(localStorage.getItem('sanrioNewsM
 const newsState={item:null,files:[],selected:[],seq:0,busy:false,items:[],warnings:[],marks:newsReadMarks(),drafts:new Map(),browseY:0};
 function newsApiUrl(action,url='',index=0){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/news.php'));u.searchParams.set('action',action);if(url)u.searchParams.set('url',url);if(action==='image')u.searchParams.set('index',String(index));return u.toString();}
 async function newsRequest(action,url='',index=0){const {key}=cloudSettings();if(!key)throw new Error('同期キーを設定してください。');const r=await fetch(newsApiUrl(action,url,index),{headers:{Authorization:'Bearer '+key},cache:'no-store',signal:AbortSignal.timeout(25000)});if(action==='image'&&r.ok){const b=await r.blob();if(!/^image\/(jpeg|png|webp)$/.test(b.type))throw new Error('画像形式を確認できません。');return new File([b],'news-'+(index+1)+'.'+(b.type==='image/png'?'png':b.type==='image/webp'?'webp':'jpg'),{type:b.type});}const d=await r.json();if(!r.ok||d.ok===false)throw new Error(d.error||'ニュースを取得できませんでした。');return d;}
+function newsHighlight(item){
+ const title=String(item.title||'');
+ for(const paragraph of (item.paragraphs||[]).slice(0,12)){
+  for(let sentence of String(paragraph).split(/(?<=[。！？])/u)){
+   sentence=sentence.trim();
+   if(sentence.length<12||Array.from(sentence).length>85||title.includes(sentence.replace(/[。！？]$/u,'')))continue;
+   if(!/デザイン|柄|カラー|色合い|モチーフ|刺繍|リボン|ふわふわ|もこもこ|かわいい|可愛い|キュート|おしゃれ|便利|コンパクト|機能|素材|収納/.test(sentence))continue;
+   if(/価格|円|送料|購入|発売日|開催期間|税込|税抜|転載|著作権|ログイン|会員登録|ください/.test(sentence))continue;
+   return sentence.replace(/登場するよ[！。]?$/u,'登場✨').replace(/だよ[！。]?$/u,'です✨').replace(/[。]$/u,'');
+  }
+ }
+ return '';
+}
 function newsDraft(item){
  let title=String(item.title||'').replace(/^【[^】]*】\s*/,'');
  title=Array.from(title).slice(0,85).join('');
+ const highlight=newsHighlight(item);
  const facts=(item.facts||[]).slice(0,2).map(f=>(f.kind==='schedule'?'📅 ':'💰 ')+f.text);
- return '🎀 '+title+' ✨'+(facts.length?'\n\n'+facts.join('\n'):'')+'\n\n🔎 詳細はこちら\n'+item.url+'\n\n#サンリオ';
+ return '🎀 '+title+' ✨'+(highlight?'\n\n'+highlight:'')+(facts.length?'\n\n'+facts.join('\n'):'')+'\n\n🔎 詳細はこちら\n'+item.url+'\n\n#サンリオ';
 }
 function newsDateLabel(value){const m=String(value||'').match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);return m?Number(m[2])+'/'+Number(m[3]):value;}
 function newsChosenFiles(){return newsState.selected.map(i=>newsState.files[i]);}
