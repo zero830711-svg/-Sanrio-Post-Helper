@@ -160,7 +160,7 @@ function lw_affiliate_result(array $data,string $code,string $affiliateId): arra
     $item=$items[0]['item']??$items[0]['Item']??$items[0];
     if(!is_array($item)||($item['itemCode']??'')!==$code)throw new RuntimeException('商品コードが一致しません。自動入力しませんでした。');
     $url=(string)($item['affiliateUrl']??'');$p=parse_url($url);
-    if(!$p||($p['scheme']??'')!=='https'||($p['host']??'')!=='hb.afl.rakuten.co.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||strpos($p['path']??'','/'.$affiliateId.'/')===false)throw new RuntimeException('自分の楽天紹介リンクを確認できませんでした。');
+    if(!$p||($p['scheme']??'')!=='https'||($p['host']??'')!=='hb.afl.rakuten.co.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||!preg_match('~^/hgc/[a-f0-9]{8}(?:\\.[a-f0-9]{8}){3}/?$~iD',$p['path']??''))throw new RuntimeException('自分の楽天紹介リンクを確認できませんでした。');
     return ['url'=>$url,'itemCode'=>$code,'title'=>(string)($item['itemName']??''),'checkedAt'=>gmdate('c')];
 }
 function lw_rakuten_error(int $status,string $body): string {
