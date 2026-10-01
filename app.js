@@ -3801,6 +3801,7 @@ document.querySelector(".analytics-dashboard")?.addEventListener("click",async e
     if(await pinCandidateForToday(item)){
       await renderToday();
       await renderTodayProgress();
+      setHomeView("today");
       document.querySelector(".today-card")?.scrollIntoView({behavior:"smooth",block:"start"});
     }
   }
@@ -4059,6 +4060,27 @@ $("archiveList").addEventListener("click",async e=>{
 $("undoRepost").addEventListener("click",undoLastRepost);
 $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
+
+
+function setHomeView(view){
+  const today=document.getElementById("todayHomePanel"),fresh=document.getElementById("lovelyPanel");
+  const todayTab=document.getElementById("homeTodayTab"),newTab=document.getElementById("homeNewTab");
+  if(!today||!fresh||!todayTab||!newTab)return;
+  const isNew=view==="new";
+  today.hidden=isNew;fresh.hidden=!isNew;fresh.open=isNew;
+  todayTab.setAttribute("aria-selected",String(!isNew));newTab.setAttribute("aria-selected",String(isNew));
+  todayTab.tabIndex=isNew?-1:0;newTab.tabIndex=isNew?0:-1;
+}
+for(const [id,view] of [["homeTodayTab","today"],["homeNewTab","new"]]){
+  const button=document.getElementById(id);
+  button?.addEventListener("click",()=>setHomeView(view));
+  button?.addEventListener("keydown",e=>{
+    if(!["ArrowLeft","ArrowRight","Home","End"].includes(e.key))return;
+    e.preventDefault();
+    const next=e.key==="Home"?"today":e.key==="End"?"new":view==="today"?"new":"today";
+    setHomeView(next);document.getElementById(next==="new"?"homeNewTab":"homeTodayTab").focus();
+  });
+}
 
 (async()=>{
   checkLatestVersion();
