@@ -23,13 +23,16 @@ function news_doc(string $s):DOMXPath{$d=new DOMDocument();libxml_use_internal_e
 function news_text(?DOMNode $n):string{return trim(preg_replace('/\s+/u',' ',$n?$n->textContent:'')??'');}
 function news_detail(string $u):array{
  $cache=sys_get_temp_dir().'/sph-news-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
- $x=news_doc(news_fetch($u));$pr=strpos($u,'https://prtimes.jp/')===0;
+ $a=news_parse(news_fetch($u),$u);file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
+}
+function news_parse(string $html,string $u):array{
+ $x=news_doc($html);$pr=strpos($u,'https://prtimes.jp/')===0;
  $title=news_text($x->query('//h1')->item(0));$body=$x->query($pr?'//*[@id="press-release-body"]':'//section[contains(concat(" ",normalize-space(@class)," ")," c-detail-content ") or contains(concat(" ",normalize-space(@class)," ")," c-detail-head ")]')->item(0);
  if(!$title||!$body)throw new RuntimeException('記事の本文を確認できませんでした。');
  $images=[];foreach($x->query('.//img[@src]',$body)as $im){$v=news_image_url($im->getAttribute('src'));if($v&&!in_array($v,$images,true))$images[]=$v;if(count($images)>=4)break;}
  $lines=[];foreach($x->query('.//p',$body)as $p){$t=news_text($p);if(mb_strlen($t)>=12&&mb_strlen($t)<=500)$lines[]=$t;if(count($lines)>=12)break;}
  $date=news_text($x->query('//time/@datetime')->item(0));if(!$date)$date=news_text($x->query('//time')->item(0));if(!$date&&preg_match('/([0-9]{4})年([0-9]{1,2})月([0-9]{1,2})日/u',news_text($x->query('//meta[@name="description"]/@content')->item(0)),$m))$date=sprintf('%04d-%02d-%02d',(int)$m[1],(int)$m[2],(int)$m[3]);
- $a=['url'=>$u,'source'=>$pr?'PR TIMES':'サンリオ公式','title'=>$title,'date'=>$date,'paragraphs'=>$lines,'images'=>$images];file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
+ $a=['url'=>$u,'source'=>$pr?'PR TIMES':'サンリオ公式','title'=>$title,'date'=>$date,'paragraphs'=>$lines,'images'=>$images];return $a;
 }
 function news_list():array{
  $cache=sys_get_temp_dir().'/sph-news-list-'.hash('sha256',__DIR__).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
