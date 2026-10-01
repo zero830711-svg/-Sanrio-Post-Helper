@@ -46,6 +46,56 @@ function newsDraft(item){
  return heading+intro+factBlock+footer;
 }
 function newsDateLabel(value){const m=String(value||'').match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);return m?Number(m[2])+'/'+Number(m[3]):value;}
+
+function newsScheduleLabel(item){
+ const texts=[...(item.facts||[]).filter(f=>f.kind==='schedule').map(f=>f.text),item.title||''];
+ const date='(?:[0-9]{4}年)?[0-9]{1,2}(?:月[0-9]{1,2}日?|/[0-9]{1,2}|月(?:上旬|中旬|下旬))';
+ const span='('+date+'(?:\\s*[～〜~－-]\\s*'+date+')?)';
+ for(const raw of texts){
+  const text=String(raw).normalize('NFKC').replace(/[（(][月火水木金土日](?:曜日)?[）)]/g,'').replace(/\s+/g,'');
+  let m=text.match(new RegExp(span+'([^0-9。]{0,12})(発売|販売開始|開催|開始)'));
+  if(!m){const p=text.match(new RegExp('(発売日|発売|販売開始|開催期間|開催|キャンペーン期間|実施期間)[:：]?'+span+'([^。]{0,8})'));if(p)m=[p[0],p[2],p[3],/発売|販売/.test(p[1])?'発売':'開催'];}
+  if(!m)continue;
+  const when=m[1].replace(/[0-9]{4}年/g,'').replace(/([0-9]+)月([0-9]+)日?/g,'$1/$2').replace(/[～~－-]/g,'〜');
+  const context=text.slice(m.index,m.index+m[0].length+4)+m[2],kind=/発売|販売/.test(m[3])?'発売':'開催';
+  return when+(context.includes('順次')?'順次':'')+kind+(context.includes('予定')?'予定':'');
+ }
+ return '';
+}
+function newsTitleKey(title){return String(title||'').normalize('NFKC').toLowerCase().replace(/【[^】]*】/g,'').replace(/[\s\p{P}\p{S}]/gu,'');}
+function newsSameStory(a,b){
+ if(a.source===b.source)return false;
+ const x=newsTitleKey(a.title),y=newsTitleKey(b.title);
+ const published=i=>{const m=String(i.date||'').match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);return m?Date.UTC(+m[1],+m[2]-1,+m[3]):null;};
+ const pa=published(a),pb=published(b);if(pa!==null&&pb!==null&&Math.abs(pa-pb)>45*86400000)return false;
+ // Never combine editions, character variants, or conflicting confirmed schedules.
+ const variants=s=>(String(s).normalize('NFKC').match(/第[0-9一二三四五六七八九十]+(?:弾|回)|[0-9]+(?:種|周年)|[0-9]+$|(?:20[0-9]{2})年|(?:ハローキティ|クロミ|マイメロディ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|バッドばつ丸)/g)||[]).sort().join('|');
+ if(variants(a.title)!==variants(b.title))return false;
+ const da=newsScheduleLabel(a),db=newsScheduleLabel(b);if(da&&db&&da!==db)return false;
+ const quoted=s=>Array.from(String(s).matchAll(/[「『]([^」』]+)[」』]/g),m=>newsTitleKey(m[1])).filter(s=>s.length>=6&&!/^(サンリオキャラクターズ|サンリオ|ハローキティ|シナモロール)$/.test(s));
+ if(quoted(a.title).some(k=>/カラビナ|くじ|バッグ|ポーチ|マスコット|フィギュア|コラボ|シリーズ|キャンペーン|キーホルダー|グッズ/.test(k)&&quoted(b.title).includes(k)))return true;
+ if(Math.min(x.length,y.length)<12||Math.min(x.length,y.length)/Math.max(x.length,y.length)<.75)return false;
+ const grams=s=>new Set(Array.from({length:s.length-1},(_,i)=>s.slice(i,i+2)));
+ const gx=grams(x),gy=grams(y);const shared=[...gx].filter(g=>gy.has(g)).length;
+ return 2*shared/(gx.size+gy.size)>=.86;
+}
+function newsGroups(){
+ const groups=[];
+ for(const item of newsState.items){
+  const group=groups.find(g=>g.members.every(m=>newsSameStory(m,item)));
+  if(group)group.members.push(item);else groups.push({members:[item]});
+ }
+ return groups.map(g=>{const item=g.members.find(m=>m.source==='サンリオ公式')||g.members[0];return {...item,members:g.members};});
+}
+function newsGroupMark(item){return item.members.map(m=>newsState.marks[m.url]).find(Boolean);}
+function newsSourceLinks(url){
+ const box=$('newsRelatedSources');box.replaceChildren();
+ const group=newsGroups().find(g=>g.members.some(m=>m.url===url));
+ if(!group||group.members.length<2){box.hidden=true;return;}
+ box.hidden=false;
+ for(const member of group.members){const link=document.createElement('a');link.href=member.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent=member.source+'の記事';box.append(link);}
+}
+
 function newsChosenFiles(){return newsState.selected.map(i=>newsState.files[i]).filter(Boolean);}
 function newsPhotoReady(){return newsState.selected.every(i=>!!newsState.files[i]);}
 function newsPhotoStatus(){
@@ -86,20 +136,22 @@ function newsPhotosRender(){
  });
 }
 function newsRender(){
- const filter=$('newsFilter').value;const rows=newsState.items.filter(i=>filter==='all'||(filter==='hidden'?!!newsState.marks[i.url]:!newsState.marks[i.url]));
+ const filter=$('newsFilter').value;const rows=newsGroups().filter(i=>filter==='all'||(filter==='hidden'?!!newsGroupMark(i):!newsGroupMark(i)));
  $('newsList').replaceChildren();
  for(const item of rows.slice(0,newsState.limit)){
  const row=document.createElement('article');row.className='news-row';
  const info=document.createElement('div');info.className='news-row-info';
  const title=document.createElement('strong');title.textContent=item.title;
  const source=document.createElement('span');source.className='backup-note';
- source.textContent=item.source+' ・ '+(item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(newsState.marks[item.url]?' ・ '+(newsState.marks[item.url].kind==='done'?'投稿済み':'見送り'):'');
+ const mark=newsGroupMark(item);
+ source.textContent=item.members.map(m=>m.source).join('・')+' ・ '+(item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
  info.append(source,title);
+ const schedule=item.members.map(newsScheduleLabel).find(Boolean);if(schedule){const note=document.createElement('span');note.className='news-schedule';note.textContent=schedule;info.append(note);}
  const img=document.createElement('img');img.className='news-thumb';img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';
  if(item.image){img.src=item.image;img.onerror=()=>{img.hidden=true;};}else img.hidden=true;
  const btn=document.createElement('button');btn.type='button';btn.className='small-btn';btn.textContent='投稿準備';btn.addEventListener('click',()=>newsPrepare(item.url));
  row.append(img,info,btn);
- if(newsState.marks[item.url]){const restore=document.createElement('button');restore.type='button';restore.className='small-btn news-restore';restore.textContent='戻す';restore.addEventListener('click',()=>newsMark(item.url,null));row.append(restore);}
+ if(mark){const restore=document.createElement('button');restore.type='button';restore.className='small-btn news-restore';restore.textContent='戻す';restore.addEventListener('click',()=>newsMark(item.url,null));row.append(restore);}
  $('newsList').append(row);
  }
  const more=$('newsMore');more.hidden=rows.length<=newsState.limit;more.textContent='もっと見る（あと'+Math.max(0,rows.length-newsState.limit)+'件）';
@@ -112,8 +164,9 @@ function newsKeepDraft(){
 }
 function newsReturn(){newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;window.scrollTo({top:newsState.browseY,behavior:'instant'});}
 function newsMark(url,kind){
- const prev=newsState.marks[url];if(kind)newsState.marks[url]={kind,at:new Date().toISOString()};else delete newsState.marks[url];
- try{localStorage.setItem('sanrioNewsMarks',JSON.stringify(newsState.marks));}catch(e){if(prev)newsState.marks[url]=prev;else delete newsState.marks[url];$('newsEditorStatus').textContent='保存できませんでした。端末の空き容量を確認してください。';return;}
+ const group=newsGroups().find(g=>g.members.some(m=>m.url===url)),urls=group?group.members.map(m=>m.url):[url];
+ const prev={...newsState.marks};for(const u of urls){if(kind)newsState.marks[u]={kind,at:new Date().toISOString()};else delete newsState.marks[u];}
+ try{localStorage.setItem('sanrioNewsMarks',JSON.stringify(newsState.marks));}catch(e){newsState.marks=prev;$('newsEditorStatus').textContent='保存できませんでした。端末の空き容量を確認してください。';return;}
  const editing=newsState.item?.url===url;if(editing)newsReturn();
  newsRender();if(editing)window.scrollTo({top:newsState.browseY,behavior:'instant'});
 }
@@ -127,6 +180,7 @@ async function newsPrepare(url){
  $('newsSource').textContent='';$('newsSource').removeAttribute('href');$('newsDate').textContent='';$('newsFacts').textContent='';
  editor.prepend($('newsEditorStatus'));editor.scrollIntoView({block:'start',behavior:'instant'});
  $('newsShare').disabled=true;$('newsSavePhotos').disabled=true;$('newsDone').disabled=true;$('newsSkip').disabled=true;
+ $('newsRelatedSources').hidden=true;$('newsRelatedSources').replaceChildren();
  $('newsEditorStatus').textContent='記事を確認中…';$('newsImages').replaceChildren();$('newsText').value='';
  try{
   let entry=newsState.drafts.get(url);
@@ -138,6 +192,8 @@ async function newsPrepare(url){
   }
   if(seq!==newsState.seq)return;
   newsState.item=entry.item;newsState.files=entry.files;newsState.selected=entry.selected.slice();
+  const listedItem=newsState.items.find(i=>i.url===url||i.url===entry.item.url);if(listedItem)listedItem.facts=entry.item.facts||[];
+  newsSourceLinks(url);
   $('newsDone').disabled=false;$('newsSkip').disabled=false;
   $('newsTitle').textContent=entry.item.title;$('newsSource').href=entry.item.url;$('newsSource').textContent=entry.item.source+'の記事を確認';
   $('newsDate').textContent=entry.item.date?'発表日：'+entry.item.date+'（発売日とは別）':'発表日を元記事で確認';
