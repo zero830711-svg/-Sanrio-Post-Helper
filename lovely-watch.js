@@ -1,7 +1,7 @@
 /* Loaded without network activity; discovery starts only when its section opens. */
 const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
-  let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new';
+  let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',nextPage=null,pageCount=0,listScroll=0,listItemUrl='';
   let editorGeneration=0,imageBusy=0;
   const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
   const detailCache=new Map();let chooseSequence=0,detailLoading=false;
@@ -40,9 +40,9 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(value))}catch(e){el('lovelyStatus').textContent='この端末への下書き保存に失敗しました。空き容量を確認してください。'}
   }
   function endpoint(){const u=new URL(cloudSettings().url);u.pathname=u.pathname.replace(/[^/]+$/,'lovely-watch.php');u.search='';u.hash='';return u;}
-  async function request(action,url='',payload=null){
+  async function request(action,url='',payload=null,page=null){
     const key=cloudSettings().key;if(!key)throw new Error('管理画面で同期キーを設定してください。');
-    const target=endpoint();target.searchParams.set('action',action);if(url)target.searchParams.set('url',url);
+    const target=endpoint();target.searchParams.set('action',action);if(url)target.searchParams.set('url',url);if(page!==null)target.searchParams.set('page',String(page));
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),40000);
     try{
       const res=await fetch(target,{method:payload?'POST':'GET',body:payload?JSON.stringify(payload):undefined,headers:{Authorization:'Bearer '+key,...(payload?{'Content-Type':'application/json'}:{})},cache:'no-store',signal:controller.signal});
@@ -138,15 +138,40 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(_){}
     render();
   }
+  function pagingControls(){
+    const button=el('lovelyMore');if(button){button.hidden=!nextPage;button.disabled=busy;button.textContent=busy?'読み込み中…':'もっと見る';}
+  }
   async function refresh(){
-    if(busy)return;busy=true;el('lovelyRefresh').disabled=true;el('lovelyStatus').textContent='新着を確認中…';
+    if(busy)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
-      const data=await request('list');rows=data.items||[];historyIds=usedIds(await dbGetAll());loaded=true;render();
-      el('lovelyStatus').textContent='取得 '+new Date(data.fetchedAt).toLocaleString('ja-JP')+' ／ 最新一覧1ページ・最大15分のキャッシュ';
-    }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;el('lovelyRefresh').disabled=false}
+      const data=await request('list');const ids=usedIds(await dbGetAll());
+      rows=data.items||[];historyIds=ids;nextPage=data.nextPage||null;pageCount=1;loaded=true;render();
+      el('lovelyStatus').textContent='取得 '+new Date(data.fetchedAt).toLocaleString('ja-JP')+' ／ 1ページ取得・最大15分のキャッシュ';
+    }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
+  }
+  async function more(){
+    if(busy||!nextPage)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='次のページを確認中…';
+    try{
+      const data=await request('list','',null,nextPage),merged=new Map(rows.map(item=>[item.url,item]));
+      for(const item of data.items||[])if(!merged.has(item.url))merged.set(item.url,item);
+      rows=[...merged.values()];nextPage=data.nextPage||null;pageCount++;render();
+      el('lovelyStatus').textContent=pageCount+'ページ取得 ／ '+(nextPage?'さらに過去の商品を確認できます。':'追加取得できるページはありません。');
+    }catch(e){el('lovelyStatus').textContent=e.message+' 「もっと見る」で再試行できます。'}
+    finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
+  }
+  function openEditor(url){
+    if(el('lovelyEditor').hidden){listScroll=window.scrollY;listItemUrl=url;}
+    el('lovelyBrowse').hidden=true;el('lovelyRestoreBox').hidden=true;el('lovelyEditor').hidden=false;
+    el('lovelyEditor').scrollIntoView({block:'start'});el('lovelyBack').focus({preventScroll:true});
+  }
+  function backToList(){
+    el('lovelyEditor').hidden=true;el('lovelyBrowse').hidden=false;el('lovelyRestoreBox').hidden=false;
+    window.scrollTo({top:listScroll,behavior:'instant'});
+    const button=Array.from(el('lovelyList').querySelectorAll('[data-lovely-select]')).find(b=>b.dataset.lovelySelect===listItemUrl);
+    if(button)button.focus({preventScroll:true});
   }
   function edit(item){
-    editorGeneration++;selected=item;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();imageBusy=0;el('lovelyEditor').hidden=false;el('lovelyTitle').textContent=item.title;
+    editorGeneration++;selected=item;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();imageBusy=0;el('lovelyTitle').textContent=item.title;
     el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='写真未添付';el('lovelyImageRetry').hidden=true;el('lovelyConfirmed').checked=false;
     el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=savedRakuten(item)||item.ownRakuten||'';el('lovelyNote').value=item.note||'';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
@@ -212,13 +237,14 @@ const lovelyWatch = (()=>{
     }
   }
   async function choose(url){
-    markViewed(url);
+    if(selected?.url===url&&(detailLoading||detailCache.has(url))){openEditor(url);return;}
+    openEditor(url);markViewed(url);
     const sequence=++chooseSequence,cached=detailCache.get(url),draft=state().draft;
-    if(cached&&Date.now()-cached.time<900000){detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;edit({...cached.item,...(draft?.url===url?{ownAmazon:draft.ownAmazon,ownRakuten:draft.ownRakuten,note:draft.note}:{})});autoRakuten(selected);el('lovelyEditor').scrollIntoView({block:'start'});return;}
+    if(cached&&Date.now()-cached.time<900000){detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;edit({...cached.item,...(draft?.url===url?{ownAmazon:draft.ownAmazon,ownRakuten:draft.ownRakuten,note:draft.note}:{})});autoRakuten(selected);return;}
     edit({...((draft?.url===url?draft:null)||rows.find(x=>x.url===url)||{title:'商品情報を確認中…'}),url});
     detailLoading=true;el('lovelyPhotos').disabled=true;el('lovelyConfirmed').disabled=true;
     el('lovelyProductInfo').textContent='記事と楽天の商品ページを確認しています…';
-    el('lovelyStatus').textContent='商品情報を取得中…';el('lovelyEditor').scrollIntoView({block:'start'});
+    el('lovelyStatus').textContent='商品情報を取得中…';
     try{
       const data=await request('detail',url);
       rememberIdentity(data.item);
@@ -273,7 +299,7 @@ const lovelyWatch = (()=>{
   function hide(reason){if(!selected)return;chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;const s=state();s.hidden=s.hidden||{};s.hidden[selected.url]=reason;
     const entries=Object.entries(s.hidden);s.hidden=Object.fromEntries(entries.slice(-500));s.draft=null;
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){el('lovelyShareStatus').textContent='記録を保存できませんでした。';return}
-    editorGeneration++;imageBusy=0;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();
+    editorGeneration++;imageBusy=0;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();backToList();
   }
   el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft)edit(draft)}});
   el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
@@ -289,6 +315,9 @@ const lovelyWatch = (()=>{
   });
   el('rakutenRetry')?.addEventListener('click',()=>{if(selected)autoRakuten(selected)});
   el('lovelyRefresh')?.addEventListener('click',refresh);
+  el('lovelyMore')?.addEventListener('click',more);
+  el('lovelyBack')?.addEventListener('click',backToList);
+  el('lovelyBackBottom')?.addEventListener('click',backToList);
   el('lovelyFilter')?.addEventListener('change',async e=>{
     filterMode=['new','used','all'].includes(e.target.value)?e.target.value:'new';
     render();
