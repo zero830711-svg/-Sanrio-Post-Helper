@@ -309,3 +309,15 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #todayDetailModal .detail-top-tools .detail-action-row{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:6px;margin:6px 0 0}
 #todayDetailModal .detail-top-tools .small-btn{width:100%;font-size:11px;line-height:1.35;min-height:44px;padding:6px;border-radius:9px}
 #todayDetailModal .detail-top-tools #detailCandidateSkip,#todayDetailModal .detail-top-tools #detailCandidateExclude{background:#fff;color:var(--muted)}
+
+/* Short labels and content-sized utility controls in today's preparation. */
+#todayDetailModal .detail-share-actions{display:flex;flex-wrap:wrap;gap:6px}
+#todayDetailModal .detail-share-actions .small-btn{flex:0 0 auto;width:auto;padding:6px 12px}
+#detailCandidateTools .today-affiliate-links{display:flex;flex-wrap:wrap;gap:6px 12px}
+#detailCandidateTools .today-affiliate-link-row{display:flex;flex:0 0 auto;width:auto;gap:4px}
+#detailCandidateTools .today-affiliate-open{flex:0 0 auto;min-width:0;padding:6px 10px}
+#todayDetailModal #detailCandidateTools .small-btn{width:auto;padding:6px 10px}
+#detailCandidateTools .recommend-reason{background:none;border-radius:0;padding:0;margin:5px 0;color:var(--muted);font-weight:400}
+#todayDetailModal .detail-save-row{display:flex;flex-wrap:wrap;margin:5px 0}
+#todayDetailModal .detail-top-tools .detail-action-row{display:flex;flex-wrap:wrap;gap:6px}
+#todayDetailModal .detail-top-tools .small-btn{width:auto;padding:6px 10px}
