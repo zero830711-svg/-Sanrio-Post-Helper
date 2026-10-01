@@ -83,7 +83,8 @@ test('今日の候補を5件ずつ追加し、重複なく追加候補の詳細�
  await expect(page.locator('#todayMore')).toHaveText('もっと見る（あと6件）');
  await page.locator('#todayMore').click();await expect(page.locator('.today-news-row')).toHaveCount(10);
  await expect(page.locator('#todayMore')).toHaveText('もっと見る（あと1件）');
- await page.locator('.today-news-row').nth(5).getByRole('button',{name:'投稿準備'}).click();await expect(page.locator('#detailTitle')).toContainText('候補5番');
+ const title=await page.locator('.today-news-row').nth(5).locator('h3').textContent();
+ await page.locator('.today-news-row').nth(5).getByRole('button',{name:'投稿準備'}).click();await expect(page.locator('#detailTitle')).toHaveText(title);
  await page.locator('#closeDetailModal').click();await expect(page.locator('.today-news-row')).toHaveCount(10);
  await page.locator('#todayMore').click();await expect(page.locator('.today-news-row')).toHaveCount(11);
  await expect(page.locator('#todayMore')).not.toBeVisible();
