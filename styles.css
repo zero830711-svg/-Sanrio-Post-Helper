@@ -321,3 +321,28 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #todayDetailModal .detail-save-row{display:flex;flex-wrap:wrap;margin:5px 0}
 #todayDetailModal .detail-top-tools .detail-action-row{display:flex;flex-wrap:wrap;gap:6px}
 #todayDetailModal .detail-top-tools .small-btn{width:auto;padding:6px 10px}
+
+/* Fit the preparation toolbar into a few compact rows so photos appear sooner. */
+#todayDetailModal .detail-sheet{padding:8px 12px}
+#todayDetailModal .detail-sheet h2{font-size:15px;margin-bottom:3px}
+#todayDetailModal .detail-meta{font-size:10px;margin-bottom:4px}
+#todayDetailModal #detailFreshness{font-size:10px;font-weight:500;padding:4px 6px;margin:4px 0;border-radius:6px}
+#todayDetailModal .detail-share-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+#todayDetailModal .detail-share-actions .small-btn{width:100%;min-width:0;font-size:11px;padding:4px 3px;line-height:1.25;min-height:44px;border-radius:7px}
+#todayDetailModal #detailChatGPTStatus{font-size:10px;margin:3px 0;line-height:1.35}
+#todayDetailModal #detailCandidateTools{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+#detailCandidateTools .today-affiliate-badges{flex-basis:100%;margin:0}
+#detailCandidateTools .today-affiliate-badge:not(.affiliate-pr){display:none}
+#detailCandidateTools .today-affiliate-badge.affiliate-pr{padding:1px 5px;font-size:9px}
+#detailCandidateTools .today-affiliate-links{display:contents}
+#detailCandidateTools .today-affiliate-link-row{gap:3px}
+#detailCandidateTools .today-affiliate-open,#todayDetailModal #detailCandidateTools .small-btn{font-size:10px;min-height:44px;padding:4px 7px;border-radius:7px}
+#detailCandidateTools .recommend-reason{flex-basis:100%;margin:1px 0;font-size:10px;line-height:1.35}
+#todayDetailModal .detail-top-tools{margin:3px 0 4px}
+#todayDetailModal .detail-top-tools .detail-action-row{margin:3px 0 0;gap:4px}
+#todayDetailModal .detail-top-tools .small-btn{font-size:10px;padding:4px 8px;min-height:44px;border-radius:7px}
+#todayDetailModal .detail-text-section,#todayDetailModal .detail-media-section{margin-top:5px}
+#todayDetailModal #detailTextPreview{white-space:normal;-webkit-line-clamp:2;font-size:12px;line-height:1.45}
+#todayDetailModal #detailTextMore>summary{min-height:32px;font-size:11px}
+#todayDetailModal .detail-text-section h3{margin-bottom:0}
+#todayDetailModal .detail-media-status,#todayDetailModal .detail-photo-hint{font-size:10px;line-height:1.35;margin:2px 0}
