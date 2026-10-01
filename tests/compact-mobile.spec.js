@@ -149,3 +149,16 @@ test('保存とリンクの操作を折りたたまず上部にまとめ、数�
   await page.locator('#closeDetailModal').click();
  }
 });
+
+test('共有と写真保存を1行にまとめ、詳細を開いた時に写真が見える',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await seed(page);
+ await page.evaluate(()=>{compactFixture.title='ポムポムプリンのお部屋コーデ3点セット';compactFixture.text='ポムポムプリンのお部屋コーデをご紹介。\n\n写真からお気に入りを選んでください。\n'.repeat(8);showTodayDetail(compactFixture);});
+ const bar=page.locator('.detail-share-actions');
+ await expect(bar.locator('button')).toHaveCount(4);
+ const buttons=await bar.locator('button').all(),positions=await Promise.all(buttons.map(b=>b.boundingBox()));
+ expect(Math.max(...positions.map(p=>p.y))-Math.min(...positions.map(p=>p.y))).toBeLessThan(2);
+ await expect(page.locator('#detailMedia .detail-media-item').first()).toBeInViewport();
+ expect(await page.locator('#detailMedia').evaluate(el=>el.getBoundingClientRect().top)).toBeLessThan(650);
+ await expect(page.locator('#detailTextPreview')).toBeVisible();
+ await page.locator('#detailTextMore summary').click();await expect(page.locator('#detailText')).toHaveText(/お気に入り/);
+});
