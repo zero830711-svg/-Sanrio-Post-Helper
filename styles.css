@@ -227,3 +227,8 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .lovely-row-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.45;font-size:15px}
 .lovely-viewed{display:inline-block;margin-top:5px;padding:2px 7px;border-radius:99px;background:#f4eef1;color:#765966;font-size:11px}
 #lovelyPanel .lovely-row .backup-note{font-size:12px;line-height:1.5;margin:5px 0}
+
+/* Preparation replaces discovery without locking scrolling or native sharing. */
+#lovelyBrowse[hidden],#lovelyRestoreBox[hidden],#lovelyMore[hidden]{display:none!important}
+#lovelyEditor{scroll-margin-top:12px}
+#lovelyMore,#lovelyBackBottom{margin-top:16px}
