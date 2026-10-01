@@ -163,6 +163,21 @@ function lw_affiliate_result(array $data,string $code,string $affiliateId): arra
     if(!$p||($p['scheme']??'')!=='https'||($p['host']??'')!=='hb.afl.rakuten.co.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||strpos($p['path']??'','/'.$affiliateId.'/')===false)throw new RuntimeException('自分の楽天紹介リンクを確認できませんでした。');
     return ['url'=>$url,'itemCode'=>$code,'title'=>(string)($item['itemName']??''),'checkedAt'=>gmdate('c')];
 }
+function lw_rakuten_error(int $status,string $body): string {
+    $data=json_decode($body,true);
+    $description=is_array($data)?(string)($data['error_description']??$data['message']??''):'';
+    $reason='送信項目を確認できませんでした。';
+    // Classify known field names only; never return the provider body or credential values.
+    if(preg_match('/access.?key/i',$description))$reason='アクセスキーが楽天に認識されませんでした。楽天のアプリ詳細からコピーし直し、設定を保存してください。';
+    elseif(preg_match('/application.?id|app.?id/i',$description))$reason='アプリケーションIDが楽天に認識されませんでした。アクセスキーと同じアプリのIDか確認してください。';
+    elseif(preg_match('/affiliate.?id/i',$description))$reason='アフィリエイトIDを確認してください。';
+    elseif(preg_match('/item.?code/i',$description))$reason='商品コードが楽天APIに認識されませんでした。別の商品でも試してください。';
+    elseif(preg_match('/origin|referer|domain|ip.address|website/i',$description))$reason='楽天の許可サイト・IP設定で接続元が認められていません。';
+    elseif(preg_match('/scope|permission|authoriz/i',$description))$reason='楽天市場APIの利用権限を確認してください。';
+    elseif($status===429)$reason='呼び出し回数の制限です。少し待って再試行してください。';
+    elseif($status===400)$reason='楽天が送信パラメータを受け付けませんでした（原因項目は特定できません）。';
+    return '楽天APIエラー（HTTP '.$status.'）。'.$reason;
+}
 function lw_affiliate(string $code,array $settings): array {
     if(!preg_match('/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D',$code))throw new RuntimeException('商品コードを取得できませんでした。');
     $settings=lw_validate_settings($settings);
@@ -179,7 +194,7 @@ function lw_affiliate(string $code,array $settings): array {
         curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>function($ch,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>500000)return 0;$body.=$bytes;return strlen($bytes);}]);
         $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
         if($ok===false)throw new RuntimeException('楽天APIへの接続に失敗しました。再試行してください。');
-        if($status!==200)throw new RuntimeException('楽天APIエラー（HTTP '.$status.'）。ID・キー・許可サイト・API権限を確認してください。');
+        if($status!==200)throw new RuntimeException(lw_rakuten_error($status,$body));
         $data=json_decode($body,true);if(!is_array($data))throw new RuntimeException('楽天APIの応答を確認できませんでした。');
         $result=lw_affiliate_result($data,$code,$settings['affiliateId']);
         $tmp=tempnam(sys_get_temp_dir(),'sph-rak-');if($tmp!==false){chmod($tmp,0600);file_put_contents($tmp,json_encode($result));rename($tmp,$cache);}
