@@ -21,6 +21,23 @@ function lw_article_url(string $url): string {
     $path=$p['path']??'';
     return preg_match('~^/[a-z0-9-]+/[0-9]+/[0-9]+/$~D', $path) ? 'https://lovely-fancy.net'.$path : '';
 }
+function lw_page_url(int $page): string {
+    if($page<1||$page>20)throw new RuntimeException('ページ番号が不正です。');
+    return $page===1?'https://lovely-fancy.net/':'https://lovely-fancy.net/page/'.$page.'/';
+}
+function lw_list_url(string $url): bool {
+    if($url==='https://lovely-fancy.net/')return true;
+    return preg_match('~^https://lovely-fancy\.net/page/([2-9]|1[0-9]|20)/$~D',$url)===1;
+}
+function lw_next_page(string $html,int $page): ?int {
+    if($page>=20)return null;
+    $x=lw_doc($html);$expected=lw_page_url($page+1);
+    foreach($x->query('//a[contains(concat(" ",normalize-space(@class)," ")," next ")] | //link[@rel="next"]') as $a){
+        $href=$a->getAttribute('href');
+        if($href===$expected||$href==='/page/'.($page+1).'/')return $page+1;
+    }
+    return null;
+}
 function lw_product(string $href): ?array {
     $url=html_entity_decode(trim($href), ENT_QUOTES|ENT_HTML5,'UTF-8');
     if (strpos($url,'//')===0) $url='https:'.$url;
@@ -52,7 +69,7 @@ function lw_thumbnail_url(string $url): string {
     if(($parts['scheme']??'')!=='https'||($parts['host']??'')!=='lovely-fancy.net'||isset($parts['port'])||isset($parts['user'])||isset($parts['pass']))return '';
     return preg_match('~^/wp-content/uploads/[0-9]{4}/[0-9]{2}/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$~D',$parts['path']??'')?$url:'';
 }
-function lw_list(string $html): array {
+function lw_list(string $html,bool $allowEmpty=false): array {
     $x=lw_doc($html); $rows=[];
     foreach ($x->query('//article[contains(concat(" ",normalize-space(@class)," ")," post-list ")]') as $article) {
         $heading=$x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," entry-title ")]',$article)->item(0);
@@ -68,7 +85,7 @@ function lw_list(string $html): array {
         }
         $rows[$url]=['thumbnail'=>$thumbnail,'url'=>$url,'title'=>$title,'date'=>str_replace('.','-',lw_text($x->query('.//time',$article)->item(0))),'productIds'=>array_values(array_unique($ids))];
     }
-    if (!$rows) throw new RuntimeException('新着の商品欄を取得できませんでした。サイトの構造変更やアクセス制限の可能性があります。');
+    if (!$rows && (!$allowEmpty || $x->query('//article[contains(concat(" ",normalize-space(@class)," ")," post-list ")]')->length===0)) throw new RuntimeException('新着の商品欄を取得できませんでした。サイトの構造変更やアクセス制限の可能性があります。');
     return array_values($rows);
 }
 function lw_detail(string $html,string $url): array {
@@ -141,7 +158,7 @@ function lw_enriched(string $html,string $url): array {
 }
 function lw_fetch(string $url,int $limit=1500000,bool $image=false): string {
     $p=lw_product($url);
-    if ($url!=='https://lovely-fancy.net/' && !lw_article_url($url) && !($p&&$p['store']==='楽天'&&$p['url']===$url) && !($image&&lw_image_url($url))) throw new RuntimeException('対象外のURLです。');
+    if (!lw_list_url($url) && !lw_article_url($url) && !($p&&$p['store']==='楽天'&&$p['url']===$url) && !($image&&lw_image_url($url))) throw new RuntimeException('対象外のURLです。');
     $ch=curl_init($url); $body='';
     curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>18,CURLOPT_USERAGENT=>'SanrioPostHelper/3389 (personal product discovery)',CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_WRITEFUNCTION=>function($ch,$data) use (&$body,$limit){ if(strlen($body)+strlen($data)>$limit)return 0; $body.=$data;return strlen($data); }]);
     $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
@@ -260,17 +277,21 @@ try {
     }
     if(!class_exists('DOMDocument') || !function_exists('curl_init'))throw new RuntimeException('PHPのDOM・cURL拡張が必要です。');
     $action=$cron?'list':($_GET['action']??'list');
-    if ($action==='list') $url='https://lovely-fancy.net/';
+    if ($action==='list') {
+        $page=$cron?1:filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
+        if($page===false||$page<1||$page>20)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
+        $url=lw_page_url($page);
+    }
     elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
-    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3390-thumbnails1|'.$url).'.json';
+    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3390-pagination2|'.$url).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
     $result=!$cron && is_file($cache)&&filemtime($cache)>time()-900?json_decode((string)file_get_contents($cache),true):null;
     if (!is_array($result)) {
         $html=lw_fetch($url);
         $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>'Lovely Fancy'];
-        if($action==='list')$result['items']=lw_list($html);else $result['item']=lw_enriched($html,$url);
+        if($action==='list'){$result['items']=lw_list($html,true);$result['page']=$page;$result['nextPage']=lw_next_page($html,$page);}else $result['item']=lw_enriched($html,$url);
         $tmp=$cache.'.tmp';file_put_contents($tmp,json_encode($result,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));chmod($tmp,0600);rename($tmp,$cache);
     }
     flock($lock,LOCK_UN);fclose($lock);
