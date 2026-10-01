@@ -134,7 +134,7 @@ async function newsPrepare(url){
    const d=await newsRequest('detail',url);if(seq!==newsState.seq)return;
    const item={...d.item,images:d.item.images||[]};
    entry={item,text:newsDraft(item),files:item.images.map(()=>null),selected:item.images.map((_,i)=>i).slice(0,4),errors:[],loading:[]};
-   newsState.drafts.set(url,entry);
+   newsState.drafts.set(url,entry);newsState.drafts.set(item.url,entry);
   }
   if(seq!==newsState.seq)return;
   newsState.item=entry.item;newsState.files=entry.files;newsState.selected=entry.selected.slice();
