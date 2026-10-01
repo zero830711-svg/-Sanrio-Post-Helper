@@ -137,10 +137,12 @@ test('一覧の日程は発表日と分け、明記された発売・開催日�
   newsScheduleLabel({title:'10/3（土）〜順次発売！「クロミ当りくじ」'}),
   newsScheduleLabel({title:'サンリオ新作',facts:[{kind:'schedule',text:'開催期間：10月7日（水）～11月8日（日）'}]}),
   newsScheduleLabel({title:'10月上旬発売予定の新作'}),
+  newsScheduleLabel({facts:[{kind:'schedule',text:'10月7日から11月8日まで開催します。'}]}),
+  newsScheduleLabel({title:'2026年10月発売予定の新作'}),
   newsScheduleLabel({title:'10月1日発表のニュース',date:'2026-10-01'}),
   newsScheduleLabel({title:'ニュース',facts:[{kind:'schedule',text:'10月1日発表、10月3日発売予定です。'}]})
  ]);
- expect(labels).toEqual(['10/3順次発売','10/7〜11/8開催','10月上旬発売予定','','10/3発売予定']);
+ expect(labels).toEqual(['10/3順次発売','10/7〜11/8開催','10月上旬発売予定','10/7〜11/8開催','10月発売予定','','10/3発売予定']);
 });
 
 test('公式とPR TIMESの同じ商品ニュースをまとめ、両方の記事を確認できる',async({page})=>{
