@@ -71,3 +71,22 @@ test('ホーム見出しを1行にまとめ、候補を上からすぐ確認で�
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  }
 });
+
+test('今日の候補を5件ずつ追加し、重複なく追加候補の詳細を開ける',async({page})=>{
+ await seed(page);
+ await page.evaluate(async()=>{
+  const rows=Array.from({length:11},(_,i)=>({...compactFixture,id:'more-fixture-'+i,title:'候補'+i+'番の商品専用マスコットのご紹介',text:'候補'+i+'番の商品を詳しく紹介します。'}));
+  await dbPutMany(rows);getRoleBasedPicks=async()=>rows.slice(0,5);getReadyItems=async()=>rows;
+  todayAdditionalLimit=0;await renderToday();
+ });
+ await expect(page.locator('.today-news-row')).toHaveCount(5);
+ await expect(page.locator('#todayMore')).toHaveText('もっと見る（あと6件）');
+ await page.locator('#todayMore').click();await expect(page.locator('.today-news-row')).toHaveCount(10);
+ await expect(page.locator('#todayMore')).toHaveText('もっと見る（あと1件）');
+ await page.locator('.today-news-row').nth(5).getByRole('button',{name:'投稿準備'}).click();await expect(page.locator('#detailTitle')).toContainText('候補5番');
+ await page.locator('#closeDetailModal').click();await expect(page.locator('.today-news-row')).toHaveCount(10);
+ await page.locator('#todayMore').click();await expect(page.locator('.today-news-row')).toHaveCount(11);
+ await expect(page.locator('#todayMore')).not.toBeVisible();
+ const ids=await page.locator('.today-news-row button').evaluateAll(buttons=>buttons.map(b=>b.dataset.id));
+ expect(new Set(ids).size).toBe(11);
+});
