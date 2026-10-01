@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "server/lolipop/news.php"
       - "server/lolipop/trend.php"
       - "server/lolipop/archive-media-batch.php"
       - "server/lolipop/lovely-watch.php"
@@ -32,6 +33,7 @@ jobs:
 
       - name: Check PHP syntax
         run: |
+          php -l server/lolipop/news.php
           php -l server/lolipop/trend.php
           php -l server/lolipop/archive-media-batch.php
           php -l server/lolipop/lovely-watch.php
@@ -52,6 +54,7 @@ jobs:
           set ftp:ssl-protect-data true
           set ssl:verify-certificate yes
           cd "$LOLIPOP_TREND_DIR"
+          put server/lolipop/news.php
           put server/lolipop/trend.php
           put server/lolipop/archive-media-batch.php
           put server/lolipop/lovely-watch.php
