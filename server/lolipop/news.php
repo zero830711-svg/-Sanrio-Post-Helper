@@ -92,6 +92,24 @@ function news_ai_validate(string $text,array $item):string{
  if(mb_strlen($out)>280)throw new RuntimeException('AI文が長すぎます。通常の下書きを使います。');
  return $out;
 }
+
+function news_ai_error(int $status,array $data,int $curlError=0):string{
+ // Never return Google's raw message: it can contain credential fragments.
+ $code=(string)($data['error']['status']??'');
+ $reasons=[];foreach($data['error']['details']??[] as $detail)if(isset($detail['reason']))$reasons[]=(string)$detail['reason'];
+ if($curlError===28)return 'AI通信が時間切れになりました。もう一度お試しください。';
+ if($curlError)return 'サーバーからGoogleへ接続できません（通信コード'.$curlError.'）。';
+ if($status===429)return 'Googleの無料枠・利用上限に達しています（429）。AI Studioの利用上限を確認してください。';
+ if(in_array('API_KEY_INVALID',$reasons,true)||$status===401)return 'GoogleがAPIキーを認証できません（'.$status.'）。APIキーをコピーし直して設定してください。';
+ if(in_array('API_KEY_SERVICE_BLOCKED',$reasons,true)||in_array('SERVICE_DISABLED',$reasons,true))return 'キーのAPI制限・Generative Language APIの有効化を確認してください（'.$status.'）。';
+ if(in_array('ACCESS_TOKEN_TYPE_UNSUPPORTED',$reasons,true))return 'Googleがこの認証キーの種類を受け付けていません（'.$status.'）。';
+ if($status===403)return 'Googleがアクセスを拒否しました（403）。キーの権限・API制限を確認してください。';
+ if($status===404)return '指定モデルをこのキーで利用できません（404）。モデルの対応を修正する必要があります。';
+ if($status===400)return 'Googleがリクエストを受け付けません（400・'.(in_array($code,['INVALID_ARGUMENT','FAILED_PRECONDITION'],true)?$code:'入力エラー').'）。';
+ if($status>=500)return 'Google側が一時的に利用できません（'.$status.'）。';
+ return 'AI接続に失敗しました（HTTP '.$status.'）。';
+}
+
 function news_ai_draft(array $item):array{
  $s=news_ai_settings();if(empty($s['apiKey']))return ['configured'=>false];
  $model='gemini-3.8-flash';
@@ -109,8 +127,8 @@ function news_ai_draft(array $item):array{
   $payload=['systemInstruction'=>['parts'=>[['text'=>$system]]],'contents'=>[['role'=>'user','parts'=>[['text'=>json_encode(['title'=>$item['title'],'article'=>$item['paragraphs']],JSON_UNESCAPED_UNICODE)]]]],'generationConfig'=>['temperature'=>0.2,'maxOutputTokens'=>1800]];
   $c=curl_init('https://generativelanguage.googleapis.com/v1beta/models/'.$model.':generateContent');$body='';
   curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload),CURLOPT_HTTPHEADER=>['Content-Type: application/json','x-goog-api-key: '.$s['apiKey']],CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>20,CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$body){if(strlen($body)+strlen($chunk)>100000)return 0;$body.=$chunk;return strlen($chunk);}]);
-  $ok=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
-  if($ok===false||$status!==200)throw new RuntimeException($status===429?'AIの利用上限です。通常の下書きを使います。':'AIを利用できません。キー・無料枠を確認してください。通常の下書きを使います。');
+  $ok=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);$curlError=curl_errno($c);curl_close($c);
+  if($ok===false||$status!==200)throw new RuntimeException(news_ai_error($status,json_decode($body,true)?:[],$curlError));
   $d=json_decode($body,true);$text='';foreach($d['candidates'][0]['content']['parts']??[] as $part)if(empty($part['thought']))$text.=$part['text']??'';
   $result=['configured'=>true,'text'=>news_ai_validate($text,$item)];
   file_put_contents($cache,json_encode($result,JSON_UNESCAPED_UNICODE),LOCK_EX);@chmod($cache,0600);return $result;
