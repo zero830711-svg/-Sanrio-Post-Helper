@@ -35,3 +35,11 @@ foreach(['バッグは990円','本体※1とバッグ','参加費3,000円','http
  $rejected=false;try{news_ai_validate($invalid,$aiItem);}catch(RuntimeException $ex){$rejected=true;}check($rejected);
 }
 echo "News AI output validation passed\n";
+
+check(news_ai_key('  '.str_repeat('a',39).'  ')===str_repeat('a',39));
+$opaque='test-auth.'.str_repeat('x',400).'_-/+=';
+check(news_ai_key($opaque)===$opaque);
+foreach(['short',str_repeat('a',30)."\r\nInjected",str_repeat('a',30).' space',str_repeat('x',2049)] as $bad){
+ $rejected=false;try{news_ai_key($bad);}catch(RuntimeException $ex){$rejected=true;}check($rejected);
+}
+echo "Opaque API key validation passed\n";
