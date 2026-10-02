@@ -127,7 +127,7 @@ function post_ai_input(array $input):array{
   if(!is_array($link))throw new RuntimeException('紹介リンクを確認してください。');
   $url=(string)($link['url']??'');$p=parse_url($url);$host=strtolower($p['host']??'');
   if(strlen($url)>2048||preg_match('/[\s<>]/u',$url)||!in_array($p['scheme']??'',['https','http'],true)||isset($p['user'])||isset($p['pass']))throw new RuntimeException('紹介リンクを確認してください。');
-  $kind=preg_match('/(^|\.)(amazon\.(co\.jp|com|jp)|amzn\.(to|asia))$/D',$host)||$host==='a.co'?'amazon':(preg_match('/(^|\.)(rakuten\.(co\.jp|com)|r10\.to)$/D',$host)?'rakuten':'');
+  $kind=preg_match('/(^|\.)(amazon\.(co\.jp|com|jp)|amzn\.(to|asia))$/D',$host)||in_array($host,['a.co','link.amazon'],true)?'amazon':(preg_match('/(^|\.)(rakuten\.(co\.jp|com)|r10\.to)$/D',$host)?'rakuten':'');
   if(!$kind)throw new RuntimeException('Amazon・楽天の紹介リンクを使ってください。');
   $links[$url]=['kind'=>$kind,'url'=>$url];
  }

@@ -90,3 +90,12 @@ check(post_ai_limit($longPost)===post_ai_limit($shortPost));
 check(strpos(post_ai_validate('リボン付きバッグを紹介します',$longPost),$longUrl)!==false);
 check(post_ai_weight(post_ai_validate('リボン付きバッグを紹介します',$longPost))<=280);
 echo "Saved Amazon formats and X-weighted long affiliate links passed\n";
+
+$reportedLinks=['https://link.amazon/B05WRaCtu','https://a.r10.to/hPDrWT','https://amzn.to/4rkh5WG'];
+$reported=post_ai_input(['mode'=>'rewrite','title'=>'クリア窓付きバッグ','text'=>'クリア窓付きショルダーバッグをご紹介。','links'=>array_map(static fn($url)=>['url'=>$url],$reportedLinks)]);
+check(array_column($reported['links'],'kind')===['amazon','rakuten','amazon']);
+$reportedOut=post_ai_validate('クリア窓付きショルダーバッグを紹介します',$reported);
+foreach($reportedLinks as $link)check(strpos($reportedOut,$link)!==false);
+check(post_ai_weight($reportedOut)<=280);
+foreach(['https://link.amazon.evil.example/test','https://evil.link.amazon/test'] as $bad){try{post_ai_input(['mode'=>'rewrite','title'=>'バッグ','text'=>'資料','links'=>[['url'=>$bad]]]);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}}
+echo "Reported link.amazon, Rakuten and amzn.to links preserved; lookalikes rejected\n";
