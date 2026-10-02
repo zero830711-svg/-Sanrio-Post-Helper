@@ -66,9 +66,15 @@ function news_ai_settings():array{
  $p=__DIR__.'/.news-ai-settings.php';if(!is_file($p))return [];
  $a=require $p;return is_array($a)?$a:[];
 }
+function news_ai_key(string $value):string{
+ $key=trim($value);
+ // Treat provider credentials as opaque: authorization keys can be longer
+ // and contain punctuation. Reject whitespace/control characters for headers.
+ if(strlen($key)<20||strlen($key)>2048||!preg_match('/^[\\x21-\\x7E]+$/D',$key))throw new RuntimeException('APIキーだけをコピーして貼り付けてください（空白・改行は含めないでください）。');
+ return $key;
+}
 function news_ai_save(array $a):void{
- $key=trim((string)($a['apiKey']??''));
- if(!preg_match('/^[A-Za-z0-9_-]{20,200}$/D',$key))throw new RuntimeException('APIキーの形式を確認してください。');
+ $key=news_ai_key((string)($a['apiKey']??''));
  $tmp=tempnam(sys_get_temp_dir(),'sph-news-ai-settings-');if($tmp===false)throw new RuntimeException('設定を保存できません。');
  try{
   if(!chmod($tmp,0600)||file_put_contents($tmp,"<?php\nreturn ".var_export(['apiKey'=>$key],true).";\n",LOCK_EX)===false||!rename($tmp,__DIR__.'/.news-ai-settings.php'))throw new RuntimeException('設定を保存できません。');
