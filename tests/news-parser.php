@@ -43,3 +43,10 @@ foreach(['short',str_repeat('a',30)."\r\nInjected",str_repeat('a',30).' space',s
  $rejected=false;try{news_ai_key($bad);}catch(RuntimeException $ex){$rejected=true;}check($rejected);
 }
 echo "Opaque API key validation passed\n";
+
+check(strpos(news_ai_error(404,[]),'モデル')!==false);
+check(strpos(news_ai_error(429,[]),'無料枠')!==false);
+check(strpos(news_ai_error(403,[]),'アクセス')!==false);
+check(strpos(news_ai_error(0,[],28),'時間切れ')!==false);
+check(strpos(news_ai_error(400,['error'=>['message'=>'secret-key-must-not-leak','details'=>[['reason'=>'API_KEY_INVALID']]]]),'secret-key')===false);
+echo "Safe AI diagnostics passed\n";
