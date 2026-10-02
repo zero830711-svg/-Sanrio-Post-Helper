@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.02-3391";
+const APP_VERSION="2026.10.02-3392";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -321,7 +321,7 @@ async function maybeSyncArchiveMediaLinks(){
 
 
 function isAmazonAffiliateHost(host){
-  return /(^|\.)amazon\./i.test(host)||host==="amazon"||host.endsWith(".amazon")||/(^|\.)amzn\./i.test(host);
+  return /(^|\.)amazon\./i.test(host)||host==="amazon"||host.endsWith(".amazon")||/(^|\.)amzn\./i.test(host)||host==="a.co";
 }
 function hasAmazonAffiliate(x){
   if(clean(x.amazon))return true;

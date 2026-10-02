@@ -75,3 +75,18 @@ foreach(['価格999円','https://evil.example/','#pr','```text'] as $bad){try{po
 foreach(['https://amazon.co.jp.evil.example/test','https://user@amzn.to/test','javascript:alert(1)'] as $bad){try{post_ai_input(['mode'=>'product','title'=>'商品','text'=>'資料','links'=>[['url'=>$bad]]]);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}}
 $noLinks=post_ai_input(['mode'=>'rewrite','title'=>'商品','text'=>'資料','links'=>[]]);check(post_ai_validate('商品を紹介します',$noLinks)==="商品を紹介します\n#pr");
 echo "Product and rewrite AI safety checks passed\n";
+
+foreach(['https://amzn.asia/d/test','https://a.co/d/test','https://www.amazon.co.jp/s?k=kitty&tag=mytag-22'] as $savedUrl){
+ $saved=post_ai_input(['mode'=>'rewrite','title'=>'バッグ','text'=>'リボン付きバッグ','links'=>[['url'=>$savedUrl]]]);
+ check($saved['links'][0]['url']===$savedUrl&&$saved['links'][0]['kind']==='amazon');
+ check(strpos(post_ai_validate('リボン付きバッグを紹介します',$saved),$savedUrl)!==false);
+}
+check(post_ai_weight('abcあ🎀')===7);
+check(post_ai_weight('https://amzn.to/x')===23);
+$longUrl='https://hb.afl.rakuten.co.jp/hgc/test/?pc='.str_repeat('a',1200);
+$longPost=post_ai_input(['mode'=>'product','title'=>'バッグ','text'=>'リボン付きバッグ','links'=>[['url'=>$longUrl],['url'=>'https://amzn.to/test']]]);
+$shortPost=$longPost;$shortPost['links'][0]['url']='https://a.r10.to/test';
+check(post_ai_limit($longPost)===post_ai_limit($shortPost));
+check(strpos(post_ai_validate('リボン付きバッグを紹介します',$longPost),$longUrl)!==false);
+check(post_ai_weight(post_ai_validate('リボン付きバッグを紹介します',$longPost))<=280);
+echo "Saved Amazon formats and X-weighted long affiliate links passed\n";

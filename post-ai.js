@@ -1,5 +1,11 @@
 /* Text-only Gemini drafts. Images stay in the browser; native share is synchronous. */
 window.postAi=(()=>{
+ function weightedLength(text){
+  let count=0;
+  const rest=String(text).replace(/https?:\/\/[^\s<>]+/gu,()=>{count+=23;return '';});
+  for(const char of rest){const n=char.codePointAt(0);count+=n<=4351||(n>=8192&&n<=8205)||(n>=8208&&n<=8223)||(n>=8242&&n<=8247)?1:2;}
+  return count;
+ }
  const sessions={},el=id=>document.getElementById(id);
  function mount(kind){
   const prefix=kind==='today'?'todayAi':'productAi',root=el(prefix+'Panel');
@@ -24,7 +30,7 @@ window.postAi=(()=>{
   if(!item||item!==sessions.today.item||el('todayDetailModal').classList.contains('hidden'))throw new Error('今日の候補を開いてください。');
   return {mode:'rewrite',title:String(item.title||shortLabel(item)).slice(0,500),text:String(item.text||''),links:todayAffiliateLinks(item)};
  }
- function count(s){el(s.prefix+'Count').textContent=Array.from(el(s.prefix+'Text').value).length+' / 280文字（URLもそのまま数える安全側の判定）';}
+ function count(s){el(s.prefix+'Count').textContent=weightedLength(el(s.prefix+'Text').value)+' / 280（URLは23、日本語は2で換算・複合絵文字は安全側の目安）';}
  async function generate(kind){
   const s=sessions[kind],status=el(s.prefix+'Status');if(s.busy)return;
   let input;try{input=context(kind);if(!input.text.trim())throw new Error('元投稿・確認した商品情報を確認してください。');}catch(e){status.textContent=e.message;return;}
@@ -62,7 +68,7 @@ window.postAi=(()=>{
  function checkedText(kind){
   const s=sessions[kind],input=context(kind),text=el(s.prefix+'Text').value.trim();
   if(!s.context||JSON.stringify(input)!==JSON.stringify(s.context))throw new Error('商品情報・紹介リンクが変わりました。AI文を作り直してください。');
-  if(!text||Array.from(text).length>280)throw new Error('投稿文を280文字以内にしてください。');
+  if(!text||weightedLength(text)>280)throw new Error('投稿文をX換算で280以内にしてください。');
   if(!/#pr\s*$/i.test(text)||(text.match(/#pr\b/gi)||[]).length!==1)throw new Error('末尾に #pr を1回付けてください。');
   const urls=text.match(/https?:\/\/[^\s]+/gi)||[];
   if(input.links.some(l=>!urls.includes(l.url))||urls.some(url=>!input.links.some(l=>l.url===url)))throw new Error('紹介リンクを元のURLのまま残してください。');
@@ -95,5 +101,5 @@ window.postAi=(()=>{
   }catch(e){status.textContent=e.message;}
  }
  mount('today');mount('product');
- return {openToday:item=>reset('today',item),closeToday:()=>reset('today'),closeProduct:()=>reset('product')};
+ return {weightedLength,openToday:item=>reset('today',item),closeToday:()=>reset('today'),closeProduct:()=>reset('product')};
 })();

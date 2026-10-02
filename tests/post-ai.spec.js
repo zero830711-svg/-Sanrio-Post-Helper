@@ -58,3 +58,13 @@ test('新着商品は確認済み情報と自分のリンクだけ送信し、�
  await page.locator('#productAiShare').click();expect((await page.evaluate(()=>window.aiShared)).files).toEqual(['test.png']);
  await page.locator('#lovelyNote').fill('補足を変更');await page.locator('#lovelyConfirmed').check();await page.locator('#productAiShare').click();await expect(page.locator('#productAiStatus')).toContainText('変わりました');
 });
+test('長い楽天リンクはURL23換算で共有し、日本語超過は止める',async({page})=>{
+ const url='https://hb.afl.rakuten.co.jp/hgc/test/?pc='+('a'.repeat(1000));
+ await setup(page,r=>r.fulfill({json:{ok:true,configured:true,text:'リボンバッグを紹介します\n楽天：'+url+'\n#pr'}}));
+ await page.evaluate(url=>showTodayDetail({id:'long-link',title:'バッグ',text:'リボンバッグ\n'+url,rakuten:url,images:[]}),url);
+ await page.locator('#todayAiGenerate').click();await expect(page.locator('#todayAiText')).toHaveValue(new RegExp('リボンバッグ'));
+ await page.locator('#todayAiShare').click();expect((await page.evaluate(()=>window.aiShared)).text).toContain(url);
+ await page.evaluate(url=>showTodayDetail({id:'long-link',title:'バッグ',text:'リボンバッグ\n'+url,rakuten:url,images:[]}),url);
+ await page.locator('#todayAiGenerate').click();await expect(page.locator('#todayAiText')).toHaveValue(/リボンバッグ/);
+ await page.locator('#todayAiText').fill('あ'.repeat(141)+'\n楽天：'+url+'\n#pr');await page.locator('#todayAiShare').click();await expect(page.locator('#todayAiStatus')).toContainText('X換算');
+});

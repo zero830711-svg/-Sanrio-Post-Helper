@@ -10,6 +10,10 @@ vm.createContext(ctx);vm.runInContext(fs.readFileSync('post-ai.js','utf8'),ctx);
 ctx.closeTodayDetail=()=>{ctx.window.postAi.closeToday();ctx.detailCurrentItem=null;};
 const generate=kind=>get(kind+'AiGenerate').handlers.click();
 (async()=>{
+ assert.equal(ctx.window.postAi.weightedLength('abcあ🎀'),7);
+ assert.equal(ctx.window.postAi.weightedLength('https://amzn.to/x'),23);
+ assert.equal(ctx.window.postAi.weightedLength('https://hb.afl.rakuten.co.jp/test/?pc='+('a'.repeat(1200))),23);
+ assert.equal(ctx.window.postAi.weightedLength('あ'.repeat(141)),282);
  ctx.window.postAi.openToday(item);await generate('today');assert.match(get('todayAiText').value,/バッグ/);assert.equal(get('todayAiEditor').hidden,false);
  get('todayAiText').value='リンクなし #pr';get('todayAiShare').handlers.click();assert.match(get('todayAiStatus').textContent,/元のURL/);assert.equal(sent.length,0);
  get('todayAiText').value='手編集\nAmazon：https://amzn.to/test\n#pr';get('todayAiShare').handlers.click();assert.equal(sent[0].text,'手編集\nAmazon：https://amzn.to/test\n#pr');assert.equal(ctx.detailCurrentItem,null);
