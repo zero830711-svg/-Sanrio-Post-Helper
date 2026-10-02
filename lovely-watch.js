@@ -68,6 +68,7 @@ const lovelyWatch = (()=>{
   async function autoRakuten(item){
     if(!item?.productInfo)return;
     if(el('lovelyRakuten').value.trim()){el('rakutenAutoStatus').textContent='入力済みの楽天リンクを使用します。';return}
+    if(item.source==='楽天API'){el('rakutenAutoStatus').textContent='自分の楽天リンクを手動で入力してください。';return;}
     if(affiliateBusy)return;
     const revision=settingsRevision;affiliateBusy=true;const button=el('rakutenRetry');button.disabled=true;el('rakutenAutoStatus').textContent='自分の楽天リンクを取得中…';
     try{
@@ -177,6 +178,7 @@ const lovelyWatch = (()=>{
     const group=groupedItems(rows,historyIds,state().hidden||{},state().identities||{}).find(g=>g.articles.some(a=>a.url===item.url));
     el('lovelyRelatedArticles').innerHTML=group&&group.articles.length>1?'<details><summary>同じ商品のほかの記事</summary>'+group.articles.filter(a=>a.url!==item.url).map(a=>'<p><a target="_blank" rel="noopener noreferrer" href="'+escape(a.url)+'">'+escape(a.title)+'</a></p>').join('')+'</details>':'';
     el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='写真未添付';el('lovelyImageRetry').hidden=true;el('lovelyConfirmed').checked=false;
+    el('lovelySource').textContent=item.source==='楽天API'?'楽天の販売ページを確認':'元記事を確認';
     el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=savedRakuten(item)||item.ownRakuten||'';el('lovelyNote').value=item.note||'';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
     el('lovelyReview').textContent=item.needsReview?'主商品リンクは要確認です。自分で商品を特定してから進めてください。':'記事の主商品リンク候補です。販売ページで商品・セット内容を確認してください。';
@@ -184,6 +186,7 @@ const lovelyWatch = (()=>{
     const productBox=el('lovelyRakutenProductBox');
     if(productBox){productBox.hidden=!productUrl;el('lovelyRakutenProductUrl').value=productUrl;el('lovelyRakutenProductCopyStatus').textContent='';}
     renderProduct(item);
+    if(item.source==='楽天API')el('lovelyReview').textContent='楽天APIで発見した候補です。新発売とは限りません。販売ページで商品・種類・セット内容を確認し、利用できる写真を添付してください。';
     el('rakutenAutoStatus').textContent=savedRakuten(item)?'同じ商品の保存済み短縮URLを入力しました。商品・写真を確認してください。':'';
     el('lovelyAmazonSearch').href='https://www.amazon.co.jp/s?k='+encodeURIComponent(item.title);
     el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.title)+'/';
@@ -304,6 +307,7 @@ const lovelyWatch = (()=>{
     const entries=Object.entries(s.hidden);s.hidden=Object.fromEntries(entries.slice(-500));s.draft=null;
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){el('lovelyShareStatus').textContent='記録を保存できませんでした。';return}
     editorGeneration++;imageBusy=0;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();backToList();
+    document.dispatchEvent(new Event('rakuten-candidates-changed'));
   }
   el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft)edit(draft)}});
   el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
@@ -383,7 +387,7 @@ const lovelyWatch = (()=>{
     if(!files.length)throw new Error('共有する写真を選んでください。');
     return files.slice();
   }
-  return {thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten,aiContext,aiFiles};
+  function openRakuten(item){chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;openEditor(item.url);edit(item);}
+  return {thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten,aiContext,aiFiles,openRakuten};
 })();
-
 
