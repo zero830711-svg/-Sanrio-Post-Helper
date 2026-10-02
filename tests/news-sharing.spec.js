@@ -174,3 +174,37 @@ test('公式とPR TIMESの同じ商品ニュースをまとめ、両方の記事
  ];});
  expect(safe).toEqual([false,false,false,false]);
 });
+
+test('ニュースAIが本文を調整し、手動編集を後から上書きしない',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ const item={title:'ソニーとハローキティの新作',source:'PR TIMES',url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',images:[],paragraphs:['サコッシュとバッグがセットです。'],facts:[]};
+ let release;let calls=0;
+ await page.route('**/news.php?**',async route=>{
+  const action=new URL(route.request().url()).searchParams.get('action');
+  if(action==='ai-draft'){calls++;await new Promise(r=>{release=r;});return route.fulfill({json:{ok:true,configured:true,text:'🎀 ソニーとハローキティの新作！バッグがセットに✨\n詳細：'+item.url}});}
+  return route.fulfill({json:action==='list'?{ok:true,items:[item]}:action==='ai-settings'?{ok:true,configured:false}:{ok:true,item}});
+ });
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
+ await page.locator('#newsList button').click();await expect(page.locator('#newsAiStatus')).toContainText('調整中');
+ await expect.poll(()=>calls).toBe(1);release();
+ await expect(page.locator('#newsAiStatus')).toContainText('AI調整済み');
+ await expect(page.locator('#newsText')).toHaveValue(/バッグがセット/);
+ await page.locator('#newsBack').click();await page.locator('#newsList button').click();
+ expect(calls).toBe(1);
+ page.once('dialog',d=>d.accept());await page.locator('#newsAiRetry').click();
+ await expect.poll(()=>calls).toBe(2);
+ await page.locator('#newsText').fill('手動で確認した文章');release();
+ await expect(page.locator('#newsAiStatus')).toContainText('手動編集を優先');
+ await expect(page.locator('#newsText')).toHaveValue('手動で確認した文章');
+});
+test('AIキーは設定保存後に入力欄から消し、端末に保存しない',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ await page.route('**/news.php?**',route=>{
+  const action=new URL(route.request().url()).searchParams.get('action');
+  return route.fulfill({json:action==='list'?{ok:true,items:[]}:{ok:true,configured:route.request().method()==='POST'}});
+ });
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
+ await page.locator('#newsAiSettings summary').click();await page.locator('#newsAiKey').fill('test-gemini-key-not-a-real-key');
+ await page.locator('#newsAiSave').click();await expect(page.locator('#newsAiKey')).toHaveValue('');
+ expect(await page.evaluate(()=>JSON.stringify(localStorage))).not.toContain('test-gemini-key-not-a-real-key');
+});
