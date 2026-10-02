@@ -50,7 +50,7 @@ test('新着商品は確認済み情報と自分のリンクだけ送信し、�
  await page.getByRole('tab',{name:'新着商品',exact:true}).click();await page.locator('#lovelyList button').click();
  await expect(page.locator('#lovelyConfirmed')).toBeEnabled();
  await page.locator('#productAiGenerate').click();await expect(page.locator('#productAiStatus')).toContainText('チェック');
- await page.locator('#lovelyAmazon').fill('https://amzn.to/test');await page.locator('#lovelyNote').fill('リボン付き');
+ await page.locator('#lovelyLinkDetails > summary').click();await page.locator('#lovelyAmazon').fill('https://amzn.to/test');await page.locator('#lovelyNoteDetails summary').click();await page.locator('#lovelyNote').fill('リボン付き');
  await page.locator('#lovelyPhotos').setInputFiles({name:'test.png',mimeType:'image/png',buffer:png});
  await page.locator('#lovelyConfirmed').check();await page.locator('#productAiGenerate').click();
  await expect(page.locator('#productAiText')).toHaveValue(/リボンバッグ/);

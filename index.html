@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261002-3391-postai">
+<link rel="stylesheet" href="./styles.css?v=20261002-3394">
 </head>
 <body>
 <main class="app">
@@ -109,10 +109,19 @@
 <section id="lovelyEditor" aria-label="商品の投稿準備" hidden>
 <button id="lovelyBack" class="small-btn" type="button">一覧へ戻る</button>
 <h3 id="lovelyTitle"></h3>
+<details id="lovelySourceDetails"><summary>販売ページ・元記事を確認</summary>
 <a id="lovelySource" target="_blank" rel="noopener noreferrer">元記事を確認</a>
 <p id="lovelyReview" class="backup-note"></p><div id="lovelyRelatedArticles"></div>
 <div id="lovelyProducts" class="cloud-sync-actions"></div>
+</details>
 <div id="lovelyProductInfo" aria-live="polite"></div>
+<details id="lovelyUploadDetails"><summary>写真を追加する（4枚以内）</summary>
+<label>共有する写真<input id="lovelyPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+<p class="backup-note">利用できる公式・許諾画像や自分の写真を選んでください。再読み込み後は選び直しが必要です。</p>
+</details>
+<button id="lovelyImageRetry" type="button" class="small-btn" hidden>写真の取得を再試行</button>
+<p id="lovelyPhotoCount" class="backup-note">写真未添付</p>
+<details id="lovelyLinkDetails"><summary id="lovelyLinkSummary">紹介リンク：未設定 · 確認・変更</summary>
 <div class="cloud-sync-actions"><a id="lovelyAmazonSearch" class="small-btn link-btn" target="_blank" rel="noopener noreferrer">Amazonで探す</a><a id="lovelyRakutenSearch" class="small-btn link-btn" target="_blank" rel="noopener noreferrer">楽天で探す</a></div>
 <label>自分のAmazonアフィリエイトリンク<input id="lovelyAmazon" type="url" placeholder="SiteStripeの商品リンク"></label>
 <details id="lovelyRakutenProductBox" hidden open>
@@ -122,20 +131,21 @@
 <a class="small-btn link-btn" id="lovelyRakutenAffiliateOpen" href="https://affiliate.rakuten.co.jp/" target="_blank" rel="noopener noreferrer">楽天アフィリエイトを開く</a>
 <p id="lovelyRakutenProductCopyStatus" class="backup-note" aria-live="polite"></p>
 </details>
-<label>楽天の短縮URLを貼り付け<input id="lovelyRakuten" type="url" placeholder="https://a.r10.to/..." autocomplete="off"></label>
+<label>自分の楽天紹介リンク<input id="lovelyRakuten" type="url" placeholder="https://a.r10.to/..." autocomplete="off"></label>
 <button id="lovelyRakutenPaste" type="button" class="small-btn">短縮URLを貼り付け</button>
 <p id="rakutenAutoStatus" class="backup-note" aria-live="polite"></p>
 <button id="rakutenRetry" type="button" class="small-btn">楽天リンクを取得</button>
+</details>
+<details id="lovelyNoteDetails"><summary>確認した情報・補足を追加</summary>
 <label>確認した情報・補足<textarea id="lovelyNote" rows="3" placeholder="メーカー、仕様、確認した発売日など"></textarea></label>
-<label>共有する写真（4枚以内）<input id="lovelyPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
-<button id="lovelyImageRetry" type="button" class="small-btn" hidden>取得できなかった写真を再試行</button>
-<p id="lovelyPhotoCount" class="backup-note">写真未添付</p>
-<p class="backup-note">利用できる公式・許諾画像や自分の写真を選んでください。写真はページを再読み込みすると選び直しが必要です。下書きのリンク・補足はこの端末に保存します。</p>
-<label>投稿先<select id="lovelyKind"><option value="x">X</option><option value="threads">Threads（本文＋返信リンク）</option></select></label>
-<label><input id="lovelyConfirmed" type="checkbox"> 商品・セット内容と写真の一致、画像の利用可否、自分の紹介リンクを確認しました</label>
+</details>
+<label class="lovely-confirm"><input id="lovelyConfirmed" type="checkbox"> 商品・写真・画像の利用可否・自分の紹介リンクを確認しました</label>
 <section id="productAiPanel" class="post-ai-panel" aria-label="AIで新着商品の投稿文を作成"></section>
+<details id="lovelyOtherShare"><summary>ChatGPT・Threadsで作る</summary>
+<label>投稿先<select id="lovelyKind"><option value="x">X</option><option value="threads">Threads（本文＋返信リンク）</option></select></label>
 <div class="cloud-sync-actions"><button id="lovelyShare" class="small-btn" type="button">ChatGPTに写真＋プロンプトを共有</button></div>
 <p id="lovelyShareStatus" class="backup-note" aria-live="polite"></p>
+</details>
 <div class="cloud-sync-actions"><button id="lovelyDone" class="small-btn" type="button">投稿済み</button><button id="lovelySkip" class="small-btn" type="button">見送る</button></div>
 <button id="lovelyBackBottom" class="small-btn" type="button">一覧へ戻る</button>
 </section>
@@ -443,10 +453,10 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261002-3393"></script>
+<script src="./app.js?v=20261002-3394"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261002-3393"></script>
+<script src="./lovely-watch.js?v=20261002-3394"></script>
 <script src="./rakuten-discovery.js?v=20261002-3393"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
 <script src="./news.js?v=20261002-3391-postai"></script>
