@@ -18,7 +18,7 @@ $d=news_parse('<h1>商品ニュース</h1><div id="press-release-body"><table><t
 check(count($d['facts'])===2);check($d['facts'][0]['text']==='発売日：2026年10月上旬予定');check($d['facts'][1]['text']==='価格：各880円（税込）');
 $e=news_parse('<h1>新作</h1><div id="press-release-body"><p>10月3日発売、価格は880円（税込）です。</p></div>',$url);
 check(count($e['facts'])===2);
-$cache=sys_get_temp_dir().'/sph-news-v4-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
+$cache=sys_get_temp_dir().'/sph-news-v5-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
 $previous=is_file($cache)?file_get_contents($cache):null;
 try{
  file_put_contents($cache,json_encode($d));
@@ -28,3 +28,10 @@ try{
  check(!isset($metadata['items'][0]['paragraphs']));
 }finally{if($previous===null)@unlink($cache);else file_put_contents($cache,$previous);}
 echo "News parser and URL validation passed\n";
+
+$aiItem=['title'=>'ハローキティのバッグ','url'=>$url,'paragraphs'=>['価格は880円（税込）。本体（※1）とバッグ。参加費3,000円。']];
+check(strpos(news_ai_validate('🎀 バッグが登場！価格880円（税込）',$aiItem),$url)!==false);
+foreach(['バッグは990円','本体※1とバッグ','参加費3,000円','https://evil.example/'] as $invalid){
+ $rejected=false;try{news_ai_validate($invalid,$aiItem);}catch(RuntimeException $ex){$rejected=true;}check($rejected);
+}
+echo "News AI output validation passed\n";
