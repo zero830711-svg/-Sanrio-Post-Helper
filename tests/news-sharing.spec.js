@@ -197,6 +197,40 @@ test('ニュースAIが本文を調整し、手動編集を後から上書きし
  await expect(page.locator('#newsAiStatus')).toContainText('手動編集を優先');
  await expect(page.locator('#newsText')).toHaveValue('手動で確認した文章');
 });
+test('503は最大2回再試行し、待機中の手動編集を保持する',async({page})=>{
+ test.setTimeout(45000);
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ const item={title:'ハローキティの新作',source:'PR TIMES',url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',images:[],paragraphs:['バッグの新作です。'],facts:[]};
+ let calls=0;
+ await page.route('**/news.php?**',route=>{
+  const action=new URL(route.request().url()).searchParams.get('action');
+  if(action==='ai-draft'){
+   calls++;
+   return route.fulfill({status:calls<=2?502:200,json:calls<=2?{ok:false,error:'Google側が一時的に利用できません（503）。',retryable:true}:{ok:true,configured:true,text:'AIの文章'}});
+  }
+  return route.fulfill({json:action==='list'?{ok:true,items:[item]}:{ok:true,item}});
+ });
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList button').click();
+ await expect(page.locator('#newsAiStatus')).toContainText('3秒後');
+ await page.locator('#newsText').fill('手動で確認した文章');
+ await expect(page.locator('#newsAiStatus')).toContainText('手動編集を優先',{timeout:20000});
+ expect(calls).toBe(3);await expect(page.locator('#newsText')).toHaveValue('手動で確認した文章');
+});
+test('503の再試行は3回目の失敗で停止する',async({page})=>{
+ test.setTimeout(45000);
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ const item={title:'ハローキティの新作',source:'PR TIMES',url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',images:[],paragraphs:['バッグの新作です。'],facts:[]};
+ let calls=0;
+ await page.route('**/news.php?**',route=>{
+  const action=new URL(route.request().url()).searchParams.get('action');
+  if(action==='ai-draft'){calls++;return route.fulfill({status:502,json:{ok:false,error:'Google側が一時的に利用できません（503）。',retryable:true}});}
+  return route.fulfill({json:action==='list'?{ok:true,items:[item]}:{ok:true,item}});
+ });
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList button').click();
+ const before=await page.locator('#newsText').inputValue();
+ await expect(page.locator('#newsAiStatus')).toContainText('AI未調整',{timeout:20000});
+ expect(calls).toBe(3);await expect(page.locator('#newsAiRetry')).toBeEnabled();await expect(page.locator('#newsText')).toHaveValue(before);
+});
 test('AIキーは設定保存後に入力欄から消し、端末に保存しない',async({page})=>{
  await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
  await page.route('**/news.php?**',route=>{

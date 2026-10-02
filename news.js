@@ -219,8 +219,21 @@ $('newsSkip').addEventListener('click',()=>{if(newsState.item)newsMark(newsState
 
 async function newsAiPost(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('同期キーを設定してください。');
- const r=await fetch(newsApiUrl(action),{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(data),cache:'no-store',signal:AbortSignal.timeout(25000)});
- const d=await r.json();if(!r.ok||d.ok===false)throw new Error(d.error||'AIを利用できません。');return d;
+ const r=await fetch(newsApiUrl(action),{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(data),cache:'no-store',signal:AbortSignal.timeout(action==='ai-draft'?85000:25000)});
+ const d=await r.json();if(!r.ok||d.ok===false){const e=new Error(d.error||'AIを利用できません。');e.retryable=action==='ai-draft'&&d.retryable===true;throw e;}return d;
+}
+async function newsAiDraftWithRetry(entry,seq){
+ for(let attempt=0;attempt<3;attempt++){
+  try{return await newsAiPost('ai-draft',{url:entry.item.url});}
+  catch(e){
+   if(!e.retryable||attempt===2||seq!==newsState.seq)throw e;
+   const delay=attempt===0?3000:6000;
+   $('newsAiStatus').textContent='Googleが混雑しています。'+delay/1000+'秒後に再試行します（'+(attempt+1)+'/2）…';
+   await new Promise(resolve=>setTimeout(resolve,delay));
+   if(seq!==newsState.seq)throw new Error('画面を切り替えたため、自動再試行を停止しました。');
+   $('newsAiStatus').textContent='AIで文章を調整中…（再試行'+(attempt+1)+'/2・編集すると自動反映しません）';
+  }
+ }
 }
 async function newsAiSettingsLoad(){
  try{const d=await newsRequest('ai-settings');$('newsAiSettingsStatus').textContent=d.configured?'設定済み：投稿準備時にAIで文章を調整します。':'未設定：通常の下書きを使います。';}catch(e){$('newsAiSettingsStatus').textContent=e.message;}
@@ -232,7 +245,7 @@ async function newsAiAdjust(entry,seq,force=false){
  const before=entry.text;
  if(seq===newsState.seq){$('newsAiStatus').textContent='AIで文章を調整中…（編集すると自動反映しません）';$('newsAiRetry').disabled=true;}
  try{
-  const d=await newsAiPost('ai-draft',{url:entry.item.url});
+  const d=await newsAiDraftWithRetry(entry,seq);
   if(!d.configured){entry.aiStatus='AI未設定：通常の下書きです。';}
   else if(typeof d.text!=='string'||!d.text.trim()){throw new Error('AI文を取得できません。');}
   else if(entry.text!==before||(seq===newsState.seq&&$('newsText').value!==before)){entry.aiStatus='手動編集を優先しました。AI文は反映していません。';}
