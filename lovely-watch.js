@@ -165,12 +165,14 @@ const lovelyWatch = (()=>{
     el('lovelyEditor').scrollIntoView({block:'start'});el('lovelyBack').focus({preventScroll:true});
   }
   function backToList(){
+    window.postAi?.closeProduct();
     el('lovelyEditor').hidden=true;el('lovelyBrowse').hidden=false;el('lovelyRestoreBox').hidden=false;
     window.scrollTo({top:listScroll,behavior:'instant'});
     const button=Array.from(el('lovelyList').querySelectorAll('[data-lovely-select]')).find(b=>b.dataset.lovelySelect===listItemUrl);
     if(button)button.focus({preventScroll:true});
   }
   function edit(item){
+    window.postAi?.closeProduct();
     editorGeneration++;selected=item;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();imageBusy=0;el('lovelyTitle').textContent=item.title;
     const group=groupedItems(rows,historyIds,state().hidden||{},state().identities||{}).find(g=>g.articles.some(a=>a.url===item.url));
     el('lovelyRelatedArticles').innerHTML=group&&group.articles.length>1?'<details><summary>同じ商品のほかの記事</summary>'+group.articles.filter(a=>a.url!==item.url).map(a=>'<p><a target="_blank" rel="noopener noreferrer" href="'+escape(a.url)+'">'+escape(a.title)+'</a></p>').join('')+'</details>':'';
@@ -368,8 +370,20 @@ const lovelyWatch = (()=>{
   el('lovelyDone')?.addEventListener('click',()=>hide('used'));
   el('lovelySkip')?.addEventListener('click',()=>hide('skip'));
   el('lovelyRestore')?.addEventListener('click',()=>{const s=state();s.hidden={};localStorage.setItem(KEY,JSON.stringify(s));render()});
-  return {thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten};
+  function aiContext(){
+    if(!selected||detailLoading)throw new Error('商品情報の取得が終わってから実行してください。');
+    if(!el('lovelyConfirmed').checked)throw new Error('商品・写真・紹介リンクの確認欄にチェックしてください。');
+    const amazon=ownLink(el('lovelyAmazon').value.trim(),'Amazon'),rakuten=ownLink(el('lovelyRakuten').value.trim(),'楽天');
+    if(!amazon&&!rakuten)throw new Error('自分のAmazonか楽天のリンクを入力してください。');
+    return {mode:'product',title:selected.title,text:productFacts(selected.productInfo).join('\n')+'\n確認した補足：'+el('lovelyNote').value.trim(),links:[...(amazon?[{kind:'amazon',url:amazon}]:[]),...(rakuten?[{kind:'rakuten',url:rakuten}]:[])]};
+  }
+  function aiFiles(){
+    aiContext();
+    if(imageBusy||(imageChoices.size&&files.length!==imageChoices.size))throw new Error('選んだ写真の準備が終わっていません。再試行するか選択を外してください。');
+    if(!files.length)throw new Error('共有する写真を選んでください。');
+    return files.slice();
+  }
+  return {thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten,aiContext,aiFiles};
 })();
-
 
 

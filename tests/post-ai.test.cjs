@@ -1,0 +1,23 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const nodes=new Map();
+const get=id=>{if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',hidden:false,disabled:false,handlers:{},classList:{contains:()=>false},addEventListener(type,fn){this.handlers[type]=fn;}});return nodes.get(id);};
+const item={title:'バッグ',text:'元投稿',id:'one'},link={kind:'amazon',url:'https://amzn.to/test'};
+const input={mode:'product',title:'商品',text:'確認した資料',links:[link]},sent=[];
+let response={configured:true,text:'バッグの紹介\nAmazon：https://amzn.to/test\n#pr'},calls=0;
+const ctx={window:{},document:{getElementById:get},detailCurrentItem:item,shortLabel:()=>'',todayAffiliateLinks:()=>[link],lovelyWatch:{aiContext:()=>input,aiFiles:()=>[]},navigator:{share:data=>{sent.push(data);return Promise.resolve();},canShare:()=>true},confirm:()=>true,setTimeout:fn=>fn(),detailPhotoSelection:[],detailImageBlobs:[],File:class{},safeImageName:()=>'',legacyCopyText:()=>true};
+ctx.newsAiPost=async()=>{calls++;if(response instanceof Error)throw response;return response;};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync('post-ai.js','utf8'),ctx);
+ctx.closeTodayDetail=()=>{ctx.window.postAi.closeToday();ctx.detailCurrentItem=null;};
+const generate=kind=>get(kind+'AiGenerate').handlers.click();
+(async()=>{
+ ctx.window.postAi.openToday(item);await generate('today');assert.match(get('todayAiText').value,/バッグ/);assert.equal(get('todayAiEditor').hidden,false);
+ get('todayAiText').value='リンクなし #pr';get('todayAiShare').handlers.click();assert.match(get('todayAiStatus').textContent,/元のURL/);assert.equal(sent.length,0);
+ get('todayAiText').value='手編集\nAmazon：https://amzn.to/test\n#pr';get('todayAiShare').handlers.click();assert.equal(sent[0].text,'手編集\nAmazon：https://amzn.to/test\n#pr');assert.equal(ctx.detailCurrentItem,null);
+ ctx.detailCurrentItem=item;ctx.window.postAi.openToday(item);await generate('today');
+ let release;ctx.newsAiPost=()=>new Promise(r=>release=r);const pending=generate('today');get('todayAiText').value='手編集を保持';get('todayAiText').handlers.input();release(response);await pending;assert.equal(get('todayAiText').value,'手編集を保持');assert.equal(get('todayAiGenerate').disabled,false);
+ ctx.window.postAi.closeToday();ctx.detailCurrentItem=item;ctx.window.postAi.openToday(item);const stale=generate('today');const releaseOld=release;ctx.window.postAi.closeToday();ctx.window.postAi.openToday(item);const fresh=generate('today');releaseOld(response);await stale;assert.equal(get('todayAiGenerate').disabled,true);release(response);await fresh;assert.equal(get('todayAiGenerate').disabled,false);
+ ctx.newsAiPost=async()=>response;await generate('product');assert.match(get('productAiText').value,/バッグ/);input.links=[{kind:'amazon',url:'https://amzn.to/changed'}];get('productAiShare').handlers.click();assert.match(get('productAiStatus').textContent,/変わりました/);
+ ctx.window.postAi.closeProduct();calls=0;ctx.newsAiPost=async()=>{calls++;const e=new Error('混雑');e.retryable=true;throw e;};await generate('product');assert.equal(calls,3);assert.equal(get('productAiGenerate').disabled,false);
+ calls=0;ctx.newsAiPost=async()=>{calls++;throw new Error('429');};await generate('product');assert.equal(calls,1);
+ console.log('Post AI: generation, URL preservation, sharing, edit protection, stale request ownership, retry cap passed');
+})().catch(e=>{console.error(e);process.exitCode=1;});

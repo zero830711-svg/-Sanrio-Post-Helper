@@ -62,3 +62,16 @@ check(news_ai_prompt($longItem)!==$prompt);
 $formatted="🎀 バッグが登場！\n\n価格：880円（税込）";
 check(strpos(news_ai_validate($formatted,$aiItem),$formatted)===0);
 echo "Readable AI prompt and URL-aware length checks passed\n";
+
+$post=post_ai_input(['mode'=>'rewrite','title'=>'リボン付きバッグ','text'=>'リボン付きバッグ。価格880円（税込）。','links'=>[['url'=>'https://amzn.to/test'],['url'=>'https://search.rakuten.co.jp/search/mall/test/?scid=af_test']]]);
+$out=post_ai_validate('🎀 リボン付きバッグを紹介します',$post);
+check(strpos($out,"Amazon：https://amzn.to/test")!==false);
+check(strpos($out,'楽天：https://search.rakuten.co.jp/search/mall/test/?scid=af_test')!==false);
+check(substr($out,-3)==='#pr'&&mb_strlen($out)<=280);
+check(strpos(post_ai_prompt($post),'書き出し・文順・言い回し')!==false);
+$product=$post;$product['mode']='product';check(strpos(post_ai_prompt($product),'記事掲載日は発売日ではない')!==false);
+check(strpos(post_ai_prompt($product),'写真は送られていない')!==false);
+foreach(['価格999円','https://evil.example/','#pr','```text'] as $bad){try{post_ai_validate($bad,$post);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}}
+foreach(['https://amazon.co.jp.evil.example/test','https://user@amzn.to/test','javascript:alert(1)'] as $bad){try{post_ai_input(['mode'=>'product','title'=>'商品','text'=>'資料','links'=>[['url'=>$bad]]]);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}}
+$noLinks=post_ai_input(['mode'=>'rewrite','title'=>'商品','text'=>'資料','links'=>[]]);check(post_ai_validate('商品を紹介します',$noLinks)==="商品を紹介します\n#pr");
+echo "Product and rewrite AI safety checks passed\n";

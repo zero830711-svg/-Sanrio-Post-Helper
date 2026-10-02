@@ -219,8 +219,9 @@ $('newsSkip').addEventListener('click',()=>{if(newsState.item)newsMark(newsState
 
 async function newsAiPost(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('同期キーを設定してください。');
- const r=await fetch(newsApiUrl(action),{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(data),cache:'no-store',signal:AbortSignal.timeout(action==='ai-draft'?85000:25000)});
- const d=await r.json();if(!r.ok||d.ok===false){const e=new Error(d.error||'AIを利用できません。');e.retryable=action==='ai-draft'&&d.retryable===true;throw e;}return d;
+ const drafting=action==='ai-draft'||action==='post-ai-draft';
+ const r=await fetch(newsApiUrl(action),{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(data),cache:'no-store',signal:AbortSignal.timeout(drafting?85000:25000)});
+ const d=await r.json();if(!r.ok||d.ok===false){const e=new Error(d.error||'AIを利用できません。');e.retryable=drafting&&d.retryable===true;throw e;}return d;
 }
 async function newsAiDraftWithRetry(entry,seq){
  for(let attempt=0;attempt<3;attempt++){

@@ -346,3 +346,7 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #todayDetailModal #detailTextMore>summary{min-height:32px;font-size:11px}
 #todayDetailModal .detail-text-section h3{margin-bottom:0}
 #todayDetailModal .detail-media-status,#todayDetailModal .detail-photo-hint{font-size:10px;line-height:1.35;margin:2px 0}
+.post-ai-panel{margin:12px 0;padding:12px;border:1px solid #eadde5;border-radius:16px}
+.post-ai-panel label{display:block;font-weight:600}
+.post-ai-panel textarea{display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit;line-height:1.6;resize:vertical}
+.post-ai-panel [hidden]{display:none}

@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261002-3390-newsai30">
+<link rel="stylesheet" href="./styles.css?v=20261002-3391-postai">
 </head>
 <body>
 <main class="app">
@@ -18,7 +18,7 @@
 <details class="home-info"><summary>データ・更新情報</summary>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.10.01-3390</span>
+<span id="appVersionStatus">アプリ版 2026.10.02-3391</span>
 <button id="forceLatest" type="button" >最新版を読み込む</button>
 </div>
 <p class="backup-note app-update-help">更新後もホーム画面のアイコンはそのまま使えます。作り直しは不要です。この端末に保存した投稿データと同期設定は、同じURLを使う限り引き継がれます。</p>
@@ -56,7 +56,7 @@
 <p class="backup-note">サンリオ公式・PR TIMESから投稿を準備</p>
 <details><summary>記事URLから開く</summary><label>記事URL<input id="newsUrl" type="url" placeholder="https://prtimes.jp/..."></label><button id="newsOpen" class="small-btn" type="button">投稿準備</button><button id="newsExample" class="small-btn" type="button">ワークマンの記事で試す</button></details>
 <details id="newsAiSettings"><summary>文章AI設定（初回のみ）</summary>
-<p class="backup-note">公開記事のタイトル・本文だけをGeminiへ送ります。無料枠は入力が製品改善に利用されます。有料プロジェクトのキーでは課金される可能性があります。無料枠のプロジェクトを使い、請求設定は追加しないでください。キーはサーバー側に保存し、GitHub・端末の下書きには保存しません。</p>
+<p class="backup-note">ニュース・新着商品・今日の候補で共通の設定です。記事本文、元投稿、確認した商品情報・補足をGeminiへ送ります。写真・分析数値は送りません。補足に個人情報は入力しないでください。無料枠は入力が製品改善に利用されます。有料プロジェクトのキーでは課金される可能性があります。無料枠のプロジェクトを使い、請求設定は追加しないでください。キーはサーバー側に保存し、GitHub・端末の下書きには保存しません。</p>
 <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer">Google AI StudioでAPIキーを取得</a>
 <label>Gemini APIキー<input id="newsAiKey" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false"></label>
 <button id="newsAiSave" class="small-btn" type="button">キーを保存・AIを有効化</button><button id="newsAiRemove" class="small-btn" type="button">設定を解除</button><p id="newsAiSettingsStatus" class="backup-note" aria-live="polite"></p></details>
@@ -123,6 +123,7 @@
 <p class="backup-note">利用できる公式・許諾画像や自分の写真を選んでください。写真はページを再読み込みすると選び直しが必要です。下書きのリンク・補足はこの端末に保存します。</p>
 <label>投稿先<select id="lovelyKind"><option value="x">X</option><option value="threads">Threads（本文＋返信リンク）</option></select></label>
 <label><input id="lovelyConfirmed" type="checkbox"> 商品・セット内容と写真の一致、画像の利用可否、自分の紹介リンクを確認しました</label>
+<section id="productAiPanel" class="post-ai-panel" aria-label="AIで新着商品の投稿文を作成"></section>
 <div class="cloud-sync-actions"><button id="lovelyShare" class="small-btn" type="button">ChatGPTに写真＋プロンプトを共有</button></div>
 <p id="lovelyShareStatus" class="backup-note" aria-live="polite"></p>
 <div class="cloud-sync-actions"><button id="lovelyDone" class="small-btn" type="button">投稿済み</button><button id="lovelySkip" class="small-btn" type="button">見送る</button></div>
@@ -406,6 +407,7 @@
 <p id="detailChatGPTStatus" class="backup-note" aria-live="polite"></p>
 <div id="detailExtraTools" class="detail-top-tools" aria-label="リンク・保存・候補の操作"><div id="detailCandidateTools"></div><div class="detail-action-row"><button id="detailCandidateSkip" class="small-btn" type="button">見送る</button><button id="detailCandidateExclude" class="small-btn" type="button">候補にしない</button><button id="detailRepostNext" class="small-btn" type="button">再投稿済み → 次の候補</button></div></div>
 <section class="detail-text-section">
+<section id="todayAiPanel" class="post-ai-panel" aria-label="AIで今日の候補を焼き直し"></section>
 <h3>投稿本文</h3>
 <details id="detailTextMore"><summary>全文を表示</summary><p id="detailText"></p></details>
 <p id="detailTextPreview"></p>
@@ -431,17 +433,15 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261002-3390-newsai30"></script>
+<script src="./app.js?v=20261002-3391-postai"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261002-3390-newsai30"></script>
+<script src="./lovely-watch.js?v=20261002-3391-postai"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
-<script src="./news.js?v=20261002-3390-newsai-retry1"></script>
+<script src="./news.js?v=20261002-3391-postai"></script>
+<script src="./post-ai.js?v=20261002-3391"></script>
 </body>
 </html>
-
-
-
 
 
 

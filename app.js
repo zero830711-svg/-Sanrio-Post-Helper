@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.01-3390";
+const APP_VERSION="2026.10.02-3391";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2915,6 +2915,7 @@ function showTodayDetail(item,continueQueue=false){
   $("detailText").textContent=item.text||"";
   $("detailTextPreview").textContent=String(item.text||"").replace(/\n{3,}/g,"\n\n");
   $("detailTextMore").open=false;
+  window.postAi?.openToday(item);
   detailImageBlobs=imgs.map(()=>null);
   detailImageBlobErrors=imgs.map(()=>null);
   const choice=detailPhotoChoices.get(canonicalPostKey(item));
@@ -3329,6 +3330,7 @@ async function repostDetailAndAdvance(){
   }
 }
 function closeTodayDetail(){
+  window.postAi?.closeToday();
   $("todayDetailModal").classList.add("hidden");
   $("detailMedia").innerHTML="";
   detailCurrentItem=null;
