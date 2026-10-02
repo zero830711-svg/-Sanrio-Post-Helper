@@ -27,8 +27,6 @@ const lovelyWatch = (()=>{
     const short=shortUrl(el('lovelyRakuten').value.trim()),box=el('lovelyRakutenProductBox');
     if(box)box.open=!short;
     const retry=el('rakutenRetry');if(retry)retry.hidden=!!short;
-    const stores=[el('lovelyAmazon').value.trim()?'Amazon':'',el('lovelyRakuten').value.trim()?'楽天':''].filter(Boolean);
-    if(el('lovelyLinkSummary'))el('lovelyLinkSummary').textContent='紹介リンク：'+(stores.length?stores.join('・')+' 設定済み':'未設定')+' · 確認・変更';
   }
   function persist(){
     const value=state();value.draft=selected?{...selected,ownAmazon:el('lovelyAmazon').value.trim(),ownRakuten:el('lovelyRakuten').value.trim(),note:el('lovelyNote').value.trim()}:null;
@@ -177,7 +175,6 @@ const lovelyWatch = (()=>{
   function edit(item){
     window.postAi?.closeProduct();
     editorGeneration++;selected=item;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();imageBusy=0;el('lovelyTitle').textContent=item.title;
-    for(const id of ['lovelySourceDetails','lovelyLinkDetails','lovelyNoteDetails','lovelyOtherShare'])if(el(id))el(id).open=false;
     const group=groupedItems(rows,historyIds,state().hidden||{},state().identities||{}).find(g=>g.articles.some(a=>a.url===item.url));
     el('lovelyRelatedArticles').innerHTML=group&&group.articles.length>1?'<details><summary>同じ商品のほかの記事</summary>'+group.articles.filter(a=>a.url!==item.url).map(a=>'<p><a target="_blank" rel="noopener noreferrer" href="'+escape(a.url)+'">'+escape(a.title)+'</a></p>').join('')+'</details>':'';
     el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='写真未添付';el('lovelyImageRetry').hidden=true;el('lovelyConfirmed').checked=false;
@@ -205,9 +202,8 @@ const lovelyWatch = (()=>{
   function renderProduct(item){
     const root=el('lovelyProductInfo');if(!root)return;
     const info=item.productInfo;
-    if(el('lovelyUploadDetails'))el('lovelyUploadDetails').open=!(info?.images||[]).length;
     if(!info){root.innerHTML='<p class="backup-note">'+escape(item.productError||'商品情報は未取得です。販売ページを確認して補足してください。')+'</p>';return}
-    root.innerHTML='<details class="lovely-facts"><summary>商品情報・仕様を確認</summary><p class="backup-note">確認 '+escape(new Date(info.checkedAt).toLocaleString('ja-JP'))+'。価格・在庫はAIに追加しません。</p><ul>'+productFacts(info).map(x=>'<li>'+escape(x)+'</li>').join('')+'</ul></details><div class="lovely-product-images">'+(info.images||[]).map((url,index)=>'<div><a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escape(url)+'" alt="商品ページの画像候補 '+(index+1)+'" loading="lazy" decoding="async"></a><label><input type="checkbox" data-lovely-image="'+index+'"> この写真を使う</label><p id="lovelyImageStatus'+index+'" class="backup-note" aria-live="polite"></p></div>').join('')+'</div>'+((info.images||[]).length?'<p class="backup-note">商品・種類と画像の利用可否を確認して選択。</p>':'');
+    root.innerHTML='<h4>楽天ページから取得した商品情報</h4><p class="backup-note">確認 '+escape(new Date(info.checkedAt).toLocaleString('ja-JP'))+'。価格・在庫はプロンプトに追加しません。取得した情報も商品との一致を確認してください。</p><ul>'+productFacts(info).map(x=>'<li>'+escape(x)+'</li>').join('')+'</ul><div class="lovely-product-images">'+(info.images||[]).map((url,index)=>'<div><a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escape(url)+'" alt="商品ページの画像候補 '+(index+1)+'" loading="lazy" decoding="async"></a><label><input type="checkbox" data-lovely-image="'+index+'"> この写真を共有する</label><p id="lovelyImageStatus'+index+'" class="backup-note" aria-live="polite"></p></div>').join('')+'</div><p class="backup-note">画像の利用可否を確認してから選んでください。別の商品・種類の写真は使わないでください。画像を取得できない場合は保存した写真を添付できます。</p>';
   }
   function syncImages(){
     files=[...imageChoices].sort((a,b)=>a-b).map(i=>imageFiles.get(i)).filter(Boolean);
@@ -394,3 +390,4 @@ const lovelyWatch = (()=>{
   function openRakuten(item){chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;openEditor(item.url);edit(item);}
   return {thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten,aiContext,aiFiles,openRakuten};
 })();
+
