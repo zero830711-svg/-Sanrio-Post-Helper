@@ -50,3 +50,15 @@ check(strpos(news_ai_error(403,[]),'アクセス')!==false);
 check(strpos(news_ai_error(0,[],28),'時間切れ')!==false);
 check(strpos(news_ai_error(400,['error'=>['message'=>'secret-key-must-not-leak','details'=>[['reason'=>'API_KEY_INVALID']]]]),'secret-key')===false);
 echo "Safe AI diagnostics passed\n";
+
+$prompt=news_ai_prompt($aiItem);
+check(strpos($prompt,'長い正式名称')!==false);
+check(strpos($prompt,'各1行に分ける')!==false);
+check(strpos($prompt,'重要な限定条件')!==false);
+$limit=min(210,280-mb_strlen("\n\n詳細：\n".$url."\n#サンリオ"));
+check(strpos($prompt,'本文のみ'.$limit.'文字以内')!==false);
+$longItem=$aiItem;$longItem['url']=$url.str_repeat('a',50);
+check(news_ai_prompt($longItem)!==$prompt);
+$formatted="🎀 バッグが登場！\n\n価格：880円（税込）";
+check(strpos(news_ai_validate($formatted,$aiItem),$formatted)===0);
+echo "Readable AI prompt and URL-aware length checks passed\n";
