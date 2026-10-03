@@ -171,19 +171,21 @@ test('公式とPR TIMESの同じ商品ニュースをまとめ、両方の記事
  await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
  const official={title:'3caratから「おとなのカラビナ」が登場！',source:'サンリオ公式',date:'2026-10-01',url:'https://www.sanrio.co.jp/news/goods/carabiner/',images:[],paragraphs:[],facts:[{kind:'schedule',text:'10月3日発売予定'}]};
  const press={...official,title:'新作グッズ「おとなのカラビナ」を発売',source:'PR TIMES',url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html'};
+ const press2={...press,title:'「おとなのカラビナ」新作グッズが登場！',url:'https://prtimes.jp/main/html/rd/p/000000124.000013308.html'};
+ const press3={...press,title:'新作グッズ「おとなのカラビナ」を発売！',url:'https://prtimes.jp/main/html/rd/p/000000125.000013308.html'};
  const other={...press,title:'第2弾「おとなのカラビナ」を発売',url:'https://prtimes.jp/main/html/rd/p/000000123.000013308.html'};
- await page.route('**/news.php?**',route=>{const action=new URL(route.request().url()).searchParams.get('action');return route.fulfill({json:action==='list'?{ok:true,items:[press,official,other]}:{ok:true,item:official}});});
+ await page.route('**/news.php?**',route=>{const action=new URL(route.request().url()).searchParams.get('action');return route.fulfill({json:action==='list'?{ok:true,items:[press,official,press2,press3,press,other]}:{ok:true,item:official}});});
  await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
  await expect(page.locator('#newsList article')).toHaveCount(2);
  await expect(page.locator('#newsList article').first()).toContainText('サンリオ公式');
  await expect(page.locator('#newsList article').first()).toContainText('PR TIMES');
  await expect(page.locator('.news-schedule').first()).toHaveText('10/3発売予定');
  await page.locator('#newsList article').first().getByRole('button',{name:'投稿準備'}).click();
- await expect(page.locator('#newsRelatedSources a')).toHaveCount(2);
- await expect(page.locator('#newsRelatedSources a').filter({hasText:'PR TIMES'})).toHaveAttribute('href',press.url);
+ await expect(page.locator('#newsRelatedSources a')).toHaveCount(4);
+ await expect(page.locator('#newsRelatedSources a').filter({hasText:'PR TIMES'}).first()).toHaveAttribute('href',press.url);
  await page.locator('#newsDone').click();
  await expect(page.locator('#newsList article')).toHaveCount(1);
- expect(await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('sanrioNewsMarks'))))).toEqual(expect.arrayContaining([official.url,press.url]));
+ expect(await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('sanrioNewsMarks'))))).toEqual(expect.arrayContaining([official.url,press.url,press2.url,press3.url]));
  await page.locator('#newsFilter').selectOption('hidden');
  await expect(page.locator('#newsList article')).toHaveCount(1);
  await page.locator('#newsList').getByRole('button',{name:'戻す'}).click();
@@ -209,4 +211,14 @@ test('不要なAI設定とお試しボタンを表示せず、設定APIも呼ば
  await expect(page.locator('#newsStatus')).toContainText('0 / 0件');
  for(const id of ['newsAiSettings','newsAiKey','newsAiSave','newsAiRemove','newsExample'])await expect(page.locator('#'+id)).toHaveCount(0);
  expect(settingsCalls).toBe(0);
+});
+
+test('同じ取得元の重複と短い同一見出しをまとめ、URLの追跡パラメータを無視する',async({page})=>{
+ await page.goto('/');
+ const result=await page.evaluate(()=>{const a={source:'PR TIMES',title:'クロミ新作情報',date:'2026-10-01',url:'https://prtimes.jp/main/html/rd/p/1.2.html'};return [
+ newsSameStory(a,{...a,url:'https://prtimes.jp/main/html/rd/p/3.2.html',title:'クロミ新作情報！'}),
+ newsSameStory(a,{...a,url:a.url+'?utm_source=x#release'}),
+ newsSameStory(a,{...a,url:'https://prtimes.jp/main/html/rd/p/4.2.html',title:'ハローキティ新作情報'}),
+ newsSameStory(a,{...a,url:'https://prtimes.jp/main/html/rd/p/5.2.html',date:'2025-10-01'})
+ ];});expect(result).toEqual([true,true,false,false]);
 });

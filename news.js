@@ -64,7 +64,8 @@ function newsScheduleLabel(item){
 }
 function newsTitleKey(title){return String(title||'').normalize('NFKC').toLowerCase().replace(/【[^】]*】/g,'').replace(/[\s\p{P}\p{S}]/gu,'');}
 function newsSameStory(a,b){
- if(a.source===b.source)return false;
+ const articleKey=u=>{try{const p=new URL(u);return p.origin+p.pathname.replace(/\/$/,'');}catch{return '';}};
+ const ua=articleKey(a.url),ub=articleKey(b.url);if(ua&&ua===ub)return true;
  const x=newsTitleKey(a.title),y=newsTitleKey(b.title);
  const published=i=>{const m=String(i.date||'').match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);return m?Date.UTC(+m[1],+m[2]-1,+m[3]):null;};
  const pa=published(a),pb=published(b);if(pa!==null&&pb!==null&&Math.abs(pa-pb)>45*86400000)return false;
@@ -72,6 +73,7 @@ function newsSameStory(a,b){
  const variants=s=>(String(s).normalize('NFKC').match(/第[0-9一二三四五六七八九十]+(?:弾|回)|[0-9]+(?:種|周年)|[0-9]+$|(?:20[0-9]{2})年|(?:ハローキティ|クロミ|マイメロディ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|バッドばつ丸)/g)||[]).sort().join('|');
  if(variants(a.title)!==variants(b.title))return false;
  const da=newsScheduleLabel(a),db=newsScheduleLabel(b);if(da&&db&&da!==db)return false;
+ if(x.length>=6&&x===y)return true;
  const quoted=s=>Array.from(String(s).matchAll(/[「『]([^」』]+)[」』]/g),m=>newsTitleKey(m[1])).filter(s=>s.length>=6&&!/^(サンリオキャラクターズ|サンリオ|ハローキティ|シナモロール)$/.test(s));
  if(quoted(a.title).some(k=>/カラビナ|くじ|バッグ|ポーチ|マスコット|フィギュア|コラボ|シリーズ|キャンペーン|キーホルダー|グッズ/.test(k)&&quoted(b.title).includes(k)))return true;
  if(Math.min(x.length,y.length)<12||Math.min(x.length,y.length)/Math.max(x.length,y.length)<.75)return false;
@@ -80,8 +82,9 @@ function newsSameStory(a,b){
  return 2*shared/(gx.size+gy.size)>=.86;
 }
 function newsGroups(){
- const groups=[];
+ const groups=[],seen=new Set();
  for(const item of newsState.items){
+  if(seen.has(item.url))continue;seen.add(item.url);
   const group=groups.find(g=>g.members.every(m=>newsSameStory(m,item)));
   if(group)group.members.push(item);else groups.push({members:[item]});
  }
@@ -144,7 +147,7 @@ function newsRender(){
  const title=document.createElement('strong');title.textContent=item.title;
  const source=document.createElement('span');source.className='backup-note';
  const mark=newsGroupMark(item);
- source.textContent=item.members.map(m=>m.source).join('・')+' ・ '+(item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
+ source.textContent=[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
  info.append(source,title);
  const schedule=item.members.map(newsScheduleLabel).find(Boolean);if(schedule){const note=document.createElement('span');note.className='news-schedule';note.textContent=schedule;info.append(note);}
  const img=document.createElement('img');img.className='news-thumb';img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';
