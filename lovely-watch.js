@@ -217,7 +217,7 @@ const lovelyWatch = (()=>{
     const end=(footer?'\n\n🛍️ '+footer:'')+'\n\n#サンリオ #pr';
     const heading='🎀 '+name+' ✨';
     const facts=item.manufacturerInfo?.facts||{},specs=item.productInfo?.specs||{};
-    const options=[facts.発売時期?'🗓️ 発売時期：'+facts.発売時期:'',specs.サイズ||facts.サイズ?'💖 サイズ：'+(specs.サイズ||facts.サイズ):'',specs.素材||facts.素材?'🧸 素材：'+(specs.素材||facts.素材):''];
+    const options=[facts.発売時期?'🗓️ 発売時期：'+facts.発売時期:'',specs.サイズ||facts.サイズ?'💖 サイズ：'+(specs.サイズ||facts.サイズ):''];
     let body=heading;
     for(const fact of options.filter(Boolean)){const next=body+'\n\n'+fact;if(postLength(next+end)<=280)body=next;}
     return body+end;

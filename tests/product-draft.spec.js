@@ -25,7 +25,7 @@ test('商品情報の下書きと自分のリンクをそのままXに写真付�
  await setup(page);
  const draft=page.locator('#lovelyPostText');
  await expect(draft).toHaveValue(/🎀 ウサハナ コスメポーチ ✨/);
- const text=await draft.inputValue();expect(text).toContain(link);expect(text).toContain('約200×130×55mm');expect(text).toContain('#pr');expect(text).not.toMatch(/9999|発売|在庫/);
+ const text=await draft.inputValue();expect(text).toContain(link);expect(text).toContain('約200×130×55mm');expect(text).toContain('#pr');expect(text).not.toMatch(/9999|発売|在庫|素材|ポリエステル/);
  await expect(page.locator('#lovelyAiPanel')).toHaveCount(0);
  await page.locator('[data-lovely-image="0"]').check();await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');
  await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostShare').click();
