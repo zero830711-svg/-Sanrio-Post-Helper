@@ -413,6 +413,11 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #lovelyPanel #lovelyEditor input[type=url]{padding:8px 10px;min-height:40px;box-sizing:border-box;border-radius:10px}
 #lovelyPanel #lovelyEditor>label{font-size:12px;line-height:1.5}
 #lovelyPanel #lovelyEditor+ a{display:inline-block;margin-top:4px;font-size:11px}
+.lovely-post-draft{margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff}
+#lovelyEditor .lovely-post-draft label{display:block;margin:0 0 6px;font-size:13px}
+#lovelyPostText{width:100%;box-sizing:border-box;min-height:160px;padding:10px;font-size:14px;font-weight:400;line-height:1.6;resize:vertical}
+#lovelyEditor .lovely-post-draft .backup-note{margin:4px 0}
+#lovelyPanel #lovelyEditor #lovelyPostShare{grid-column:1/-1;min-height:44px;background:#302735;border-color:#302735;color:#fff;font-size:13px}
 
 /* Shared preparation action hierarchy across the three tabs. */
 #newsPanel #newsEditor .small-btn{min-height:36px;padding:6px 10px;border-radius:9px;font-size:12px;line-height:1.35;margin:0}
