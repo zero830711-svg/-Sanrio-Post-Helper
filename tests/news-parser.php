@@ -121,3 +121,25 @@ foreach(['not json',json_encode(['drafts'=>[['body'=>'バッグ']]]),str_replace
  try{ai_cute_validate($invalid,$post);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}
 }
 echo "Cute drafts: three choices, color decorations, short/premium lengths, fact checks and original links passed\n";
+
+// Expanded official categories, API pagination rows, and independent source quotas.
+check(news_url('https://www.sanrio.co.jp/news/campaign/test-20261001/')!=='');
+check(news_url('https://www.sanrio.co.jp/news/spots/test-20261001/')!=='');
+check(news_url('https://www.sanrio.co.jp/news/campaign/')==='');
+check(news_url('https://www.sanrio.co.jp/news/campaign/../secret/')==='');
+check(news_url('https://www.sanrio.co.jp.evil.example/news/campaign/test/')==='');
+$official=news_official_rows(json_encode([
+ ['link'=>'https://www.sanrio.co.jp/news/campaign/test-20261001/','title'=>['rendered'=>'新作 &amp; コラボ情報'],'acf'=>['publication_dt'=>'2026/10/01','base'=>['image_main'=>['url'=>'https://www.sanrio.co.jp/wp-content/uploads/2026/10/main.jpg']]]],
+ ['link'=>'https://www.sanrio.co.jp/news/goods/hidden/','title'=>['rendered'=>'非表示の記事です'],'acf'=>['invisible'=>true]],
+ ['link'=>'https://evil.example/news/goods/test/','title'=>['rendered'=>'偽のニュースです']]
+]));
+check(count($official)===1);check($official[0]['title']==='新作 & コラボ情報');check($official[0]['image']!=='');check($official[0]['date']==='2026/10/01');
+$html='<article><a href="/main/html/rd/p/1.2.html" title="サンリオ新商品情報" style="background-image:url(/i/2/1/thumb/118x78/test.jpg)"></a><h3><a href="/main/html/rd/p/1.2.html">サンリオ新商品情報</a></h3><time datetime="2026-10-02T13:00:09+0900"></time></article>';
+$pr=news_html_rows($html.$html);check(count($pr)===1);check($pr[0]['date']==='2026-10-02T13:00:09+0900');check($pr[0]['image']!=='');
+$many=[];for($i=1;$i<=70;$i++)$many[]=['url'=>'https://www.sanrio.co.jp/news/goods/item-'.$i.'/','title'=>'公式ニュース','date'=>'2026/10/01','source'=>'サンリオ公式','image'=>''];
+$stale=$pr[0];$stale['url']='https://prtimes.jp/main/html/rd/p/9.2.html';$stale['date']='2026-01-01';
+$unknown=$pr[0];$unknown['url']='https://prtimes.jp/main/html/rd/p/8.2.html';$unknown['date']='';
+$merged=news_merge_feeds([$many,$pr,$pr,[$stale,$unknown]],strtotime('2026-10-03'));
+check(count($merged)===62);check($merged[0]['source']==='PR TIMES');check(count(array_filter($merged,fn($item)=>$item['source']==='PR TIMES'))===2);
+check(count(news_feeds())===11);check(strpos(news_feeds()[1]['url'],'page=2')!==false);
+echo "Expanded news sources, deduplication and quotas passed\n";
