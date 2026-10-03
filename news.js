@@ -63,6 +63,9 @@ function newsScheduleLabel(item){
  return '';
 }
 function newsTitleKey(title){return String(title||'').normalize('NFKC').toLowerCase().replace(/【[^】]*】/g,'').replace(/[\s\p{P}\p{S}]/gu,'');}
+function newsCharacters(title){
+ return [...new Set(String(title||'').normalize('NFKC').match(/ハローキティ|クロミ|マイメロディ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|バッドばつ丸|ウサハナ|リトルツインスターズ|タキシードサム|あひるのペックル|こぎみゅん|けろけろけろっぴ|ぐでたま/g)||[])].sort();
+}
 function newsSameStory(a,b){
  const articleKey=u=>{try{const p=new URL(u);return p.origin+p.pathname.replace(/\/$/,'');}catch{return '';}};
  const ua=articleKey(a.url),ub=articleKey(b.url);if(ua&&ua===ub)return true;
@@ -70,12 +73,22 @@ function newsSameStory(a,b){
  const published=i=>{const m=String(i.date||'').match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);return m?Date.UTC(+m[1],+m[2]-1,+m[3]):null;};
  const pa=published(a),pb=published(b);if(pa!==null&&pb!==null&&Math.abs(pa-pb)>45*86400000)return false;
  // Never combine editions, character variants, or conflicting confirmed schedules.
- const variants=s=>(String(s).normalize('NFKC').match(/第[0-9一二三四五六七八九十]+(?:弾|回)|[0-9]+(?:種|周年)|[0-9]+$|(?:20[0-9]{2})年|(?:ハローキティ|クロミ|マイメロディ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|バッドばつ丸)/g)||[]).sort().join('|');
+ const variants=s=>(String(s).normalize('NFKC').match(/第[0-9一二三四五六七八九十]+(?:弾|回)|[0-9]+(?:種|周年)|[0-9]+$|(?:20[0-9]{2})年|(?:ハローキティ|クロミ|マイメロディ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|バッドばつ丸|ウサハナ|リトルツインスターズ|タキシードサム|あひるのペックル|こぎみゅん|けろけろけろっぴ|ぐでたま)/g)||[]).sort().join('|');
  if(variants(a.title)!==variants(b.title))return false;
  const da=newsScheduleLabel(a),db=newsScheduleLabel(b);if(da&&db&&da!==db)return false;
  if(x.length>=6&&x===y)return true;
  const quoted=s=>Array.from(String(s).matchAll(/[「『]([^」』]+)[」』]/g),m=>newsTitleKey(m[1])).filter(s=>s.length>=6&&!/^(サンリオキャラクターズ|サンリオ|ハローキティ|シナモロール)$/.test(s));
  if(quoted(a.title).some(k=>/カラビナ|くじ|バッグ|ポーチ|マスコット|フィギュア|コラボ|シリーズ|キャンペーン|キーホルダー|グッズ/.test(k)&&quoted(b.title).includes(k)))return true;
+ // Product names may use 「product」 in one headline and 〈product×character〉 in another.
+ // Require a known character and close publication dates, while keeping the safeguards above.
+ const chars=newsCharacters(a.title),otherChars=newsCharacters(b.title);
+ if(chars.length&&chars.join('|')===otherChars.join('|')&&pa!==null&&pb!==null&&Math.abs(pa-pb)<=14*86400000){
+  const productNames=title=>Array.from(String(title||'').normalize('NFKC').matchAll(/[「『〈《<“]([^」』〉》>”]+)[」』〉》>”]/g),m=>{
+   let name=m[1];for(const char of chars)name=name.replaceAll(char,'');
+   return newsTitleKey(name);
+  }).filter(name=>name.length>=6&&!/サンリオ|キャラクター|コラボレーション|キャンペーン|新商品|限定デザイン/.test(name));
+  if(productNames(a.title).some(name=>productNames(b.title).includes(name)))return true;
+ }
  if(Math.min(x.length,y.length)<12||Math.min(x.length,y.length)/Math.max(x.length,y.length)<.75)return false;
  const grams=s=>new Set(Array.from({length:s.length-1},(_,i)=>s.slice(i,i+2)));
  const gx=grams(x),gy=grams(y);const shared=[...gx].filter(g=>gy.has(g)).length;

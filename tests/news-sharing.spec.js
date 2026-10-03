@@ -222,3 +222,26 @@ test('同じ取得元の重複と短い同一見出しをまとめ、URLの追�
  newsSameStory(a,{...a,url:'https://prtimes.jp/main/html/rd/p/5.2.html',date:'2025-10-01'})
  ];});expect(result).toEqual([true,true,false,false]);
 });
+
+test('ルートバリア×ウサハナの公式・PR見出しをまとめ、異なる商品や時期は分ける',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ const official={title:'ネイチャーリパブリックの「ルートバリア」にウサハナ限定デザインが登場♪',source:'サンリオ公式',date:'2026-10-02',url:'https://www.sanrio.co.jp/news/goods/root-barrier/',images:[],paragraphs:[]};
+ const press={...official,title:'〈ルートバリア×ウサハナ〉スキンケア時間が楽しくなるようなコラボレーションアイテムを発売',source:'PR TIMES',date:'2026-10-01',url:'https://prtimes.jp/main/html/rd/p/000000001.000000002.html'};
+ await page.route('**/news.php?**',route=>{const action=new URL(route.request().url()).searchParams.get('action');return route.fulfill({json:action==='list'?{ok:true,items:[official,press]}:{ok:true,item:official}});});
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
+ await expect(page.locator('#newsList article')).toHaveCount(1);
+ await expect(page.locator('#newsList article')).toContainText('サンリオ公式・PR TIMES');
+ await page.locator('#newsList article').getByRole('button',{name:'投稿準備'}).click();
+ await expect(page.locator('#newsRelatedSources a')).toHaveCount(2);
+ const safe=await page.evaluate(({official,press})=>[
+  newsSameStory(official,press),newsSameStory(press,official),
+  newsSameStory(official,{...press,title:press.title.replaceAll('ウサハナ','クロミ')}),
+  newsSameStory(official,{...press,title:press.title.replaceAll('ルートバリア','ビタペアCセラム')}),
+  newsSameStory(official,{...press,date:'2026-09-01'}),
+  newsSameStory(official,{...press,title:'第2弾'+press.title}),
+  newsSameStory({...official,facts:[{kind:'schedule',text:'10月3日発売'}]},{...press,facts:[{kind:'schedule',text:'11月3日発売'}]}),
+  newsSameStory({...official,title:'ウサハナ「サンリオキャラクターズ」グッズ発売'},{...press,title:'〈サンリオキャラクターズ×ウサハナ〉限定グッズ発売'})
+ ],{official,press});expect(safe).toEqual([true,true,false,false,false,false,false,false]);
+ await page.locator('#newsDone').click();await expect(page.locator('#newsList article')).toHaveCount(0);
+ expect(await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('sanrioNewsMarks'))))).toEqual(expect.arrayContaining([official.url,press.url]));
+});
