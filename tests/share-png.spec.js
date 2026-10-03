@@ -27,7 +27,7 @@ test('取得時に変換を済ませ、ChatGPT共有にPNGファイルを選択�
  await page.evaluate(()=>{
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
   Object.defineProperty(navigator,'share',{value:async data=>{window.pngShared={text:data.text,files:await Promise.all(data.files.map(async f=>({name:f.name,type:f.type,signature:Array.from(new Uint8Array(await f.slice(0,8).arrayBuffer()))})))}}});
-  showTodayDetail({id:'png-test',title:'リボンバッグ',text:'リボンバッグの情報です。',images:[location.origin+'/share-fixture.webp',location.origin+'/share-fixture.webp']});
+  showTodayDetail({id:'png-test',title:'【サンリオ新商品情報】\n'+ '🌈✨可愛いグラデーション'.repeat(15),text:'リボンバッグの情報です。',images:[location.origin+'/share-fixture.webp',location.origin+'/share-fixture.webp']});
  });
  await expect(page.locator('#detailMediaStatus')).toContainText('写真の準備ができました');
  await page.getByRole('button',{name:'写真2を前へ',exact:true}).click();
@@ -35,11 +35,42 @@ test('取得時に変換を済ませ、ChatGPT共有にPNGファイルを選択�
  await expect.poll(()=>page.evaluate(()=>window.pngShared?.files.length)).toBe(2);
  const data=await page.evaluate(()=>pngShared);
  expect(data.text).toContain('焼き直し投稿');
- for(const f of data.files){expect(f.name).toMatch(/\.png$/);expect(f.type).toBe('image/png');expect(f.signature).toEqual([137,80,78,71,13,10,26,10]);}
+ for(const f of data.files){expect(f.name).toMatch(/^sanrio-[a-z0-9]+-photo-[12]\.png$/);expect(f.type).toBe('image/png');expect(f.signature).toEqual([137,80,78,71,13,10,26,10]);}
  expect(await page.evaluate(()=>document.body.style.position)).toBe('');
 });
 test('変換できないデータは共有準備済みにせずエラーを返す',async({page})=>{
  await page.goto('/');
  const message=await page.evaluate(async()=>{try{await sharePhotoPng(new Blob(['broken image'],{type:'image/webp'}));return 'unexpected success';}catch(e){return e.message;}});
  expect(message).toContain('PNGに変換できません');
+});
+
+test('ChatGPTが出ない場合は同じ2枚をJPEGだけで共有しプロンプトをコピーする',async({page})=>{
+ await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.goto('/');
+ await page.evaluate(async()=>{
+  const c=document.createElement('canvas');c.width=1200;c.height=1200;
+  const ctx=c.getContext('2d');ctx.fillStyle='#ff77cc';ctx.fillRect(0,0,1200,1200);
+  const blob=await new Promise(resolve=>c.toBlob(resolve,'image/jpeg'));
+  const png=await sharePhotoPng(blob);
+  showTodayDetail({id:'rainbow-jpeg',title:'【サンリオ新商品情報】🌈✨レインボーシリーズ',text:'レインボーシリーズの情報です。',images:[]});
+  detailImageBlobs=[png,png];detailJpegBlobs=[null,null];detailPhotoSelection=[1,0];
+  legacyCopyText=text=>{window.jpegPrompt=text;return true;};
+  Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
+  Object.defineProperty(navigator,'share',{value:async data=>{window.jpegShared={text:data.text,files:await Promise.all(data.files.map(async f=>{
+   const img=new Image(),url=URL.createObjectURL(f);try{await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});return {name:f.name,type:f.type,width:img.naturalWidth,height:img.naturalHeight,signature:Array.from(new Uint8Array(await f.slice(0,3).arrayBuffer()))};}finally{URL.revokeObjectURL(url);}
+  }))};}});
+ });
+ await page.getByText('ChatGPTが共有先に出ない場合',{exact:true}).click();
+ await page.locator('#detailChatGPTJpegShare').click();
+ await expect(page.locator('#detailChatGPTStatus')).toContainText('もう一度押して共有');
+ expect(await page.evaluate(()=>window.jpegShared)).toBeUndefined();
+ await page.locator('#detailChatGPTJpegShare').click();
+ await expect.poll(()=>page.evaluate(()=>window.jpegShared?.files.length)).toBe(2);
+ const result=await page.evaluate(()=>({data:jpegShared,prompt:jpegPrompt}));
+ expect(result.prompt).toContain('焼き直し投稿');expect(result.data.text).toBeUndefined();
+ for(const [i,f] of result.data.files.entries()){
+  expect(f.name).toMatch(new RegExp('^sanrio-[a-z0-9]+-photo-'+(i+1)+'\\.jpg$'));
+  expect(f.type).toBe('image/jpeg');expect(f.signature).toEqual([255,216,255]);expect(f.width).toBe(1200);expect(f.height).toBe(1200);
+ }
+ expect(await page.evaluate(()=>document.body.style.position)).toBe('');
 });

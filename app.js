@@ -2856,6 +2856,7 @@ let detailCandidateQueue=[];
 let detailRepostBusy=false;
 let detailScrollY=0;
 let detailImageBlobs=[];
+let detailJpegBlobs=[];
 let detailPhotoSelection=[];
 const detailPhotoChoices=new Map();
 let detailImageBlobErrors=[];
@@ -2873,6 +2874,7 @@ function detailSelectedItem(){
 function updateDetailPhotoControls(){
  const count=detailPhotoSelection.length;
  const ready=detailPhotoSelection.every(i=>!!detailImageBlobs[i]);
+ const jpeg=$("detailChatGPTJpegShare");if(jpeg)jpeg.disabled=!count;
  const all=$("detailDownloadAllPhotos");
  if(all){all.disabled=!count;all.textContent=count?(ready?"写真"+count+"枚を保存":"選んだ写真を読み込み直す"):"写真を選んでください";}
 }
@@ -2916,6 +2918,7 @@ function showTodayDetail(item,continueQueue=false){
   $("detailTextMore").open=false;
   window.postAi?.openToday(item);
   detailImageBlobs=imgs.map(()=>null);
+  detailJpegBlobs=imgs.map(()=>null);
   detailImageBlobErrors=imgs.map(()=>null);
   const choice=detailPhotoChoices.get(canonicalPostKey(item));
   detailPhotoSelection=choice?.sources===JSON.stringify(imgs)?choice.indices.slice():imgs.map((_,i)=>i).slice(0,4);
@@ -2937,23 +2940,29 @@ function showTodayDetail(item,continueQueue=false){
   $("todayDetailModal").scrollTop=0;
   preloadDetailImages(item,imgs);
 }
-async function sharePhotoPng(blob){
-  // Use actual PNG bytes and a matching MIME type, rather than renaming a file.
+function sharePhotoPng(blob){return sharePhotoConvert(blob,"image/png");}
+function sharePhotoJpeg(blob){return sharePhotoConvert(blob,"image/jpeg");}
+async function sharePhotoConvert(blob,type){
+  const format=type==="image/jpeg"?"JPEG":"PNG";
+  type=format==="JPEG"?"image/jpeg":"image/png";
+  // Check encoded bytes and MIME type; changing the extension alone is insufficient.
   const signature=new Uint8Array(await blob.slice(0,8).arrayBuffer());
-  if([137,80,78,71,13,10,26,10].every((value,i)=>signature[i]===value))return blob.type==='image/png'?blob:new Blob([blob],{type:'image/png'});
+  const matches=type==='image/png'?[137,80,78,71,13,10,26,10].every((value,i)=>signature[i]===value):signature[0]===255&&signature[1]===216&&signature[2]===255;
+  if(matches)return blob.type===type?blob:new Blob([blob],{type});
   const url=URL.createObjectURL(blob),img=new Image();let timer,canvas;
   try{
     await new Promise((resolve,reject)=>{
-      timer=setTimeout(()=>reject(new Error('写真のPNG変換が時間切れになりました。再試行してください。')),20000);
-      img.onload=resolve;img.onerror=()=>reject(new Error('この写真をPNGに変換できませんでした。別の写真を選ぶか再試行してください。'));img.src=url;
+      timer=setTimeout(()=>reject(new Error('写真の'+format+'変換が時間切れになりました。再試行してください。')),20000);
+      img.onload=resolve;img.onerror=()=>reject(new Error('この写真を'+format+'に変換できませんでした。別の写真を選ぶか再試行してください。'));img.src=url;
     });
     clearTimeout(timer);
     const width=img.naturalWidth,height=img.naturalHeight;
-    if(!width||!height||width*height>30000000)throw new Error('写真が大きすぎるためPNGへ変換できませんでした。');
+    if(!width||!height||width*height>30000000)throw new Error('写真が大きすぎるため'+format+'へ変換できませんでした。');
     canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
-    const context=canvas.getContext('2d');if(!context)throw new Error('写真のPNG変換を準備できませんでした。');
+    const context=canvas.getContext('2d');if(!context)throw new Error('写真の'+format+'変換を準備できませんでした。');
+    if(type==='image/jpeg'){context.fillStyle='#fff';context.fillRect(0,0,width,height);}
     context.drawImage(img,0,0);
-    return await new Promise((resolve,reject)=>canvas.toBlob(result=>result&&result.type==='image/png'?resolve(result):reject(new Error('写真のPNG変換に失敗しました。')),'image/png'));
+    return await new Promise((resolve,reject)=>canvas.toBlob(result=>result&&result.type===type?resolve(result):reject(new Error('写真の'+format+'変換に失敗しました。')),type,0.95));
   }finally{
     clearTimeout(timer);img.onload=null;img.onerror=null;URL.revokeObjectURL(url);
     if(canvas){canvas.width=0;canvas.height=0;}
@@ -3005,7 +3014,8 @@ function preloadDetailImages(item,images){
   });
 }
 function shareDetailToChatGPT(button,kind="x"){
-  const buttonLabel=kind==="blog"?"ブログ":kind==="threads"?"Threads":"ChatGPT";
+  const jpegOnly=kind==="jpeg";
+  const buttonLabel=jpegOnly?"JPEGで共有":kind==="blog"?"ブログ":kind==="threads"?"Threads":"ChatGPT";
   const item=detailCurrentItem;
   if(!item||!button)return;
   const status=$("detailChatGPTStatus");
@@ -3014,12 +3024,16 @@ function shareDetailToChatGPT(button,kind="x"){
   const selectedItem=detailSelectedItem();
   const basePrompt=kind==="blog"?buildBlogPrompt(selectedItem):kind==="threads"?buildThreadsPrompt(selectedItem):buildRewritePrompt(selectedItem,item.recommendedRole||"",recentRewriteContext(item));
   const prompt=sources.reduce((text,url)=>text.split(String(url)).join(""),basePrompt);
-  if(indices.some(i=>!detailImageBlobs[i])){
+  const prepared=jpegOnly?detailJpegBlobs:detailImageBlobs;
+  if(indices.some(i=>!prepared[i])){
     button.disabled=true;button.textContent="写真を準備中…";
-    Promise.all(indices.map(i=>detailImageBlobs[i]?Promise.resolve(detailImageBlobs[i]):imageBlob(sources[i]).then(blob=>{
-      if(detailCurrentItem===item)detailImageBlobs[i]=blob;
+    Promise.all(indices.map(async i=>{
+      if(prepared[i])return prepared[i];
+      const png=detailImageBlobs[i]||await imageBlob(sources[i]);
+      const blob=jpegOnly?await sharePhotoJpeg(png):png;
+      if(detailCurrentItem===item){detailImageBlobs[i]=png;prepared[i]=blob;}
       return blob;
-    }))).then(()=>{
+    })).then(()=>{
       if(detailCurrentItem!==item)return;
       if(status)status.textContent="写真を準備しました。もう一度押して共有してください。";
     }).catch(()=>{
@@ -3028,14 +3042,18 @@ function shareDetailToChatGPT(button,kind="x"){
     return;
   }
   const files=indices.map((i,position)=>{
-    const blob=detailImageBlobs[i],ext=blob.type.includes("png")?"png":blob.type.includes("webp")?"webp":"jpg";
+    const blob=prepared[i],ext=blob.type.includes("png")?"png":blob.type.includes("webp")?"webp":"jpg";
     return new File([blob],safeImageName(item,position,ext),{type:blob.type||"image/jpeg"});
   });
-  const data=files.length?{files,text:prompt}:{text:prompt};
+  const data=files.length?(jpegOnly?{files}:{files,text:prompt}):{text:prompt};
   const supported=!!navigator.share&&(!navigator.canShare||navigator.canShare(data));
   // Avoid two asynchronous OS operations competing for the same iPhone tap.
   const copied=legacyCopyText(prompt);
   const pasteHelp=copied?"プロンプトはコピー済みです。ChatGPTで文章が渡らない場合はペーストしてください。":"写真と一緒に渡るプロンプトを使ってください。";
+  if(jpegOnly&&!copied){
+    if(status)status.textContent="プロンプトをコピーできませんでした。通常のChatGPTボタンを使ってください。";
+    return;
+  }
   if(!supported){
     if(status)status.textContent="この環境では写真の一括共有に対応していません。「写真をまとめて保存」を使ってください。プロンプトがコピーできていれば貼り付けられます。";
     return;
@@ -3148,8 +3166,11 @@ function downloadWholePostImage(button){
   });
 }
 function safeImageName(item,index,ext){
-  const base=String(item?.title||"sanrio-post").replace(/[\\/:*?"<>|]/g,"_").slice(0,60);
-  return base+"-"+(index+1)+"."+ext;
+  // Native share targets receive short ASCII names, independent of title punctuation or emoji.
+  const key=String(item?.id||item?.title||"post");
+  let hash=2166136261;for(let i=0;i<key.length;i++)hash=Math.imul(hash^key.charCodeAt(i),16777619);
+  const suffix=/^(png|jpg|jpeg|webp)$/.test(ext)?ext:"png";
+  return "sanrio-"+(hash>>>0).toString(36)+"-photo-"+(index+1)+"."+suffix;
 }
 async function downloadDetailImage(index,button){
   const item=detailCurrentItem;
@@ -3358,6 +3379,7 @@ function closeTodayDetail(){
   detailCurrentItem=null;
   detailCandidateQueue=[];
   detailImageBlobs=[];
+  detailJpegBlobs=[];
   detailImageBlobErrors=[];
   detailWholeImageBlob=null;
   detailWholeImagePromise=null;
@@ -3652,6 +3674,7 @@ function recoverDetailAfterShare(){
 window.addEventListener("pageshow",recoverDetailAfterShare);
 document.addEventListener("visibilitychange",recoverDetailAfterShare);
 
+$("detailChatGPTJpegShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"jpeg"));
 $("detailChatGPTShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget));
 $("detailBlogShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"blog"));
 $("detailThreadsShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"threads"));
