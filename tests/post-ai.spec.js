@@ -15,17 +15,17 @@ async function setup(page,respond){
 }
 test('新着商品は確認済み情報と自分のリンクだけ送信し、選んだ写真と本文を共有',async({page})=>{
  let input;
- const item={url:'https://lovelyfancy.example/product1',title:'キティのリボンバッグ',date:'2026-10-01',products:[],productInfo:{title:'リボンバッグ',specs:{素材:'ポリエステル'},contents:[],images:[]}};
- await page.route('**/lovely-watch.php?**',r=>r.fulfill({json:new URL(r.request().url()).searchParams.get('action')==='detail'?{ok:true,item}:{ok:true,items:[item]}}));
+ const item={url:'https://lovelyfancy.example/product1',title:'キティのリボンバッグ',date:'2026-10-01',products:[],productInfo:{title:'リボンバッグ',specs:{素材:'ポリエステル'},contents:[],images:['https://example.invalid/product.png']}};
+ await page.route('**/lovely-watch.php?**',r=>new URL(r.request().url()).searchParams.get('action')==='image'?r.fulfill({contentType:'image/png',body:png}):r.fulfill({json:new URL(r.request().url()).searchParams.get('action')==='detail'?{ok:true,item}:{ok:true,items:[item]}}));
  await setup(page,r=>{input=r.request().postDataJSON();return r.fulfill({json:{ok:true,configured:true,text:'🎀 リボンバッグを紹介します\nAmazon：https://amzn.to/test\n#pr'}})});
  await page.getByRole('tab',{name:'新着商品',exact:true}).click();await page.locator('#lovelyList button').click();
  await expect(page.locator('#lovelyConfirmed')).toBeEnabled();
  await page.locator('#productAiGenerate').click();await expect(page.locator('#productAiStatus')).toContainText('チェック');
- await page.locator('#lovelyAmazon').fill('https://amzn.to/test');await page.locator('#lovelyNote').fill('リボン付き');
- await page.locator('#lovelyPhotos').setInputFiles({name:'test.png',mimeType:'image/png',buffer:png});
+ await page.locator('#lovelyAmazon').fill('https://amzn.to/test');await expect(page.locator('#lovelyNote')).not.toBeVisible();await expect(page.locator('#lovelyPhotos')).not.toBeVisible();
+ await page.locator('[data-lovely-image="0"]').check();await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');
  await page.locator('#lovelyConfirmed').check();await page.locator('#productAiGenerate').click();
  await expect(page.locator('#productAiText')).toHaveValue(/リボンバッグ/);
- expect(input.mode).toBe('product');expect(input.text).toContain('ポリエステル');expect(input.text).toContain('リボン付き');expect(Object.keys(input)).not.toContain('images');
- await page.locator('#productAiShare').click();expect((await page.evaluate(()=>window.aiShared)).files).toEqual(['test.png']);
- await page.locator('#lovelyNote').fill('補足を変更');await page.locator('#lovelyConfirmed').check();await page.locator('#productAiShare').click();await expect(page.locator('#productAiStatus')).toContainText('変わりました');
+ expect(input.mode).toBe('product');expect(input.text).toContain('ポリエステル');expect(input.text).toContain('確認した補足：');expect(Object.keys(input)).not.toContain('images');
+ await page.locator('#productAiShare').click();expect((await page.evaluate(()=>window.aiShared)).files).toEqual(['product-1.png']);
+ await page.locator('#lovelyAmazon').fill('https://amzn.to/changed');await page.locator('#lovelyConfirmed').check();await page.locator('#productAiShare').click();await expect(page.locator('#productAiStatus')).toContainText('変わりました');
 });
