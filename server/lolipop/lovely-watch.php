@@ -17,6 +17,7 @@ function lw_doc(string $html): DOMXPath {
 function lw_text(?DOMNode $node): string { return trim(preg_replace('/\s+/u',' ', $node ? $node->textContent : '') ?? ''); }
 function lw_article_url(string $url): string {
     $hat=lw_hat_article_url($url);if($hat)return $hat;
+    $gour=lw_gour_article_url($url);if($gour)return $gour;
     $p=parse_url($url);
     if (($p['scheme']??'')!=='https' || ($p['host']??'')!=='lovely-fancy.net' || isset($p['port']) || isset($p['user']) || isset($p['pass'])) return '';
     $path=$p['path']??'';
@@ -153,6 +154,7 @@ function lw_rakuten(string $html,string $url): array {
     return ['title'=>$name,'url'=>$product['url'],'productId'=>$product['id'],'itemCode'=>$sku?:substr($product['id'],8),'jan'=>lw_meta($x,'itemprop','gtin13'),'specs'=>array_slice($specs,0,8,true),'contents'=>array_slice($contents,0,12),'images'=>array_values(array_unique($images)),'checkedAt'=>gmdate('c')];
 }
 function lw_enriched(string $html,string $url): array {
+    if(lw_gour_article_url($url))return lw_gour_enriched($html,$url);
     if(lw_hat_article_url($url)){
         $item=lw_hat_detail($html,$url);
         if(!$item['products'])throw new RuntimeException('楽天・Amazonの商品リンクがあるサンリオ商品ではありません。');
@@ -172,7 +174,7 @@ function lw_enriched(string $html,string $url): array {
 }
 function lw_fetch(string $url,int $limit=1500000,bool $image=false): string {
     $p=lw_product($url);
-    if (!lw_list_url($url) && !lw_hat_list_url($url) && !lw_article_url($url) && !($p&&$p['store']==='楽天'&&$p['url']===$url) && !($image&&(lw_image_url($url)||lw_hat_image_url($url)))) throw new RuntimeException('対象外のURLです。');
+    if (!lw_list_url($url) && !lw_hat_list_url($url) && !lw_gour_list_url($url) && !lw_article_url($url) && !($p&&$p['store']==='楽天'&&$p['url']===$url) && !($image&&(lw_image_url($url)||lw_hat_image_url($url)))) throw new RuntimeException('対象外のURLです。');
     $ch=curl_init($url); $body='';
     curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>18,CURLOPT_USERAGENT=>'SanrioPostHelper/3389 (personal product discovery)',CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_WRITEFUNCTION=>function($ch,$data) use (&$body,$limit){ if(strlen($body)+strlen($data)>$limit)return 0; $body.=$data;return strlen($data); }]);
     $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
@@ -253,7 +255,7 @@ function lw_affiliate(string $code,array $settings,array $info=[]): array {
         $last=(float)stream_get_contents($lock);if(microtime(true)-$last<1)throw new RuntimeException('1秒ほど待って再試行してください。');
         ftruncate($lock,0);rewind($lock);fwrite($lock,(string)microtime(true));fflush($lock);
         $parts=explode(':',$code,2);
-        $keyword=preg_match('/^[0-9]{13}$/D',(string)($info['jan']??''))?(string)$info['jan']:$parts[1];
+        $keyword=preg_match('/^[0-9]{13}$/D',(string)($info['jan']??''))?(string)$info['jan']:($info['searchKeyword']??$parts[1]);
         $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'shopCode'=>$parts[0],'keyword'=>$keyword,'availability'=>0,'formatVersion'=>2,'elements'=>'itemCode,itemName,itemUrl,affiliateUrl']);
         $ch=curl_init($url);$body='';
         curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>function($ch,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>500000)return 0;$body.=$bytes;return strlen($bytes);}]);
@@ -345,6 +347,130 @@ function lw_hat_discover(string $html,int $page): array {
     return ['items'=>$items,'nextPage'=>$list['nextPage'],'partial'=>$failed>0,'failedArticles'=>$failed];
 }
 
+// Manufacturer discovery is separate from retailer identity and shareable photos.
+function lw_gour_article_url(string $url): string {
+    $p=parse_url($url);
+    if(($p['scheme']??'')!=='https'||($p['host']??'')!=='www.gourmandise.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||isset($p['fragment']))return '';
+    if(isset($p['query'])&&$p['query']!=='category_page_id=items')return '';
+    return preg_match('~^/view/item/[0-9]{12}$~D',$p['path']??'')?'https://www.gourmandise.jp'.$p['path']:'';
+}
+function lw_gour_page_url(int $page): string {
+    if($page<1||$page>20)throw new RuntimeException('ページ番号が不正です。');
+    return 'https://www.gourmandise.jp/view/category/items'.($page===1?'':'?page='.$page);
+}
+function lw_gour_list_url(string $url): bool {
+    return $url===lw_gour_page_url(1)||preg_match('~^https://www\.gourmandise\.jp/view/category/items\?page=([2-9]|1[0-9]|20)$~D',$url)===1;
+}
+function lw_gour_sanrio(string $title): bool {
+    return preg_match('/サンリオ|ハローキティ|クロミ|マイメロディ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|こぎみゅん|けろけろけろっぴ|タキシードサム|リトルツインスターズ|ウサハナ|ぐでたま|あひるのペックル|バッドばつ丸/u',$title)===1;
+}
+function lw_gour_list(string $html,int $page): array {
+    $x=lw_doc($html);$boxes=$x->query('//div[contains(concat(" ",normalize-space(@class)," ")," product-list-wrap ")]');
+    if($boxes->length!==1)throw new RuntimeException('グルマンディーズの商品一覧を取得できませんでした。');
+    $rows=[];
+    foreach($x->query('./a[contains(concat(" ",normalize-space(@class)," ")," product-list-item ")]',$boxes->item(0)) as $a){
+        $href=$a->getAttribute('href');if(strpos($href,'/view/item/')===0)$href='https://www.gourmandise.jp'.$href;
+        $url=lw_gour_article_url($href);$title=lw_text($x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," product-name ")]',$a)->item(0));
+        if(!$url||!lw_gour_sanrio($title))continue;
+        // Do not republish manufacturer photos, prices, or site-wide keyword lists.
+        $rows[$url]=['source'=>'グルマンディーズ','url'=>$url,'title'=>$title,'date'=>'','thumbnail'=>'','productIds'=>[],'products'=>[],'needsReview'=>true];
+    }
+    $next=null;
+    if($page<20)foreach($x->query('//div[contains(concat(" ",normalize-space(@class)," ")," pager-wrap ")]//a[@href]') as $a){
+        if($a->getAttribute('href')==='/view/category/items?page='.($page+1))$next=$page+1;
+    }
+    return ['items'=>array_values($rows),'nextPage'=>$next];
+}
+function lw_gour_detail(string $html,string $url): array {
+    $url=lw_gour_article_url($url);if(!$url)throw new RuntimeException('メーカーの商品URLが不正です。');
+    $x=lw_doc($html);$canon=$x->query('//link[@rel="canonical"]');$titles=$x->query('//h2[contains(concat(" ",normalize-space(@class)," ")," product-title ")]');
+    if($canon->length!==1||lw_gour_article_url($canon->item(0)->getAttribute('href'))!==$url||$titles->length!==1)throw new RuntimeException('メーカーの商品を特定できませんでした。');
+    $title=lw_text($titles->item(0));if(!lw_gour_sanrio($title))throw new RuntimeException('サンリオの商品ではありません。');
+    $variants=[];$grids=$x->query('//dl[contains(concat(" ",normalize-space(@class)," ")," sku-grid ")]');
+    if($grids->length===1){
+        $codes=$x->query('./dd[@class="sku-id"]',$grids->item(0));$names=$x->query('./dd[@class="sku-name"]',$grids->item(0));$jans=$x->query('./dd[@class="sku-jan"]',$grids->item(0));
+        if($codes->length!==$names->length||$codes->length!==$jans->length||$codes->length>30)throw new RuntimeException('型番とJANの対応を確認できませんでした。');
+        for($i=0;$i<$codes->length;$i++){
+            $model=strtoupper(lw_text($codes->item($i)));$jan=lw_text($jans->item($i));$name=lw_text($names->item($i));
+            if(!preg_match('/^[A-Z0-9]{2,16}-[A-Z0-9-]{2,24}$/D',$model)||!preg_match('/^[0-9]{13}$/D',$jan))continue;
+            $variants[]=['model'=>$model,'jan'=>$jan,'name'=>$name];
+        }
+    }
+    $facts=['商品名'=>$title];
+    if(preg_match('/([0-9]{1,2}月(?:上旬|中旬|下旬|[0-9]{1,2}日)?発売予定)/u',$title,$m))$facts['発売時期']=$m[1];
+    if($variants)$facts['ラインナップ']=implode(' / ',array_column($variants,'name'));
+    return ['source'=>'グルマンディーズ','url'=>$url,'title'=>$title,'date'=>'','thumbnail'=>'','products'=>[],'productIds'=>[],'variants'=>$variants,'needsReview'=>true,'manufacturerImages'=>[],
+        'manufacturerInfo'=>['facts'=>$facts,'text'=>'','checkedAt'=>gmdate('c')],
+        'productInfo'=>['title'=>$title,'url'=>'','itemCode'=>'','jan'=>'','specs'=>[],'contents'=>[],'images'=>[],'checkedAt'=>gmdate('c')]];
+}
+function lw_gour_keyword(array $variants): string {
+    if(!$variants)return '';
+    $first=$variants[0]['model'];
+    if(count($variants)===1)return $first;
+    // Manufacturer families use a numeric base plus a character suffix.
+    if(!preg_match('/^([A-Z0-9]+-[0-9]+)[A-Z]+$/D',$first,$m))return '';
+    foreach($variants as $v)if(!preg_match('/^'.preg_quote($m[1],'/').'[A-Z]+$/D',$v['model']))return '';
+    return $m[1];
+}
+function lw_gour_match(array $data,array $variants): ?array {
+    if(!$variants)return null;
+    $rows=$data['items']??$data['Items']??[];
+    if(!is_array($rows)||count($rows)>30||(int)($data['count']??count($rows))>count($rows))return null;
+    $matches=[];
+    foreach($rows as $row){
+        $item=$row['item']??$row['Item']??$row;if(!is_array($item))continue;
+        $p=lw_product((string)($item['itemUrl']??''));
+        if(!$p||strpos($p['id'],'rakuten:gourmandise:')!==0||!preg_match('/^gourmandise:[a-zA-Z0-9_-]+$/D',(string)($item['itemCode']??'')))continue;
+        $keyword=lw_gour_keyword($variants);
+        $identity=strtoupper((string)($item['itemName']??'').' '.basename(rtrim($p['url'],'/')));
+        if(!$keyword||!preg_match('/(?<![A-Z0-9-])'.preg_quote($keyword,'/').'(?![A-Z0-9-])/D',$identity))continue;
+        $text=strtoupper(html_entity_decode(strip_tags((string)($item['itemName']??'').' '.(string)($item['itemCaption']??'')),ENT_QUOTES|ENT_HTML5,'UTF-8'));
+        $all=true;
+        foreach($variants as $v){
+            $model=preg_match('/(?<![A-Z0-9-])'.preg_quote($v['model'],'/').'(?![A-Z0-9-])/D',$text);
+            $jan=preg_match('/(?<![0-9])'.preg_quote($v['jan'],'/').'(?![0-9])/D',$text);
+            if(!$model&&!$jan){$all=false;break;}
+        }
+        if($all)$matches[$p['id']]=$item;
+    }
+    return count($matches)===1?array_values($matches)[0]:null;
+}
+function lw_gour_search(string $keyword,array $settings): array {
+    $settings=lw_validate_settings($settings);
+    $base=sys_get_temp_dir().'/sph-rakuten-'.hash('sha256',__DIR__.'|resolve-v2|'.json_encode($settings));
+    $lock=fopen($base.'.lock','c');if(!$lock)throw new RuntimeException('楽天APIを準備できませんでした。');chmod($base.'.lock',0600);
+    if(!flock($lock,LOCK_EX|LOCK_NB)){fclose($lock);throw new RuntimeException('楽天APIを利用中です。少し待って再試行してください。');}
+    try{
+        $last=(float)stream_get_contents($lock);if(microtime(true)-$last<1)throw new RuntimeException('1秒ほど待って再試行してください。');
+        ftruncate($lock,0);rewind($lock);fwrite($lock,(string)microtime(true));fflush($lock);
+        $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'shopCode'=>'gourmandise','keyword'=>$keyword,'availability'=>0,'hits'=>30,'formatVersion'=>2,'elements'=>'count,itemCode,itemName,itemUrl,itemCaption,mediumImageUrls,affiliateUrl']);
+        $ch=curl_init($url);$body='';
+        curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>function($ch,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>500000)return 0;$body.=$bytes;return strlen($bytes);}]);
+        $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+        if($ok===false)throw new RuntimeException('楽天APIに接続できませんでした。');
+        if($status!==200)throw new RuntimeException(lw_rakuten_error($status,$body));
+        $data=json_decode($body,true);if(!is_array($data))throw new RuntimeException('楽天APIの応答を確認できませんでした。');
+        return $data;
+    }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+function lw_gour_enriched(string $html,string $url): array {
+    $item=lw_gour_detail($html,$url);$item['retailerStatus']='楽天掲載待ち・要確認';
+    $keyword=lw_gour_keyword($item['variants']);$settings=lw_settings();
+    if(strpos($item['title'],'公式オンラインショップ限定')!==false){$item['retailerStatus']='メーカー公式限定';return $item;}
+    if(!$keyword){$item['retailerStatus']='型番の確認が必要です';return $item;}
+    if(!$settings){$item['retailerStatus']='楽天API設定を保存すると公式店を照合できます';return $item;}
+    try{
+        $match=lw_gour_match(lw_gour_search($keyword,$settings),$item['variants']);if(!$match)return $item;
+        $p=lw_product($match['itemUrl']);$item['products']=[$p];$item['productIds']=[$p['id']];$item['needsReview']=false;$item['retailerStatus']='楽天公式店：型番・JANで照合済み';
+        $images=[];
+        foreach($match['mediumImageUrls']??[] as $row){$image=lw_image_url(is_array($row)?(string)($row['imageUrl']??''):(string)$row);if($image)$images[]=preg_replace('/([?&])_ex=[^&]+/','$1_ex=1200x1200',$image);}
+        $item['productInfo']=['title'=>$match['itemName'],'url'=>$p['url'],'productId'=>$p['id'],'itemCode'=>$match['itemCode'],'jan'=>count($item['variants'])===1?$item['variants'][0]['jan']:'','searchKeyword'=>$keyword,'specs'=>[],'contents'=>array_column($item['variants'],'name'),'images'=>array_values(array_unique($images)),'checkedAt'=>gmdate('c')];
+        // Reuse the validated link from this response; avoid a second API request within one second.
+        try{$item['matchedAffiliate']=lw_affiliate_result(['items'=>[$match]],$match['itemCode'],$settings['affiliateId']);}catch(Throwable $e){}
+    }catch(Throwable $e){$item['retailerStatus']='楽天公式店を照合できませんでした：'.$e->getMessage();$item['retryRetailer']=true;}
+    return $item;
+}
+
 if (defined('LW_TEST_ONLY')) return;
 $config=require __DIR__.'/config.php';
 $cron=PHP_SAPI==='cli' && in_array('--refresh',$argv??[],true);
@@ -372,21 +498,23 @@ try {
     if ($action==='list') {
         $page=$cron?1:filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
         if($page===false||$page<1||$page>20)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
-        $source=(string)($_GET['source']??'lovely');if(!in_array($source,['lovely','hatakeyama'],true))lw_out(['ok'=>false,'error'=>'情報元が不正です。'],400);
-        $url=$source==='hatakeyama'?lw_hat_page_url($page):lw_page_url($page);
+        $source=(string)($_GET['source']??'lovely');if(!in_array($source,['lovely','hatakeyama','gourmandise'],true))lw_out(['ok'=>false,'error'=>'情報元が不正です。'],400);
+        $url=$source==='gourmandise'?lw_gour_page_url($page):($source==='hatakeyama'?lw_hat_page_url($page):lw_page_url($page));
     }
     elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
-    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3415-manufacturer|'.$url).'.json';
+    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3420-manufacturer|'.$url.'|'.(lw_gour_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
     $result=!$cron && is_file($cache)&&filemtime($cache)>time()-900?json_decode((string)file_get_contents($cache),true):null;
     if(is_array($result)&&!empty($result['partial'])&&filemtime($cache)<=time()-60)$result=null;
+    if(is_array($result)&&!empty($result['item']['retryRetailer'])&&filemtime($cache)<=time()-5)$result=null;
     if (!is_array($result)) {
         $html=lw_fetch($url);
-        $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy'];
+        $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>lw_gour_article_url($url)||lw_gour_list_url($url)?'グルマンディーズ':(lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy')];
         if($action==='list'){
             if($source==='hatakeyama')$result=array_merge($result,lw_hat_discover($html,$page));
+            elseif($source==='gourmandise')$result=array_merge($result,lw_gour_list($html,$page));
             else{$result['items']=lw_list($html,true);$result['nextPage']=lw_next_page($html,$page);}
             $result['page']=$page;
         }else $result['item']=lw_enriched($html,$url);
@@ -397,6 +525,7 @@ try {
         $info=$result['item']['productInfo']??null;
         if(!$info)lw_out(['ok'=>false,'error'=>'楽天の商品情報を確認できませんでした。リンクを手動で入力できます。'],400);
         $settings=lw_settings();if(!$settings)lw_out(['ok'=>false,'error'=>'楽天API設定を保存すると自動入力できます。'],400);
+        if(!empty($result['item']['matchedAffiliate']))lw_out(['ok'=>true,'affiliate'=>$result['item']['matchedAffiliate']]);
         lw_out(['ok'=>true,'affiliate'=>lw_affiliate((string)$info['itemCode'],$settings,$info)]);
     }
     if($action==='image'){

@@ -11,6 +11,7 @@ on:
       - "server/lolipop/lovely-watch.php"
       - "tests/lovely-parser.php"
       - "tests/hatakeyama-*"
+      - "tests/gourmandise-*"
       - ".github/workflows/deploy-lolipop-trend.yml"
   workflow_dispatch:
 
@@ -43,6 +44,7 @@ jobs:
           php -l server/lolipop/lovely-watch.php
           php tests/lovely-parser.php
           php tests/hatakeyama-parser.php
+          php tests/gourmandise-parser.php
 
       - name: Deploy PHP endpoints over FTPS
         shell: bash

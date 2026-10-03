@@ -1,0 +1,38 @@
+<?php
+declare(strict_types=1);
+define('LW_TEST_ONLY',true);
+require __DIR__.'/../server/lolipop/lovely-watch.php';
+function gour_check($value,string $message): void {if(!$value)throw new RuntimeException($message);}
+$url='https://www.gourmandise.jp/view/item/000000011006';
+$list='<div class="product-list-wrap"><a class="product-list-item" href="/view/item/000000011006?category_page_id=items"><div class="product-name">サンリオ テストポーチ</div><img src="https://makeshop-multi-images.akamaized.net/photo.jpg"></a><a class="product-list-item" href="/view/item/000000011007"><div class="product-name">別ブランドのポーチ</div></a></div><div class="product-keyword">サンリオ マイメロディ</div><div class="related-product"><a class="product-list-item" href="/view/item/000000011008"><div class="product-name">サンリオ 関連商品</div></a></div><div class="pager-wrap"><a href="/view/category/items?page=2">2</a></div>';
+$found=lw_gour_list($list,1);
+gour_check(count($found['items'])===1&&$found['nextPage']===2,'Main list and pagination');
+gour_check($found['items'][0]['thumbnail']===''&&$found['items'][0]['date']==='','No manufacturer images or invented dates');
+gour_check(lw_article_url($url.'?category_page_id=items')===$url,'Canonical item URL');
+foreach([$url.'?redirect=https://example.com',$url.'#x',str_replace('www.gourmandise.jp','www.gourmandise.jp.evil.test',$url),'https://user@www.gourmandise.jp/view/item/000000011006'] as $bad)gour_check(lw_gour_article_url($bad)==='','Blocked URL');
+gour_check(lw_gour_list_url(lw_gour_page_url(2))&&!lw_gour_list_url(lw_gour_page_url(2).'&sort=price'),'List URL scope');
+gour_check(lw_image_url('https://makeshop-multi-images.akamaized.net/gourmandise/photo.jpg')==='','Manufacturer cannot become shareable photo');
+$html='<link rel="canonical" href="'.$url.'"><h2 class="product-title">10月下旬発売予定 サンリオ テストポーチ</h2><dl class="sku-grid"><dt class="sku-id">商品コード</dt><dd class="sku-id">TEST-100MM</dd><dd class="sku-name">マイメロディ</dd><dd class="sku-jan">4550213000001</dd><dd class="sku-id">TEST-100PN</dd><dd class="sku-name">ポムポムプリン</dd><dd class="sku-jan">4550213000002</dd></dl><dl class="details-grid"><dt>素材</dt><dd>架空の素材</dd></dl><div class="related-product"><span>TEST-999 4550213999999</span></div><div class="product-keyword">ハローキティ クロミ</div>';
+$item=lw_gour_detail($html,$url);
+gour_check(count($item['variants'])===2&&$item['variants'][0]['jan']==='4550213000001','Scoped model and JAN pairs');
+gour_check($item['manufacturerInfo']['facts']['発売時期']==='10月下旬発売予定'&&!isset($item['manufacturerInfo']['facts']['素材']),'No inferred release year or material');
+gour_check($item['productInfo']['images']===[]&&$item['products']===[],'No unverified store or photo');
+gour_check(lw_gour_keyword($item['variants'])==='TEST-100','Family search');
+$match=['itemCode'=>'gourmandise:10001234','itemUrl'=>'https://item.rakuten.co.jp/gourmandise/test-100/','itemName'=>'サンリオ テストポーチ','itemCaption'=>'TEST-100MM マイメロディ TEST-100PN ポムポムプリン'];
+gour_check(lw_gour_match(['items'=>[$match]],$item['variants'])===$match,'All models match, API code independent of URL');
+$jans=$match;$jans['itemCaption']='4550213000001 4550213000002';
+gour_check(lw_gour_match(['items'=>[$jans]],$item['variants'])===$jans,'All JANs match');
+$old=$match;$old['itemCaption']='TEST-100KT TEST-100KU';
+gour_check(lw_gour_match(['items'=>[$old]],$item['variants'])===null,'Old variants in same family rejected');
+$partial=$match;$partial['itemCaption']='TEST-100MM';
+gour_check(lw_gour_match(['items'=>[$partial]],$item['variants'])===null,'Partial family rejected');
+$other=$match;$other['itemUrl']='https://item.rakuten.co.jp/other/test-100/';
+gour_check(lw_gour_match(['items'=>[$other]],$item['variants'])===null,'Other shop rejected');
+$related=$match;$related['itemUrl']='https://item.rakuten.co.jp/gourmandise/test-999/';
+gour_check(lw_gour_match(['items'=>[$related]],$item['variants'])===null,'Matching codes in unrelated caption rejected');
+$duplicate=$match;$duplicate['itemCode']='gourmandise:10005678';$duplicate['itemUrl']='https://item.rakuten.co.jp/gourmandise/another/';$duplicate['itemName']='TEST-100 別のセット';
+gour_check(lw_gour_match(['items'=>[$match,$duplicate]],$item['variants'])===null,'Ambiguous listings rejected');
+gour_check(lw_gour_match(['count'=>31,'items'=>[$match]],$item['variants'])===null,'Truncated search rejected');
+$suffix=$match;$suffix['itemCaption']='TEST-100MMX TEST-100PNX';
+gour_check(lw_gour_match(['items'=>[$suffix]],$item['variants'])===null,'Model prefix cannot identify variant');
+echo "Gourmandise parser and identity checks passed\n";
