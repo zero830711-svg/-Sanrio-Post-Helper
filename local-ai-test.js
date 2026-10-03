@@ -4,16 +4,17 @@
  let worker,pending,sequence=0,loaded=false,supported=false,loadSeconds=null,loadedModel='',runs=[];
  const seconds=start=>Number(((performance.now()-start)/1000).toFixed(2));
  function report(){el('report').textContent=JSON.stringify({端末:navigator.userAgent,WebGPU:supported,対応表示:el('support').textContent,状態:el('status').textContent,モデル:loadedModel||el('model').value,読み込み秒:loadSeconds,生成結果:runs,日本語評価:el('rating').value},null,2);}
- function controls(){const busy=!!pending;el('load').disabled=busy||!supported;el('generate').disabled=busy||!loaded;el('model').disabled=busy;el('facts').disabled=busy;el('sample').disabled=busy;}
+ function controls(){const busy=!!pending;el('load').disabled=busy||!supported;el('generate').disabled=busy||!loaded;el('generate').textContent=pending?.action==='load'?'AI準備中'+(pending.percent!==null?'（'+pending.percent+'%）':''):pending?.action==='generate'?'投稿文を生成中…':loaded?'投稿文を生成して測定':'先にAIを読み込んでください';el('model').disabled=busy;el('facts').disabled=busy;el('sample').disabled=busy;}
  function discard(){worker?.terminate();worker=null;loaded=false;}
- function fail(message){if(pending)clearTimeout(pending.timer);pending=null;discard();el('status').textContent=message+' 再度「AIを読み込む」で試せます。';controls();report();}
- function start(action,payload){const id=++sequence;pending={id,action,start:performance.now(),first:null,facts:el('facts').value,timer:setTimeout(()=>fail(action==='load'?'読み込みが4分以内に完了しませんでした。':'生成が2分以内に完了しませんでした。'),action==='load'?240000:120000)};controls();worker.postMessage({id,action,...payload});}
+ function fail(message){if(pending){clearTimeout(pending.timer);clearInterval(pending.beat);}pending=null;discard();el('status').textContent=message+' 再度「AIを読み込む」で試せます。';controls();report();}
+ function loadingStatus(){const p=pending;if(!p||p.action!=='load')return;const elapsed=Math.floor(seconds(p.start));el('status').textContent=(p.phase||'AIを準備しています…')+'\n開始から'+elapsed+'秒。準備が終わると生成ボタンが使えます。'+(performance.now()-p.updated>30000?'\n30秒以上進捗の更新がありません。通信状況を確認してください。':'');}
+ function start(action,payload){const id=++sequence;pending={id,action,start:performance.now(),updated:performance.now(),percent:null,phase:'AIを準備しています…',first:null,facts:el('facts').value,timer:setTimeout(()=>fail(action==='load'?'読み込みが4分以内に完了しませんでした。':'生成が2分以内に完了しませんでした。'),action==='load'?240000:120000)};if(action==='load'){pending.beat=setInterval(loadingStatus,1000);loadingStatus();}controls();worker.postMessage({id,action,...payload});}
  function onmessage({data:d}){
   const p=pending;if(!p||d.id!==p.id)return;
-  if(d.type==='progress'){el('status').textContent=d.text+'（'+seconds(p.start)+'秒）';return;}
+  if(d.type==='progress'){p.updated=performance.now();const percent=String(d.text||'').match(/(\d+)%/),size=String(d.text||'').match(/([\d.]+)MB fetched/i);p.percent=percent?Number(percent[1]):null;p.phase=/fetching param cache/i.test(d.text)?'AIをダウンロード中'+(p.percent!==null?'：'+p.percent+'%':'')+(size?'（'+size[1]+'MB取得済み）':''):/fetch/i.test(d.text)?'AIの必要なファイルを取得中…':'ダウンロードしたAIを端末で準備中…';loadingStatus();controls();return;}
   if(d.type==='chunk'){if(d.text&&p.first===null)p.first=seconds(p.start);el('output').value=d.text;return;}
   if(d.type==='error'){fail('処理できませんでした：'+d.text);return;}
-  clearTimeout(p.timer);pending=null;
+  clearTimeout(p.timer);clearInterval(p.beat);pending=null;
   if(d.type==='loaded'){loaded=true;loadedModel=el('model').value;loadSeconds=seconds(p.start);el('status').textContent='読み込み完了。商品情報から生成できます。';}
   if(d.type==='done'){
    const duration=seconds(p.start);el('output').value=d.text;
@@ -29,7 +30,7 @@
  el('model').onchange=()=>{discard();loadSeconds=null;loadedModel='';el('status').textContent='モデルを変更しました。読み込んでください。';controls();};
  el('load').onclick=()=>{
   discard();loadSeconds=null;loadedModel='';el('status').textContent='モデルを取得しています…';
-  try{worker=new Worker('./local-ai-worker.js',{type:'module'});worker.onmessage=onmessage;worker.onerror=()=>fail('AIの読み込みに失敗しました。通信・ブラウザー対応を確認してください。');start('load',{model:el('model').value});}catch(e){fail(e.message);}
+  try{worker=new Worker('./local-ai-worker.js?v=2',{type:'module'});worker.onmessage=onmessage;worker.onerror=()=>fail('AIの読み込みに失敗しました。通信・ブラウザー対応を確認してください。');start('load',{model:el('model').value});}catch(e){fail(e.message);}
  };
  el('generate').onclick=()=>{
   const facts=el('facts').value.trim();if(!facts){el('status').textContent='商品情報を入力してください。';return;}

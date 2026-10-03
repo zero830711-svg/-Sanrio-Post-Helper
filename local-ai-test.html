@@ -8,7 +8,7 @@
 <button id="load" disabled>AIを読み込む</button><p id="status" role="status" aria-live="polite"></p></section>
 <section><label for="sample">確認用の例</label><select id="sample"><option value="pouch">ポーチ</option><option value="bag">バッグ</option><option value="overseas">海外商品</option></select><p class="note">以下は文章品質を比較するための架空のテスト資料です。実際の商品情報として投稿しないでください。自分の商品情報に書き換えて試せます。</p>
 <label for="facts">商品情報（素材は入力不要）</label><textarea id="facts" rows="5" maxlength="1200"></textarea>
-<div class="actions"><button class="primary" id="generate" disabled>投稿文を生成して測定</button></div>
+<div class="actions"><button class="primary" id="generate" disabled>先にAIを読み込んでください</button></div>
 <label for="output">生成結果（AIの出力そのまま）</label><textarea id="output" rows="7" readonly></textarea><p id="checks" class="note"></p></section>
 <section><h2 style="font-size:17px">測定結果</h2><pre id="report">まだ測定していません。</pre><label for="rating">日本語の読みやすさ</label><select id="rating"><option value="未評価">確認してから選択</option><option>そのまま使えそう</option><option>少し修正すれば使える</option><option>不自然で使いづらい</option></select><p class="note">商品名・特徴が資料と一致するか、架空の価格・発売日・販売状況を足していないかも確認してください。自動チェックだけでは品質を判断できません。</p><button id="copy">結果をコピー</button><p id="copyStatus" class="note"></p></section>
-<script src="./local-ai-test.js?v=1" defer></script></main></body></html>
+<script src="./local-ai-test.js?v=2" defer></script></main></body></html>

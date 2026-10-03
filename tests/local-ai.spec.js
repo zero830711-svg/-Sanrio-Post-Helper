@@ -24,3 +24,13 @@ test('試作の測定・2回目生成・失敗からの復帰を検証する（A
  await page.evaluate(()=>window.failLocalAi=true);await page.locator('#generate').click();await expect(page.locator('#status')).toContainText('GPUメモリ不足');await expect(page.locator('#generate')).toBeDisabled();await expect(page.locator('#load')).toBeEnabled();
  await page.locator('#load').click();await expect(page.locator('#generate')).toBeEnabled();
 });
+
+test('53％の準備中は日本語で説明し、完了後に生成ボタンが使える',async({page})=>{
+ await page.addInitScript(()=>{
+  Object.defineProperty(navigator,'gpu',{value:{requestAdapter:async()=>({})},configurable:true});
+  window.Worker=class{postMessage(d){window.finishLoad=()=>this.onmessage({data:{id:d.id,type:'loaded'}});setTimeout(()=>this.onmessage({data:{id:d.id,type:'progress',text:'Fetching param cache[4/8]: 141MB fetched. 53% completed'}}),10);}terminate(){}};
+ });
+ await page.goto('/local-ai-test.html');await page.locator('#load').click();
+ await expect(page.locator('#generate')).toBeDisabled();await expect(page.locator('#generate')).toHaveText('AI準備中（53%）');await expect(page.locator('#status')).toContainText('141MB取得済み');await expect(page.locator('#status')).toContainText('準備が終わると');await expect(page.locator('#status')).not.toContainText('Fetching');
+ await page.evaluate(()=>window.finishLoad());await expect(page.locator('#generate')).toBeEnabled();await expect(page.locator('#generate')).toHaveText('投稿文を生成して測定');
+});
