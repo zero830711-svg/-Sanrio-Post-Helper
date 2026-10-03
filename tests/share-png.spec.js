@@ -20,7 +20,7 @@ test('WebPとJPEGをPNGの実データへ変換し、サイズ・透明度・画
  for(const r of result){expect(r.type).toBe('image/png');expect(r.signature).toEqual([137,80,78,71,13,10,26,10]);expect(r.after).toEqual(r.before);}
  expect(result[0].after.pixels[7]).toBe(80);
 });
-test('PNGの準備と並行してJPEGを準備し、通常のChatGPTボタンから写真だけを渡す',async({page})=>{
+test('通常のChatGPTボタンはコピーに失敗してもJPEG写真と投稿依頼文を一緒に渡す',async({page})=>{
  await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
  await page.route('**/share-fixture.webp',r=>r.fulfill({contentType:'image/webp',body:Buffer.from(webp,'base64')}));
  await page.goto('/');
@@ -34,13 +34,9 @@ test('PNGの準備と並行してJPEGを準備し、通常のChatGPTボタンか
  await page.getByRole('button',{name:'写真2を前へ',exact:true}).click();
  await page.evaluate(()=>{legacyCopyText=()=>false;});
  await page.locator('#detailChatGPTShare').click();
- await expect(page.locator('#detailChatGPTStatus')).toContainText('プロンプトをコピーできません');
- expect(await page.evaluate(()=>window.pngShared)).toBeUndefined();
- await page.evaluate(()=>{legacyCopyText=text=>{window.copiedPrompt=text;return true;};});
- await page.locator('#detailChatGPTShare').click();
  await expect.poll(()=>page.evaluate(()=>window.pngShared?.files.length)).toBe(2);
  const data=await page.evaluate(()=>pngShared);
- expect(data.text).toBeUndefined();expect(await page.evaluate(()=>copiedPrompt)).toContain('焼き直し投稿');
+ expect(data.text).toContain('焼き直し投稿');expect(data.text).toContain('リボンバッグの情報です。');
  for(const f of data.files){expect(f.name).toMatch(/^sanrio-[a-z0-9]+-photo-[12]\.jpg$/);expect(f.type).toBe('image/jpeg');expect(f.signature.slice(0,3)).toEqual([255,216,255]);}
  expect(await page.evaluate(()=>document.body.style.position)).toBe('');
 });
@@ -50,7 +46,7 @@ test('変換できないデータは共有準備済みにせずエラーを返�
  expect(message).toContain('PNGに変換できません');
 });
 
-test('準備前に押しても非同期で共有せず、再タップでJPEG写真を渡す',async({page})=>{
+test('写真のみの補助共有はJPEGを準備し、コピー失敗なら送らず再タップで共有する',async({page})=>{
  await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
  await page.goto('/');
  await page.evaluate(async()=>{
@@ -66,10 +62,16 @@ test('準備前に押しても非同期で共有せず、再タップでJPEG写�
    const img=new Image(),url=URL.createObjectURL(f);try{await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});return {name:f.name,type:f.type,width:img.naturalWidth,height:img.naturalHeight,signature:Array.from(new Uint8Array(await f.slice(0,3).arrayBuffer()))};}finally{URL.revokeObjectURL(url);}
   }))};}});
  });
- await page.locator('#detailChatGPTShare').click();
+ await page.getByText('ChatGPTが共有先に出ない場合',{exact:true}).click();
+ await page.locator('#detailChatGPTPhotosShare').click();
  await expect(page.locator('#detailChatGPTStatus')).toContainText('もう一度押して共有');
  expect(await page.evaluate(()=>window.jpegShared)).toBeUndefined();
- await page.locator('#detailChatGPTShare').click();
+ await page.evaluate(()=>{legacyCopyText=()=>false;});
+ await page.locator('#detailChatGPTPhotosShare').click();
+ await expect(page.locator('#detailChatGPTStatus')).toContainText('プロンプトをコピーできません');
+ expect(await page.evaluate(()=>window.jpegShared)).toBeUndefined();
+ await page.evaluate(()=>{legacyCopyText=text=>{window.jpegPrompt=text;return true;};});
+ await page.locator('#detailChatGPTPhotosShare').click();
  await expect.poll(()=>page.evaluate(()=>window.jpegShared?.files.length)).toBe(2);
  const result=await page.evaluate(()=>({data:jpegShared,prompt:jpegPrompt}));
  expect(result.prompt).toContain('焼き直し投稿');expect(result.data.text).toBeUndefined();

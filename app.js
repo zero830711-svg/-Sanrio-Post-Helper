@@ -2904,7 +2904,7 @@ function showTodayDetail(item,continueQueue=false){
     detailCandidateQueue=index>=0?[...candidates.slice(index+1),...candidates.slice(0,index)]:candidates;
   }
   detailCurrentItem=item;
-  if($("detailChatGPTStatus"))$("detailChatGPTStatus").textContent="写真を共有し、プロンプトをコピーします。ChatGPTで貼り付けてください（動画は対象外）。";
+  if($("detailChatGPTStatus"))$("detailChatGPTStatus").textContent="写真＋投稿依頼文をChatGPTへ共有します（動画は対象外）。";
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const vids=mediaArray(item.videos);
   $("detailTitle").textContent=item.title||shortLabel(item);
@@ -3015,8 +3015,9 @@ function preloadDetailImages(item,images){
   });
 }
 function shareDetailToChatGPT(button,kind="x"){
-  const jpegOnly=kind==="x";
-  const buttonLabel=kind==="blog"?"ブログ":kind==="threads"?"Threads":"ChatGPT";
+  const photosOnly=kind==="photos";
+  const useJpeg=kind==="x"||photosOnly;
+  const buttonLabel=photosOnly?"写真のみ共有":kind==="blog"?"ブログ":kind==="threads"?"Threads":"ChatGPT";
   const item=detailCurrentItem;
   if(!item||!button)return;
   const status=$("detailChatGPTStatus");
@@ -3025,13 +3026,13 @@ function shareDetailToChatGPT(button,kind="x"){
   const selectedItem=detailSelectedItem();
   const basePrompt=kind==="blog"?buildBlogPrompt(selectedItem):kind==="threads"?buildThreadsPrompt(selectedItem):buildRewritePrompt(selectedItem,item.recommendedRole||"",recentRewriteContext(item));
   const prompt=sources.reduce((text,url)=>text.split(String(url)).join(""),basePrompt);
-  const prepared=jpegOnly?detailJpegBlobs:detailImageBlobs;
+  const prepared=useJpeg?detailJpegBlobs:detailImageBlobs;
   if(indices.some(i=>!prepared[i])){
     button.disabled=true;button.textContent="写真を準備中…";
     Promise.all(indices.map(async i=>{
       if(prepared[i])return prepared[i];
       const png=detailImageBlobs[i]||await imageBlob(sources[i]);
-      const blob=jpegOnly?await sharePhotoJpeg(png):png;
+      const blob=useJpeg?await sharePhotoJpeg(png):png;
       if(detailCurrentItem===item){detailImageBlobs[i]=png;prepared[i]=blob;}
       return blob;
     })).then(()=>{
@@ -3046,12 +3047,12 @@ function shareDetailToChatGPT(button,kind="x"){
     const blob=prepared[i],ext=blob.type.includes("png")?"png":blob.type.includes("webp")?"webp":"jpg";
     return new File([blob],safeImageName(item,position,ext),{type:blob.type||"image/jpeg"});
   });
-  const data=files.length?(jpegOnly?{files}:{files,text:prompt}):{text:prompt};
+  const data=files.length?(photosOnly?{files}:{files,text:prompt}):{text:prompt};
   const supported=!!navigator.share&&(!navigator.canShare||navigator.canShare(data));
   // Avoid two asynchronous OS operations competing for the same iPhone tap.
   const copied=legacyCopyText(prompt);
   const pasteHelp=copied?"プロンプトはコピー済みです。ChatGPTで文章が渡らない場合はペーストしてください。":"写真と一緒に渡るプロンプトを使ってください。";
-  if(jpegOnly&&!copied){
+  if(photosOnly&&!copied){
     if(status)status.textContent="プロンプトをコピーできませんでした。もう一度ChatGPTボタンを押してください。";
     return;
   }
@@ -3060,7 +3061,7 @@ function shareDetailToChatGPT(button,kind="x"){
     return;
   }
   button.disabled=true;
-  if(status)status.textContent=(jpegOnly?"写真 "+files.length+"枚を共有します。ChatGPTでコピー済みのプロンプトを貼り付けてください。":"写真 "+files.length+"枚とプロンプトを共有します。"+pasteHelp);
+  if(status)status.textContent=(photosOnly?"写真 "+files.length+"枚を共有します。ChatGPTでコピー済みのプロンプトを貼り付けてください。":"写真 "+files.length+"枚とプロンプトを共有します。"+pasteHelp);
   const reset=()=>{button.disabled=false};
   const resetTimer=setTimeout(reset,30000);
   try{
@@ -3674,6 +3675,7 @@ function recoverDetailAfterShare(){
 window.addEventListener("pageshow",recoverDetailAfterShare);
 document.addEventListener("visibilitychange",recoverDetailAfterShare);
 
+$("detailChatGPTPhotosShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"photos"));
 $("detailChatGPTShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget));
 $("detailBlogShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"blog"));
 $("detailThreadsShare")?.addEventListener("click",e=>shareDetailToChatGPT(e.currentTarget,"threads"));
