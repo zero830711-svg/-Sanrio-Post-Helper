@@ -17,7 +17,7 @@ test('ニュースはGeminiを呼ばず通常の下書きを使い、編集と�
  await expect(page.locator('#newsShare')).toBeEnabled();
  await expect(page.locator('#newsAiRetry')).not.toBeVisible();await expect(page.locator('#newsAiStatus')).not.toBeVisible();await expect(page.locator('#newsAiChoice')).not.toBeVisible();
  await page.locator('#newsText').fill('確認して編集したニュース本文');
- await page.locator('#newsBack').click();await page.locator('#newsList button').click();
+ await page.locator('#newsBackBottom').click();await page.locator('#newsList button').click();
  await expect(page.locator('#newsText')).toHaveValue('確認して編集したニュース本文');
  await page.locator('#newsShare').click();expect(await page.evaluate(()=>window.sharedPlainNews)).toBe('確認して編集したニュース本文');expect(aiCalls).toBe(0);
 });
@@ -197,14 +197,16 @@ test('公式とPR TIMESの同じ商品ニュースをまとめ、両方の記事
  expect(safe).toEqual([false,false,false,false]);
 });
 
-test('AIキーは設定保存後に入力欄から消し、端末に保存しない',async({page})=>{
+test('不要なAI設定とお試しボタンを表示せず、設定APIも呼ばない',async({page})=>{
  await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ let settingsCalls=0;
  await page.route('**/news.php?**',route=>{
   const action=new URL(route.request().url()).searchParams.get('action');
-  return route.fulfill({json:action==='list'?{ok:true,items:[]}:{ok:true,configured:route.request().method()==='POST'}});
+  if(action==='ai-settings')settingsCalls++;
+  return route.fulfill({json:{ok:true,items:[]}});
  });
  await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
- await page.locator('#newsAiSettings summary').click();await page.locator('#newsAiKey').fill('test-gemini-key-not-a-real-key');
- await page.locator('#newsAiSave').click();await expect(page.locator('#newsAiKey')).toHaveValue('');
- expect(await page.evaluate(()=>JSON.stringify(localStorage))).not.toContain('test-gemini-key-not-a-real-key');
+ await expect(page.locator('#newsStatus')).toContainText('0 / 0件');
+ for(const id of ['newsAiSettings','newsAiKey','newsAiSave','newsAiRemove','newsExample'])await expect(page.locator('#'+id)).toHaveCount(0);
+ expect(settingsCalls).toBe(0);
 });

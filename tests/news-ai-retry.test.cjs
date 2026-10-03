@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync('news.js','utf8');
-const code=source.slice(source.indexOf('async function newsAiPost('),source.indexOf('async function newsAiSettingsLoad('));
+const code=source.slice(source.indexOf('async function newsAiPost('),source.indexOf('async function newsAiAdjust('));
 async function run(statuses,{switchDuringWait=false}={}){
  const delays=[],timeouts=[],status={textContent:''};let calls=0;
  const ctx={newsState:{seq:1},cloudSettings:()=>({key:'test'}),newsApiUrl:()=>'/news.php',$:()=>status,AbortSignal:{timeout:n=>{timeouts.push(n);return undefined;}},setTimeout:fn=>fn(),fetch:async()=>{const s=statuses[Math.min(calls++,statuses.length-1)];return {ok:s===200,json:async()=>s===200?{ok:true,text:'AI文'}:{ok:false,error:'test error',retryable:s===503}};}};

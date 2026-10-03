@@ -209,12 +209,12 @@ $('newsAiChoice').addEventListener('change',()=>{
 });
 $('newsRefresh').addEventListener('click',newsLoad);
 $('newsOpen').addEventListener('click',()=>newsPrepare($('newsUrl').value.trim()));
-$('newsExample').addEventListener('click',()=>{const url='https://prtimes.jp/main/html/rd/p/000000122.000013308.html';$('newsUrl').value=url;newsPrepare(url);});
 $('newsCopy').addEventListener('click',()=>copyTextFromClick($('newsText').value,$('newsCopy'),'投稿文をコピーしました'));
 $('newsShare').addEventListener('click',async()=>{const text=$('newsText').value.trim();if(!text||!newsPhotoReady())return;newsKeepDraft();const data={text,files:newsChosenFiles()};try{if(data.files.length&&navigator.canShare?.(data)){await navigator.share(data);$('newsEditorStatus').textContent='共有先でXを選び、本文・写真を確認して投稿してください。';}else if(navigator.share){await navigator.share({text});$('newsEditorStatus').textContent='本文を共有しました。写真は「写真を保存」から添付できます。';}else{copyTextFromClick(text,$('newsCopy'),'本文をコピーしました');window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text),'_blank','noopener');}}catch(e){if(e.name!=='AbortError')$('newsEditorStatus').textContent='共有できませんでした。投稿文をコピーし、写真を保存してXに添付してください。';}});
 $('newsSavePhotos').addEventListener('click',()=>{for(const f of newsChosenFiles()){const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(u),60000);}});
 
 $('newsBack').addEventListener('click',newsReturn);
+$('newsBackBottom').addEventListener('click',newsReturn);
 
 $('newsMore').addEventListener('click',()=>{const y=window.scrollY;newsState.limit+=5;newsRender();window.scrollTo({top:y,behavior:'instant'});});
 $('newsFilter').addEventListener('change',()=>{newsState.limit=5;newsRender();});
@@ -240,9 +240,6 @@ async function newsAiDraftWithRetry(entry,seq){
   }
  }
 }
-async function newsAiSettingsLoad(){
- try{const d=await newsRequest('ai-settings');$('newsAiSettingsStatus').textContent=d.configured?'設定済み：新着商品の文章AIで使用できます。':'未設定：通常の下書きを使います。';}catch(e){$('newsAiSettingsStatus').textContent=e.message;}
-}
 async function newsAiAdjust(entry,seq,force=false){
  if(entry.aiPending){$('newsAiStatus').textContent='AIで文章を調整中…';$('newsAiRetry').disabled=true;return;}
  if(entry.aiAttempted&&!force){$('newsAiStatus').textContent=entry.aiStatus||'';return;}
@@ -258,16 +255,6 @@ async function newsAiAdjust(entry,seq,force=false){
  }catch(e){entry.aiStatus='AI未調整：'+e.message;}
  finally{entry.aiPending=false;if(newsState.item===entry.item){$('newsAiStatus').textContent=entry.aiStatus;$('newsAiRetry').disabled=false;}}
 }
-$('newsAiSettings').addEventListener('toggle',()=>{if($('newsAiSettings').open)newsAiSettingsLoad();});
-$('newsAiSave').addEventListener('click',async()=>{
- const b=$('newsAiSave');b.disabled=true;
- try{await newsAiPost('ai-settings',{apiKey:$('newsAiKey').value.trim()});$('newsAiKey').value='';newsState.drafts.forEach(e=>{e.aiAttempted=false;});await newsAiSettingsLoad();}
- catch(e){$('newsAiSettingsStatus').textContent=e.message;}finally{b.disabled=false;}
-});
-$('newsAiRemove').addEventListener('click',async()=>{
- if(!confirm('AI設定を解除しますか？'))return;
- try{await newsAiPost('ai-settings',{remove:true});$('newsAiKey').value='';await newsAiSettingsLoad();}catch(e){$('newsAiSettingsStatus').textContent=e.message;}
-});
 $('newsAiRetry').addEventListener('click',()=>{
  const entry=newsState.item&&newsState.drafts.get(newsState.item.url);if(!entry||!confirm('現在の本文をAI文に置き換えますか？'))return;newsKeepDraft();newsAiAdjust(entry,newsState.seq,true);
 });
