@@ -9,6 +9,7 @@ on:
       - "server/lolipop/trend.php"
       - "server/lolipop/archive-media-batch.php"
       - "server/lolipop/lovely-watch.php"
+      - "tests/lovely-parser.php"
       - ".github/workflows/deploy-lolipop-trend.yml"
   workflow_dispatch:
 
@@ -39,6 +40,7 @@ jobs:
           php -l server/lolipop/trend.php
           php -l server/lolipop/archive-media-batch.php
           php -l server/lolipop/lovely-watch.php
+          php tests/lovely-parser.php
 
       - name: Deploy PHP endpoints over FTPS
         shell: bash

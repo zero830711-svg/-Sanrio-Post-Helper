@@ -78,6 +78,8 @@ function lw_list(string $html,bool $allowEmpty=false): array {
         $url=''; foreach ($x->query('.//a[@rel="bookmark"]',$article) as $a) { $url=lw_article_url($a->getAttribute('href')); if ($url) break; }
         if (!$url) continue;
         $ids=[]; foreach ($x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," btn-float ")]//a[@href]',$article) as $a) { $p=lw_product($a->getAttribute('href')); if ($p) $ids[]=$p['id']; }
+        // Unsupported stores and search links cannot identify an Amazon/Rakuten product.
+        if (!$ids) continue;
         $thumbnail='';
         foreach($x->query('.//img[contains(concat(" ",normalize-space(@class)," ")," archives-eyecatch-image ") or contains(concat(" ",normalize-space(@class)," ")," wp-post-image ")]',$article) as $img){
             foreach(['data-src','src'] as $attr){$thumbnail=lw_thumbnail_url($img->getAttribute($attr));if($thumbnail)break;}
@@ -285,7 +287,7 @@ try {
     elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
-    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3390-pagination2|'.$url).'.json';
+    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3414-linked-products|'.$url).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
     $result=!$cron && is_file($cache)&&filemtime($cache)>time()-900?json_decode((string)file_get_contents($cache),true):null;
     if (!is_array($result)) {
