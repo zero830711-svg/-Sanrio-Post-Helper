@@ -370,3 +370,25 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #lovelyProductInfo .lovely-product-facts .backup-note{font-size:11px;line-height:1.5;margin:6px 0 0}
 #lovelyProductInfo .lovely-product-images label{display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0;line-height:1.4}
 #lovelyProductInfo .lovely-product-images input[type=checkbox]{width:18px;height:18px;margin:0;flex-shrink:0}
+
+/* Reduce vertical gaps in new-product preparation while keeping touch targets. */
+#lovelyPanel #lovelyEditor{margin-top:8px;padding-top:8px}
+#lovelyPanel #lovelyEditor h3{margin:6px 0;font-size:15px;line-height:1.4}
+#lovelyPanel #lovelyEditor>.backup-note{margin:4px 0;font-size:11px;line-height:1.45}
+#lovelyPanel #lovelyEditor>label{margin:8px 0}
+#lovelyPanel #lovelyEditor .cloud-sync-actions{gap:6px}
+#lovelyPanel #lovelyEditor .small-btn,#lovelyPanel #lovelyEditor .link-btn{padding:5px 9px;min-height:44px;font-size:12px}
+#lovelyPanel #lovelyEditor .lovely-source-links{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
+#lovelyPanel #lovelySource{display:inline-flex;align-items:center;min-height:44px;font-size:12px;margin:0;padding:0 4px}
+#lovelyPanel #lovelyProducts{margin:0}
+#lovelyPanel #lovelyReview{margin:3px 0 5px}
+#lovelyPanel #lovelyRelatedArticles:empty{display:none}
+#lovelyPanel #lovelyProductInfo .lovely-product-facts{margin:6px 0 8px;padding:8px 10px}
+#lovelyPanel #lovelyProductInfo .lovely-product-checked{margin:0 0 4px;font-size:10px}
+#lovelyPanel #lovelyProductInfo .lovely-facts-grid>div{padding:3px 0}
+#lovelyPanel #lovelyProductInfo .lovely-product-details{margin-top:2px}
+#lovelyPanel #lovelyProductInfo .lovely-product-details>summary{min-height:32px}
+#lovelyPanel #lovelyProductInfo .lovely-product-facts .backup-note{margin:3px 0 0;font-size:10px;line-height:1.4}
+#lovelyPanel #lovelyProductInfo .lovely-product-images{gap:8px}
+#lovelyPanel #lovelyProductInfo .lovely-product-images label{margin:4px 0;min-height:32px}
+#lovelyPanel #lovelyProductInfo>.backup-note{margin:4px 0 6px;font-size:10px;line-height:1.45}
