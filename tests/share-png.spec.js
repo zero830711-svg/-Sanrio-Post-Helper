@@ -53,7 +53,7 @@ test('ChatGPTが出ない場合は同じ2枚をJPEGだけで共有しプロン�
   const blob=await new Promise(resolve=>c.toBlob(resolve,'image/jpeg'));
   const png=await sharePhotoPng(blob);
   showTodayDetail({id:'rainbow-jpeg',title:'【サンリオ新商品情報】🌈✨レインボーシリーズ',text:'レインボーシリーズの情報です。',images:[]});
-  detailImageBlobs=[png,png];detailJpegBlobs=[null,null];detailPhotoSelection=[1,0];
+  detailImageBlobs=[png,png];detailJpegBlobs=[null,null];detailPhotoSelection=[1,0];updateDetailPhotoControls();
   legacyCopyText=text=>{window.jpegPrompt=text;return true;};
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
   Object.defineProperty(navigator,'share',{value:async data=>{window.jpegShared={text:data.text,files:await Promise.all(data.files.map(async f=>{
