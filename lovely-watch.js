@@ -166,14 +166,12 @@ const lovelyWatch = (()=>{
     el('lovelyEditor').scrollIntoView({block:'start'});el('lovelyBack').focus({preventScroll:true});
   }
   function backToList(){
-    window.postAi?.closeProduct();
     el('lovelyEditor').hidden=true;el('lovelyBrowse').hidden=false;el('lovelyRestoreBox').hidden=false;
     window.scrollTo({top:listScroll,behavior:'instant'});
     const button=Array.from(el('lovelyList').querySelectorAll('[data-lovely-select]')).find(b=>b.dataset.lovelySelect===listItemUrl);
     if(button)button.focus({preventScroll:true});
   }
   function edit(item){
-    window.postAi?.closeProduct();
     editorGeneration++;selected=item;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();imageBusy=0;uploadBusy=false;el('lovelyTitle').textContent=item.title;
     const group=groupedItems(rows,historyIds,state().hidden||{},state().identities||{}).find(g=>g.articles.some(a=>a.url===item.url));
     el('lovelyRelatedArticles').innerHTML=group&&group.articles.length>1?'<details><summary>同じ商品のほかの記事</summary>'+group.articles.filter(a=>a.url!==item.url).map(a=>'<p><a target="_blank" rel="noopener noreferrer" href="'+escape(a.url)+'">'+escape(a.title)+'</a></p>').join('')+'</details>':'';
