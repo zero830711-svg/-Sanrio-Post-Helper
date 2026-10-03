@@ -307,7 +307,6 @@ const lovelyWatch = (()=>{
     const entries=Object.entries(s.hidden);s.hidden=Object.fromEntries(entries.slice(-500));s.draft=null;
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){el('lovelyShareStatus').textContent='記録を保存できませんでした。';return}
     editorGeneration++;imageBusy=0;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();backToList();
-    document.dispatchEvent(new Event('rakuten-candidates-changed'));
   }
   el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft)edit(draft)}});
   el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
@@ -387,7 +386,5 @@ const lovelyWatch = (()=>{
     if(!files.length)throw new Error('共有する写真を選んでください。');
     return files.slice();
   }
-  function openRakuten(item){chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;openEditor(item.url);edit(item);}
-  return {thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten,aiContext,aiFiles,openRakuten};
+  return {thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,savedRakuten,aiContext,aiFiles};
 })();
-

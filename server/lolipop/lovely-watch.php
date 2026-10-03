@@ -253,59 +253,6 @@ function lw_affiliate(string $code,array $settings,array $info=[]): array {
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
 
-function lw_discovery_items(array $data,string $affiliateId): array {
-    $out=[];
-    foreach(array_slice($data['items']??$data['Items']??[],0,30) as $row){
-        $item=$row['item']??$row['Item']??$row;if(!is_array($item))continue;
-        $code=(string)($item['itemCode']??'');
-        if(!preg_match('/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D',$code))continue;
-        try{$affiliate=lw_affiliate_result(['items'=>[$item]],$code,$affiliateId);}catch(Throwable $e){continue;}
-        $p=parse_url($affiliate['url']);$q=[];parse_str($p['query']??'',$q);
-        $product=lw_product((string)($q['pc']??$q['m']??$item['itemUrl']??''));
-        if(!$product||$product['store']!=='楽天')continue;
-        $title=trim(strip_tags((string)($item['itemName']??'')));if(!$title)continue;
-        $images=[];foreach($item['mediumImageUrls']??[] as $image){$url=lw_image_url((string)($image['imageUrl']??''));if($url)$images[]=$url;}
-        $out[]=['title'=>mb_substr($title,0,500),'url'=>$product['url'],'source'=>'楽天API','apiItemCode'=>$code,
-            'productIds'=>[$product['id']],'products'=>[$product],'thumbnail'=>$images[0]??'',
-            'ownRakuten'=>$affiliate['url'],'shopName'=>mb_substr(strip_tags((string)($item['shopName']??'')),0,150),
-            'price'=>(int)($item['itemPrice']??0),'available'=>($item['availability']??0)==1,
-            'productInfo'=>['title'=>mb_substr($title,0,500),'itemCode'=>$code,'url'=>$product['url'],'checkedAt'=>gmdate('c'),'specs'=>[],'contents'=>[],'images'=>[]]];
-    }
-    return $out;
-}
-function lw_discovery_diff(array $items,array $seen,string $now,bool $initial): array {
-    foreach($items as &$item){$code=$item['apiItemCode'];$item['firstSeen']=$seen[$code]??$now;$item['discovered']=!$initial&&!isset($seen[$code]);$seen[$code]=$item['firstSeen'];}unset($item);
-    // Keep the newest discovery IDs; an evicted ID can be rediscovered later.
-    asort($seen);$seen=array_slice($seen,-3000,null,true);
-    return ['items'=>$items,'seen'=>$seen];
-}
-function lw_discover(string $keyword,array $settings): array {
-    $keyword=trim($keyword);if(mb_strlen($keyword)<2||mb_strlen($keyword)>40||preg_match('/[\x00-\x1f]/',$keyword))throw new RuntimeException('検索語は2〜40文字で入力してください。');
-    $settings=lw_validate_settings($settings);
-    $path=__DIR__.'/.rakuten-discovery.php';$lock=fopen($path.'.lock','c');if(!$lock)throw new RuntimeException('比較データを準備できません。');chmod($path.'.lock',0600);
-    if(!flock($lock,LOCK_EX|LOCK_NB)){fclose($lock);throw new RuntimeException('楽天の候補を取得中です。少し待って再試行してください。');}
-    try{
-        $all=is_file($path)?require $path:[];if(!is_array($all))$all=[];
-        $key=hash('sha256',$settings['applicationId'].'|'.$settings['affiliateId'].'|'.$keyword);
-        $old=$all[$key]??[];
-        if(($old['time']??0)>time()-900)return $old['result'];
-        $latest=0;foreach($all as $entry)$latest=max($latest,(int)($entry['time']??0));if(time()-$latest<2)throw new RuntimeException('2秒ほど待ってから別の検索をしてください。');
-        $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'keyword'=>$keyword,'sort'=>'-updateTimestamp','hits'=>30,'availability'=>1,'imageFlag'=>1,'formatVersion'=>2,'elements'=>'itemCode,itemName,itemUrl,affiliateUrl,mediumImageUrls,shopName,itemPrice,availability']);
-        $ch=curl_init($url);$body='';curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>function($ch,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>1000000)return 0;$body.=$bytes;return strlen($bytes);}]);
-        $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
-        if($ok===false)throw new RuntimeException('楽天APIへの接続に失敗しました。');if($status!==200)throw new RuntimeException(lw_rakuten_error($status,$body));
-        $data=json_decode($body,true);if(!is_array($data))throw new RuntimeException('楽天APIの応答を確認できませんでした。');
-        $now=gmdate('c');$initial=!isset($old['seen']);$diff=lw_discovery_diff(lw_discovery_items($data,$settings['affiliateId']),$old['seen']??[],$now,$initial);
-        $result=['ok'=>true,'items'=>$diff['items'],'fetchedAt'=>$now,'initial'=>$initial,'keyword'=>$keyword];
-        $all[$key]=['time'=>time(),'seen'=>$diff['seen'],'result'=>$result];
-        // Bound the number of search histories without storing credentials.
-        uasort($all,static fn($a,$b)=>($a['time']??0)<=>($b['time']??0));$all=array_slice($all,-20,null,true);
-        $tmp=tempnam(__DIR__,'.rak-discovery-');if($tmp===false)throw new RuntimeException('比較データを保存できません。');
-        try{if(!chmod($tmp,0600)||file_put_contents($tmp,"<?php\nreturn ".var_export($all,true).";\n",LOCK_EX)===false||!rename($tmp,$path))throw new RuntimeException('比較データを保存できません。');if(function_exists('opcache_invalidate'))opcache_invalidate($path,true);}finally{if(is_file($tmp))unlink($tmp);}
-        return $result;
-    }finally{flock($lock,LOCK_UN);fclose($lock);}
-}
-
 if (defined('LW_TEST_ONLY')) return;
 $config=require __DIR__.'/config.php';
 $cron=PHP_SAPI==='cli' && in_array('--refresh',$argv??[],true);
@@ -330,7 +277,6 @@ try {
     }
     if(!class_exists('DOMDocument') || !function_exists('curl_init'))throw new RuntimeException('PHPのDOM・cURL拡張が必要です。');
     $action=$cron?'list':($_GET['action']??'list');
-    if($action==='discover')lw_out(lw_discover((string)($_GET['keyword']??'サンリオ'),lw_settings()));
     if ($action==='list') {
         $page=$cron?1:filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
         if($page===false||$page<1||$page>20)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);

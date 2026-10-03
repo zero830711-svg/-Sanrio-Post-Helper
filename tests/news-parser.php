@@ -99,14 +99,3 @@ foreach($reportedLinks as $link)check(strpos($reportedOut,$link)!==false);
 check(post_ai_weight($reportedOut)<=280);
 foreach(['https://link.amazon.evil.example/test','https://evil.link.amazon/test'] as $bad){try{post_ai_input(['mode'=>'rewrite','title'=>'バッグ','text'=>'資料','links'=>[['url'=>$bad]]]);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}}
 echo "Reported link.amazon, Rakuten and amzn.to links preserved; lookalikes rejected\n";
-
-define('LW_TEST_ONLY',true);
-require __DIR__.'/../server/lolipop/lovely-watch.php';
-$rakRow=['itemCode'=>'testshop:12345','itemName'=>'<b>サンリオのバッグ</b>','affiliateUrl'=>'https://hb.afl.rakuten.co.jp/hgc/abcdefgh/?pc='.rawurlencode('https://item.rakuten.co.jp/testshop/bag1/'),'itemUrl'=>'https://item.rakuten.co.jp/testshop/bag1/','mediumImageUrls'=>[['imageUrl'=>'https://image.rakuten.co.jp/testshop/cabinet/bag.jpg']], 'availability'=>1,'itemPrice'=>1000];
-$rakItems=lw_discovery_items(['items'=>[$rakRow]],'test');
-check(count($rakItems)===1);check($rakItems[0]['title']==='サンリオのバッグ');check($rakItems[0]['ownRakuten']===$rakRow['affiliateUrl']);check($rakItems[0]['productIds']===['rakuten:testshop:bag1']);check($rakItems[0]['productInfo']['images']===[]);
-$baseline=lw_discovery_diff($rakItems,[],'2026-10-02T00:00:00Z',true);check(!$baseline['items'][0]['discovered']);
-$next=$rakItems;$next[0]['apiItemCode']='testshop:67890';
-$diff=lw_discovery_diff(array_merge($rakItems,$next),$baseline['seen'],'2026-10-03T00:00:00Z',false);check(!$diff['items'][0]['discovered']);check($diff['items'][1]['discovered']);check($diff['items'][0]['firstSeen']==='2026-10-02T00:00:00Z');
-$rakRow['affiliateUrl']='https://evil.example/test';check(lw_discovery_items(['items'=>[$rakRow]],'test')===[]);
-echo "Rakuten discovery normalization and baseline comparison passed\n";

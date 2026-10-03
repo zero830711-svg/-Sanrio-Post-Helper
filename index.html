@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261002-3395">
+<link rel="stylesheet" href="./styles.css?v=20261003-3396">
 </head>
 <body>
 <main class="app">
@@ -88,16 +88,6 @@
 <button id="rakutenSaveSettings" type="button" class="small-btn">楽天API設定を保存</button>
 <p id="rakutenSettingsStatus" class="backup-note" aria-live="polite"></p>
 </details>
-</details>
-<details id="rakutenDiscoveryPanel">
-<summary>楽天で新しく発見</summary>
-<p class="backup-note">更新順の上位30件から候補を探します。初回は比較用の基準を保存し、次回以降は初めて見つけた商品を区別します。新発売とは限りません。同じ商品の別店舗掲載は別候補になる場合があります。</p>
-<label>検索語<input id="rakutenDiscoveryKeyword" type="text" value="サンリオ" maxlength="40" placeholder="サンリオ / クロミ / ポムポムプリン"></label>
-<button id="rakutenDiscoveryRefresh" class="small-btn" type="button">楽天の候補を確認</button>
-<label>表示<select id="rakutenDiscoveryFilter"><option value="all">未紹介の候補すべて</option><option value="new">今回新しく発見した候補</option></select></label>
-<p id="rakutenDiscoveryStatus" class="backup-note" aria-live="polite"></p>
-<div id="rakutenDiscoveryList"></div>
-<p class="backup-note">価格・購入可否は取得時点の参考情報です。画像はプレビュー用で、SNSへの転載許可を意味しません。取得は手動・15分キャッシュです。</p>
 </details>
 <button id="lovelyRefresh" class="small-btn" type="button">ブログの新着を確認</button>
 <p id="lovelyStatus" class="backup-note" aria-live="polite"></p>
@@ -443,11 +433,10 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261002-3395"></script>
+<script src="./app.js?v=20261003-3396"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261002-3395"></script>
-<script src="./rakuten-discovery.js?v=20261002-3395"></script>
+<script src="./lovely-watch.js?v=20261003-3396"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
 <script src="./news.js?v=20261002-3391-postai"></script>
 <script src="./post-ai.js?v=20261002-3392"></script>
