@@ -34,7 +34,7 @@ test('商品情報の下書きと自分のリンクをそのままXに写真付�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
 
-test('商品AIは確認後だけ生成し、素材を送らずリンクを保持して写真と共有する',async({page})=>{
+test('商品AIはボタンで生成し、素材を送らずリンクを保持して写真と共有する',async({page})=>{
  await setup(page);let calls=0;
  const generated='🎀💖 ウサハナのコスメポーチ ✨\n💖 三角マチ付き。サイズは約200×130×55mm\n\n楽天：'+link+'\n\n#サンリオ #pr';
  await page.route('**/news.php?**',async route=>{
@@ -43,8 +43,7 @@ test('商品AIは確認後だけ生成し、素材を送らずリンクを保持
   calls++;const input=route.request().postDataJSON();expect(input.mode).toBe('product');expect(input.text).not.toMatch(/素材|ポリエステル|9999|在庫/);expect(input.text).toContain('約200×130×55mm');expect(input.links).toEqual([{kind:'rakuten',url:link}]);
   return route.fulfill({json:{ok:true,configured:true,text:generated}});
  });
- expect(calls).toBe(0);await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostAiStatus')).toContainText('確認欄');expect(calls).toBe(0);
- await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostText')).toHaveValue(generated);await expect(page.locator('#lovelyPostAiStatus')).toContainText('AI生成済み');await expect(page.locator('#lovelyConfirmed')).not.toBeChecked();
+ expect(calls).toBe(0);await expect(page.locator('#lovelyConfirmed')).not.toBeChecked();await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostText')).toHaveValue(generated);await expect(page.locator('#lovelyPostAiStatus')).toContainText('AI生成済み');await expect(page.locator('#lovelyConfirmed')).not.toBeChecked();
  await page.locator('[data-lovely-image="0"]').check();await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostShare').click();expect((await page.evaluate(()=>window.sharedDraft)).text).toBe(generated);
  await page.reload();await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(page.locator('#lovelyPostText')).toHaveValue(generated);
 });

@@ -238,7 +238,10 @@ const lovelyWatch = (()=>{
     return Array.from(String(text).replace(/https?:\/\/[^\s<>]+/gu,'x'.repeat(23))).length;
   }
   function productAiContext(){
-    const context=aiContext(),facts=selected.manufacturerInfo?.facts||{},info=selected.productInfo||{};
+    if(!selected||detailLoading)throw new Error('商品情報の取得が終わってから実行してください。');
+    const amazon=ownLink(el('lovelyAmazon').value.trim(),'Amazon'),rakuten=ownLink(el('lovelyRakuten').value.trim(),'楽天');
+    if(!amazon&&!rakuten)throw new Error('自分のAmazonか楽天のリンクを入力してください。');
+    const context={mode:'product',title:selected.title,links:[...(amazon?[{kind:'amazon',url:amazon}]:[]),...(rakuten?[{kind:'rakuten',url:rakuten}]:[])]},facts=selected.manufacturerInfo?.facts||{},info=selected.productInfo||{};
     const rows=[context.title,...Object.entries(facts).filter(([key])=>!/素材|価格|在庫|JAN|商品コード|掲載/.test(key)).map(([key,value])=>key+'：'+value),
       ...Object.entries(info.specs||{}).filter(([key])=>!/素材|価格|在庫|JAN|商品コード/.test(key)).map(([key,value])=>key+'：'+value),
       (info.contents||[]).length?'セット内容：'+info.contents.join(' / '):''];
