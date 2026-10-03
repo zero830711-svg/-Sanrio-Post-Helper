@@ -2915,7 +2915,6 @@ function showTodayDetail(item,continueQueue=false){
   $("detailText").textContent=item.text||"";
   $("detailTextPreview").textContent=String(item.text||"").replace(/\n{3,}/g,"\n\n");
   $("detailTextMore").open=false;
-  window.postAi?.openToday(item);
   detailImageBlobs=imgs.map(()=>null);
   detailJpegBlobs=imgs.map(()=>null);
   detailImageBlobErrors=imgs.map(()=>null);
@@ -3375,7 +3374,6 @@ async function repostDetailAndAdvance(){
   }
 }
 function closeTodayDetail(){
-  window.postAi?.closeToday();
   $("todayDetailModal").classList.add("hidden");
   $("detailMedia").innerHTML="";
   detailCurrentItem=null;

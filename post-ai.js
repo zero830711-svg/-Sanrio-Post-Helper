@@ -9,6 +9,7 @@ window.postAi=(()=>{
  const sessions={},el=id=>document.getElementById(id);
  function mount(kind){
   const prefix=kind==='today'?'todayAi':'productAi',root=el(prefix+'Panel');
+  if(!root)return;
   root.innerHTML='<button type="button" class="small-btn primary" id="'+prefix+'Generate">'+(kind==='today'?'AIで焼き直し文を作る':'AIで投稿文を作る')+'</button>'+
    '<details class="backup-note"><summary>AIに送る情報・設定</summary><p>商品情報・元投稿・補足をGeminiへ送信します。写真・分析数値は送りません。写真との一致はご確認ください。設定は「新作ニュース」の文章AI設定と共通です。</p></details>'+
    '<div id="'+prefix+'Editor" hidden><label id="'+prefix+'ChoiceLabel" hidden>投稿案<select id="'+prefix+'Choice" aria-label="使う投稿案"><option value="0">1. シンプル情報系（200文字以内）</option><option value="1">2. 華やかな紹介系</option><option value="2">3. 目を引く可愛い系</option></select></label><label>X投稿文（編集できます）<textarea id="'+prefix+'Text" rows="7"></textarea></label><p id="'+prefix+'Count" class="backup-note"></p><div class="cloud-sync-actions"><button type="button" class="small-btn primary" id="'+prefix+'Share">本文＋写真を共有</button><button type="button" class="small-btn" id="'+prefix+'Copy">投稿文をコピー</button></div></div>'+
@@ -104,5 +105,5 @@ window.postAi=(()=>{
   }catch(e){status.textContent=e.message;}
  }
  mount('today');mount('product');
- return {weightedLength,openToday:item=>reset('today',item),closeToday:()=>reset('today'),closeProduct:()=>reset('product')};
+ return {weightedLength,openToday:item=>{if(sessions.today)reset('today',item);},closeToday:()=>{if(sessions.today)reset('today');},closeProduct:()=>reset('product')};
 })();

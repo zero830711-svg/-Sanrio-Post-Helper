@@ -13,35 +13,6 @@ async function setup(page,respond){
  });
  await page.goto('/');
 }
-async function today(page){
- await page.evaluate(()=>{
-  preloadDetailImages=()=>{};
-  imageBlob=async()=>new Blob(['image'],{type:'image/png'});
-  showTodayDetail({id:'ai-test',title:'キティのリボンバッグ',text:'リボン付きバッグ。価格880円（税込）。https://amzn.to/test',amazon:'https://amzn.to/test',images:['data:image/png;base64,iVBORw0KGgo=','data:image/png;base64,iVBORw0KGgo=']});
-  detailImageBlobs=[new Blob(['first'],{type:'image/png'}),new Blob(['second'],{type:'image/png'})];detailPhotoSelection=[1,0];renderDetailPhotos();
- });
-}
-test('今日の候補で本文を生成・編集し、元リンクと末尾prを保持して共有',async({page})=>{
- let input;
- await setup(page,r=>{input=r.request().postDataJSON();return r.fulfill({json:{ok:true,configured:true,text:'🎀 リボン付きバッグを紹介します\n\nAmazon：https://amzn.to/test\n#pr'}})});
- await today(page);await page.locator('#todayAiGenerate').click();
- await expect(page.locator('#todayAiText')).toHaveValue(/リボン付きバッグ/);
- expect(input.mode).toBe('rewrite');expect(input.links).toEqual([{kind:'amazon',url:'https://amzn.to/test'}]);expect(Object.keys(input)).not.toContain('images');
- await page.locator('#todayAiText').fill('確認したバッグをご紹介🎀\nAmazon：https://amzn.to/test\n#pr');
- await page.locator('#todayAiShare').click();
- expect((await page.evaluate(()=>window.aiShared)).text).toContain('確認したバッグ');
- expect((await page.evaluate(()=>window.aiShared)).files).toHaveLength(2);
- expect(await page.evaluate(()=>document.body.style.position)).toBe('');
-});
-test('生成中の手編集を上書きせず、失敗しても本文を残す',async({page})=>{
- let release,started;const wait=new Promise(r=>release=r),sent=new Promise(r=>started=r);let calls=0;
- await setup(page,async r=>{calls++;if(calls===1)return r.fulfill({json:{ok:true,configured:true,text:'バッグの紹介\nAmazon：https://amzn.to/test\n#pr'}});started();await wait;return r.fulfill({json:{ok:true,configured:true,text:'上書きしない文\nAmazon：https://amzn.to/test\n#pr'}})});
- await today(page);await page.locator('#todayAiGenerate').click();await expect(page.locator('#todayAiText')).toHaveValue(/バッグの紹介/);
- page.on('dialog',d=>d.accept());await page.locator('#todayAiGenerate').click();await sent;
- await page.locator('#todayAiText').fill('手動編集\nAmazon：https://amzn.to/test\n#pr');release();
- await expect(page.locator('#todayAiGenerate')).toBeEnabled();await expect(page.locator('#todayAiText')).toHaveValue(/^手動編集/);
- await page.locator('#todayAiText').fill('リンクなし #pr');await page.locator('#todayAiShare').click();await expect(page.locator('#todayAiStatus')).toContainText('元のURL');
-});
 test('新着商品は確認済み情報と自分のリンクだけ送信し、選んだ写真と本文を共有',async({page})=>{
  let input;
  const item={url:'https://lovelyfancy.example/product1',title:'キティのリボンバッグ',date:'2026-10-01',products:[],productInfo:{title:'リボンバッグ',specs:{素材:'ポリエステル'},contents:[],images:[]}};
@@ -57,27 +28,4 @@ test('新着商品は確認済み情報と自分のリンクだけ送信し、�
  expect(input.mode).toBe('product');expect(input.text).toContain('ポリエステル');expect(input.text).toContain('リボン付き');expect(Object.keys(input)).not.toContain('images');
  await page.locator('#productAiShare').click();expect((await page.evaluate(()=>window.aiShared)).files).toEqual(['test.png']);
  await page.locator('#lovelyNote').fill('補足を変更');await page.locator('#lovelyConfirmed').check();await page.locator('#productAiShare').click();await expect(page.locator('#productAiStatus')).toContainText('変わりました');
-});
-test('長い楽天リンクはURL23換算で共有し、日本語超過は止める',async({page})=>{
- const url='https://hb.afl.rakuten.co.jp/hgc/test/?pc='+('a'.repeat(1000));
- await setup(page,r=>r.fulfill({json:{ok:true,configured:true,text:'リボンバッグを紹介します\n楽天：'+url+'\n#pr'}}));
- await page.evaluate(url=>showTodayDetail({id:'long-link',title:'バッグ',text:'リボンバッグ\n'+url,rakuten:url,images:[]}),url);
- await page.locator('#todayAiGenerate').click();await expect(page.locator('#todayAiText')).toHaveValue(new RegExp('リボンバッグ'));
- await page.locator('#todayAiShare').click();expect((await page.evaluate(()=>window.aiShared)).text).toContain(url);
- await page.evaluate(url=>showTodayDetail({id:'long-link',title:'バッグ',text:'リボンバッグ\n'+url,rakuten:url,images:[]}),url);
- await page.locator('#todayAiGenerate').click();await expect(page.locator('#todayAiText')).toHaveValue(/リボンバッグ/);
- await page.locator('#todayAiText').fill('あ'.repeat(141)+'\n楽天：'+url+'\n#pr');await page.locator('#todayAiShare').click();await expect(page.locator('#todayAiStatus')).toContainText('X換算');
-});
-test('可愛い3案を切り替え、編集を保持してプレミアムの長文を共有する',async({page})=>{
- const drafts=[{text:'🎀💖【リボンバッグ】💖🎀\nAmazon：https://amzn.to/test\n#サンリオ #ハローキティ #pr'},{text:'🌟💖【リボンバッグの魅力】💖🌟\n'+('💖 リボン付きバッグをご紹介。'.repeat(20))+'\nAmazon：https://amzn.to/test\n#サンリオ #ハローキティ #pr'},{text:'🎀💖【可愛いバッグ情報】💖🎀\nAmazon：https://amzn.to/test\n#サンリオ #ハローキティ #pr'}];
- await setup(page,r=>r.fulfill({json:{ok:true,configured:true,premium:true,text:drafts[0].text,drafts}}));
- await today(page);await page.locator('#todayAiGenerate').click();
- await expect(page.locator('#todayAiChoice')).toBeVisible();
- await expect(page.locator('#todayAiText')).toHaveValue(drafts[0].text);
- await page.locator('#todayAiText').fill(drafts[0].text.replace('リボンバッグ','編集したリボンバッグ'));
- await page.locator('#todayAiChoice').selectOption('1');await expect(page.locator('#todayAiText')).toHaveValue(drafts[1].text);
- await expect(page.locator('#todayAiCount')).toContainText('プレミアム');
- await page.locator('#todayAiChoice').selectOption('0');await expect(page.locator('#todayAiText')).toHaveValue(/編集した/);
- await page.locator('#todayAiChoice').selectOption('1');await page.locator('#todayAiShare').click();
- expect((await page.evaluate(()=>window.aiShared)).text).toBe(drafts[1].text);
 });

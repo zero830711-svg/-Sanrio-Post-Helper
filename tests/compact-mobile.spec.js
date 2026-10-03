@@ -19,6 +19,7 @@ test('候補を小さく表示し、補助操作を必要な時だけ開ける',
 });
 test('詳細の操作を上部に表示し、本文と写真の拡大から戻れる',async({page})=>{
  await seed(page);await page.evaluate(()=>showTodayDetail(compactFixture));
+ await expect(page.locator('#todayAiPanel')).toHaveCount(0);await expect(page.locator('#todayAiGenerate')).toHaveCount(0);
  await expect(page.locator('#detailTextPreview')).toBeVisible();await expect(page.locator('#detailText')).not.toBeVisible();await expect(page.locator('#detailCopyImage')).toHaveCount(0);
  for(const id of ['detailChatGPTShare','detailThreadsShare','detailBlogShare']){await expect(page.locator('#'+id)).toBeVisible();expect((await page.locator('#'+id).boundingBox()).height).toBeGreaterThanOrEqual(44);}
  await page.locator('#detailTextMore summary').click();await expect(page.locator('#detailText')).toBeVisible();await expect(page.locator('#detailTextPreview')).not.toBeVisible();await page.locator('#detailTextMore summary').click();
