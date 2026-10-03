@@ -55,10 +55,10 @@ $prompt=news_ai_prompt($aiItem);
 check(strpos($prompt,'長い正式名称')!==false);
 check(strpos($prompt,'各1行に分ける')!==false);
 check(strpos($prompt,'重要な限定条件')!==false);
-$limit=min(210,280-mb_strlen("\n\n詳細：\n".$url."\n#サンリオ"));
-check(strpos($prompt,'本文のみ'.$limit.'文字以内')!==false);
+$limit=max(0,190-ai_cute_length(ai_cute_suffix($aiItem)));
+check(strpos($prompt,'改行は'.$limit.'文字以内')!==false);
 $longItem=$aiItem;$longItem['url']=$url.str_repeat('a',50);
-check(news_ai_prompt($longItem)!==$prompt);
+check(news_ai_prompt($longItem)===$prompt); // URLs count as 23 regardless of length.
 $formatted="🎀 バッグが登場！\n\n価格：880円（税込）";
 check(strpos(news_ai_validate($formatted,$aiItem),$formatted)===0);
 echo "Readable AI prompt and URL-aware length checks passed\n";
@@ -99,3 +99,25 @@ foreach($reportedLinks as $link)check(strpos($reportedOut,$link)!==false);
 check(post_ai_weight($reportedOut)<=280);
 foreach(['https://link.amazon.evil.example/test','https://evil.link.amazon/test'] as $bad){try{post_ai_input(['mode'=>'rewrite','title'=>'バッグ','text'=>'資料','links'=>[['url'=>$bad]]]);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}}
 echo "Reported link.amazon, Rakuten and amzn.to links preserved; lookalikes rejected\n";
+
+$cuteBodies=['🎀💖【リボン付きバッグ】💖🎀'."\n価格：880円（税込）",'💜✨【リボン付きバッグ】✨💜'."\n\n".str_repeat('💖 リボン付きバッグをご紹介。',25),'🌟💖【バッグの可愛い情報】💖🌟'."\n\n💖✨💖✨💖\nリボン付きバッグをご紹介。"];
+$cuteJson=json_encode(['drafts'=>array_map(static fn($body)=>['body'=>$body],$cuteBodies)],JSON_UNESCAPED_UNICODE);
+foreach([$post,$aiItem] as $cuteItem){
+ $cute=ai_cute_validate($cuteJson,$cuteItem);
+ check(count($cute['drafts'])===3&&$cute['premium']===true);
+ check(ai_cute_length($cute['drafts'][0]['text'])<=200);
+ check(post_ai_weight($cute['drafts'][1]['text'])>280);
+ foreach($cute['drafts'] as $draft){
+  check(preg_match('/[🎀💖💜🌟]/u',$draft['text'])===1);
+  check(substr_count($draft['text'],'#')===(isset($cuteItem['mode'])?3:2));
+  if(isset($cuteItem['mode'])){foreach($cuteItem['links'] as $link)check(strpos($draft['text'],$link['url'])!==false);check(substr($draft['text'],-3)==='#pr');}
+  else check(strpos($draft['text'],$cuteItem['url'])!==false);
+ }
+}
+$plainJson=json_encode(['drafts'=>array_fill(0,3,['body'=>'☆ リボン付きバッグ ♡'])],JSON_UNESCAPED_UNICODE);
+$decorated=ai_cute_validate($plainJson,$post);
+check(strpos($decorated['text'],'🎀💖')!==false&&strpos($decorated['text'],'☆')===false&&strpos($decorated['text'],'♡')===false);
+foreach(['not json',json_encode(['drafts'=>[['body'=>'バッグ']]]),str_replace('880','999',$cuteJson),json_encode(['drafts'=>array_fill(0,3,['body'=>str_repeat('バッグ',80)])])] as $invalid){
+ try{ai_cute_validate($invalid,$post);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}
+}
+echo "Cute drafts: three choices, color decorations, short/premium lengths, fact checks and original links passed\n";

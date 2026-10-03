@@ -1,4 +1,20 @@
 const {test,expect}=require('@playwright/test');
+test('ニュースの可愛い3案は切り替えても手編集を保持する',async({page})=>{
+ const url='https://prtimes.jp/main/html/rd/p/000000122.000013308.html';
+ const drafts=[{text:'🎀💖【リボンバッグ】💖🎀\n詳細：'+url+'\n#サンリオ #ハローキティ'},{text:'🌟💖【可愛いバッグ情報】💖🌟\n💖✨💖✨💖\n詳細：'+url+'\n#サンリオ #ハローキティ'},{text:'💜✨【バッグの魅力】✨💜\n詳細：'+url+'\n#サンリオ #ハローキティ'}];
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.route('**/news.php?**',r=>{
+  const action=new URL(r.request().url()).searchParams.get('action');
+  const item={url,title:'ハローキティのリボンバッグ',source:'PR TIMES',paragraphs:['リボン付きバッグです。'],images:[]};
+  return r.fulfill({json:action==='list'?{ok:true,items:[item]}:action==='ai-draft'?{ok:true,configured:true,premium:true,text:drafts[0].text,drafts}:{ok:true,item}});
+ });
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList button').click();
+ await expect(page.locator('#newsAiChoice')).toBeVisible();await expect(page.locator('#newsText')).toHaveValue(drafts[0].text);
+ await page.locator('#newsText').fill('編集した案1');await page.locator('#newsAiChoice').selectOption('1');await expect(page.locator('#newsText')).toHaveValue(drafts[1].text);
+ await page.locator('#newsAiChoice').selectOption('0');await expect(page.locator('#newsText')).toHaveValue('編集した案1');
+ await page.locator('#newsAiChoice').selectOption('2');await page.locator('#newsBack').click();await page.locator('#newsList button').click();await expect(page.locator('#newsText')).toHaveValue(drafts[2].text);await expect(page.locator('#newsAiChoice')).toHaveValue('2');
+});
 test('ニュースの写真を先に取得し、編集した本文と一緒に共有する',async({page})=>{
  await page.addInitScript(()=>{
   localStorage.setItem('sanrioCloudSyncKey','test-key');

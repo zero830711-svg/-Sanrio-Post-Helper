@@ -160,7 +160,7 @@ function newsRender(){
 function newsKeepDraft(){
  if(!newsState.item)return;
  const entry=newsState.drafts.get(newsState.item.url);
- if(entry){entry.text=$('newsText').value;entry.selected=newsState.selected.slice();}
+ if(entry){entry.text=$('newsText').value;if(entry.aiDrafts?.length)entry.aiDrafts[entry.aiChoice||0].text=entry.text;entry.selected=newsState.selected.slice();}
 }
 function newsReturn(){newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;newsRender();window.scrollTo({top:newsState.browseY,behavior:'instant'});}
 function newsMark(url,kind){
@@ -173,7 +173,7 @@ function newsMark(url,kind){
 async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsState.items=d.items;newsState.limit=5;newsState.warnings=d.warnings||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
 async function newsPrepare(url){
  newsKeepDraft();if(!$('newsBrowse').hidden)newsState.browseY=window.scrollY;
- const seq=++newsState.seq;$('newsAiStatus').textContent='';$('newsAiRetry').disabled=true;newsState.item=null;newsState.files=[];newsState.selected=[];
+ const seq=++newsState.seq;$('newsAiStatus').textContent='';$('newsAiRetry').disabled=true;$('newsAiChoiceLabel').hidden=true;newsState.item=null;newsState.files=[];newsState.selected=[];
  const editor=$('newsEditor');$('newsBrowse').after(editor);$('newsBrowse').hidden=true;editor.hidden=false;
  const listed=newsState.items.find(item=>item.url===url);
  $('newsTitle').textContent=listed?.title||'投稿を準備中…';
@@ -197,12 +197,16 @@ async function newsPrepare(url){
   $('newsDone').disabled=false;$('newsSkip').disabled=false;
   $('newsTitle').textContent=entry.item.title;$('newsSource').href=entry.item.url;$('newsSource').textContent=entry.item.source+'の記事を確認';
   $('newsDate').textContent=entry.item.date?'発表日：'+entry.item.date+'（発売日とは別）':'発表日を元記事で確認';
-  $('newsText').value=entry.text;$('newsFacts').textContent=(entry.item.paragraphs||[]).slice(0,6).join('\n\n');
+  $('newsText').value=entry.text;$('newsAiChoiceLabel').hidden=!entry.aiDrafts?.length;$('newsAiChoice').value=String(entry.aiChoice||0);$('newsFacts').textContent=(entry.item.paragraphs||[]).slice(0,6).join('\n\n');
   // Show every preview before waiting for downloadable photo files.
   newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();$('newsAiRetry').disabled=false;newsAiAdjust(entry,seq);
  }catch(e){if(seq===newsState.seq)$('newsEditorStatus').textContent=e.message;}
 }
 $('newsText').addEventListener('input',newsKeepDraft);
+$('newsAiChoice').addEventListener('change',()=>{
+ const entry=newsState.item&&newsState.drafts.get(newsState.item.url);if(!entry?.aiDrafts?.length)return;
+ newsKeepDraft();entry.aiChoice=Number($('newsAiChoice').value);entry.text=entry.aiDrafts[entry.aiChoice].text;$('newsText').value=entry.text;
+});
 $('newsRefresh').addEventListener('click',newsLoad);
 $('newsOpen').addEventListener('click',()=>newsPrepare($('newsUrl').value.trim()));
 $('newsExample').addEventListener('click',()=>{const url='https://prtimes.jp/main/html/rd/p/000000122.000013308.html';$('newsUrl').value=url;newsPrepare(url);});
@@ -250,7 +254,7 @@ async function newsAiAdjust(entry,seq,force=false){
   if(!d.configured){entry.aiStatus='AI未設定：通常の下書きです。';}
   else if(typeof d.text!=='string'||!d.text.trim()){throw new Error('AI文を取得できません。');}
   else if(entry.text!==before||(seq===newsState.seq&&$('newsText').value!==before)){entry.aiStatus='手動編集を優先しました。AI文は反映していません。';}
-  else{entry.text=d.text;entry.aiStatus='AI調整済み：価格・日程・条件を元記事で確認してください。';if(newsState.item===entry.item)$('newsText').value=d.text;}
+  else{entry.aiDrafts=Array.isArray(d.drafts)&&d.drafts.length===3&&d.drafts.every(v=>typeof v.text==='string'&&v.text.trim())?d.drafts.map(v=>({...v})):[];entry.aiChoice=0;entry.text=entry.aiDrafts[0]?.text||d.text;entry.aiStatus=(entry.aiDrafts.length?'可愛い投稿案を3つ作成しました。':'AI調整済み：')+'価格・日程・条件を元記事で確認してください。';if(newsState.item===entry.item){$('newsText').value=entry.text;$('newsAiChoice').value='0';$('newsAiChoiceLabel').hidden=!entry.aiDrafts.length;}}
  }catch(e){entry.aiStatus='AI未調整：'+e.message;}
  finally{entry.aiPending=false;if(newsState.item===entry.item){$('newsAiStatus').textContent=entry.aiStatus;$('newsAiRetry').disabled=false;}}
 }

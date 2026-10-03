@@ -11,11 +11,12 @@ window.postAi=(()=>{
   const prefix=kind==='today'?'todayAi':'productAi',root=el(prefix+'Panel');
   root.innerHTML='<button type="button" class="small-btn primary" id="'+prefix+'Generate">'+(kind==='today'?'AIで焼き直し文を作る':'AIで投稿文を作る')+'</button>'+
    '<details class="backup-note"><summary>AIに送る情報・設定</summary><p>商品情報・元投稿・補足をGeminiへ送信します。写真・分析数値は送りません。写真との一致はご確認ください。設定は「新作ニュース」の文章AI設定と共通です。</p></details>'+
-   '<div id="'+prefix+'Editor" hidden><label>X投稿文（編集できます）<textarea id="'+prefix+'Text" rows="7"></textarea></label><p id="'+prefix+'Count" class="backup-note"></p><div class="cloud-sync-actions"><button type="button" class="small-btn primary" id="'+prefix+'Share">本文＋写真を共有</button><button type="button" class="small-btn" id="'+prefix+'Copy">投稿文をコピー</button></div></div>'+
+   '<div id="'+prefix+'Editor" hidden><label id="'+prefix+'ChoiceLabel" hidden>投稿案<select id="'+prefix+'Choice" aria-label="使う投稿案"><option value="0">1. シンプル情報系（200文字以内）</option><option value="1">2. 華やかな紹介系</option><option value="2">3. 目を引く可愛い系</option></select></label><label>X投稿文（編集できます）<textarea id="'+prefix+'Text" rows="7"></textarea></label><p id="'+prefix+'Count" class="backup-note"></p><div class="cloud-sync-actions"><button type="button" class="small-btn primary" id="'+prefix+'Share">本文＋写真を共有</button><button type="button" class="small-btn" id="'+prefix+'Copy">投稿文をコピー</button></div></div>'+
    '<p id="'+prefix+'Status" class="backup-note" role="status" aria-live="polite"></p>';
   const session={prefix,revision:0,requestId:0,busy:false,context:null,item:null};sessions[kind]=session;
   el(prefix+'Generate').addEventListener('click',()=>generate(kind));
-  el(prefix+'Text').addEventListener('input',()=>{session.revision++;count(session);});
+  el(prefix+'Text').addEventListener('input',()=>{session.revision++;if(session.drafts?.length)session.drafts[session.choice].text=el(prefix+'Text').value;count(session);});
+  el(prefix+'Choice').addEventListener('change',()=>{if(!session.drafts?.length)return;session.drafts[session.choice].text=el(prefix+'Text').value;session.choice=Number(el(prefix+'Choice').value);session.revision++;el(prefix+'Text').value=session.drafts[session.choice].text;count(session);});
   el(prefix+'Share').addEventListener('click',()=>share(kind));
   el(prefix+'Copy').addEventListener('click',()=>copy(kind));
  }
@@ -23,6 +24,7 @@ window.postAi=(()=>{
   const s=sessions[kind];s.revision++;s.requestId++;s.item=item;s.context=null;s.busy=false;
   el(s.prefix+'Generate').disabled=false;el(s.prefix+'Editor').hidden=true;
   el(s.prefix+'Text').value='';el(s.prefix+'Status').textContent='';
+  s.drafts=[];s.choice=0;s.premium=false;el(s.prefix+'ChoiceLabel').hidden=true;el(s.prefix+'Choice').value='0';
  }
  function context(kind){
   if(kind==='product')return lovelyWatch.aiContext();
@@ -30,7 +32,8 @@ window.postAi=(()=>{
   if(!item||item!==sessions.today.item||el('todayDetailModal').classList.contains('hidden'))throw new Error('今日の候補を開いてください。');
   return {mode:'rewrite',title:String(item.title||shortLabel(item)).slice(0,500),text:String(item.text||''),links:todayAffiliateLinks(item)};
  }
- function count(s){el(s.prefix+'Count').textContent=weightedLength(el(s.prefix+'Text').value)+' / 280（URLは23、日本語は2で換算・複合絵文字は安全側の目安）';}
+ function count(s){el(s.prefix+'Count').textContent=s.premium?visibleLength(el(s.prefix+'Text').value)+'文字（URLは23換算）・Xプレミアム向け':weightedLength(el(s.prefix+'Text').value)+' / 280（URLは23、日本語は2で換算・複合絵文字は安全側の目安）';}
+ function visibleLength(text){let n=0;const rest=String(text).replace(/https?:\/\/[^\s<>]+/gu,()=>{n+=23;return '';});return n+Array.from(rest).length;}
  async function generate(kind){
   const s=sessions[kind],status=el(s.prefix+'Status');if(s.busy)return;
   let input;try{input=context(kind);if(!input.text.trim())throw new Error('元投稿・確認した商品情報を確認してください。');}catch(e){status.textContent=e.message;return;}
@@ -54,8 +57,8 @@ window.postAi=(()=>{
    if(!current()||el(s.prefix+'Text').value!==before)return;
    if(!result?.configured)throw new Error('AI未設定です。「新作ニュース」の文章AI設定でキーを保存してください。');
    if(typeof result.text!=='string'||!result.text.trim())throw new Error('AI文を取得できませんでした。');
-   s.context=JSON.parse(signature);el(s.prefix+'Text').value=result.text;el(s.prefix+'Editor').hidden=false;count(s);
-   status.textContent='AI作成済み：元情報・写真との一致、価格・日程・条件を確認して共有してください。';
+   s.context=JSON.parse(signature);s.drafts=Array.isArray(result.drafts)&&result.drafts.length===3&&result.drafts.every(d=>typeof d.text==='string'&&d.text.trim())?result.drafts.map(d=>({...d})):[];s.choice=0;s.premium=result.premium===true;el(s.prefix+'Choice').value='0';el(s.prefix+'ChoiceLabel').hidden=!s.drafts.length;el(s.prefix+'Text').value=s.drafts[0]?.text||result.text;el(s.prefix+'Editor').hidden=false;count(s);
+   status.textContent=(s.drafts.length?'可愛い投稿案を3つ作成しました。':'AI作成済み：')+'元情報・写真との一致、価格・日程・条件を確認して共有してください。';
   }catch(e){if(s.revision===revision)status.textContent='AI未調整：'+(e.name==='TimeoutError'||e.name==='AbortError'?'通信が時間切れになりました。もう一度お試しください。':e.message);}
   finally{
    // A newer screen or request owns its own controls.
@@ -68,7 +71,7 @@ window.postAi=(()=>{
  function checkedText(kind){
   const s=sessions[kind],input=context(kind),text=el(s.prefix+'Text').value.trim();
   if(!s.context||JSON.stringify(input)!==JSON.stringify(s.context))throw new Error('商品情報・紹介リンクが変わりました。AI文を作り直してください。');
-  if(!text||weightedLength(text)>280)throw new Error('投稿文をX換算で280以内にしてください。');
+  if(!text||(!s.premium&&weightedLength(text)>280))throw new Error('投稿文をX換算で280以内にしてください。');
   if(!/#pr\s*$/i.test(text)||(text.match(/#pr\b/gi)||[]).length!==1)throw new Error('末尾に #pr を1回付けてください。');
   const urls=text.match(/https?:\/\/[^\s]+/gi)||[];
   if(input.links.some(l=>!urls.includes(l.url))||urls.some(url=>!input.links.some(l=>l.url===url)))throw new Error('紹介リンクを元のURLのまま残してください。');

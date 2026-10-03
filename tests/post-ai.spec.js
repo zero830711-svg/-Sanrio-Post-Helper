@@ -68,3 +68,16 @@ test('長い楽天リンクはURL23換算で共有し、日本語超過は止め
  await page.locator('#todayAiGenerate').click();await expect(page.locator('#todayAiText')).toHaveValue(/リボンバッグ/);
  await page.locator('#todayAiText').fill('あ'.repeat(141)+'\n楽天：'+url+'\n#pr');await page.locator('#todayAiShare').click();await expect(page.locator('#todayAiStatus')).toContainText('X換算');
 });
+test('可愛い3案を切り替え、編集を保持してプレミアムの長文を共有する',async({page})=>{
+ const drafts=[{text:'🎀💖【リボンバッグ】💖🎀\nAmazon：https://amzn.to/test\n#サンリオ #ハローキティ #pr'},{text:'🌟💖【リボンバッグの魅力】💖🌟\n'+('💖 リボン付きバッグをご紹介。'.repeat(20))+'\nAmazon：https://amzn.to/test\n#サンリオ #ハローキティ #pr'},{text:'🎀💖【可愛いバッグ情報】💖🎀\nAmazon：https://amzn.to/test\n#サンリオ #ハローキティ #pr'}];
+ await setup(page,r=>r.fulfill({json:{ok:true,configured:true,premium:true,text:drafts[0].text,drafts}}));
+ await today(page);await page.locator('#todayAiGenerate').click();
+ await expect(page.locator('#todayAiChoice')).toBeVisible();
+ await expect(page.locator('#todayAiText')).toHaveValue(drafts[0].text);
+ await page.locator('#todayAiText').fill(drafts[0].text.replace('リボンバッグ','編集したリボンバッグ'));
+ await page.locator('#todayAiChoice').selectOption('1');await expect(page.locator('#todayAiText')).toHaveValue(drafts[1].text);
+ await expect(page.locator('#todayAiCount')).toContainText('プレミアム');
+ await page.locator('#todayAiChoice').selectOption('0');await expect(page.locator('#todayAiText')).toHaveValue(/編集した/);
+ await page.locator('#todayAiChoice').selectOption('1');await page.locator('#todayAiShare').click();
+ expect((await page.evaluate(()=>window.aiShared)).text).toBe(drafts[1].text);
+});

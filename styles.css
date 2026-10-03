@@ -350,3 +350,5 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .post-ai-panel label{display:block;font-weight:600}
 .post-ai-panel textarea{display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit;line-height:1.6;resize:vertical}
 .post-ai-panel [hidden]{display:none}
+.post-ai-panel select,#newsAiChoice{display:block;width:100%;max-width:100%;margin:8px 0;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--pink2);font:inherit;color:var(--text)}
+#newsAiChoiceLabel[hidden]{display:none!important}
