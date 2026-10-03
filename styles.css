@@ -352,3 +352,21 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .post-ai-panel [hidden]{display:none}
 .post-ai-panel select,#newsAiChoice{display:block;width:100%;max-width:100%;margin:8px 0;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--pink2);font:inherit;color:var(--text)}
 #newsAiChoiceLabel[hidden]{display:none!important}
+
+/* Compact product facts, with full source identifiers available on demand. */
+#lovelyProductInfo .lovely-product-facts{margin:14px 0 12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fcf9fb;font-size:13px;line-height:1.55}
+#lovelyProductInfo .lovely-product-facts h4{font-size:14px;margin:0 0 4px;line-height:1.5}
+#lovelyProductInfo .lovely-product-checked{font-size:11px;color:var(--muted);margin:0 0 8px}
+#lovelyProductInfo .lovely-facts-grid{margin:0;font-size:13px}
+#lovelyProductInfo .lovely-facts-grid>div{display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+#lovelyProductInfo .lovely-facts-grid>div:last-child{border-bottom:0}
+#lovelyProductInfo .lovely-facts-grid dt{color:var(--muted);font-size:12px;font-weight:500}
+#lovelyProductInfo .lovely-facts-grid dd{margin:0;min-width:0;overflow-wrap:anywhere;font-size:13px;font-weight:400}
+#lovelyProductInfo .lovely-product-details{margin-top:6px}
+#lovelyProductInfo .lovely-product-details>summary{font-size:12px;color:#8c4964;min-height:36px;display:flex;align-items:center;gap:6px;cursor:pointer;list-style:none}
+#lovelyProductInfo .lovely-product-details>summary::before{content:'＋';font-weight:700}
+#lovelyProductInfo .lovely-product-details[open]>summary::before{content:'−'}
+#lovelyProductInfo .lovely-product-details>summary::-webkit-details-marker{display:none}
+#lovelyProductInfo .lovely-product-facts .backup-note{font-size:11px;line-height:1.5;margin:6px 0 0}
+#lovelyProductInfo .lovely-product-images label{display:flex;align-items:center;gap:6px;font-size:12px;margin:6px 0;line-height:1.4}
+#lovelyProductInfo .lovely-product-images input[type=checkbox]{width:18px;height:18px;margin:0;flex-shrink:0}
