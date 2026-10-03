@@ -5,7 +5,7 @@ const lovelyWatch = (()=>{
   let editorGeneration=0,imageBusy=0,uploadBusy=false;
   const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
   const detailCache=new Map();let chooseSequence=0,detailLoading=false;
-  let postEdited=false,postLinks='',postStale=false;
+  let postEdited=false,postLinks='',postStale=false,postAiPending=false;
   const el=id=>document.getElementById(id);
   const affiliateOpen=el('lovelyRakutenAffiliateOpen');
   const iosChrome=/iPad|iPhone|iPod/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -201,7 +201,7 @@ const lovelyWatch = (()=>{
     el('lovelyAmazonSearch').href='https://www.amazon.co.jp/s?k='+encodeURIComponent(item.title);
     el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.title)+'/';
     postEdited=!!item.postEdited;postLinks=item.postLinks||linkSignature();postStale=false;
-    el('lovelyPostText').value=postEdited?String(item.postText||''):'';el('lovelyPostStatus').textContent='';
+    el('lovelyPostText').value=postEdited?String(item.postText||''):'';el('lovelyPostStatus').textContent='';el('lovelyPostAiStatus').textContent='';
     el('lovelyShareStatus').textContent='';persist();
   }
   function linkSignature(){return JSON.stringify([el('lovelyAmazon').value.trim(),el('lovelyRakuten').value.trim()]);}
@@ -231,8 +231,35 @@ const lovelyWatch = (()=>{
       let amazon='',rakuten='';try{amazon=ownLink(el('lovelyAmazon').value.trim(),'Amazon')}catch(_){}try{rakuten=ownLink(el('lovelyRakuten').value.trim(),'楽天')}catch(_){}
       area.value=productDraft(selected,amazon,rakuten);postLinks=signature;postStale=false;
     }
-    const count=postLength(area.value);el('lovelyPostCount').textContent=count+' / 280（URLは23換算・絵文字は安全側の目安）';
-    el('lovelyPostStatus').textContent=postStale?'紹介リンクを変更しました。「作り直す」で投稿文を更新してください。':count>280?'280字を超えています。本文を編集して短くしてください。':'商品情報から作成した下書きです。本文・写真・リンクを確認してください。';
+    const count=productCharLength(area.value);el('lovelyPostCount').textContent=count+' / 300文字（URLは23文字換算）';
+    el('lovelyPostStatus').textContent=postStale?'紹介リンクを変更しました。「作り直す」で投稿文を更新してください。':count>300?'300文字を超えています。本文を編集して短くしてください。':'商品情報から作成した下書きです。本文・写真・リンクを確認してください。';
+  }
+  function productCharLength(text){
+    return Array.from(String(text).replace(/https?:\/\/[^\s<>]+/gu,'x'.repeat(23))).length;
+  }
+  function productAiContext(){
+    const context=aiContext(),facts=selected.manufacturerInfo?.facts||{},info=selected.productInfo||{};
+    const rows=[context.title,...Object.entries(facts).filter(([key])=>!/素材|価格|在庫|JAN|商品コード|掲載/.test(key)).map(([key,value])=>key+'：'+value),
+      ...Object.entries(info.specs||{}).filter(([key])=>!/素材|価格|在庫|JAN|商品コード/.test(key)).map(([key,value])=>key+'：'+value),
+      (info.contents||[]).length?'セット内容：'+info.contents.join(' / '):''];
+    return {...context,text:rows.filter(Boolean).join('\n').slice(0,4000)};
+  }
+  async function generateProductAi(){
+    const button=el('lovelyPostAi'),status=el('lovelyPostAiStatus');if(postAiPending)return;
+    let item,sequence,before,signature;
+    try{
+      const context=productAiContext();item=selected;sequence=chooseSequence;before=el('lovelyPostText').value;signature=linkSignature();
+      postAiPending=true;button.disabled=true;status.textContent='AIで可愛い紹介文を作成中…';
+      const data=await newsAiPost('product-groq-draft',context);
+      if(selected!==item||chooseSequence!==sequence)return;
+      if(!data.configured)throw new Error('ニュースの「AI設定」にGroqのキーを保存してください。');
+      if(typeof data.text!=='string'||!data.text.trim()||productCharLength(data.text)>300)throw new Error('300文字以内のAI文を取得できませんでした。');
+      if(context.links.some(link=>!data.text.includes(link.url))||!/#pr\s*$/.test(data.text))throw new Error('紹介リンク・PR表記を確認できませんでした。');
+      if(el('lovelyPostText').value!==before||linkSignature()!==signature){status.textContent='編集中の本文・リンクを優先しました。AI文は反映していません。';return;}
+      el('lovelyPostText').value=data.text;postEdited=true;postLinks=signature;postStale=false;el('lovelyConfirmed').checked=false;persist();
+      status.textContent='AI生成済み。本文・写真・紹介リンクを確認して共有してください。';
+    }catch(e){if(!item||(selected===item&&chooseSequence===sequence))status.textContent=e.message;}
+    finally{postAiPending=false;button.disabled=false;}
   }
   function readyPost(){
     if(!selected||detailLoading)throw new Error('商品情報の取得が終わってから操作してください。');
@@ -240,7 +267,7 @@ const lovelyWatch = (()=>{
     if(postStale)throw new Error('紹介リンクを変更しました。「作り直す」で投稿文を更新してください。');
     const text=el('lovelyPostText').value.trim(),amazon=ownLink(el('lovelyAmazon').value.trim(),'Amazon'),rakuten=ownLink(el('lovelyRakuten').value.trim(),'楽天');
     if(!amazon&&!rakuten)throw new Error('自分のAmazonか楽天のリンクを入力してください。');
-    if(!text||postLength(text)>280)throw new Error('投稿文を280字以内にしてください。');
+    if(!text||productCharLength(text)>300)throw new Error('投稿文を300文字以内にしてください。');
     if((amazon&&!text.includes(amazon))||(rakuten&&!text.includes(rakuten)))throw new Error('入力した自分の紹介リンクを投稿文にも入れてください。');
     if(!/(?:^|\s)#pr\s*$/i.test(text))throw new Error('投稿文の最後に #pr を付けてください。');
     return text;
@@ -460,6 +487,7 @@ const lovelyWatch = (()=>{
   el('lovelyPostReset')?.addEventListener('click',()=>{updatePostDraft(true);el('lovelyConfirmed').checked=false;persist();});
   el('lovelyPostCopy')?.addEventListener('click',e=>{try{copyTextFromClick(readyPost(),e.currentTarget,'投稿文をコピーしました');}catch(error){el('lovelyPostStatus').textContent=error.message;}});
   el('lovelyPostShare')?.addEventListener('click',sharePost);
+  el('lovelyPostAi')?.addEventListener('click',generateProductAi);
   el('lovelyDone')?.addEventListener('click',()=>hide('used'));
   el('lovelySkip')?.addEventListener('click',()=>hide('skip'));
   el('lovelyRestore')?.addEventListener('click',()=>{const s=state();s.hidden={};localStorage.setItem(KEY,JSON.stringify(s));render()});
@@ -476,5 +504,6 @@ const lovelyWatch = (()=>{
     if(!files.length)throw new Error('共有する写真を選んでください。');
     return files.slice();
   }
-  return {thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,productDraft,postLength,savedRakuten,aiContext,aiFiles};
+  return {thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,productDraft,postLength,productCharLength,savedRakuten,aiContext,aiFiles};
 })();
+

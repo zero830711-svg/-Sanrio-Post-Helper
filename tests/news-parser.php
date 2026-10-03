@@ -151,3 +151,12 @@ foreach(['not json',json_encode(['body'=>'🎀 価格：999円']),json_encode(['
  try{news_groq_validate($bad,$groqItem);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}
 }
 echo "Groq single draft: 300 characters, original link, unsupported numbers and invalid output checked\n";
+
+$groqProduct=post_ai_input(['mode'=>'product','title'=>'ウサハナ コスメポーチ','text'=>'サイズ：約200×130×55mm','links'=>[['kind'=>'rakuten','url'=>'https://hb.afl.rakuten.co.jp/hgc/'.str_repeat('a',500)]]]);
+$groqProduct['url']='product';
+$productText=news_groq_validate(json_encode(['body'=>'🎀 ウサハナのポーチ ✨' . "\nサイズ：約200×130×55mm"],JSON_UNESCAPED_UNICODE),$groqProduct);
+check(ai_cute_length($productText)<=300);check(strpos($productText,$groqProduct['links'][0]['url'])!==false);check(substr($productText,-3)==='#pr');check(strpos(news_groq_prompt($groqProduct),'新規の商品紹介')!==false);
+foreach(['🎀 素材：ポリエステル','🎀 価格未確認','🎀 在庫あります','🎀 サイズ：999mm',str_repeat('可愛い',120)] as $bad){
+ try{news_groq_validate(json_encode(['body'=>$bad],JSON_UNESCAPED_UNICODE),$groqProduct);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}
+}
+echo "Groq product draft: shared provider, 300 characters, long affiliate links and no material/price/stock passed\n";
