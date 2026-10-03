@@ -3,7 +3,7 @@
  const samples={pouch:'商品名：ウサハナ フェイスポーチ\n特徴：三角マチ付き。サイズは約200×130×55mm。\n価格・発売日・販売状況：未確認',bag:'商品名：サンリオ クリア窓付きショルダーバッグ\n特徴：前面にクリア窓付きポケット。チェック柄。\n価格・発売日・販売状況：未確認',overseas:'商品名：ハローキティ ミニポーチ\n地域：台湾（海外グッズ情報）\n特徴：リボン付き。ピンク色。\n日本での販売・価格・発売日：未確認'};
  let worker,pending,sequence=0,loaded=false,supported=false,loadSeconds=null,loadedModel='',runs=[];
  const seconds=start=>Number(((performance.now()-start)/1000).toFixed(2));
- function report(){el('report').textContent=JSON.stringify({端末:navigator.userAgent,WebGPU:supported,モデル:loadedModel||el('model').value,読み込み秒:loadSeconds,生成結果:runs,日本語評価:el('rating').value},null,2);}
+ function report(){el('report').textContent=JSON.stringify({端末:navigator.userAgent,WebGPU:supported,対応表示:el('support').textContent,状態:el('status').textContent,モデル:loadedModel||el('model').value,読み込み秒:loadSeconds,生成結果:runs,日本語評価:el('rating').value},null,2);}
  function controls(){const busy=!!pending;el('load').disabled=busy||!supported;el('generate').disabled=busy||!loaded;el('model').disabled=busy;el('facts').disabled=busy;el('sample').disabled=busy;}
  function discard(){worker?.terminate();worker=null;loaded=false;}
  function fail(message){if(pending)clearTimeout(pending.timer);pending=null;discard();el('status').textContent=message+' 再度「AIを読み込む」で試せます。';controls();report();}
@@ -17,7 +17,7 @@
   if(d.type==='loaded'){loaded=true;loadedModel=el('model').value;loadSeconds=seconds(p.start);el('status').textContent='読み込み完了。商品情報から生成できます。';}
   if(d.type==='done'){
    const duration=seconds(p.start);el('output').value=d.text;
-   runs.push({回:runs.length+1,生成秒:duration,最初の文字まで秒:p.first,出力トークン:d.tokens||null,毎秒トークン:d.tokens&&duration?Number((d.tokens/duration).toFixed(1)):null,資料:p.facts,本文:d.text});
+   runs.push({モデル:loadedModel,回:runs.length+1,生成秒:duration,最初の文字まで秒:p.first,出力トークン:d.tokens||null,毎秒トークン:d.tokens&&duration?Number((d.tokens/duration).toFixed(1)):null,資料:p.facts,本文:d.text});
    const issues=[];if(!/[ぁ-んァ-ヶ一-龯]/u.test(d.text))issues.push('日本語の本文を確認できません');if(/素材|ポリエステル|コットン/u.test(d.text))issues.push('不要な素材情報があります');if(/https?:\/\//u.test(d.text))issues.push('資料にないリンクがあります');if(/発売|販売中|円|限定|人気|予約/u.test(d.text))issues.push('価格・販売表現を資料と照合してください');
    el('checks').textContent=issues.length?'要確認：'+issues.join('／'):'基本チェック：日本語あり・素材情報なし。事実の一致と自然さは目視で確認してください。';
    el('status').textContent='生成完了。同じ情報で再度生成すると、2回目の速度を比較できます。';el('rating').value='未評価';

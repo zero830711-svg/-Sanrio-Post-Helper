@@ -6,6 +6,9 @@ on:
     paths:
       - "index.html"
       - "amazon-scout.html"
+      - "local-ai-test.html"
+      - "local-ai-test.js"
+      - "local-ai-worker.js"
       - "app.js"
       - "news.js"
       - "amazon-reports.js"
@@ -21,6 +24,9 @@ on:
     paths:
       - "index.html"
       - "amazon-scout.html"
+      - "local-ai-test.html"
+      - "local-ai-test.js"
+      - "local-ai-worker.js"
       - "app.js"
       - "news.js"
       - "amazon-reports.js"
