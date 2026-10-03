@@ -197,9 +197,9 @@ async function newsPrepare(url){
   $('newsDone').disabled=false;$('newsSkip').disabled=false;
   $('newsTitle').textContent=entry.item.title;$('newsSource').href=entry.item.url;$('newsSource').textContent=entry.item.source+'の記事を確認';
   $('newsDate').textContent=entry.item.date?'発表日：'+entry.item.date+'（発売日とは別）':'発表日を元記事で確認';
-  $('newsText').value=entry.text;$('newsAiChoiceLabel').hidden=!entry.aiDrafts?.length;$('newsAiChoice').value=String(entry.aiChoice||0);$('newsFacts').textContent=(entry.item.paragraphs||[]).slice(0,6).join('\n\n');
+  $('newsText').value=entry.text;$('newsAiChoiceLabel').hidden=true;$('newsAiChoice').value=String(entry.aiChoice||0);$('newsFacts').textContent=(entry.item.paragraphs||[]).slice(0,6).join('\n\n');
   // Show every preview before waiting for downloadable photo files.
-  newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();$('newsAiRetry').disabled=false;newsAiAdjust(entry,seq);
+  newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();
  }catch(e){if(seq===newsState.seq)$('newsEditorStatus').textContent=e.message;}
 }
 $('newsText').addEventListener('input',newsKeepDraft);
@@ -241,7 +241,7 @@ async function newsAiDraftWithRetry(entry,seq){
  }
 }
 async function newsAiSettingsLoad(){
- try{const d=await newsRequest('ai-settings');$('newsAiSettingsStatus').textContent=d.configured?'設定済み：投稿準備時にAIで文章を調整します。':'未設定：通常の下書きを使います。';}catch(e){$('newsAiSettingsStatus').textContent=e.message;}
+ try{const d=await newsRequest('ai-settings');$('newsAiSettingsStatus').textContent=d.configured?'設定済み：新着商品の文章AIで使用できます。':'未設定：通常の下書きを使います。';}catch(e){$('newsAiSettingsStatus').textContent=e.message;}
 }
 async function newsAiAdjust(entry,seq,force=false){
  if(entry.aiPending){$('newsAiStatus').textContent='AIで文章を調整中…';$('newsAiRetry').disabled=true;return;}

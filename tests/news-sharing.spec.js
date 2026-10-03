@@ -1,19 +1,25 @@
 const {test,expect}=require('@playwright/test');
-test('ニュースの可愛い3案は切り替えても手編集を保持する',async({page})=>{
- const url='https://prtimes.jp/main/html/rd/p/000000122.000013308.html';
- const drafts=[{text:'🎀💖【リボンバッグ】💖🎀\n詳細：'+url+'\n#サンリオ #ハローキティ'},{text:'🌟💖【可愛いバッグ情報】💖🌟\n💖✨💖✨💖\n詳細：'+url+'\n#サンリオ #ハローキティ'},{text:'💜✨【バッグの魅力】✨💜\n詳細：'+url+'\n#サンリオ #ハローキティ'}];
- await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+test('ニュースはGeminiを呼ばず通常の下書きを使い、編集と共有を維持する',async({page})=>{
+ const item={url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',title:'ハローキティのリボンバッグ',source:'PR TIMES',paragraphs:['リボン付きバッグです。'],images:[]};
+ let aiCalls=0;
+ await page.addInitScript(()=>{
+  localStorage.setItem('sanrioCloudSyncKey','test-key');
+  Object.defineProperty(navigator,'share',{value:async data=>{window.sharedPlainNews=data.text},configurable:true});
+ });
  await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
  await page.route('**/news.php?**',r=>{
   const action=new URL(r.request().url()).searchParams.get('action');
-  const item={url,title:'ハローキティのリボンバッグ',source:'PR TIMES',paragraphs:['リボン付きバッグです。'],images:[]};
-  return r.fulfill({json:action==='list'?{ok:true,items:[item]}:action==='ai-draft'?{ok:true,configured:true,premium:true,text:drafts[0].text,drafts}:{ok:true,item}});
+  if(action==='ai-draft'){aiCalls++;return r.fulfill({status:429,json:{ok:false,error:'利用上限'}});}
+  return r.fulfill({json:action==='list'?{ok:true,items:[item]}:{ok:true,item}});
  });
  await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList button').click();
- await expect(page.locator('#newsAiChoice')).toBeVisible();await expect(page.locator('#newsText')).toHaveValue(drafts[0].text);
- await page.locator('#newsText').fill('編集した案1');await page.locator('#newsAiChoice').selectOption('1');await expect(page.locator('#newsText')).toHaveValue(drafts[1].text);
- await page.locator('#newsAiChoice').selectOption('0');await expect(page.locator('#newsText')).toHaveValue('編集した案1');
- await page.locator('#newsAiChoice').selectOption('2');await page.locator('#newsBack').click();await page.locator('#newsList button').click();await expect(page.locator('#newsText')).toHaveValue(drafts[2].text);await expect(page.locator('#newsAiChoice')).toHaveValue('2');
+ await expect(page.locator('#newsText')).toHaveValue(/リボンバッグ/);
+ await expect(page.locator('#newsShare')).toBeEnabled();
+ await expect(page.locator('#newsAiRetry')).not.toBeVisible();await expect(page.locator('#newsAiStatus')).not.toBeVisible();await expect(page.locator('#newsAiChoice')).not.toBeVisible();
+ await page.locator('#newsText').fill('確認して編集したニュース本文');
+ await page.locator('#newsBack').click();await page.locator('#newsList button').click();
+ await expect(page.locator('#newsText')).toHaveValue('確認して編集したニュース本文');
+ await page.locator('#newsShare').click();expect(await page.evaluate(()=>window.sharedPlainNews)).toBe('確認して編集したニュース本文');expect(aiCalls).toBe(0);
 });
 test('ニュースの写真を先に取得し、編集した本文と一緒に共有する',async({page})=>{
  await page.addInitScript(()=>{
@@ -191,62 +197,6 @@ test('公式とPR TIMESの同じ商品ニュースをまとめ、両方の記事
  expect(safe).toEqual([false,false,false,false]);
 });
 
-test('ニュースAIが本文を調整し、手動編集を後から上書きしない',async({page})=>{
- await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
- const item={title:'ソニーとハローキティの新作',source:'PR TIMES',url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',images:[],paragraphs:['サコッシュとバッグがセットです。'],facts:[]};
- let release;let calls=0;
- await page.route('**/news.php?**',async route=>{
-  const action=new URL(route.request().url()).searchParams.get('action');
-  if(action==='ai-draft'){calls++;await new Promise(r=>{release=r;});return route.fulfill({json:{ok:true,configured:true,text:'🎀 ソニーとハローキティの新作！バッグがセットに✨\n詳細：'+item.url}});}
-  return route.fulfill({json:action==='list'?{ok:true,items:[item]}:action==='ai-settings'?{ok:true,configured:false}:{ok:true,item}});
- });
- await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
- await page.locator('#newsList button').click();await expect(page.locator('#newsAiStatus')).toContainText('調整中');
- await expect.poll(()=>calls).toBe(1);release();
- await expect(page.locator('#newsAiStatus')).toContainText('AI調整済み');
- await expect(page.locator('#newsText')).toHaveValue(/バッグがセット/);
- await page.locator('#newsBack').click();await page.locator('#newsList button').click();
- expect(calls).toBe(1);
- page.once('dialog',d=>d.accept());await page.locator('#newsAiRetry').click();
- await expect.poll(()=>calls).toBe(2);
- await page.locator('#newsText').fill('手動で確認した文章');release();
- await expect(page.locator('#newsAiStatus')).toContainText('手動編集を優先');
- await expect(page.locator('#newsText')).toHaveValue('手動で確認した文章');
-});
-test('503は最大2回再試行し、待機中の手動編集を保持する',async({page})=>{
- test.setTimeout(45000);
- await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
- const item={title:'ハローキティの新作',source:'PR TIMES',url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',images:[],paragraphs:['バッグの新作です。'],facts:[]};
- let calls=0;
- await page.route('**/news.php?**',route=>{
-  const action=new URL(route.request().url()).searchParams.get('action');
-  if(action==='ai-draft'){
-   calls++;
-   return route.fulfill({status:calls<=2?502:200,json:calls<=2?{ok:false,error:'Google側が一時的に利用できません（503）。',retryable:true}:{ok:true,configured:true,text:'AIの文章'}});
-  }
-  return route.fulfill({json:action==='list'?{ok:true,items:[item]}:{ok:true,item}});
- });
- await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList button').click();
- await expect(page.locator('#newsAiStatus')).toContainText('3秒後');
- await page.locator('#newsText').fill('手動で確認した文章');
- await expect(page.locator('#newsAiStatus')).toContainText('手動編集を優先',{timeout:20000});
- expect(calls).toBe(3);await expect(page.locator('#newsText')).toHaveValue('手動で確認した文章');
-});
-test('503の再試行は3回目の失敗で停止する',async({page})=>{
- test.setTimeout(45000);
- await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
- const item={title:'ハローキティの新作',source:'PR TIMES',url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',images:[],paragraphs:['バッグの新作です。'],facts:[]};
- let calls=0;
- await page.route('**/news.php?**',route=>{
-  const action=new URL(route.request().url()).searchParams.get('action');
-  if(action==='ai-draft'){calls++;return route.fulfill({status:502,json:{ok:false,error:'Google側が一時的に利用できません（503）。',retryable:true}});}
-  return route.fulfill({json:action==='list'?{ok:true,items:[item]}:{ok:true,item}});
- });
- await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList button').click();
- const before=await page.locator('#newsText').inputValue();
- await expect(page.locator('#newsAiStatus')).toContainText('AI未調整',{timeout:20000});
- expect(calls).toBe(3);await expect(page.locator('#newsAiRetry')).toBeEnabled();await expect(page.locator('#newsText')).toHaveValue(before);
-});
 test('AIキーは設定保存後に入力欄から消し、端末に保存しない',async({page})=>{
  await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
  await page.route('**/news.php?**',route=>{
