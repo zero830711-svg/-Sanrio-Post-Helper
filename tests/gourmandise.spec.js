@@ -3,9 +3,11 @@ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42
 const url='https://www.gourmandise.jp/view/item/000000011006';
 const storeUrl='https://item.rakuten.co.jp/gourmandise/test-100/';
 const affiliate='https://hb.afl.rakuten.co.jp/hgc/test12345678/?pc=test';
-const listing={source:'グルマンディーズ',url,title:'10月下旬発売予定 サンリオ テストポーチ',date:'',thumbnail:'',products:[],productIds:[],needsReview:true};
+const thumbnail='https://makeshop-multi-images.akamaized.net/gourmandise/itemimages/0000000110062_test123.jpg';
+const listing={source:'グルマンディーズ',url,title:'10月下旬発売予定 サンリオ テストポーチ',date:'',thumbnail,products:[],productIds:[],needsReview:true};
 const matched={...listing,products:[{store:'楽天',url:storeUrl}],productIds:['rakuten:gourmandise:test-100'],needsReview:false,retailerStatus:'楽天公式店：型番・JANで照合済み',manufacturerInfo:{facts:{商品名:listing.title,発売時期:'10月下旬発売予定',ラインナップ:'マイメロディ / ポムポムプリン'},text:'',checkedAt:'2026-10-04T00:00:00Z'},productInfo:{title:'サンリオ テストポーチ',url:storeUrl,itemCode:'gourmandise:10001234',searchKeyword:'TEST-100',jan:'',specs:{},contents:['マイメロディ','ポムポムプリン'],images:['https://image.rakuten.co.jp/gourmandise/cabinet/test-100.jpg'],checkedAt:'2026-10-04T00:00:00Z'}};
 async function setup(page){
+ await page.route('https://makeshop-multi-images.akamaized.net/**',r=>r.fulfill({contentType:'image/png',body:png}));
  await page.addInitScript(()=>{
   localStorage.setItem('sanrioCloudSyncKey','test-key');
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
@@ -31,6 +33,8 @@ test('グルマンディーズを統合し、照合後にブログの重複を�
  });
  await page.goto('/');await page.getByRole('tab',{name:'新着商品',exact:true}).click();
  await expect(page.locator('#lovelyList .lovely-row')).toHaveCount(2);
+ const preview=page.locator('#lovelyList img[src="'+thumbnail+'"]');
+ await expect(preview).toBeVisible();await expect.poll(()=>preview.evaluate(img=>img.naturalWidth)).toBeGreaterThan(0);
  expect(calls).not.toContain('detail');expect(calls).not.toContain('affiliate');
  await page.locator('[data-lovely-select="'+url+'"]').click();
  await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);

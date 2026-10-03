@@ -364,6 +364,14 @@ function lw_gour_list_url(string $url): bool {
 function lw_gour_sanrio(string $title): bool {
     return preg_match('/サンリオ|ハローキティ|クロミ|マイメロディ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|こぎみゅん|けろけろけろっぴ|タキシードサム|リトルツインスターズ|ウサハナ|ぐでたま|あひるのペックル|バッドばつ丸/u',$title)===1;
 }
+function lw_gour_thumbnail_url(string $url): string {
+    $url=html_entity_decode(trim($url),ENT_QUOTES|ENT_HTML5,'UTF-8');
+    if(strpos($url,'//')===0)$url='https:'.$url;
+    $p=parse_url($url);
+    if(($p['scheme']??'')!=='https'||($p['host']??'')!=='makeshop-multi-images.akamaized.net'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||isset($p['fragment']))return '';
+    if(isset($p['query'])&&!preg_match('/^[0-9]+$/D',$p['query']))return '';
+    return preg_match('~^/gourmandise/itemimages/[0-9]{12}[0-9]*_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$~iD',$p['path']??'')?$url:'';
+}
 function lw_gour_list(string $html,int $page): array {
     $x=lw_doc($html);$boxes=$x->query('//div[contains(concat(" ",normalize-space(@class)," ")," product-list-wrap ")]');
     if($boxes->length!==1)throw new RuntimeException('グルマンディーズの商品一覧を取得できませんでした。');
@@ -372,8 +380,13 @@ function lw_gour_list(string $html,int $page): array {
         $href=$a->getAttribute('href');if(strpos($href,'/view/item/')===0)$href='https://www.gourmandise.jp'.$href;
         $url=lw_gour_article_url($href);$title=lw_text($x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," product-name ")]',$a)->item(0));
         if(!$url||!lw_gour_sanrio($title))continue;
-        // Do not republish manufacturer photos, prices, or site-wide keyword lists.
-        $rows[$url]=['source'=>'グルマンディーズ','url'=>$url,'title'=>$title,'date'=>'','thumbnail'=>'','productIds'=>[],'products'=>[],'needsReview'=>true];
+        // List-only thumbnails must never enter the image sharing proxy.
+        $thumbnail='';
+        foreach($x->query('.//img',$a) as $img){
+            foreach(['data-src','src'] as $attr){$thumbnail=lw_gour_thumbnail_url($img->getAttribute($attr));if($thumbnail)break;}
+            if($thumbnail)break;
+        }
+        $rows[$url]=['source'=>'グルマンディーズ','url'=>$url,'title'=>$title,'date'=>'','thumbnail'=>$thumbnail,'productIds'=>[],'products'=>[],'needsReview'=>true];
     }
     $next=null;
     if($page<20)foreach($x->query('//div[contains(concat(" ",normalize-space(@class)," ")," pager-wrap ")]//a[@href]') as $a){
@@ -504,7 +517,8 @@ try {
     elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
-    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3420-manufacturer|'.$url.'|'.(lw_gour_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';
+    $cacheRevision=lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer';
+    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|'.$cacheRevision.'|'.$url.'|'.(lw_gour_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
     $result=!$cron && is_file($cache)&&filemtime($cache)>time()-900?json_decode((string)file_get_contents($cache),true):null;
     if(is_array($result)&&!empty($result['partial'])&&filemtime($cache)<=time()-60)$result=null;

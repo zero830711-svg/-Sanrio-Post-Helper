@@ -120,7 +120,7 @@ const lovelyWatch = (()=>{
   }
   function visibleItems(items,ids,hidden){return groupedItems(items,ids,hidden).filter(x=>x.status!=='used').map(x=>x.item);}
   function thumbnailUrl(value){
-    try{const u=new URL(value);const allowed=(u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname))||(u.hostname==='www.hatakeyamashoji.jp'&&/^\/wp\/wp-content\/uploads\/(?:[0-9]{4}\/[0-9]{2}\/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/.test(u.pathname));return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&allowed?u.href:''}catch(_){return ''}
+    try{const u=new URL(value);const allowed=(u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname))||(u.hostname==='www.hatakeyamashoji.jp'&&/^\/wp\/wp-content\/uploads\/(?:[0-9]{4}\/[0-9]{2}\/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/.test(u.pathname))||(u.hostname==='makeshop-multi-images.akamaized.net'&&/^\/gourmandise\/itemimages\/[0-9]{12}[0-9]*_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?[0-9]+)?$/.test(u.search)&&!u.hash);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&allowed?u.href:''}catch(_){return ''}
   }
   function thumbnailHtml(item){
     const url=thumbnailUrl(item.thumbnail);
