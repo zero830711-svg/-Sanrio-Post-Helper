@@ -101,13 +101,11 @@ test('候補の写真を4枚まで選び、並べた順で共有・保存する'
  await page.evaluate(()=>{
   compactFixture.images=Array.from({length:5},(_,i)=>'https://example.invalid/photo-'+i+'.png');
   imageBlob=async src=>new Blob([src],{type:'image/png'});
-  // This test tracks selection/order; actual JPEG bytes are checked in share-png.spec.js.
-  sharePhotoJpeg=async blob=>new Blob([blob],{type:'image/jpeg'});
   legacyCopyText=()=>true;
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
   Object.defineProperty(navigator,'share',{value:async data=>{window.photoShare={text:data.text,photos:await Promise.all(data.files.map(f=>f.text()))};},configurable:true});
   showTodayDetail(compactFixture);
-  detailImageBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/png'}));renderDetailPhotos();
+  detailImageBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/png'}));detailJpegBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/jpeg'}));renderDetailPhotos();
  });
  await expect(page.locator('[data-detail-select]:checked')).toHaveCount(4);
  await page.locator('[data-detail-select="4"]').click();await expect(page.locator('[data-detail-select="4"]')).not.toBeChecked();
@@ -115,7 +113,7 @@ test('候補の写真を4枚まで選び、並べた順で共有・保存する'
  for(let i=0;i<3;i++)await page.getByRole('button',{name:'写真5を前へ',exact:true}).click();
  await page.locator('#detailChatGPTShare').click();
  await expect.poll(()=>page.evaluate(()=>window.photoShare?.photos)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
- await page.evaluate(()=>{showTodayDetail(compactFixture);detailImageBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/png'}));renderDetailPhotos();});
+ await page.evaluate(()=>{showTodayDetail(compactFixture);detailImageBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/png'}));detailJpegBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/jpeg'}));renderDetailPhotos();});
  expect(await page.evaluate(()=>detailPhotoSelection)).toEqual([4,1,2,3]);
  await page.locator('#detailDownloadAllPhotos').click();
  await expect.poll(()=>page.evaluate(()=>window.photoShare?.photos)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
