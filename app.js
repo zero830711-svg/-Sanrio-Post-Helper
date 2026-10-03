@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.03-3397";
+const APP_VERSION="2026.10.03-3398";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2937,13 +2937,35 @@ function showTodayDetail(item,continueQueue=false){
   $("todayDetailModal").scrollTop=0;
   preloadDetailImages(item,imgs);
 }
+async function sharePhotoPng(blob){
+  // Use actual PNG bytes and a matching MIME type, rather than renaming a file.
+  const signature=new Uint8Array(await blob.slice(0,8).arrayBuffer());
+  if([137,80,78,71,13,10,26,10].every((value,i)=>signature[i]===value))return blob.type==='image/png'?blob:new Blob([blob],{type:'image/png'});
+  const url=URL.createObjectURL(blob),img=new Image();let timer,canvas;
+  try{
+    await new Promise((resolve,reject)=>{
+      timer=setTimeout(()=>reject(new Error('写真のPNG変換が時間切れになりました。再試行してください。')),20000);
+      img.onload=resolve;img.onerror=()=>reject(new Error('この写真をPNGに変換できませんでした。別の写真を選ぶか再試行してください。'));img.src=url;
+    });
+    clearTimeout(timer);
+    const width=img.naturalWidth,height=img.naturalHeight;
+    if(!width||!height||width*height>30000000)throw new Error('写真が大きすぎるためPNGへ変換できませんでした。');
+    canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+    const context=canvas.getContext('2d');if(!context)throw new Error('写真のPNG変換を準備できませんでした。');
+    context.drawImage(img,0,0);
+    return await new Promise((resolve,reject)=>canvas.toBlob(result=>result&&result.type==='image/png'?resolve(result):reject(new Error('写真のPNG変換に失敗しました。')),'image/png'));
+  }finally{
+    clearTimeout(timer);img.onload=null;img.onerror=null;URL.revokeObjectURL(url);
+    if(canvas){canvas.width=0;canvas.height=0;}
+  }
+}
 async function imageBlob(src){
+  let blob;
   try{
     const direct=await fetch(src,{mode:"cors",cache:"force-cache"});
     if(!direct.ok)throw new Error("画像サーバー HTTP "+direct.status);
-    const blob=await direct.blob();
-    if(blob.type&&blob.type.startsWith("image/"))return blob;
-    throw new Error("画像データではありません");
+    blob=await direct.blob();
+    if(!blob.type||!blob.type.startsWith("image/"))throw new Error("画像データではありません");
   }catch(directError){
     const {key}=cloudSettings();
     if(!key)throw new Error("画像サーバーが外部取得を許可していません。ロリポップ同期キーを確認してください。");
@@ -2953,8 +2975,9 @@ async function imageBlob(src){
     const response=await fetch(endpoint.toString(),{headers:{Authorization:"Bearer "+key},cache:"no-store"});
     const type=response.headers.get("Content-Type")||"";
     if(!response.ok||!type.startsWith("image/"))throw new Error("画像配信側の更新が必要です。");
-    return await response.blob();
+    blob=await response.blob();
   }
+  return sharePhotoPng(blob);
 }
 function preloadDetailImages(item,images){
   const allPhotosButton=$("detailDownloadAllPhotos");
