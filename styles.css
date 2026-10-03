@@ -426,4 +426,4 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #todayDetailModal .detail-share-actions #detailChatGPTShare{grid-column:1/-1;min-height:44px;background:#302735;border-color:#302735;color:#fff;font-size:13px;border-radius:9px}
 #todayDetailModal .detail-share-actions .small-btn{border-radius:9px;font-size:12px}
 #todayDetailModal .detail-top-tools .detail-action-row{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px}
-#todayDetailModal .detail-top-tools .detail-action-row .small-btn{width:100%;min-height:36px;padding:6px;border-radius:9px;font-size:11px;line-height:1.35}
+#todayDetailModal .detail-top-tools .detail-action-row .small-btn{width:100%;min-height:44px;padding:6px;border-radius:9px;font-size:11px;line-height:1.35}
