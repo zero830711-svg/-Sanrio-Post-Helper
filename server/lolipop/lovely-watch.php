@@ -16,6 +16,7 @@ function lw_doc(string $html): DOMXPath {
 }
 function lw_text(?DOMNode $node): string { return trim(preg_replace('/\s+/u',' ', $node ? $node->textContent : '') ?? ''); }
 function lw_article_url(string $url): string {
+    $hat=lw_hat_article_url($url);if($hat)return $hat;
     $p=parse_url($url);
     if (($p['scheme']??'')!=='https' || ($p['host']??'')!=='lovely-fancy.net' || isset($p['port']) || isset($p['user']) || isset($p['pass'])) return '';
     $path=$p['path']??'';
@@ -152,6 +153,17 @@ function lw_rakuten(string $html,string $url): array {
     return ['title'=>$name,'url'=>$product['url'],'productId'=>$product['id'],'itemCode'=>$sku?:substr($product['id'],8),'jan'=>lw_meta($x,'itemprop','gtin13'),'specs'=>array_slice($specs,0,8,true),'contents'=>array_slice($contents,0,12),'images'=>array_values(array_unique($images)),'checkedAt'=>gmdate('c')];
 }
 function lw_enriched(string $html,string $url): array {
+    if(lw_hat_article_url($url)){
+        $item=lw_hat_detail($html,$url);
+        if(!$item['products'])throw new RuntimeException('楽天・Amazonの商品リンクがあるサンリオ商品ではありません。');
+        $rakuten=array_values(array_filter($item['products'],function($p){return $p['store']==='楽天';}));
+        $info=['title'=>$item['title'],'url'=>'','itemCode'=>'','jan'=>'','specs'=>[],'contents'=>[],'images'=>$item['manufacturerImages'],'checkedAt'=>gmdate('c')];
+        if(count($rakuten)===1){
+            $p=$rakuten[0];$info['url']=$p['url'];$info['itemCode']=substr($p['id'],8);$info['productId']=$p['id'];
+            try{$shop=lw_rakuten(lw_fetch($p['url']),$p['url']);$info=array_merge($info,$shop);$info['images']=$item['manufacturerImages']?:$shop['images'];}catch(Throwable $e){$item['productError']='楽天の追加情報は取得できませんでした。メーカーの商品資料を表示しています。';}
+        }
+        $item['productInfo']=$info;return $item;
+    }
     $item=lw_detail($html,$url);
     if(count($item['products'])!==1||$item['products'][0]['store']!=='楽天'){$item['productError']='楽天の主商品を1件に特定できませんでした。写真と補足を手動で追加できます。';return $item;}
     try{$item['productInfo']=lw_rakuten(lw_fetch($item['products'][0]['url']),$item['products'][0]['url']);}
@@ -160,11 +172,11 @@ function lw_enriched(string $html,string $url): array {
 }
 function lw_fetch(string $url,int $limit=1500000,bool $image=false): string {
     $p=lw_product($url);
-    if (!lw_list_url($url) && !lw_article_url($url) && !($p&&$p['store']==='楽天'&&$p['url']===$url) && !($image&&lw_image_url($url))) throw new RuntimeException('対象外のURLです。');
+    if (!lw_list_url($url) && !lw_hat_list_url($url) && !lw_article_url($url) && !($p&&$p['store']==='楽天'&&$p['url']===$url) && !($image&&(lw_image_url($url)||lw_hat_image_url($url)))) throw new RuntimeException('対象外のURLです。');
     $ch=curl_init($url); $body='';
     curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>18,CURLOPT_USERAGENT=>'SanrioPostHelper/3389 (personal product discovery)',CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_WRITEFUNCTION=>function($ch,$data) use (&$body,$limit){ if(strlen($body)+strlen($data)>$limit)return 0; $body.=$data;return strlen($data); }]);
     $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
-    if ($ok===false || $status!==200) throw new RuntimeException('ブログに接続できませんでした。時間を置いて再試行してください。');
+    if ($ok===false || $status!==200) throw new RuntimeException('情報元に接続できませんでした。時間を置いて再試行してください。');
     return $body;
 }
 function lw_settings_path(): string { return __DIR__.'/.rakuten-settings.php'; }
@@ -255,6 +267,84 @@ function lw_affiliate(string $code,array $settings,array $info=[]): array {
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
 
+function lw_hat_article_url(string $url): string {
+    $p=parse_url($url);
+    if(($p['scheme']??'')!=='https'||($p['host']??'')!=='www.hatakeyamashoji.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||isset($p['query']))return '';
+    return preg_match('~^/news/[a-zA-Z0-9_-]+/$~D',$p['path']??'')?'https://www.hatakeyamashoji.jp'.$p['path']:'';
+}
+function lw_hat_page_url(int $page): string {
+    if($page<1||$page>20)throw new RuntimeException('ページ番号が不正です。');
+    return 'https://www.hatakeyamashoji.jp/news/'.($page===1?'':'page/'.$page.'/');
+}
+function lw_hat_list_url(string $url): bool {
+    return $url==='https://www.hatakeyamashoji.jp/news/'||preg_match('~^https://www\.hatakeyamashoji\.jp/news/page/([2-9]|1[0-9]|20)/$~D',$url)===1;
+}
+function lw_hat_image_url(string $url): string {
+    $p=parse_url($url);
+    if(($p['scheme']??'')!=='https'||($p['host']??'')!=='www.hatakeyamashoji.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||isset($p['query'])||isset($p['fragment']))return '';
+    return preg_match('~^/wp/wp-content/uploads/(?:[0-9]{4}/[0-9]{2}/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$~iD',$p['path']??'')?$url:'';
+}
+function lw_hat_list(string $html,int $page): array {
+    $x=lw_doc($html);$boxes=$x->query('//div[contains(concat(" ",normalize-space(@class)," ")," top_news_box ")]//div[contains(concat(" ",normalize-space(@class)," ")," listbox ")]');
+    if(!$boxes->length)throw new RuntimeException('畑山商事の新着一覧を取得できませんでした。');
+    $urls=[];
+    foreach($boxes as $box){
+        $a=$x->query('.//a[@href]',$box)->item(0);$url=$a?lw_hat_article_url($a->getAttribute('href')):'';
+        if($url)$urls[$url]=true;
+        if(count($urls)>=20)break;
+    }
+    $next=null;
+    if($page<20)foreach($x->query('//a[contains(concat(" ",normalize-space(@class)," ")," next ")]') as $a)if($a->getAttribute('href')===lw_hat_page_url($page+1))$next=$page+1;
+    return ['urls'=>array_keys($urls),'nextPage'=>$next];
+}
+function lw_hat_detail(string $html,string $url): array {
+    if(!lw_hat_article_url($url))throw new RuntimeException('畑山商事の記事URLが不正です。');
+    $x=lw_doc($html);$canon=$x->query('//link[@rel="canonical"]');
+    if($canon->length!==1||lw_hat_article_url($canon->item(0)->getAttribute('href'))!==$url)throw new RuntimeException('畑山商事の記事が一致しません。');
+    $main=$x->query('//*[@id="main"]/div[contains(concat(" ",normalize-space(@class)," ")," list_news ")]');
+    if($main->length!==1)throw new RuntimeException('メーカーの商品記事を特定できませんでした。');
+    $node=$main->item(0);$body=$x->query('./div[contains(concat(" ",normalize-space(@class)," ")," textBox ")]',$node);
+    $title=lw_text($x->query('./h3',$node)->item(0));
+    if($body->length!==1||!$title)throw new RuntimeException('メーカーの商品資料を取得できませんでした。');
+    $text=lw_text($body->item(0));$products=[];$images=[];$facts=[];$lines=[];
+    // Confirm the product brand inside the article, never from site-wide headings.
+    $sanrio=preg_match('/サンリオ/u',$title)&&preg_match('/ブランド\s*[：:]\s*サンリオ/u',$text);
+    foreach($x->query('.//p',$body->item(0)) as $p){$line=lw_text($p);if($line)$lines[]=$line;if(preg_match('/^(ブランド|商品名|発売時期|素材|サイズ|発売元)\s*[：:]\s*(.{1,150})$/u',$line,$m))$facts[$m[1]]=$m[2];}
+    if($sanrio)foreach($x->query('.//a[@href]',$body->item(0)) as $a){$p=lw_product($a->getAttribute('href'));if($p)$products[$p['id']]=$p;}
+    foreach($x->query('.//img[@src]',$body->item(0)) as $img){$image=lw_hat_image_url($img->getAttribute('src'));if($image&&(!is_numeric($img->getAttribute('width'))||(int)$img->getAttribute('width')>=200)&&!preg_match('~/(?:ico_|logo|banner)~i',$image))$images[$image]=true;}
+    $date=lw_text($x->query('./p[contains(concat(" ",normalize-space(@class)," ")," tar ")]',$node)->item(0));
+    $date=preg_match('/([0-9]{4})年([0-9]{1,2})月([0-9]{1,2})日/u',$date,$m)?sprintf('%04d-%02d-%02d',$m[1],$m[2],$m[3]):'';
+    return ['source'=>'畑山商事','url'=>$url,'title'=>$title,'date'=>$date,'products'=>array_values($products),'productIds'=>array_keys($products),'needsReview'=>count(array_filter($products,function($p){return $p['store']==='楽天';}))>1,'thumbnail'=>array_key_first($images)??'','manufacturerImages'=>array_slice(array_keys($images),0,12),'manufacturerInfo'=>['facts'=>$facts,'text'=>(preg_match('/^.{0,6000}/us',implode("\n",$lines),$excerpt)?$excerpt[0]:''),'checkedAt'=>gmdate('c')]];
+}
+function lw_hat_discover(string $html,int $page): array {
+    $list=lw_hat_list($html,$page);$items=[];$pending=[];$failed=0;
+    // The list titles are truncated. Read each article once, with a short shared cache.
+    foreach($list['urls'] as $url){
+        $cache=sys_get_temp_dir().'/sph-hat-'.hash('sha256',__DIR__.'|3415|'.$url).'.json';
+        $item=is_file($cache)&&filemtime($cache)>time()-900?json_decode((string)file_get_contents($cache),true):null;
+        if(is_array($item)){if($item['products'])$items[]=$item;continue;}
+        $pending[$url]=$cache;
+    }
+    foreach(array_chunk($pending,5,true) as $batch){
+        $multi=curl_multi_init();$handles=[];$bodies=[];
+        foreach($batch as $url=>$cache){
+            $bodies[$url]='';$ch=curl_init($url);$handles[$url]=$ch;
+            curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>3,CURLOPT_TIMEOUT=>6,CURLOPT_USERAGENT=>'SanrioPostHelper/3415 (personal product discovery)',CURLOPT_WRITEFUNCTION=>function($ch,$bytes)use(&$bodies,$url){if(strlen($bodies[$url])+strlen($bytes)>1500000)return 0;$bodies[$url].=$bytes;return strlen($bytes);}]);curl_multi_add_handle($multi,$ch);
+        }
+        do{$code=curl_multi_exec($multi,$active);if($active)curl_multi_select($multi,0.2);}while($active&&$code===CURLM_OK);
+        foreach($handles as $url=>$ch){
+            try{
+                if(curl_errno($ch)||curl_getinfo($ch,CURLINFO_HTTP_CODE)!==200)throw new RuntimeException('article unavailable');
+                $item=lw_hat_detail($bodies[$url],$url);$tmp=tempnam(sys_get_temp_dir(),'sph-hat-');
+                if($tmp!==false){chmod($tmp,0600);file_put_contents($tmp,json_encode($item,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));rename($tmp,$batch[$url]);}
+                if($item['products'])$items[]=$item;
+            }catch(Throwable $e){$failed++;}
+            curl_multi_remove_handle($multi,$ch);curl_close($ch);
+        }curl_multi_close($multi);
+    }
+    return ['items'=>$items,'nextPage'=>$list['nextPage'],'partial'=>$failed>0,'failedArticles'=>$failed];
+}
+
 if (defined('LW_TEST_ONLY')) return;
 $config=require __DIR__.'/config.php';
 $cron=PHP_SAPI==='cli' && in_array('--refresh',$argv??[],true);
@@ -282,18 +372,24 @@ try {
     if ($action==='list') {
         $page=$cron?1:filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
         if($page===false||$page<1||$page>20)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
-        $url=lw_page_url($page);
+        $source=(string)($_GET['source']??'lovely');if(!in_array($source,['lovely','hatakeyama'],true))lw_out(['ok'=>false,'error'=>'情報元が不正です。'],400);
+        $url=$source==='hatakeyama'?lw_hat_page_url($page):lw_page_url($page);
     }
     elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
-    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3414-linked-products|'.$url).'.json';
+    $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|3415-manufacturer|'.$url).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
     $result=!$cron && is_file($cache)&&filemtime($cache)>time()-900?json_decode((string)file_get_contents($cache),true):null;
+    if(is_array($result)&&!empty($result['partial'])&&filemtime($cache)<=time()-60)$result=null;
     if (!is_array($result)) {
         $html=lw_fetch($url);
-        $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>'Lovely Fancy'];
-        if($action==='list'){$result['items']=lw_list($html,true);$result['page']=$page;$result['nextPage']=lw_next_page($html,$page);}else $result['item']=lw_enriched($html,$url);
+        $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy'];
+        if($action==='list'){
+            if($source==='hatakeyama')$result=array_merge($result,lw_hat_discover($html,$page));
+            else{$result['items']=lw_list($html,true);$result['nextPage']=lw_next_page($html,$page);}
+            $result['page']=$page;
+        }else $result['item']=lw_enriched($html,$url);
         $tmp=$cache.'.tmp';file_put_contents($tmp,json_encode($result,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));chmod($tmp,0600);rename($tmp,$cache);
     }
     flock($lock,LOCK_UN);fclose($lock);

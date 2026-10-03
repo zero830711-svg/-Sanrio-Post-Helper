@@ -1,7 +1,7 @@
 /* Loaded without network activity; discovery starts only when its section opens. */
 const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
-  let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',nextPage=null,pageCount=0,listScroll=0,listItemUrl='';
+  let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
   let editorGeneration=0,imageBusy=0,uploadBusy=false;
   const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
   const detailCache=new Map();let chooseSequence=0,detailLoading=false;
@@ -40,10 +40,10 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(value))}catch(e){el('lovelyStatus').textContent='この端末への下書き保存に失敗しました。空き容量を確認してください。'}
   }
   function endpoint(){const u=new URL(cloudSettings().url);u.pathname=u.pathname.replace(/[^/]+$/,'lovely-watch.php');u.search='';u.hash='';return u;}
-  async function request(action,url='',payload=null,page=null){
+  async function request(action,url='',payload=null,page=null,source='lovely'){
     const key=cloudSettings().key;if(!key)throw new Error('管理画面で同期キーを設定してください。');
-    const target=endpoint();target.searchParams.set('action',action);if(url)target.searchParams.set('url',url);if(page!==null)target.searchParams.set('page',String(page));
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),40000);
+    const target=endpoint();target.searchParams.set('action',action);if(url)target.searchParams.set('url',url);if(page!==null)target.searchParams.set('page',String(page));if(action==='list'&&source!=='lovely')target.searchParams.set('source',source);
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),55000);
     try{
       const res=await fetch(target,{method:payload?'POST':'GET',body:payload?JSON.stringify(payload):undefined,headers:{Authorization:'Bearer '+key,...(payload?{'Content-Type':'application/json'}:{})},cache:'no-store',signal:controller.signal});
       if(res.status===404)throw new Error('ロリポップに lovely-watch.php を配置してください。');
@@ -66,7 +66,7 @@ const lovelyWatch = (()=>{
   }
   let affiliateBusy=false,settingsRevision=0;
   async function autoRakuten(item){
-    if(!item?.productInfo)return;
+    if(!item?.productInfo?.itemCode||!item.productInfo.url)return;
     if(el('lovelyRakuten').value.trim()){el('rakutenAutoStatus').textContent='入力済みの楽天リンクを使用します。';return}
     if(item.source==='楽天API'){el('rakutenAutoStatus').textContent='自分の楽天リンクを手動で入力してください。';return;}
     if(affiliateBusy)return;
@@ -97,7 +97,8 @@ const lovelyWatch = (()=>{
       if(hidden[item.url]&&hidden[item.url]!=='used')continue;
       const keys=candidateIds(item,known),jan=keys.find(id=>id.startsWith('jan:'));
       const productKeys=keys.filter(id=>!id.startsWith('jan:'));
-      const tokens=[...(jan?[jan]:[]),...(productKeys.length?['products:'+productKeys.slice().sort().join('|')]:[])];
+      const rakutenKeys=productKeys.filter(id=>id.startsWith('rakuten:'));
+      const tokens=[...(jan?[jan]:[]),...(rakutenKeys.length===1?rakutenKeys:[]),...(productKeys.length?['products:'+productKeys.slice().sort().join('|')]:[])];
       let key=tokens.map(t=>aliases.get(t)).find(Boolean)||'url:'+item.url;
       for(const token of tokens){const otherKey=aliases.get(token);if(otherKey&&otherKey!==key){const target=groups.get(key),other=groups.get(otherKey);if(target&&other){target.articles.push(...other.articles);const rank={new:0,review:1,used:2,update:3};if(rank[other.status]>rank[target.status]){target.status=other.status;target.item=other.item;}groups.delete(otherKey);for(const [alias,value] of aliases)if(value===otherKey)aliases.set(alias,key);}}aliases.set(token,key);}
       const matched=keys.filter(id=>ids.has(id));
@@ -106,14 +107,14 @@ const lovelyWatch = (()=>{
       const update=/再入荷|再販|再販売|予約再開|受付再開|販売再開|発売日.{0,8}(変更|決定)|発売延期|発売開始|販売開始/.test(item.title||'');
       const status=hidden[item.url]==='used'?'used':introduced?(update?'update':'used'):(matched.length?'review':'new');
       const old=groups.get(key);
-      if(old){old.articles.push(item);const rank={new:0,review:1,used:2,update:3};if(rank[status]>rank[old.status])old.status=status;if(status==='update'||(old.status!=='update'&&String(item.date||'')>String(old.item.date||'')))old.item=item;}
+      if(old){old.articles.push(item);const rank={new:0,review:1,used:2,update:3};if(rank[status]>rank[old.status])old.status=status;if(status==='update'||(old.status!=='update'&&(item.source==='畑山商事'||(old.item.source!=='畑山商事'&&String(item.date||'')>String(old.item.date||'')))))old.item=item;}
       else groups.set(key,{item,status,articles:[item]});
     }
     return [...groups.values()].sort((a,b)=>String(b.item.date||'').localeCompare(String(a.item.date||'')));
   }
   function visibleItems(items,ids,hidden){return groupedItems(items,ids,hidden).filter(x=>x.status!=='used').map(x=>x.item);}
   function thumbnailUrl(value){
-    try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname)?u.href:''}catch(_){return ''}
+    try{const u=new URL(value);const allowed=(u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname))||(u.hostname==='www.hatakeyamashoji.jp'&&/^\/wp\/wp-content\/uploads\/(?:[0-9]{4}\/[0-9]{2}\/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/.test(u.pathname));return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&allowed?u.href:''}catch(_){return ''}
   }
   function thumbnailHtml(item){
     const url=thumbnailUrl(item.thumbnail);
@@ -129,7 +130,7 @@ const lovelyWatch = (()=>{
     const value=state(),groups=groupedItems(rows,historyIds,value.hidden||{},value.identities||{});
     const visible=groups.filter(x=>filterMode==='all'||(filterMode==='used'?x.status==='used':x.status!=='used'));
     const labels={new:'未紹介候補',used:'紹介済み',update:'更新候補（要確認）',review:'一部紹介済み・要確認'};
-    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><span class="backup-note">'+labels[g.status]+'</span><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong><span class="backup-note">掲載 '+escape(g.item.date||'日付不明')+'</span></div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
+    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><span class="backup-note">'+labels[g.status]+' ・ '+escape(g.item.source||'Lovely Fancy')+'</span><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong><span class="backup-note">掲載 '+escape(g.item.date||'日付不明')+'</span></div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
     el('lovelyCount').textContent='未紹介・要確認 '+groups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+groups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+groups.filter(x=>x.status==='used').length+'件';
   }
   function rememberIdentity(item){
@@ -140,23 +141,32 @@ const lovelyWatch = (()=>{
     render();
   }
   function pagingControls(){
-    const button=el('lovelyMore');if(button){button.hidden=!nextPage;button.disabled=busy;button.textContent=busy?'読み込み中…':'もっと見る';}
+    const button=el('lovelyMore');if(button){button.hidden=!Object.keys(nextPages).length;button.disabled=busy;button.textContent=busy?'読み込み中…':'もっと見る';}
+  }
+  const sourceOf=item=>item.source==='畑山商事'?'hatakeyama':'lovely';
+  async function loadSources(pages,replace){
+    const errors=[],partial=[];
+    await Promise.all(Object.entries(pages).map(async([source,page])=>{
+      try{
+        const data=await request('list','',null,page,source),merged=new Map((replace&&!data.partial?rows.filter(item=>sourceOf(item)!==source):rows).map(item=>[item.url,item]));
+        for(const item of data.items||[])merged.set(item.url,item);
+        rows=[...merged.values()];if(data.partial){nextPages[source]=page;partial.push(source==='hatakeyama'?'畑山商事':'ブログ');}else if(data.nextPage)nextPages[source]=data.nextPage;else delete nextPages[source];
+        loaded=true;render();
+      }catch(e){nextPages[source]=page;errors.push((source==='hatakeyama'?'畑山商事':'ブログ')+'：'+e.message);}
+    }));
+    const status=el('lovelyStatus');status.textContent='ブログ・畑山商事の新着を確認しました。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
   }
   async function refresh(){
     if(busy)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
-      const data=await request('list');const ids=usedIds(await dbGetAll());
-      rows=data.items||[];historyIds=ids;nextPage=data.nextPage||null;pageCount=1;loaded=true;render();
-      el('lovelyStatus').textContent='取得 '+new Date(data.fetchedAt).toLocaleString('ja-JP')+' ／ 1ページ取得・最大15分のキャッシュ';
+      historyIds=usedIds(await dbGetAll());nextPages={};pageCount=1;
+      await loadSources({lovely:1,hatakeyama:1},true);
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
   }
   async function more(){
-    if(busy||!nextPage)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='次のページを確認中…';
+    if(busy||!Object.keys(nextPages).length)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='次のページを確認中…';
     try{
-      const data=await request('list','',null,nextPage),merged=new Map(rows.map(item=>[item.url,item]));
-      for(const item of data.items||[])if(!merged.has(item.url))merged.set(item.url,item);
-      rows=[...merged.values()];nextPage=data.nextPage||null;pageCount++;render();
-      el('lovelyStatus').textContent=pageCount+'ページ取得 ／ '+(nextPage?'さらに過去の商品を確認できます。':'追加取得できるページはありません。');
+      await loadSources({...nextPages},false);pageCount++;
     }catch(e){el('lovelyStatus').textContent=e.message+' 「もっと見る」で再試行できます。'}
     finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
   }
@@ -176,7 +186,7 @@ const lovelyWatch = (()=>{
     const group=groupedItems(rows,historyIds,state().hidden||{},state().identities||{}).find(g=>g.articles.some(a=>a.url===item.url));
     el('lovelyRelatedArticles').innerHTML=group&&group.articles.length>1?'<details><summary>同じ商品のほかの記事</summary>'+group.articles.filter(a=>a.url!==item.url).map(a=>'<p><a target="_blank" rel="noopener noreferrer" href="'+escape(a.url)+'">'+escape(a.title)+'</a></p>').join('')+'</details>':'';
     el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='';el('lovelyPhotoCount').hidden=true;el('lovelyImageRetry').hidden=true;el('lovelyConfirmed').checked=false;
-    el('lovelySource').textContent=item.source==='楽天API'?'楽天の販売ページを確認':'元記事を確認';
+    el('lovelySource').textContent=item.source==='楽天API'?'楽天の販売ページを確認':item.source==='畑山商事'?'メーカーの記事を確認':'元記事を確認';
     el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=savedRakuten(item)||item.ownRakuten||'';el('lovelyNote').value='';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
     el('lovelyReview').textContent=item.needsReview?'主商品リンクは要確認です。自分で商品を特定してから進めてください。':'記事の主商品リンク候補です。販売ページで商品・セット内容を確認してください。';
@@ -199,12 +209,14 @@ const lovelyWatch = (()=>{
   }
   function renderProduct(item){
     const root=el('lovelyProductInfo');if(!root)return;
+    const manufacturer=item.manufacturerInfo;
+    const manufacturerHtml=manufacturer?'<details class="lovely-product-facts"><summary>メーカーの商品情報</summary><dl class="lovely-facts-grid">'+Object.entries(manufacturer.facts||{}).map(([key,value])=>'<div><dt>'+escape(key)+'</dt><dd>'+escape(value)+'</dd></div>').join('')+'</dl><p class="backup-note">掲載日と発売時期は別の情報です。</p></details>':'';
     const info=item.productInfo;
     if(!info){root.innerHTML='<p class="backup-note">'+escape(item.productError||'商品情報は未取得です。販売ページを確認して補足してください。')+'</p>';return}
     const row=(key,value)=>'<div><dt>'+escape(key)+'</dt><dd>'+escape(value)+'</dd></div>';
     const specs=Object.entries(info.specs||{}).map(([key,value])=>row(key,value)).join('')+((info.contents||[]).length?row('セット内容',info.contents.join(' / ')):'');
     const details=row('販売ページの商品名',info.title||'')+(info.itemCode?row('商品コード',info.itemCode):'')+(info.jan?row('JAN',info.jan):'');
-    root.innerHTML='<details class="lovely-product-facts"><summary>楽天の商品情報</summary><p class="lovely-product-checked">確認 '+escape(new Date(info.checkedAt).toLocaleString('ja-JP'))+'</p>'+(specs?'<dl class="lovely-facts-grid">'+specs+'</dl>':'')+'<dl class="lovely-facts-grid">'+details+'</dl><p class="backup-note">商品との一致を確認してください。価格・在庫は投稿依頼文に追加しません。</p></details><div class="lovely-product-images">'+(info.images||[]).map((url,index)=>'<div><a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escape(url)+'" alt="商品ページの画像候補 '+(index+1)+'" loading="lazy" decoding="async"></a><label><input type="checkbox" data-lovely-image="'+index+'"> この写真を共有する</label><p id="lovelyImageStatus'+index+'" class="backup-note" aria-live="polite"></p></div>').join('')+'</div><p class="backup-note">画像の利用可否を確認してから選んでください。別の商品・種類の写真は使わないでください。画像を取得できない場合は再試行してください。</p>';
+    root.innerHTML=manufacturerHtml+((info.itemCode||!manufacturer)?'<details class="lovely-product-facts"><summary>楽天の商品情報</summary><p class="lovely-product-checked">確認 '+escape(new Date(info.checkedAt).toLocaleString('ja-JP'))+'</p>'+(specs?'<dl class="lovely-facts-grid">'+specs+'</dl>':'')+'<dl class="lovely-facts-grid">'+details+'</dl><p class="backup-note">商品との一致を確認してください。価格・在庫は投稿依頼文に追加しません。</p></details>':'')+'<div class="lovely-product-images">'+(info.images||[]).map((url,index)=>'<div><a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escape(url)+'" alt="商品ページの画像候補 '+(index+1)+'" loading="lazy" decoding="async"></a><label><input type="checkbox" data-lovely-image="'+index+'"> この写真を共有する</label><p id="lovelyImageStatus'+index+'" class="backup-note" aria-live="polite"></p></div>').join('')+'</div><p class="backup-note">画像の利用可否を確認してから選んでください。別の商品・種類の写真は使わないでください。画像を取得できない場合は再試行してください。</p>';
   }
   function syncImages(){
     files=[...imageChoices].sort((a,b)=>a-b).map(i=>imageFiles.get(i)).filter(Boolean);
@@ -283,6 +295,7 @@ const lovelyWatch = (()=>{
       '使用するアフィリエイトURLは下記の自分のリンクだけ。URLは変更しない。検索URLや競合ブログのリンクを投稿に入れない。',
       '商品名（未確認）：'+item.title,
       '主商品ページ候補：\n'+(item.products||[]).map(p=>p.url).join('\n'),
+      ...(item.manufacturerInfo?['メーカー公式の記事：'+item.url,'メーカーから取得した資料（掲載日は発売日ではありません）：\n'+item.manufacturerInfo.text,'メーカー資料の取得日時：'+item.manufacturerInfo.checkedAt]:[]),
       '販売ページから取得した資料（確認時点の情報）：\n'+(productFacts(item.productInfo).join('\n')||'取得なし。補足と写真から確認してください。'),
       '商品情報の取得日時：'+(item.productInfo?.checkedAt||'未取得'),
       '自分のAmazonリンク：'+(amazon||'未設定'),'自分の楽天リンク：'+(rakuten||'未設定'),
@@ -305,7 +318,10 @@ const lovelyWatch = (()=>{
       navigator.share({files:files.slice(),text}).then(()=>{status.textContent='共有画面を閉じました。投稿後は「投稿済み」を押してください。'}).catch(e=>{status.textContent=e.name==='AbortError'?'共有をキャンセルしました。':'共有できませんでした：'+e.message});
     }catch(e){status.textContent=e.message}
   }
-  function hide(reason){if(!selected)return;chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;const s=state();s.hidden=s.hidden||{};s.hidden[selected.url]=reason;
+  function hide(reason){if(!selected)return;chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;const s=state();s.hidden=s.hidden||{};
+    const group=groupedItems(rows,historyIds,s.hidden,s.identities||{}).find(g=>g.articles.some(item=>item.url===selected.url));
+    s.hidden[selected.url]=reason;
+    if(group)for(const item of group.articles)s.hidden[item.url]=reason;
     const entries=Object.entries(s.hidden);s.hidden=Object.fromEntries(entries.slice(-500));s.draft=null;
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){el('lovelyShareStatus').textContent='記録を保存できませんでした。';return}
     editorGeneration++;imageBusy=0;uploadBusy=false;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();backToList();

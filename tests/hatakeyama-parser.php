@@ -1,0 +1,34 @@
+<?php
+define('LW_TEST_ONLY',true);
+require __DIR__.'/../server/lolipop/lovely-watch.php';
+function hat_check($value){if(!$value)throw new RuntimeException('Hatakeyama regression failed');}
+$url='https://www.hatakeyamashoji.jp/news/news_2026-9-6/';
+$html=file_get_contents(__DIR__.'/hatakeyama-detail.html');
+$item=lw_hat_detail($html,$url);
+hat_check($item['source']==='畑山商事');
+hat_check($item['date']==='2026-09-15');
+hat_check($item['manufacturerInfo']['facts']['発売時期']==='2026年9月上旬');
+hat_check(count($item['products'])===1&&$item['products'][0]['id']==='rakuten:petitpoche:63204234-4237');
+hat_check(count($item['manufacturerImages'])===3);
+hat_check($item['thumbnail']==='https://www.hatakeyamashoji.jp/wp/wp-content/uploads/7-27.jpg');
+hat_check(strpos($item['manufacturerInfo']['text'],'しっぽ')!==false);
+hat_check(lw_hat_detail(str_replace('サンリオ','こびとづかん',$html),$url)['products']===[]);
+$searchOnly=str_replace('https://item.rakuten.co.jp/petitpoche/63204234-4237/','https://search.rakuten.co.jp/search/mall/sanrio/',$html);
+hat_check(lw_hat_detail($searchOnly,$url)['products']===[]);
+$dual=str_replace('https://www.amazon.co.jp/s?me=A12IEJB85RPZY2&amp;marketplaceID=A1VC38T7YXB528','https://www.amazon.co.jp/dp/B012345678',$html);
+hat_check(count(lw_hat_detail($dual,$url)['products'])===2);
+$outside=str_replace('</body>','<aside><a href="https://item.rakuten.co.jp/other/unrelated/">別商品</a><img src="https://www.hatakeyamashoji.jp/wp/wp-content/uploads/unrelated.jpg"></aside></body>',$html);
+hat_check(lw_hat_detail($outside,$url)['products']===$item['products']);
+hat_check(lw_hat_detail($outside,$url)['manufacturerImages']===$item['manufacturerImages']);
+$list=lw_hat_list(file_get_contents(__DIR__.'/hatakeyama-list.html'),1);
+hat_check(count($list['urls'])===20&&$list['nextPage']===2);
+hat_check(in_array($url,$list['urls'],true));
+hat_check(!lw_hat_article_url('https://www.hatakeyamashoji.jp.evil/news/foo/'));
+hat_check(!lw_hat_article_url('https://www.hatakeyamashoji.jp/news/foo/?redirect=evil'));
+hat_check(!lw_hat_article_url('https://user@www.hatakeyamashoji.jp/news/foo/'));
+hat_check(!lw_hat_list_url('https://www.hatakeyamashoji.jp/news/page/21/'));
+hat_check(!lw_hat_image_url('https://www.hatakeyamashoji.jp/wp/wp-content/uploads/../../config.php'));
+hat_check(!lw_hat_image_url('https://www.hatakeyamashoji.jp/wp/wp-content/uploads/foo.svg'));
+$rejected=false;try{lw_hat_detail($html,'https://www.hatakeyamashoji.jp/news/other/');}catch(RuntimeException $e){$rejected=true;}hat_check($rejected);
+$rejected=false;try{lw_hat_list('<p>アクセス制限</p>',1);}catch(RuntimeException $e){$rejected=true;}hat_check($rejected);
+echo "Hatakeyama source, exact product links, images, release dates and URL guards passed\n";

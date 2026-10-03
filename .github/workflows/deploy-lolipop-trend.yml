@@ -10,6 +10,7 @@ on:
       - "server/lolipop/archive-media-batch.php"
       - "server/lolipop/lovely-watch.php"
       - "tests/lovely-parser.php"
+      - "tests/hatakeyama-*"
       - ".github/workflows/deploy-lolipop-trend.yml"
   workflow_dispatch:
 
@@ -41,6 +42,7 @@ jobs:
           php -l server/lolipop/archive-media-batch.php
           php -l server/lolipop/lovely-watch.php
           php tests/lovely-parser.php
+          php tests/hatakeyama-parser.php
 
       - name: Deploy PHP endpoints over FTPS
         shell: bash
