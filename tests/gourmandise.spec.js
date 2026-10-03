@@ -73,3 +73,26 @@ test('メーカーが接続失敗しても既存候補を残し、次の取得�
  await expect(page.locator('#lovelyStatus')).toContainText('グルマンディーズ：一時的な接続失敗');await expect(page.locator('#lovelyList')).toContainText('既存のサンリオ商品');
  fail=false;await page.locator('#lovelyMore').click();await expect(page.locator('#lovelyList')).toContainText(listing.title);await expect(page.locator('#lovelyMore')).toBeHidden();
 });
+test('API設定を保存したら未設定時の詳細キャッシュを使わず照合し直す',async({page})=>{
+ await setup(page);let configured=false,details=0;
+ await page.route('**/lovely-watch.php?**',r=>{
+  const q=new URL(r.request().url()).searchParams;
+  if(q.get('action')==='settings'){
+   if(r.request().method()==='POST')configured=true;
+   return r.fulfill({json:{ok:true,configured}});
+  }
+  if(q.get('action')==='detail'){
+   details++;
+   return r.fulfill({json:{ok:true,item:configured?matched:{...matched,products:[],productIds:[],retailerStatus:'楽天API設定を保存すると公式店を照合できます',productInfo:{...matched.productInfo,url:'',itemCode:'',images:[]}}}});
+  }
+  if(q.get('action')==='affiliate')return r.fulfill({json:{ok:true,affiliate:{itemCode:matched.productInfo.itemCode,url:affiliate}}});
+  return r.fulfill({json:{ok:true,items:q.get('source')==='gourmandise'?[listing]:[],nextPage:null}});
+ });
+ await page.goto('/');await page.getByRole('tab',{name:'新着商品',exact:true}).click();await page.locator('#lovelyList button').click();
+ await expect(page.locator('#lovelyReview')).toContainText('楽天API設定');await expect(page.locator('#lovelyConfirmed')).toBeEnabled();
+ await page.locator('#lovelyBack').click();await page.locator('.lovely-list-help > summary').click();await page.locator('#rakutenSettingsPanel > summary').click();
+ await page.locator('#rakutenAppId').fill('test-app-id');await page.locator('#rakutenAffiliateId').fill('11111111.22222222.33333333.44444444');await page.locator('#rakutenAccessKey').fill('test-access-key-value');
+ await page.locator('#rakutenSaveSettings').click();await expect(page.locator('#rakutenSettingsStatus')).toContainText('保存しました');
+ await expect(page.locator('#lovelyBrowse')).toBeVisible();await page.locator('#lovelyList button').click();
+ await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);expect(details).toBe(2);
+});

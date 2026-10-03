@@ -63,12 +63,15 @@ const lovelyWatch = (()=>{
       settingsRevision++;
       for(const id of ['rakutenAppId','rakutenAffiliateId','rakutenAccessKey'])el(id).value='';
       el('rakutenSettingsStatus').textContent='保存しました。楽天の商品を選ぶと紹介リンクを取得します。';
-      if(selected&&!el('lovelyRakuten').value.trim())autoRakuten(selected);
+      if(selected?.source==='グルマンディーズ'&&!el('lovelyRakuten').value.trim()){
+        detailCache.delete(selected.url);
+        if(!el('lovelyEditor').hidden)await choose(selected.url);
+      }else if(selected&&!el('lovelyRakuten').value.trim())autoRakuten(selected);
     }catch(e){el('rakutenSettingsStatus').textContent=e.message}finally{button.disabled=false}
   }
   let affiliateBusy=false,settingsRevision=0;
   async function autoRakuten(item){
-    if(!item?.productInfo?.itemCode||!item.productInfo.url)return;
+    if(!item?.productInfo?.itemCode||!item.productInfo.url){if(item?.source==='グルマンディーズ')el('rakutenAutoStatus').textContent=item.retailerStatus||'楽天公式店との照合が必要です。';return;}
     if(el('lovelyRakuten').value.trim()){el('rakutenAutoStatus').textContent='入力済みの楽天リンクを使用します。';return}
     if(item.source==='楽天API'){el('rakutenAutoStatus').textContent='自分の楽天リンクを手動で入力してください。';return;}
     if(affiliateBusy)return;
