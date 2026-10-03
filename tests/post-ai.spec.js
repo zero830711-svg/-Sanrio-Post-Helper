@@ -6,6 +6,7 @@ async function setup(page,respond){
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
   Object.defineProperty(navigator,'share',{value:async data=>{window.aiShared={text:data.text,files:(data.files||[]).map(f=>f.name)}},configurable:true});
  });
+ await page.route('**/archive-media-batch.php?**',r=>r.fulfill({json:{ok:true,items:[],manifest:[],stats:{}}}));
  await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
  await page.route('**/news.php?**',async r=>{
   if(new URL(r.request().url()).searchParams.get('action')==='post-ai-draft')return respond(r);
