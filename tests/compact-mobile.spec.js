@@ -101,6 +101,9 @@ test('候補の写真を4枚まで選び、並べた順で共有・保存する'
  await page.evaluate(()=>{
   compactFixture.images=Array.from({length:5},(_,i)=>'https://example.invalid/photo-'+i+'.png');
   imageBlob=async src=>new Blob([src],{type:'image/png'});
+  // This test tracks selection/order; actual JPEG bytes are checked in share-png.spec.js.
+  sharePhotoJpeg=async blob=>new Blob([blob],{type:'image/jpeg'});
+  legacyCopyText=()=>true;
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
   Object.defineProperty(navigator,'share',{value:async data=>{window.photoShare={text:data.text,photos:await Promise.all(data.files.map(f=>f.text()))};},configurable:true});
   showTodayDetail(compactFixture);
