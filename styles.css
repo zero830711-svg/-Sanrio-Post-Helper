@@ -392,3 +392,6 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #lovelyPanel #lovelyProductInfo .lovely-product-images{gap:8px}
 #lovelyPanel #lovelyProductInfo .lovely-product-images label{margin:4px 0;min-height:32px}
 #lovelyPanel #lovelyProductInfo>.backup-note{margin:4px 0 6px;font-size:10px;line-height:1.45}
+
+#lovelyProductInfo .lovely-product-facts>summary{font-size:14px;font-weight:700;line-height:1.5;cursor:pointer}
+#lovelyProductInfo .lovely-product-facts[open]>summary{margin-bottom:4px}

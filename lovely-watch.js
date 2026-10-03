@@ -204,7 +204,7 @@ const lovelyWatch = (()=>{
     const row=(key,value)=>'<div><dt>'+escape(key)+'</dt><dd>'+escape(value)+'</dd></div>';
     const specs=Object.entries(info.specs||{}).map(([key,value])=>row(key,value)).join('')+((info.contents||[]).length?row('セット内容',info.contents.join(' / ')):'');
     const details=row('販売ページの商品名',info.title||'')+(info.itemCode?row('商品コード',info.itemCode):'')+(info.jan?row('JAN',info.jan):'');
-    root.innerHTML='<section class="lovely-product-facts"><h4>楽天の商品情報</h4><p class="lovely-product-checked">確認 '+escape(new Date(info.checkedAt).toLocaleString('ja-JP'))+'</p>'+(specs?'<dl class="lovely-facts-grid">'+specs+'</dl>':'')+'<details class="lovely-product-details"><summary>販売ページの商品名・商品コード</summary><dl class="lovely-facts-grid">'+details+'</dl></details><p class="backup-note">商品との一致を確認してください。価格・在庫は投稿依頼文に追加しません。</p></section><div class="lovely-product-images">'+(info.images||[]).map((url,index)=>'<div><a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escape(url)+'" alt="商品ページの画像候補 '+(index+1)+'" loading="lazy" decoding="async"></a><label><input type="checkbox" data-lovely-image="'+index+'"> この写真を共有する</label><p id="lovelyImageStatus'+index+'" class="backup-note" aria-live="polite"></p></div>').join('')+'</div><p class="backup-note">画像の利用可否を確認してから選んでください。別の商品・種類の写真は使わないでください。画像を取得できない場合は再試行してください。</p>';
+    root.innerHTML='<details class="lovely-product-facts"><summary>楽天の商品情報</summary><p class="lovely-product-checked">確認 '+escape(new Date(info.checkedAt).toLocaleString('ja-JP'))+'</p>'+(specs?'<dl class="lovely-facts-grid">'+specs+'</dl>':'')+'<dl class="lovely-facts-grid">'+details+'</dl><p class="backup-note">商品との一致を確認してください。価格・在庫は投稿依頼文に追加しません。</p></details><div class="lovely-product-images">'+(info.images||[]).map((url,index)=>'<div><a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escape(url)+'" alt="商品ページの画像候補 '+(index+1)+'" loading="lazy" decoding="async"></a><label><input type="checkbox" data-lovely-image="'+index+'"> この写真を共有する</label><p id="lovelyImageStatus'+index+'" class="backup-note" aria-live="polite"></p></div>').join('')+'</div><p class="backup-note">画像の利用可否を確認してから選んでください。別の商品・種類の写真は使わないでください。画像を取得できない場合は再試行してください。</p>';
   }
   function syncImages(){
     files=[...imageChoices].sort((a,b)=>a-b).map(i=>imageFiles.get(i)).filter(Boolean);
@@ -300,7 +300,7 @@ const lovelyWatch = (()=>{
       if(!amazon&&!rakuten)throw new Error('自分のAmazonか楽天のリンクを入力してください。');
       if(!files.length)throw new Error('共有する写真を選んでください。');
       if(!navigator.share||!navigator.canShare||!navigator.canShare({files}))throw new Error('このブラウザーでは写真共有に対応していません。iPhoneのSafariで開いてください。');
-      const text=prompt(el('lovelyKind').value,selected,amazon,rakuten,el('lovelyNote').value.trim(),files.length);persist();
+      const text=prompt('x',selected,amazon,rakuten,el('lovelyNote').value.trim(),files.length);persist();
       // No blocking modal, awaited preparation, disabled button, or fixed body during native handoff.
       navigator.share({files:files.slice(),text}).then(()=>{status.textContent='共有画面を閉じました。投稿後は「投稿済み」を押してください。'}).catch(e=>{status.textContent=e.name==='AbortError'?'共有をキャンセルしました。':'共有できませんでした：'+e.message});
     }catch(e){status.textContent=e.message}

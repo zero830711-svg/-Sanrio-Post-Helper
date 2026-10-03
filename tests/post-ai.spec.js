@@ -22,6 +22,12 @@ test('新着商品はAI生成枠なしで、写真と投稿依頼文をChatGPT�
  await page.getByRole('tab',{name:'新着商品',exact:true}).click();await page.locator('#lovelyList button').click();
  await expect(page.locator('#lovelyConfirmed')).toBeEnabled();
  await expect(page.locator('#productAiPanel')).toHaveCount(0);
+ await expect(page.locator('#lovelyKind')).toHaveCount(0);
+ const facts=page.locator('.lovely-product-facts');await expect(facts).not.toHaveAttribute('open');
+ await expect(facts.locator('.lovely-facts-grid').first()).not.toBeVisible();
+ await expect(page.locator('[data-lovely-image="0"]')).toBeVisible();
+ await facts.locator('summary').click();await expect(facts.locator('.lovely-facts-grid').first()).toBeVisible();
+ await facts.locator('summary').click();
  await page.locator('#lovelyShare').click();await expect(page.locator('#lovelyShareStatus')).toContainText('チェック');
  await page.locator('#lovelyAmazon').fill('https://amzn.to/test');await expect(page.locator('#lovelyNote')).not.toBeVisible();await expect(page.locator('#lovelyPhotos')).not.toBeVisible();
  await page.locator('[data-lovely-image="0"]').check();await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');
