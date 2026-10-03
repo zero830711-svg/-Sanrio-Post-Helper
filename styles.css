@@ -395,3 +395,21 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 
 #lovelyProductInfo .lovely-product-facts>summary{font-size:14px;font-weight:700;line-height:1.5;cursor:pointer}
 #lovelyProductInfo .lovely-product-facts[open]>summary{margin-bottom:4px}
+
+/* Compact secondary actions, with one clear primary share action. */
+#lovelyPanel #lovelyEditor .small-btn,#lovelyPanel #lovelyEditor .link-btn{min-height:36px;padding:6px 10px;border-radius:9px;font-size:12px;line-height:1.35;margin:0}
+#lovelyPanel #lovelyBack{background:transparent;color:var(--muted);border:1px solid var(--line)}
+#lovelyPanel #lovelyEditor .cloud-sync-actions,#lovelyPanel #lovelyEditor .lovely-url-actions{margin:6px 0;gap:6px}
+#lovelyPanel #lovelyEditor .lovely-search-actions,#lovelyPanel #lovelyEditor .lovely-url-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+#lovelyPanel #lovelyEditor .lovely-search-actions a,#lovelyPanel #lovelyEditor .lovely-url-actions>*{display:flex;justify-content:center;align-items:center;text-align:center;min-width:0}
+#lovelyPanel #lovelySource{min-height:36px}
+#lovelyPanel #lovelyEditor .lovely-source-links{align-items:center;gap:8px}
+#lovelyPanel #lovelyEditor .lovely-confirmation{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5;margin:10px 0}
+#lovelyPanel #lovelyEditor .lovely-confirmation input{flex:0 0 auto;width:22px;height:22px;margin:0}
+#lovelyPanel #lovelyEditor .lovely-share-actions{display:block;margin:8px 0 6px}
+#lovelyPanel #lovelyEditor #lovelyShare{width:100%;min-height:44px;background:#302735;color:#fff;border-color:#302735;font-size:13px}
+#lovelyPanel #lovelyEditor .lovely-finish-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:6px 0}
+#lovelyPanel #lovelyEditor #lovelySkip,#lovelyPanel #lovelyEditor #lovelyBackBottom{background:#fff;border:1px solid var(--line);color:var(--muted)}
+#lovelyPanel #lovelyEditor input[type=url]{padding:8px 10px;min-height:40px;box-sizing:border-box;border-radius:10px}
+#lovelyPanel #lovelyEditor>label{font-size:12px;line-height:1.5}
+#lovelyPanel #lovelyEditor+ a{display:inline-block;margin-top:4px;font-size:11px}
