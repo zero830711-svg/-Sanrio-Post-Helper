@@ -143,3 +143,11 @@ $merged=news_merge_feeds([$many,$pr,$pr,[$stale,$unknown]],strtotime('2026-10-03
 check(count($merged)===62);check($merged[0]['source']==='PR TIMES');check(count(array_filter($merged,fn($item)=>$item['source']==='PR TIMES'))===2);
 check(count(news_feeds())===11);check(strpos(news_feeds()[1]['url'],'page=2')!==false);
 echo "Expanded news sources, deduplication and quotas passed\n";
+
+$groqItem=['title'=>'クロミのリボンバッグ','url'=>'https://www.sanrio.co.jp/news/goods/test-20261003/','paragraphs'=>['リボン付きバッグ。価格は880円（税込）。']];
+$out=news_groq_validate(json_encode(['body'=>'🎀 クロミのリボンバッグ 💜' . "\n価格：880円（税込）"],JSON_UNESCAPED_UNICODE),$groqItem);
+check(mb_strlen($out)<=300);check(strpos($out,$groqItem['url'])!==false);check(strpos(news_groq_prompt($groqItem),'1案だけ')!==false);
+foreach(['not json',json_encode(['body'=>'🎀 価格：999円']),json_encode(['body'=>str_repeat('可愛い',120)]),json_encode(['body'=>'🎀 https://evil.example/']),json_encode(['body'=>'☆ クロミ ♡'])] as $bad){
+ try{news_groq_validate($bad,$groqItem);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}
+}
+echo "Groq single draft: 300 characters, original link, unsupported numbers and invalid output checked\n";

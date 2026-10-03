@@ -15,7 +15,7 @@ test('ニュースはGeminiを呼ばず通常の下書きを使い、編集と�
  await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList button').click();
  await expect(page.locator('#newsText')).toHaveValue(/リボンバッグ/);
  await expect(page.locator('#newsShare')).toBeEnabled();
- await expect(page.locator('#newsAiRetry')).not.toBeVisible();await expect(page.locator('#newsAiStatus')).not.toBeVisible();await expect(page.locator('#newsAiChoice')).not.toBeVisible();
+ await expect(page.locator('#newsAiRetry')).toBeEnabled();await expect(page.locator('#newsAiStatus')).toContainText('300文字');await expect(page.locator('#newsAiChoice')).not.toBeVisible();
  await page.locator('#newsText').fill('確認して編集したニュース本文');
  await page.locator('#newsBackBottom').click();await page.locator('#newsList button').click();
  await expect(page.locator('#newsText')).toHaveValue('確認して編集したニュース本文');
@@ -244,4 +244,23 @@ test('ルートバリア×ウサハナの公式・PR見出しをまとめ、異�
  ],{official,press});expect(safe).toEqual([true,true,false,false,false,false,false,false]);
  await page.locator('#newsDone').click();await expect(page.locator('#newsList article')).toHaveCount(0);
  expect(await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('sanrioNewsMarks'))))).toEqual(expect.arrayContaining([official.url,press.url]));
+});
+
+test('Groq設定とボタン生成、生成中の編集保護と失敗時の本文保持',async({page})=>{
+ const item={url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',title:'クロミのバッグ',source:'PR TIMES',paragraphs:['リボン付きバッグです。'],images:[]};
+ let calls=0,release;let response={ok:true,configured:true,text:'🎀💜 クロミのリボンバッグ ✨\n\n#サンリオ'};
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.route('**/news.php?**',async r=>{
+  const action=new URL(r.request().url()).searchParams.get('action');
+  if(action==='groq-settings'){expect(r.request().postDataJSON().apiKey).toBe('gsk_test_12345678901234567890');return r.fulfill({json:{ok:true,configured:true}});}
+  if(action==='ai-draft'){calls++;if(calls===2)await new Promise(resolve=>release=resolve);return r.fulfill({json:response});}
+  return r.fulfill({json:action==='list'?{ok:true,items:[item]}:{ok:true,item}});
+ });
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList button').click();expect(calls).toBe(0);
+ await page.locator('#newsGroqSettings summary').click();await page.locator('#newsGroqKey').fill('gsk_test_12345678901234567890');await page.locator('#newsGroqSave').click();await expect(page.locator('#newsGroqKey')).toHaveValue('');await expect(page.locator('#newsGroqStatus')).toContainText('保存しました');
+ expect(await page.evaluate(()=>Object.values(localStorage).some(v=>v.includes('gsk_test')))).toBe(false);
+ await page.locator('#newsAiRetry').click();await expect(page.locator('#newsText')).toHaveValue(response.text);await expect(page.locator('#newsAiStatus')).toContainText('300文字以内');
+ await page.locator('#newsAiRetry').click();await expect.poll(()=>calls).toBe(2);await page.locator('#newsText').fill('手動で編集した本文');release();await expect(page.locator('#newsAiStatus')).toContainText('手動編集を優先');await expect(page.locator('#newsText')).toHaveValue('手動で編集した本文');
+ response={ok:false,error:'Groqの利用上限です（429）。'};await page.locator('#newsAiRetry').click();await expect(page.locator('#newsAiStatus')).toContainText('429');await expect(page.locator('#newsText')).toHaveValue('手動で編集した本文');await expect(page.locator('#newsAiRetry')).toBeEnabled();
 });
