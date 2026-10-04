@@ -5,7 +5,11 @@ function news_bandai_character(string $title):bool{
  return news_furyu_character($title)||(bool)preg_match('/\bSanrio\b/i',$title);
 }
 function news_bandai_period(string $text):string{
- $period=news_extra_period($text);if($period)return $period;
+ if(preg_match('/(20[0-9]{2})年([0-9]{1,2})月(?:([0-9]{1,2})日|(上旬|中旬|下旬))?/u',$text,$m)){
+  if((int)$m[2]<1||(int)$m[2]>12)return '';
+  if(!empty($m[3])&&!checkdate((int)$m[2],(int)$m[3],(int)$m[1]))return '';
+  return $m[1].'年'.(int)$m[2].'月'.(!empty($m[3])?(int)$m[3].'日':($m[4]??''));
+ }
  if(!preg_match('/\b(20[0-9]{2})\.([0-9]{1,2})(?:\.([0-9]{1,2}))?\b/',$text,$m))return '';
  if((int)$m[2]<1||(int)$m[2]>12)return '';
  if(isset($m[3])&&!checkdate((int)$m[2],(int)$m[3],(int)$m[1]))return '';
