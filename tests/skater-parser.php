@@ -48,3 +48,23 @@ $decoded=json_decode(lw_json($live),true,512,JSON_THROW_ON_ERROR);
 skater_check(count($decoded['items'])===64&&in_array('サンリオ水筒 シナモファンシー',array_column($decoded['items'],'title'),true),'Entire real list encodes without corrupting Japanese titles');
 $invalid=false;try{lw_json(['title'=>"\xE3\x81"]);}catch(JsonException $e){$invalid=true;}skater_check($invalid,'Invalid UTF-8 is an explicit encoding error, never an empty successful body');
 echo "Skater parser checks passed (64 live-list products, UTF-8/JSON regression)\n";
+
+// Real 20260701 response shape: Items + itemUrl containing a tracking link.
+$real=['itemCode'=>'casmin:10118640','itemName'=>'SDPC4 マイメロディ','itemCaption'=>'721236 4973307721236','itemUrl'=>'https://hb.afl.rakuten.co.jp/hgc/test12345678/?pc='.rawurlencode('https://item.rakuten.co.jp/casmin/72123-6-sdpc4/').'&m='.rawurlencode('http://m.rakuten.co.jp/casmin/i/10118640/'),'mediumImageUrls'=>['https://image.rakuten.co.jp/casmin/cabinet/cross45/sdpc4_72123_01__mm_s.jpg']];
+foreach([['count'=>1,'Items'=>[$real]],['count'=>1,'Items'=>[['Item'=>$real]]],['count'=>1,'items'=>[['item'=>$real]]]] as $response){
+    $normalized=lw_rakuten_search_data($response);$found=lw_skater_match($normalized,'4973307721236');
+    skater_check($found&&$found['itemUrl']==='https://item.rakuten.co.jp/casmin/72123-6-sdpc4/','Tracking URL decodes to exact retailer product');
+    skater_check(lw_affiliate_result(['items'=>[$found]],$real['itemCode'],'')['url']===$real['itemUrl'],'API-issued own affiliate link retained verbatim');
+}
+foreach(['https://evil.test/casmin/72123-6-sdpc4/','https://search.rakuten.co.jp/search/mall/4973307721236/','https://item.rakuten.co.jp/other/72123-6-sdpc4/','http://item.rakuten.co.jp/casmin/72123-6-sdpc4/'] as $bad){
+    $row=$real;$row['itemUrl']='https://hb.afl.rakuten.co.jp/hgc/test12345678/?pc='.rawurlencode($bad);
+    skater_check(lw_skater_match(lw_rakuten_search_data(['count'=>1,'Items'=>[$row]]),'4973307721236')===null,'Unsafe destination, search or other store is rejected');
+}
+$row=$real;$row['itemUrl']=str_replace('hb.afl.rakuten.co.jp','hb.afl.rakuten.co.jp.evil.test',$row['itemUrl']);
+skater_check(lw_skater_match(lw_rakuten_search_data(['Items'=>[$row]]),'4973307721236')===null,'Tracking lookalike host rejected');
+echo "API tracking product identity regression passed\n";
+
+$apiImage='https://thumbnail.image.rakuten.co.jp/@0_mall/casmin/cabinet/cross45/sdpc4_72123_01__mm_s.jpg?_ex=128x128';
+skater_check(lw_image_url($apiImage)==='https://image.rakuten.co.jp/casmin/cabinet/cross45/sdpc4_72123_01__mm_s.jpg?_ex=128x128','Current API thumbnail resolves to same shop cabinet photo');
+foreach([str_replace('thumbnail.image.rakuten.co.jp','thumbnail.image.rakuten.co.jp.evil.test',$apiImage),str_replace('/cabinet/','/other/',$apiImage),$apiImage.'&redirect=evil',$apiImage.'#x',str_replace('/cross45/','/../',$apiImage)] as $bad)skater_check(lw_image_url($bad)==='','Unsafe API image path/host/query rejected');
+echo "API thumbnail photo regression passed\n";
