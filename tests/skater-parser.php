@@ -35,4 +35,16 @@ $bad=$match;$bad['itemUrl']=str_replace('/casmin/','/other-shop/',$bad['itemUrl'
 $bad=$match;$bad['itemCode']='other-shop:10000001';skater_check(lw_skater_match(['items'=>[$bad]],$jan)===null,'Wrong API shop rejected');
 $other=$match;$other['itemUrl']='https://item.rakuten.co.jp/casmin/another/';skater_check(lw_skater_match(['items'=>[$match,$other]],$jan)===null,'Ambiguous listings rejected');
 skater_check(lw_skater_match(['count'=>31,'items'=>[$match]],$jan)===null,'Truncated results rejected');
-echo "Skater parser checks passed\n";
+// PHP trim uses a byte mask: Japanese parentheses used to corrupt names ending in ー.
+foreach(['シナモファンシー','シナモン ファンシー','CNファンシー','キティ（ピンク）','キャラクター'] as $name){
+    $sample=preg_replace('~<div class="variation-name">.*?</div>~us','<div class="variation-name">（'.$name.'）</div>',$row);
+    $parsed=lw_skater_list('<div class="block-category-list--goods">'.$sample.'</div>',1);
+    skater_check($parsed['items'][0]['title']===$name,'Unicode-safe outer parentheses, preserving internal parentheses');
+    skater_check(json_decode(lw_json($parsed),true,512,JSON_THROW_ON_ERROR)['items'][0]['title']===$name,'JSON round trip preserves exact product name');
+}
+$live=lw_skater_list((string)file_get_contents(__DIR__.'/skater-list-live.html'),1);
+skater_check(count($live['items'])===64,'Captured official list contains 64 Sanrio products');
+$decoded=json_decode(lw_json($live),true,512,JSON_THROW_ON_ERROR);
+skater_check(count($decoded['items'])===64&&in_array('サンリオ水筒 シナモファンシー',array_column($decoded['items'],'title'),true),'Entire real list encodes without corrupting Japanese titles');
+$invalid=false;try{lw_json(['title'=>"\xE3\x81"]);}catch(JsonException $e){$invalid=true;}skater_check($invalid,'Invalid UTF-8 is an explicit encoding error, never an empty successful body');
+echo "Skater parser checks passed (64 live-list products, UTF-8/JSON regression)\n";

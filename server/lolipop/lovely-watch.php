@@ -515,7 +515,7 @@ function lw_skater_list(string $html,int $page): array {
         $href=$a->getAttribute('href');if(strpos($href,'/shop/g/')===0)$href='https://www.skater-onlineshop.com'.$href;
         $url=lw_skater_article_url($href);if(!$url)continue;
         $name=lw_text($x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," variation-name ")]',$row)->item(0));
-        $title=$name?trim($name,"（）() \t\n\r\0\x0B"):lw_text($a);if(!$title)continue;
+        $title=$name?preg_replace('/^(?:（(.*)）|\((.*)\))$/us','$1$2',trim($name)):lw_text($a);if(!$title)continue;
         $thumbnail='';foreach($x->query('.//dt//img',$row) as $img){foreach(['data-src','src'] as $attr){$thumbnail=lw_skater_thumbnail_url($img->getAttribute($attr));if($thumbnail)break;}if($thumbnail)break;}
         preg_match('~/g([0-9]{13})/$~',$url,$m);
         $rows[$url]=['source'=>'スケーター','url'=>$url,'title'=>$title,'date'=>'','jan'=>$m[1],'thumbnail'=>$thumbnail,'productIds'=>[],'products'=>[],'needsReview'=>true];
@@ -581,6 +581,9 @@ function lw_skater_enriched(string $html,string $url): array {
     return $item;
 }
 
+// Fail explicitly if a payload cannot be encoded; never send or cache an empty body.
+function lw_json(array $data): string {return json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
+
 if (defined('LW_TEST_ONLY')) return;
 $config=require __DIR__.'/config.php';
 $cron=PHP_SAPI==='cli' && in_array('--refresh',$argv??[],true);
@@ -588,7 +591,10 @@ $origin=$_SERVER['HTTP_ORIGIN']??'';
 if ($origin && in_array($origin,$config['allowed_origins']??[],true)) {header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}
 header('Access-Control-Allow-Headers: Authorization, Content-Type');header('Access-Control-Allow-Methods: GET, POST, OPTIONS');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
 if (($_SERVER['REQUEST_METHOD']??'')==='OPTIONS') {http_response_code(204);exit;}
-function lw_out(array $data,int $code=200): void {http_response_code($code);echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
+function lw_out(array $data,int $code=200): void {
+    try{$body=lw_json($data);}catch(JsonException $e){$code=502;$body=lw_json(['ok'=>false,'error'=>'取得データの文字コードを確認できませんでした。新着商品を再確認してください。']);}
+    http_response_code($code);echo $body;exit;
+}
 $expected=(string)($config['sync_key']??'');$token='';
 if(preg_match('/^Bearer\s+(.+)$/i',$_SERVER['HTTP_AUTHORIZATION']??'',$m))$token=trim($m[1]);
 if(!$cron && (!$expected || !$token || !hash_equals($expected,$token)))lw_out(['ok'=>false,'error'=>'Unauthorized'],401);
@@ -614,7 +620,7 @@ try {
     elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
-    $cacheRevision=lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer';
+    $cacheRevision=lw_skater_list_url($url)?'3430-utf8-titles':(lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer');
     $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|'.$cacheRevision.'|'.$url.'|'.(lw_gour_article_url($url)||lw_skater_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
     $force=$action==='detail' && ($_GET['refresh']??'')==='1';
@@ -632,7 +638,7 @@ try {
             else{$result['items']=lw_list($html,true);$result['nextPage']=lw_next_page($html,$page);}
             $result['page']=$page;
         }else $result['item']=lw_enriched($html,$url);
-        $tmp=$cache.'.tmp';file_put_contents($tmp,json_encode($result,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));chmod($tmp,0600);rename($tmp,$cache);
+        $encoded=lw_json($result);$tmp=$cache.'.tmp';file_put_contents($tmp,$encoded);chmod($tmp,0600);rename($tmp,$cache);
     }
     flock($lock,LOCK_UN);fclose($lock);
     if($action==='affiliate'){
