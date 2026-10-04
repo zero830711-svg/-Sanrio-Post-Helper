@@ -74,3 +74,5 @@ jobs:
           put server/lolipop/overseas.php
           bye
           LFTP
+
+# redeploy marker: private share CORS fix
