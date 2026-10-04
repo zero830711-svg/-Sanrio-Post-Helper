@@ -145,42 +145,17 @@ function ov_out(array $data,int $status=200): void {http_response_code($status);
 if(($_SERVER['REQUEST_METHOD']??'')==='OPTIONS'){http_response_code(204);exit;}
 $token='';if(preg_match('/^Bearer\s+(.+)$/i',$_SERVER['HTTP_AUTHORIZATION']??'',$m))$token=trim($m[1]);
 if(empty($config['sync_key'])||!$token||!hash_equals($config['sync_key'],$token))ov_out(['ok'=>false,'error'=>'Unauthorized'],401);
+// Overseas discovery has been withdrawn. Never serve, refresh, ingest or proxy old candidates.
 $method=$_SERVER['REQUEST_METHOD']??'';$action=$_GET['action']??'list';
-if($method!=='GET'&&!($method==='POST'&&$action==='ingest'))ov_out(['ok'=>false,'error'=>'Method not allowed'],405);
-$incoming=null;
-if($action==='ingest'){
-    if($method!=='POST'||($origin&&!in_array($origin,$config['allowed_origins']??[],true)))ov_out(['ok'=>false,'error'=>'Collector required'],403);
-    if((int)($_SERVER['CONTENT_LENGTH']??0)>256000)ov_out(['ok'=>false,'error'=>'Payload too large'],413);
-    $body=(string)file_get_contents('php://input',false,null,0,256001);
-    try{if(strlen($body)>256000)throw new RuntimeException('Too large');$decoded=json_decode($body,true,512,JSON_THROW_ON_ERROR);if(!is_array($decoded))throw new RuntimeException('Invalid input');$incoming=ov_validate_batches($decoded);}catch(Throwable $e){ov_out(['ok'=>false,'error'=>'Invalid collection payload'],400);}
-}
-try{
-    $pdo=new PDO($config['db_dsn'],$config['db_user'],$config['db_password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-    $pdo->exec('CREATE TABLE IF NOT EXISTS sanrio_overseas_snapshot(id TINYINT NOT NULL PRIMARY KEY,payload LONGTEXT NOT NULL) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-    $raw=$pdo->query('SELECT payload FROM sanrio_overseas_snapshot WHERE id=1')->fetchColumn();$snapshot=$raw?json_decode($raw,true,512,JSON_THROW_ON_ERROR):[];$action=$_GET['action']??'list';
-    if($action==='refresh'||$action==='ingest'){
-        if($action==='refresh'&&!empty($snapshot['lastAttemptAt'])&&strtotime($snapshot['lastAttemptAt'])>time()-1500)ov_out(ov_payload($snapshot,gmdate('c')));
-        if(!(int)$pdo->query("SELECT GET_LOCK('sph_overseas_collect',0)")->fetchColumn())ov_out($snapshot?ov_payload($snapshot,gmdate('c')):['ok'=>false,'error'=>'海外情報を収集中です。少し待って再確認してください。'],$snapshot?200:503);
-        try{
-            $snapshot=ov_merge($snapshot,$incoming??ov_collect(),gmdate('c'));$write=$pdo->prepare('INSERT INTO sanrio_overseas_snapshot(id,payload) VALUES(1,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)');$write->execute([json_encode($snapshot,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]);
-        }finally{$pdo->query("SELECT RELEASE_LOCK('sph_overseas_collect')");}
-    }elseif(!in_array($action,['list','detail','image'],true))ov_out(['ok'=>false,'error'=>'Unknown action'],400);
-    if(!$snapshot)ov_out(['ok'=>false,'error'=>'海外情報の初回収集待ちです。しばらくして再確認してください。'],503);
-    $payload=ov_payload($snapshot,gmdate('c'));
-    if($action==='detail'||$action==='image'){
-        $found=null;foreach($payload['items'] as $item)if($item['url']===($_GET['url']??'')){$found=$item;break;}
-        if(!$found)ov_out(['ok'=>false,'error'=>'収集済みの海外候補を選んでください。'],400);
-        $image=ov_image_url($found['thumbnail']);
-        if($action==='image'){
-            if(($_GET['index']??'')!=='0'||!$image)ov_out(['ok'=>false,'error'=>'この候補の写真を取得できません。'],400);
-            $bytes='';$ch=curl_init($image);curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>15,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_WRITEFUNCTION=>static function($ch,$part)use(&$bytes){if(strlen($bytes)+strlen($part)>6000000)return 0;$bytes.=$part;return strlen($part);}]);$ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);$size=@getimagesizefromstring($bytes);
-            if(!$ok||$status!==200||!$size||!in_array($size['mime'],['image/jpeg','image/png','image/webp'],true)||$size[0]*$size[1]>30000000)ov_out(['ok'=>false,'error'=>'写真を取得できませんでした。'],502);
-            header('Content-Type: '.$size['mime']);header('X-Content-Type-Options: nosniff');echo $bytes;exit;
+if($method==='POST'&&$action==='clear'){
+    try{
+        $pdo=new PDO($config['db_dsn'],$config['db_user'],$config['db_password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+        $exists=$pdo->query("SHOW TABLES LIKE 'sanrio_overseas_snapshot'")->fetchColumn();
+        if($exists){
+            if(!(int)$pdo->query("SELECT GET_LOCK('sph_overseas_collect',10)")->fetchColumn())ov_out(['ok'=>false,'error'=>'Cleanup busy'],503);
+            try{$pdo->exec('DELETE FROM sanrio_overseas_snapshot WHERE id=1');}finally{$pdo->query("SELECT RELEASE_LOCK('sph_overseas_collect')");}
         }
-        $region=['KR'=>'韓国','HK'=>'香港','US'=>'米国'][$found['region']];
-        $found['manufacturerInfo']=['facts'=>['商品名'=>$found['title'],'掲載地域'=>$region,'日本での販売'=>'未確認','海外限定か'=>'未確認'],'text'=>'海外の公式一覧で取得した候補です。日本からの購入可否・価格・在庫・発売日は未確認です。','checkedAt'=>$payload['fetchedAt']];
-        $found['productInfo']=['title'=>$found['title'],'url'=>'','itemCode'=>'','specs'=>[],'contents'=>[],'images'=>$image?[$image]:[],'checkedAt'=>$payload['fetchedAt']];
-        ov_out(['ok'=>true,'item'=>$found]);
-    }
-    ov_out($payload);
-}catch(Throwable $e){error_log('Overseas discovery: '.get_class($e));ov_out(['ok'=>false,'error'=>'海外情報を取得できませんでした。時間を置いて再確認してください。'],502);}
+    }catch(Throwable $e){error_log('Overseas cleanup: '.get_class($e));ov_out(['ok'=>false,'error'=>'Cleanup failed'],502);}
+}elseif($method!=='GET')ov_out(['ok'=>false,'error'=>'Overseas discovery disabled'],410);
+if($method==='GET'&&!in_array($action,['list','refresh'],true))ov_out(['ok'=>false,'error'=>'Overseas discovery disabled'],410);
+ov_out(['ok'=>true,'apiVersion'=>'3434','disabled'=>true,'items'=>[],'sourceHealth'=>[],'fetchedAt'=>null,'nextPage'=>null,'cached'=>false]);

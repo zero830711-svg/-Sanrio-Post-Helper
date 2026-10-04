@@ -79,5 +79,5 @@ jobs:
           bye
           LFTP
 
-      - name: Initialize and verify live overseas snapshot, photos and detail
-        run: bash scripts/collect-overseas.sh --verify-images
+      - name: Clear withdrawn overseas snapshot and verify empty list
+        run: bash scripts/collect-overseas.sh
