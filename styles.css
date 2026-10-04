@@ -278,7 +278,7 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #lovelyPanel .lovely-thumb,#lovelyPanel .lovely-thumb img{width:64px;height:64px}#lovelyPanel .lovely-thumb{grid-row:1}
 #lovelyPanel .lovely-row-title{font-size:13px;line-height:1.45;-webkit-line-clamp:3}
 #lovelyPanel .lovely-row .backup-note{display:block;font-size:11px;margin:0 0 4px}
-#lovelyPanel .lovely-list-help{font-size:12px;color:var(--muted);margin:6px 0}#lovelyPanel label:has(> #lovelyFilter){font-size:12px;display:flex;align-items:center;gap:8px}#lovelyFilter{width:auto;font-size:13px;padding:6px}
+#lovelyPanel :is(.lovely-list-help,.lovely-overseas-help){font-size:12px;color:var(--muted);margin:6px 0}#lovelyPanel label:has(> #lovelyFilter){font-size:12px;display:flex;align-items:center;gap:8px}#lovelyFilter{width:auto;font-size:13px;padding:6px}
 #detailCandidateTools .today-affiliate-links{margin:8px 0}#detailCandidateTools .small-btn{font-size:12px;min-height:44px}#detailCandidateTools .recommend-reason{font-size:11px}
 
 /* Keep the home heading compact so candidates start near the top. */
