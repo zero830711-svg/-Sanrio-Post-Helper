@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.04-3432";
+const APP_VERSION="2026.10.04-3433";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -4070,14 +4070,17 @@ $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
 
+const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["new","homeNewTab","lovelyPanel"],["overseas","homeOverseasTab","lovelyPanel"]];
 function setHomeView(view){
- const tabs=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["new","homeNewTab","lovelyPanel"]];
- for(const [name,id,panel] of tabs){const b=$(id),p=$(panel);if(!b||!p)continue;const on=name===view;p.hidden=!on;if(panel==="lovelyPanel")p.open=on;b.setAttribute("aria-selected",String(on));b.tabIndex=on?0:-1;}
+ const active=homeTabViews.find(tab=>tab[0]===view)||homeTabViews[0];
+ if(view==="new"||view==="overseas")document.dispatchEvent(new CustomEvent("sph-product-tab",{detail:view}));
+ for(const [name,id] of homeTabViews){const b=$(id);if(!b)continue;const on=name===active[0];b.setAttribute("aria-selected",String(on));b.tabIndex=on?0:-1;}
+ for(const panel of new Set(homeTabViews.map(tab=>tab[2]))){const p=$(panel);if(!p)continue;const on=panel===active[2];p.hidden=!on;if(panel==="lovelyPanel"){p.open=on;if(on)p.setAttribute("aria-labelledby",active[1]);}}
  if(view==="news"&&!$("newsList").children.length&&typeof newsLoad==="function")newsLoad();
 }
-for(const [id,view] of [["homeTodayTab","today"],["homeNewsTab","news"],["homeNewTab","new"]]){
+for(const [view,id] of homeTabViews){
  const button=$(id);button?.addEventListener("click",()=>setHomeView(view));
- button?.addEventListener("keydown",e=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(e.key))return;e.preventDefault();const views=["today","news","new"],ids=["homeTodayTab","homeNewsTab","homeNewTab"];let n=e.key==="Home"?0:e.key==="End"?2:(views.indexOf(view)+(e.key==="ArrowRight"?1:2))%3;setHomeView(views[n]);$(ids[n]).focus();});
+ button?.addEventListener("keydown",e=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(e.key))return;e.preventDefault();const count=homeTabViews.length,n=e.key==="Home"?0:e.key==="End"?count-1:(homeTabViews.findIndex(tab=>tab[0]===view)+(e.key==="ArrowRight"?1:count-1))%count;setHomeView(homeTabViews[n][0]);$(homeTabViews[n][1]).focus();});
 }
 
 (async()=>{
