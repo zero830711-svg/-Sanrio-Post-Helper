@@ -71,8 +71,8 @@ jobs:
           set ftp:ssl-protect-data true
           set ssl:verify-certificate yes
           cd "$LOLIPOP_TREND_DIR"
-          put server/lolipop/news.php
           put server/lolipop/news-extra.php
+          put server/lolipop/news.php
           put server/lolipop/trend.php
           put server/lolipop/archive-media-batch.php
           put server/lolipop/share.php

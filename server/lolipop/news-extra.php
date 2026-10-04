@@ -48,7 +48,7 @@ function news_extra_parse(string $html,string $url):array{
  if($period){$schedule='発売時期：'.$period;$facts[]=['kind'=>'schedule','text'=>$schedule];$lines[]=$schedule;}else $schedule='';
  if($price){$facts[]=['kind'=>'price','text'=>'価格：'.$price];$lines[]='価格：'.$price;}
  $images=[];$nodes=$x->query($arts?'.//div[contains(concat(" ",normalize-space(@class)," ")," images ")]//img/@src':'.//div[contains(concat(" ",normalize-space(@class)," ")," main_item ")]//img/@src | .//div[contains(concat(" ",normalize-space(@class)," ")," gallery ")]/a/@href',$root);
- foreach($nodes as $node){$image=news_image_url(news_extra_abs($node->nodeValue,$arts?'arts':'rement'));if($image&&!in_array($image,$images,true)&&count($images)<8)$images[]=$image;}
+ foreach($nodes as $node){$image=news_image_url(news_extra_abs($node->nodeValue,$arts?'arts':'rement'));if($arts&&$image){parse_str((string)parse_url($url,PHP_URL_QUERY),$query);if(strpos(basename((string)parse_url($image,PHP_URL_PATH)),($query['n']??'').'_' )!==0)continue;}if($image&&!in_array($image,$images,true)&&count($images)<8)$images[]=$image;}
  return ['url'=>$url,'source'=>$source,'tipsOnly'=>true,'title'=>$title,'date'=>'','schedule'=>$schedule,'facts'=>$facts,'paragraphs'=>$lines,'images'=>$images,'image'=>$images[0]??''];
 }
 function news_extra_enrich(array $rows,array &$errors):array{
