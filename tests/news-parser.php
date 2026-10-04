@@ -18,7 +18,7 @@ $d=news_parse('<h1>商品ニュース</h1><div id="press-release-body"><table><t
 check(count($d['facts'])===2);check($d['facts'][0]['text']==='発売日：2026年10月上旬予定');check($d['facts'][1]['text']==='価格：各880円（税込）');
 $e=news_parse('<h1>新作</h1><div id="press-release-body"><p>10月3日発売、価格は880円（税込）です。</p></div>',$url);
 check(count($e['facts'])===2);
-$cache=sys_get_temp_dir().'/sph-news-v6-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
+$cache=sys_get_temp_dir().'/sph-news-v7-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
 $previous=is_file($cache)?file_get_contents($cache):null;
 try{
  file_put_contents($cache,json_encode($d));
@@ -141,7 +141,7 @@ $stale=$pr[0];$stale['url']='https://prtimes.jp/main/html/rd/p/9.2.html';$stale[
 $unknown=$pr[0];$unknown['url']='https://prtimes.jp/main/html/rd/p/8.2.html';$unknown['date']='';
 $merged=news_merge_feeds([$many,$pr,$pr,[$stale,$unknown]],strtotime('2026-10-03'));
 check(count($merged)===62);check($merged[0]['source']==='PR TIMES');check(count(array_filter($merged,fn($item)=>$item['source']==='PR TIMES'))===2);
-check(count(news_feeds())===13);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='furyu'))===2);check(strpos(news_feeds()[1]['url'],'page=2')!==false);
+check(count(news_feeds())===15);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='furyu'))===2);check(strpos(news_feeds()[1]['url'],'page=2')!==false);
 echo "Expanded news sources, deduplication and quotas passed\n";
 
 $groqItem=['title'=>'クロミのリボンバッグ','url'=>'https://www.sanrio.co.jp/news/goods/test-20261003/','paragraphs'=>['リボン付きバッグ。価格は880円（税込）。']];
@@ -178,3 +178,15 @@ check(strpos(ai_cute_suffix($fd),'https://')===false);check(strpos(ai_cute_suffi
 $good=news_groq_validate(json_encode(['body'=>'💜 クロミのたれ耳ロリータBIGぬいぐるみ✨\n2026年10月2週登場予定。店舗により時期が前後します。'],JSON_UNESCAPED_UNICODE),$fd);check(strpos($good,'https://')===false);
 foreach(['💜 10月2日登場','💜 10月2週登場予定','💜 詳細はこちら','💜 価格は1円'] as $bad){$failed=false;try{news_groq_validate(json_encode(['body'=>$bad],JSON_UNESCAPED_UNICODE),$fd);}catch(RuntimeException $e){$failed=true;}check($failed);}
 echo "FURYU identity, weekly schedule, photo scope and URL-free draft checks passed\n";
+$artsUrl='https://www.takaratomy-arts.co.jp/items/item.html?n=Y111372';$rementUrl='https://www.re-ment.co.jp/product/r70125';
+check(news_url($artsUrl)===$artsUrl);check(news_url($rementUrl)===$rementUrl);
+foreach(['https://www.takaratomy-arts.co.jp/items/item.html?n=Y111372&next=evil','https://www.re-ment.co.jp.evil.example/product/r70125','https://www.re-ment.co.jp/product/../r70125','https://www.takaratomy-arts.co.jp/items/item.html?n=Y111372#test'] as $bad)check(news_url($bad)==='');
+$rows=news_arts_rows(file_get_contents(__DIR__.'/arts-news-list.json'),strtotime('2026-10-05'));check(count($rows)===2);check($rows[0]['date']==='');check($rows[0]['schedule']==='発売時期：2026年10月');check($rows[0]['tipsOnly']===true);
+check(!news_extra_recent('2025年10月',strtotime('2026-10-05')));
+$arts=news_parse(file_get_contents(__DIR__.'/arts-news-detail.html'),$artsUrl);check($arts['schedule']==='発売時期：2026年10月');check(count($arts['images'])===3);check(strpos(implode(' ',$arts['images']),'Y099999')===false);
+$rr=news_rement_rows(file_get_contents(__DIR__.'/rement-news-list.html'));check(count($rr)===8);check($rr[0]['url']===$rementUrl);
+$rm=news_parse(file_get_contents(__DIR__.'/rement-news-detail.html'),$rementUrl);check($rm['title']==='タキシードサムのおしゃれなおうち TUXEDOSAM ROOM');check($rm['schedule']==='発売時期：2026年10月26日');check(count($rm['images'])===8);check($rm['date']==='');
+$failed=false;try{news_parse(file_get_contents(__DIR__.'/rement-news-detail.html'),'https://www.re-ment.co.jp/product/r99999');}catch(RuntimeException $e){$failed=true;}check($failed);
+check(strpos(ai_cute_suffix($arts),'http')===false);check(strpos(ai_cute_suffix($rm),'詳細')===false);
+foreach(['🎀 2026年10月10日発売','🎀 詳細はこちら'] as $body){$failed=false;try{news_groq_validate(json_encode(['body'=>$body],JSON_UNESCAPED_UNICODE),$arts);}catch(RuntimeException $e){$failed=true;}check($failed);}
+echo "Manufacturer identities, date precision, recent products and image scopes passed\n";
