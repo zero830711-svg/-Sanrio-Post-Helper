@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261005-3445">
+<link rel="stylesheet" href="./styles.css?v=20261005-3446">
 </head>
 <body>
 <main class="app">
@@ -18,7 +18,7 @@
 <details class="home-info"><summary>データ・更新情報</summary>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.10.05-3445</span>
+<span id="appVersionStatus">アプリ版 2026.10.05-3446</span>
 <button id="forceLatest" type="button" >最新版を読み込む</button>
 </div>
 <p class="backup-note app-update-help">更新後もホーム画面のアイコンはそのまま使えます。作り直しは不要です。この端末に保存した投稿データと同期設定は、同じURLを使う限り引き継がれます。</p>
@@ -57,11 +57,11 @@
 <p class="backup-note">公式ニュース・メーカー新作から投稿を準備</p>
 <details><summary>記事URLから開く</summary><label>記事URL<input id="newsUrl" type="url" placeholder="https://prtimes.jp/..."></label><button id="newsOpen" class="small-btn" type="button">投稿準備</button></details>
 <label class="news-filter">情報元<select id="newsSourceFilter"><option value="all">すべて</option><option value="サンリオ公式">サンリオ公式</option><option value="PR TIMES">PR TIMES</option><option value="フリュー">フリュー</option><option value="タカラトミーアーツ">タカラトミーアーツ</option><option value="リーメント">リーメント</option><option value="バンダイ キャンディ">バンダイ キャンディ</option><option value="バンダイ おもちゃ">バンダイ おもちゃ</option><option value="ガシャポン公式">ガシャポン公式</option><option value="サンキューマート">サンキューマート</option></select></label>
-<label class="news-filter">表示<select id="newsFilter"><option value="new">未投稿</option><option value="hidden">投稿済み・見送り</option><option value="all">すべて</option></select></label>
+<label class="news-filter">表示<select id="newsFilter"><option value="new">未投稿</option><option value="draft">準備中</option><option value="hidden">投稿済み・見送り</option><option value="all">すべて</option></select></label>
 <p id="newsStatus" class="backup-note" aria-live="polite"></p><div id="newsList"></div><button id="newsMore" class="small-btn" type="button" hidden>もっと見る</button>
 </div><section id="newsEditor" hidden><button id="newsBack" class="small-btn" type="button">一覧へ戻る</button><h3 id="newsTitle"></h3><a id="newsSource" target="_blank" rel="noopener noreferrer"></a><p id="newsDate" class="backup-note"></p><div id="newsRelatedSources" class="news-related-sources" hidden aria-label="同じニュースの掲載元"></div>
 <label id="newsAiChoiceLabel" hidden>投稿案<select id="newsAiChoice" aria-label="使うニュース投稿案"><option value="0">1. シンプル情報系（200文字以内）</option><option value="1">2. 華やかな紹介系</option><option value="2">3. 目を引く可愛い系</option></select></label>
-<label>投稿文（編集できます）<textarea id="newsText" rows="6"></textarea></label>
+<label>投稿文（編集できます）<textarea id="newsText" rows="6"></textarea></label><p id="newsDraftStatus" class="backup-note" aria-live="polite"></p>
 <p id="newsAiStatus" class="backup-note" aria-live="polite"></p><button id="newsAiRetry" class="small-btn" type="button" disabled>🎀 AIで投稿文を作る</button>
 <details id="newsGroqSettings"><summary>AI設定（Groq・初回のみ）</summary><p class="backup-note">Groqの無料APIキーをサーバーに保存します。</p><a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">GroqのAPIキーを作成</a><label>Groq APIキー<input id="newsGroqKey" type="password" autocomplete="off" placeholder="gsk_..."></label><button id="newsGroqSave" class="small-btn" type="button">設定を保存</button><p id="newsGroqStatus" class="backup-note" aria-live="polite"></p></details><details><summary>記事の情報を確認</summary><p id="newsFacts" class="backup-note"></p></details>
 <p class="backup-note detail-photo-hint">4枚まで選択・「前へ／後へ」で並べ替え</p><div id="newsImages" class="news-images"></div><p class="backup-note">画像の利用条件・商品との一致を元記事で確認してください。</p>
@@ -444,14 +444,14 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261005-3445"></script>
+<script src="./app.js?v=20261005-3446"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./new-product-ranking.js?v=20261005-3445"></script>
-<script src="./lovely-watch.js?v=20261005-3445"></script>
+<script src="./new-product-ranking.js?v=20261005-3446"></script>
+<script src="./lovely-watch.js?v=20261005-3446"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
-<script src="./news.js?v=20261005-3445"></script>
-<script src="./post-ai.js?v=20261005-3445"></script>
+<script src="./news.js?v=20261005-3446"></script>
+<script src="./post-ai.js?v=20261005-3446"></script>
 <script>
 window.addEventListener("load",()=>{
   setTimeout(()=>{
