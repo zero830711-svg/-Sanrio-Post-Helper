@@ -4,6 +4,8 @@ const lovelyWatch = (()=>{
   let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',sourceMode='all',countryMode='all',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
   let discoveryBatchAt='',batchEligible={};
   const sectionMode='new';
+  let rankingModel=new Map(),sortMode=state().sortMode==='date'?'date':'recommended';
+  async function updateHistory(){const history=await dbGetAll();historyIds=usedIds(history);rankingModel=newProductRanking.build(history,CHARACTER_DEFS);}
   let editorGeneration=0,imageBusy=0,uploadBusy=false;
   const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
   const preparations=new Map();
@@ -171,7 +173,9 @@ const lovelyWatch = (()=>{
     sourceGroups.sort((a,b)=>compareItems(a.item,b.item,value.firstSeen||{}));
     const recentUrls=new Set(Object.values(value.sourceChecks||{}).flatMap(check=>check.recentUrls||[]));
     const recentGroup=g=>g.status!=='used'&&g.articles.every(item=>recentUrls.has(item.url));
-    const visible=sourceGroups.filter(x=>filterMode==='all'||(filterMode==='recent'?recentGroup(x):filterMode==='used'?x.status==='used':x.status!=='used'));
+    let visible=sourceGroups.filter(x=>filterMode==='all'||(filterMode==='recent'?recentGroup(x):filterMode==='used'?x.status==='used':x.status!=='used'));
+    if(sortMode==='recommended'&&filterMode!=='used')visible=newProductRanking.rank(visible,rankingModel,CHARACTER_DEFS);
+    const rankingHelp=el('lovelyRankingHelp');if(rankingHelp)rankingHelp.textContent=sortMode==='date'?'掲載日・初回取得が新しい順です。':rankingModel.size?'過去投稿の反応からおすすめ。4件に1件は実績の少ない商品も表示します。':'おすすめの判断に必要な実績が足りないため、新着順で表示します。';
     const recentHelp=el('lovelyRecentHelp');
     if(recentHelp){
       recentHelp.hidden=filterMode!=='recent';
@@ -180,7 +184,7 @@ const lovelyWatch = (()=>{
         :'最初の確認で比較の基準を作ります。次回から追加された商品を表示します。';
     }
     const labels={new:'未紹介候補',used:'紹介済み',update:'更新候補（要確認）',review:'一部紹介済み・要確認'};
-    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><span class="backup-note">'+labels[g.status]+' ・ '+escape(g.item.source||'Lovely Fancy')+(g.item.overseas&&g.item.isNew?' ・ 24時間以内の追加':'')+'</span><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong><span class="backup-note">'+escape(g.item.date?'掲載 '+g.item.date:g.item.overseas?'発見 '+new Date(g.item.firstSeenAt||value.firstSeen?.[g.item.url]||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'初回取得 '+new Date(value.firstSeen?.[g.item.url]||Date.now()).toLocaleDateString('ja-JP'))+'</span></div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
+    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><span class="backup-note">'+labels[g.status]+' ・ '+escape(g.item.source||'Lovely Fancy')+(g.item.overseas&&g.item.isNew?' ・ 24時間以内の追加':'')+'</span><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong>'+(g.rankingReason?'<span class="backup-note lovely-ranking-reason">'+escape(g.rankingReason)+'</span>':'')+'<span class="backup-note">'+escape(g.item.date?'掲載 '+g.item.date:g.item.overseas?'発見 '+new Date(g.item.firstSeenAt||value.firstSeen?.[g.item.url]||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'初回取得 '+new Date(value.firstSeen?.[g.item.url]||Date.now()).toLocaleDateString('ja-JP'))+'</span></div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
     el('lovelyCount').textContent=(sectionMode==='overseas'?'海外：':sourceMode==='all'?'':sourceName(sourceMode)+'：')+'未紹介・要確認 '+sourceGroups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+sourceGroups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+sourceGroups.filter(x=>x.status==='used').length+'件';
   }
   function rememberIdentity(item){
@@ -223,7 +227,7 @@ const lovelyWatch = (()=>{
   async function refresh(){
     if(busy)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
-      historyIds=usedIds(await dbGetAll());nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
+      await updateHistory();nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
       const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater'].map(source=>[source,checks[source]?.initialized===true]));
       await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1},true);
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;pagingControls()}
@@ -535,10 +539,11 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
     render();pagingControls();
   });
+  const sortSelect=el('lovelySort');if(sortSelect){sortSelect.value=sortMode;sortSelect.addEventListener('change',e=>{sortMode=e.target.value==='date'?'date':'recommended';const saved=state();saved.sortMode=sortMode;try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}render();});}
   el('lovelyFilter')?.addEventListener('change',async e=>{
     filterMode=['new','recent','used','all'].includes(e.target.value)?e.target.value:'new';
     render();
-    try{historyIds=usedIds(await dbGetAll());render()}catch(_){el('lovelyStatus').textContent='過去投稿の照合を更新できませんでした。新着を確認して再試行してください。'}
+    try{await updateHistory();render()}catch(_){el('lovelyStatus').textContent='過去投稿の照合を更新できませんでした。新着を確認して再試行してください。'}
   });
   el('lovelyList')?.addEventListener('error',e=>{const img=e.target;if(img.tagName==='IMG'&&img.closest('.lovely-thumb')){img.hidden=true;const fallback=img.nextElementSibling;if(fallback)fallback.hidden=false;}},true);
   el('lovelyList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-select]');if(b)choose(b.dataset.lovelySelect)});
