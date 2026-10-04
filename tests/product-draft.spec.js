@@ -56,13 +56,13 @@ test('商品AI待機中の編集とリンク変更を保護し、失敗しても
   return route.fulfill({status:429,json:{ok:false,error:'Groqの利用上限です（429）。'}});
  });
  await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostAi').click();await expect.poll(()=>calls).toBe(1);await expect(page.locator('#lovelyPostAi')).toBeDisabled();
- await page.locator('#lovelyPostText').fill('手で編集した紹介文');await page.locator('#lovelyRakuten').fill('https://a.r10.to/hNEW123');release();await expect(page.locator('#lovelyPostAiStatus')).toContainText('編集中');await expect(page.locator('#lovelyPostText')).toHaveValue('手で編集した紹介文');
+ await page.locator('#lovelyPostText').fill('手で編集した紹介文');await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyRakuten').fill('https://a.r10.to/hNEW123');release();await expect(page.locator('#lovelyPostAiStatus')).toContainText('編集中');await expect(page.locator('#lovelyPostText')).toHaveValue('手で編集した紹介文');
  await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostAiStatus')).toContainText('429');await expect(page.locator('#lovelyPostText')).toHaveValue('手で編集した紹介文');await expect(page.locator('#lovelyPostAi')).toBeEnabled();
 });
 test('手直しした文章を保持し、リンク変更後は作り直してから共有する',async({page})=>{
  await setup(page);const draft=page.locator('#lovelyPostText');
  const manual='🎀 私の紹介文 ✨\n'+link+'\n#サンリオ #pr';await draft.fill(manual);
- await page.locator('#lovelyRakuten').fill('https://a.r10.to/hNEW123');
+ await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyRakuten').fill('https://a.r10.to/hNEW123');
  await expect(draft).toHaveValue(manual);await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostShare').click();
  await expect(page.locator('#lovelyPostStatus')).toContainText('作り直す');expect(await page.evaluate(()=>window.sharedDraft)).toBeUndefined();
  await page.locator('#lovelyPostReset').click();await expect(draft).toHaveValue(/hNEW123/);await expect(page.locator('#lovelyConfirmed')).not.toBeChecked();

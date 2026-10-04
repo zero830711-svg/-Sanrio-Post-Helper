@@ -11,6 +11,8 @@ on:
       - "local-ai-worker.js"
       - "app.js"
       - "news.js"
+      - "lovely-watch.js"
+      - "server/lolipop/lovely-watch.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
       - "styles.css"
@@ -29,6 +31,8 @@ on:
       - "local-ai-worker.js"
       - "app.js"
       - "news.js"
+      - "lovely-watch.js"
+      - "server/lolipop/lovely-watch.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
       - "styles.css"
@@ -55,6 +59,14 @@ jobs:
         with:
           node-version: 24
           cache: npm
+
+      - name: Check product PHP API and parsers
+        run: |
+          php -l server/lolipop/lovely-watch.php
+          php tests/lovely-parser.php
+          php tests/hatakeyama-parser.php
+          php tests/gourmandise-parser.php
+          php tests/skater-parser.php
 
       - name: Install locked dependencies
         run: npm ci

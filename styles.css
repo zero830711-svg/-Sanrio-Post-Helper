@@ -432,3 +432,17 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #todayDetailModal .detail-share-actions .small-btn{border-radius:9px;font-size:12px}
 #todayDetailModal .detail-top-tools .detail-action-row{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px}
 #todayDetailModal .detail-top-tools .detail-action-row .small-btn{width:100%;min-height:44px;padding:6px;border-radius:9px;font-size:11px;line-height:1.35}
+
+/* Compact product preparation: photos and draft stay close; link tools expand on demand. */
+#lovelyLinkTools{margin:6px 0;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+#lovelyLinkTools>summary{font-size:12px;font-weight:600;cursor:pointer;min-height:28px;display:list-item}
+#lovelyLinkTools label{display:block;margin:6px 0;font-size:12px}
+#lovelyLinkTools input[type=url]{width:100%}
+#lovelyEditor .lovely-retailer-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:4px 0}
+#lovelyEditor .lovely-retailer-row p{flex:1;min-width:150px;margin:0}
+#lovelyEditor #lovelyRetailerRetry{min-height:36px;font-size:11px;padding:6px 8px;background:#fff;border:1px solid var(--line)}
+#lovelyEditor .lovely-post-draft{margin:6px 0;padding:8px}
+#lovelyEditor #lovelyPostAi{min-height:40px;margin:4px 0;background:#f8dceb}
+#lovelyEditor #lovelyPostText{min-height:130px;font-size:16px}
+#lovelyEditor .lovely-confirmation input{width:20px;height:20px;flex-shrink:0}
+#lovelyPanel #lovelyEditor #lovelyShare{min-height:36px;background:#fff;color:var(--muted);border:1px solid var(--line);font-size:12px}
