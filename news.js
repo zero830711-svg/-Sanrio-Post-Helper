@@ -1,6 +1,38 @@
+function newsArticleKey(url){
+ try{const p=new URL(url);let key=p.origin+p.pathname.replace(/\/$/,'');
+ const field=p.hostname==='gashapon.jp'?'jan_code':p.hostname==='www.takaratomy-arts.co.jp'?'n':null;
+ if(field)key+='?'+field+'='+p.searchParams.get(field);return key;}catch{return '';}
+}
+function newsProductId(url){
+ try{const p=new URL(url);if(p.hostname==='gashapon.jp'&&p.pathname==='/products/detail.php')return 'gashapon:'+p.searchParams.get('jan_code');
+ if(p.hostname==='www.takaratomy-arts.co.jp'&&p.pathname==='/items/item.html')return 'arts:'+p.searchParams.get('n');}catch{}return '';
+}
+function newsStorageKey(name){return 'sanrioNews'+name+':'+(cloudSettings().url||DEFAULT_CLOUD_API_URL);}
+function newsReadDrafts(){
+ try{const data=JSON.parse(localStorage.getItem(newsStorageKey('Drafts'))||'null');if(data?.version!==1||!Array.isArray(data.entries))return new Map();
+ return new Map(data.entries.slice(0,40).filter(e=>e&&typeof e.item?.url==='string'&&/^https:\/\//.test(e.item.url)&&typeof e.text==='string'&&e.text.length<=20000&&Array.isArray(e.item.images)).map(e=>{
+ const item={...e.item,images:e.item.images.filter(u=>typeof u==='string'&&/^https:\/\//.test(u)).slice(0,8)};
+ const selected=Array.isArray(e.selected)?[...new Set(e.selected)].filter(i=>Number.isInteger(i)&&i>=0&&i<item.images.length).slice(0,4):[];
+ return [item.url,{...e,item,selected,files:item.images.map(()=>null),loading:[],errors:[],aiPending:false,restored:true}];}));}catch{return new Map();}
+}
+function newsSaveDrafts(){
+ const unique=[...new Set(newsState.drafts.values())].filter(e=>!newsState.marks[e.item.url]).sort((a,b)=>(b.savedAt||0)-(a.savedAt||0)).slice(0,40);
+ const entries=unique.map(e=>({item:e.item,text:e.text,selected:e.selected,aiDrafts:e.aiDrafts,aiChoice:e.aiChoice,aiAttempted:e.aiAttempted,aiStatus:e.aiStatus,savedAt:e.savedAt||Date.now()}));
+ try{localStorage.setItem(newsStorageKey('Drafts'),JSON.stringify({version:1,entries}));if($('newsDraftStatus'))$('newsDraftStatus').textContent='準備を自動保存しました';return true;}catch{if($('newsDraftStatus'))$('newsDraftStatus').textContent='自動保存できませんでした。本文をコピーして残してください。';return false;}
+}
+function newsReadSeen(){try{const d=JSON.parse(localStorage.getItem(newsStorageKey('Seen'))||'null');return d?.version===1&&d.known&&typeof d.known==='object'?d.known:null;}catch{return null;}}
+function newsTrackItems(items){
+ const previous=newsState.seen,known={...(previous||{})},added=new Set(),now=Date.now();
+ for(const item of items){const key=newsArticleKey(item.url);if(!key)continue;if(!Object.prototype.hasOwnProperty.call(known,key)){known[key]=previous?now:0;if(previous)added.add(key);}}
+ newsState.seen=known;newsState.added=added;
+ try{localStorage.setItem(newsStorageKey('Seen'),JSON.stringify({version:1,known:Object.fromEntries(Object.entries(known).slice(-2000))}));}catch{}
+}
+function newsGroupNew(item){return item.members.some(m=>newsState.added.has(newsArticleKey(m.url)));}
+function newsGroupDraft(item){return item.members.some(m=>newsState.drafts.has(m.url));}
+function newsGroupTime(item){return Math.max(0,...item.members.map(m=>Math.max(Date.parse(m.date||'')||0,newsState.seen?.[newsArticleKey(m.url)]||0)));}
 function newsReadMarks(){try{return JSON.parse(localStorage.getItem('sanrioNewsMarks')||'{}')||{};}catch{return {};}}
 /* News preparation: fetch files before the user taps native share. */
-const newsState={item:null,files:[],selected:[],seq:0,busy:false,limit:5,items:[],warnings:[],marks:newsReadMarks(),drafts:new Map(),browseY:0};
+const newsState={item:null,files:[],selected:[],seq:0,busy:false,limit:5,items:[],warnings:[],marks:newsReadMarks(),drafts:newsReadDrafts(),seen:newsReadSeen(),added:new Set(),browseY:0};
 function newsApiUrl(action,url='',index=0){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/news.php'));u.searchParams.set('action',action);if(url)u.searchParams.set('url',url);if(action==='image')u.searchParams.set('index',String(index));return u.toString();}
 async function newsRequest(action,url='',index=0){const {key}=cloudSettings();if(!key)throw new Error('同期キーを設定してください。');const r=await fetch(newsApiUrl(action,url,index),{headers:{Authorization:'Bearer '+key},cache:'no-store',signal:AbortSignal.timeout(25000)});if(action==='image'&&r.ok){const b=await r.blob();if(!/^image\/(jpeg|png|webp)$/.test(b.type))throw new Error('画像形式を確認できません。');const png=await sharePhotoPng(b);return new File([png],'news-'+(index+1)+'.png',{type:'image/png'});}const d=await r.json();if(!r.ok||d.ok===false)throw new Error(d.error||'ニュースを取得できませんでした。');return d;}
 function newsHighlight(item){
@@ -72,8 +104,8 @@ function newsCharacters(title){
 function newsSameStory(a,b){
  if(!!a.tipsOnly!==!!b.tipsOnly)return false;
  if(!!a.prize!==!!b.prize)return false;
- const articleKey=u=>{try{const p=new URL(u);return p.origin+p.pathname.replace(/\/$/,'');}catch{return '';}};
- const ua=articleKey(a.url),ub=articleKey(b.url);if(ua&&ua===ub)return true;
+ const ua=newsArticleKey(a.url),ub=newsArticleKey(b.url);if(ua&&ua===ub)return true;
+ const ida=newsProductId(a.url),idb=newsProductId(b.url);if(ida&&idb&&ida!==idb)return false;
  const x=newsTitleKey(a.title),y=newsTitleKey(b.title);
  const published=i=>{const m=String(i.date||'').match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);return m?Date.UTC(+m[1],+m[2]-1,+m[3]):null;};
  const pa=published(a),pb=published(b);if(pa!==null&&pb!==null&&Math.abs(pa-pb)>45*86400000)return false;
@@ -157,7 +189,8 @@ function newsPhotosRender(){
  });
 }
 function newsRender(){
- const filter=$('newsFilter').value;const sourceFilter=$('newsSourceFilter')?.value||'all';const rows=newsGroups().filter(i=>(sourceFilter==='all'||i.members.some(m=>m.source===sourceFilter))).filter(i=>filter==='all'||(filter==='hidden'?!!newsGroupMark(i):!newsGroupMark(i)));
+ const filter=$('newsFilter').value;const sourceFilter=$('newsSourceFilter')?.value||'all';const rows=newsGroups().filter(i=>(sourceFilter==='all'||i.members.some(m=>m.source===sourceFilter))).filter(i=>filter==='draft'?newsGroupDraft(i)&&!newsGroupMark(i):filter==='all'||(filter==='hidden'?!!newsGroupMark(i):!newsGroupMark(i)));
+ rows.sort((a,b)=>Number(newsGroupNew(b))-Number(newsGroupNew(a))||newsGroupTime(b)-newsGroupTime(a));
  $('newsList').replaceChildren();
  for(const item of rows.slice(0,newsState.limit)){
  const row=document.createElement('article');row.className='news-row';
@@ -165,7 +198,7 @@ function newsRender(){
  const title=document.createElement('strong');title.textContent=item.title;
  const source=document.createElement('span');source.className='backup-note';
  const mark=newsGroupMark(item);
- source.textContent=[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.gashapon?(item.resale?'再販':'ガシャポン情報'):item.tipsOnly?'公式新作情報':item.prize?'プライズ情報':item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
+ source.textContent=(newsGroupNew(item)?'NEW ・ ':'')+(newsGroupDraft(item)&&!mark?'準備中 ・ ':'')+[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.gashapon?(item.resale?'再販':'ガシャポン情報'):item.tipsOnly?'公式新作情報'+(item.date?' ・ 発表 '+newsDateLabel(item.date):''):item.prize?'プライズ情報':item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
  info.append(source,title);
  const schedule=item.members.map(newsScheduleLabel).find(Boolean);if(schedule){const note=document.createElement('span');note.className='news-schedule';note.textContent=schedule;info.append(note);}
  const img=document.createElement('img');img.className='news-thumb';img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';
@@ -181,7 +214,7 @@ function newsRender(){
 function newsKeepDraft(){
  if(!newsState.item)return;
  const entry=newsState.drafts.get(newsState.item.url);
- if(entry){entry.text=$('newsText').value;if(entry.aiDrafts?.length)entry.aiDrafts[entry.aiChoice||0].text=entry.text;entry.selected=newsState.selected.slice();}
+ if(entry){entry.text=$('newsText').value;if(entry.aiDrafts?.length)entry.aiDrafts[entry.aiChoice||0].text=entry.text;entry.selected=newsState.selected.slice();entry.savedAt=Date.now();newsSaveDrafts();}
 }
 function newsReturn(){newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;newsRender();window.scrollTo({top:newsState.browseY,behavior:'instant'});}
 function newsMark(url,kind){
@@ -189,9 +222,10 @@ function newsMark(url,kind){
  const prev={...newsState.marks};for(const u of urls){if(kind)newsState.marks[u]={kind,at:new Date().toISOString()};else delete newsState.marks[u];}
  try{localStorage.setItem('sanrioNewsMarks',JSON.stringify(newsState.marks));}catch(e){newsState.marks=prev;$('newsEditorStatus').textContent='保存できませんでした。端末の空き容量を確認してください。';return;}
  const editing=newsState.item?.url===url;if(editing)newsReturn();
+ if(kind){for(const u of urls)newsState.drafts.delete(u);newsSaveDrafts();}
  newsRender();if(editing)window.scrollTo({top:newsState.browseY,behavior:'instant'});
 }
-async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsState.items=d.items;newsState.limit=5;newsState.warnings=d.warnings||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
+async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsTrackItems(d.items);newsState.items=d.items;newsState.limit=5;newsState.warnings=d.warnings||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
 async function newsPrepare(url){
  newsKeepDraft();if(!$('newsBrowse').hidden)newsState.browseY=window.scrollY;
  const seq=++newsState.seq;$('newsAiStatus').textContent='';$('newsAiRetry').disabled=true;$('newsAiChoiceLabel').hidden=true;newsState.item=null;newsState.files=[];newsState.selected=[];
@@ -202,13 +236,13 @@ async function newsPrepare(url){
  editor.prepend($('newsEditorStatus'));editor.scrollIntoView({block:'start',behavior:'instant'});
  $('newsShare').disabled=true;$('newsSavePhotos').disabled=true;$('newsDone').disabled=true;$('newsSkip').disabled=true;
  $('newsRelatedSources').hidden=true;$('newsRelatedSources').replaceChildren();
- $('newsEditorStatus').textContent='記事を確認中…';$('newsImages').replaceChildren();$('newsText').value='';
+ $('newsDraftStatus').textContent='';$('newsEditorStatus').textContent='記事を確認中…';$('newsImages').replaceChildren();$('newsText').value='';
  try{
   let entry=newsState.drafts.get(url);
   if(!entry){
    const d=await newsRequest('detail',url);if(seq!==newsState.seq)return;
    const item={...d.item,images:d.item.images||[]};
-   entry={item,text:newsDraft(item),files:item.images.map(()=>null),selected:item.images.map((_,i)=>i).slice(0,4),errors:[],loading:[]};
+   entry={item,text:newsDraft(item),files:item.images.map(()=>null),selected:item.images.map((_,i)=>i).slice(0,4),errors:[],loading:[],savedAt:Date.now()};
    newsState.drafts.set(url,entry);newsState.drafts.set(item.url,entry);
   }
   if(seq!==newsState.seq)return;
@@ -218,7 +252,8 @@ async function newsPrepare(url){
   $('newsDone').disabled=false;$('newsSkip').disabled=false;
   $('newsTitle').textContent=entry.item.title;$('newsSource').href=entry.item.url;$('newsSource').textContent=entry.item.source+'の記事を確認';
   $('newsDate').textContent=entry.item.tipsOnly?(entry.item.schedule||'発売時期は公式ページで確認'):entry.item.prize?(entry.item.schedule?entry.item.schedule+'登場予定（店舗により時期が前後します）':'登場時期は公式ページで確認'):entry.item.date?'発表日：'+entry.item.date+'（発売日とは別）':'発表日を元記事で確認';
-  $('newsText').value=entry.text;$('newsAiChoiceLabel').hidden=true;$('newsAiChoice').value=String(entry.aiChoice||0);$('newsFacts').textContent=(entry.item.paragraphs||[]).slice(0,6).join('\n\n');
+  $('newsText').value=entry.text;$('newsAiChoiceLabel').hidden=!entry.aiDrafts?.length;$('newsAiChoice').value=String(entry.aiChoice||0);$('newsFacts').textContent=(entry.item.paragraphs||[]).slice(0,6).join('\n\n');
+  newsSaveDrafts();if(entry.restored&&$('newsDraftStatus'))$('newsDraftStatus').textContent='保存した準備を復元しました。日程は元記事で確認してください。';
   // Show every preview before waiting for downloadable photo files.
   newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();
   $('newsAiRetry').disabled=!!entry.aiPending;$('newsAiStatus').textContent=entry.aiStatus||'可愛い絵文字で300文字以内の投稿文を1案作れます。';
@@ -227,7 +262,7 @@ async function newsPrepare(url){
 $('newsText').addEventListener('input',newsKeepDraft);
 $('newsAiChoice').addEventListener('change',()=>{
  const entry=newsState.item&&newsState.drafts.get(newsState.item.url);if(!entry?.aiDrafts?.length)return;
- newsKeepDraft();entry.aiChoice=Number($('newsAiChoice').value);entry.text=entry.aiDrafts[entry.aiChoice].text;$('newsText').value=entry.text;
+ newsKeepDraft();entry.aiChoice=Number($('newsAiChoice').value);entry.text=entry.aiDrafts[entry.aiChoice].text;$('newsText').value=entry.text;entry.savedAt=Date.now();newsSaveDrafts();
 });
 $('newsRefresh').addEventListener('click',newsLoad);
 $('newsOpen').addEventListener('click',()=>newsPrepare($('newsUrl').value.trim()));
@@ -276,10 +311,12 @@ async function newsAiAdjust(entry,seq,force=false){
   else if(entry.text!==before||(seq===newsState.seq&&$('newsText').value!==before)){entry.aiStatus='手動編集を優先しました。AI文は反映していません。';}
   else{entry.aiDrafts=Array.isArray(d.drafts)&&d.drafts.length===3&&d.drafts.every(v=>typeof v.text==='string'&&v.text.trim())?d.drafts.map(v=>({...v})):[];entry.aiChoice=0;entry.text=entry.aiDrafts[0]?.text||d.text;entry.aiStatus=(entry.aiDrafts.length?'可愛い投稿案を3つ作成しました。':'AI生成済み（300文字以内）：')+'価格・日程・条件を元記事で確認してください。';if(newsState.item===entry.item){$('newsText').value=entry.text;$('newsAiChoice').value='0';$('newsAiChoiceLabel').hidden=!entry.aiDrafts.length;}}
  }catch(e){entry.aiStatus='AI未調整：'+e.message;}
- finally{entry.aiPending=false;if(newsState.item===entry.item){$('newsAiStatus').textContent=entry.aiStatus;$('newsAiRetry').disabled=false;}}
+ finally{entry.aiPending=false;entry.savedAt=Date.now();newsSaveDrafts();if(newsState.item===entry.item){$('newsAiStatus').textContent=entry.aiStatus;$('newsAiRetry').disabled=false;}}
 }
 $('newsAiRetry').addEventListener('click',()=>{
  const entry=newsState.item&&newsState.drafts.get(newsState.item.url);if(!entry)return;newsKeepDraft();newsAiAdjust(entry,newsState.seq,true);
 });
 
 $('newsGroqSave').addEventListener('click',async()=>{const input=$('newsGroqKey'),button=$('newsGroqSave');button.disabled=true;try{const d=await newsAiPost('groq-settings',{apiKey:input.value.trim()});input.value='';$('newsGroqStatus').textContent=d.configured?'保存しました。AI生成ボタンを使えます。':'設定できませんでした。';}catch(e){input.value='';$('newsGroqStatus').textContent=e.message;}finally{button.disabled=false;}});
+
+window.addEventListener('pagehide',newsKeepDraft);

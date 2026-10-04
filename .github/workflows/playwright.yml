@@ -92,6 +92,9 @@ jobs:
           php tests/bandai-parser.php
           php tests/gashapon-parser.php
 
+      - name: Check news identity and saved progress
+        run: node tests/news-progress.test.cjs
+
       - name: Install locked dependencies
         run: npm ci
 
