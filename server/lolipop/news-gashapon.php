@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-function news_gashapon_character(string $title):bool{return news_bandai_character($title)||(bool)preg_match('/HELLO\s*KITTY/i',$title);}
+function news_gashapon_character(string $title):bool{return news_bandai_character($title)||strpos($title,'チアリステイルズ')!==false||(bool)preg_match('/HELLO\s*KITTY/i',$title);}
 function news_gashapon_rules():string{return 'ガシャポン商品の紹介。発売週を日付に変換しない。発売時期は地域・店舗により異なる条件を残す。再販商品は再販と書き、新作・新登場と書かない。詳細はこちら・リンク案内は書かない。';}
 function news_gashapon_validate_body(string $body,array $item):void{
  if(empty($item['gashapon']))return;
