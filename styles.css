@@ -463,3 +463,5 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #lovelyPanel .lovely-filters select{width:auto;max-width:100%;min-width:0;min-height:44px;font-size:16px;padding:6px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--text)}
 
 #lovelyPanel .lovely-filters>label[hidden]{display:none}
+
+.news-row-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0}.news-row-actions .news-row-skip{font-size:12px;padding:6px 10px;min-height:36px;background:transparent;color:#7f747d}.news-photo .backup-note{margin:6px 0;font-size:12px}

@@ -5,6 +5,6 @@ for(const source of ['バンダイ キャンディ','バンダイ おもちゃ']
  let ai=0;await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
  await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
  await page.route('**/news.php?**',r=>{const q=new URL(r.request().url()).searchParams;if(q.get('action')==='ai-draft')ai++;return r.fulfill({json:q.get('action')==='list'?{ok:true,items:[candy,toy]}:{ok:true,item:q.get('url')===candy.url?candy:toy}});});
- await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsSourceFilter').selectOption(source);await expect(page.locator('#newsList .news-row')).toHaveCount(1);await page.locator('#newsList button').click();
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsSourceFilter').selectOption(source);await expect(page.locator('#newsList .news-row')).toHaveCount(1);await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  const item=source===candy.source?candy:toy;await expect(page.locator('#newsText')).toHaveValue(new RegExp(item.schedule));expect(await page.locator('#newsText').inputValue()).not.toMatch(/https?:|詳細はこちら|#pr\b/);await expect(page.locator('#newsDate')).toHaveText(item.schedule);await expect(page.locator('#newsSource')).toHaveAttribute('href',item.url);expect(ai).toBe(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });

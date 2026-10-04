@@ -16,7 +16,7 @@ test('フリューを新作ニュースで絞り込み、URLなしの本文・PN
  await expect(page.locator('#newsList .news-row')).toHaveCount(2);
  await page.locator('#newsSourceFilter').selectOption('フリュー');await expect(page.locator('#newsList .news-row')).toHaveCount(1);
  await expect(page.locator('#newsList')).toContainText('2026年10月2週登場予定');await expect(page.locator('#newsList')).not.toContainText('発表日未確認');
- await page.locator('#newsList button').click();
+ await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  await expect(page.locator('#newsText')).toHaveValue(/店舗により時期が前後/);
  expect(await page.locator('#newsText').inputValue()).not.toMatch(/https?:|詳細はこちら|#pr\b|価格/);
  await expect(page.locator('#newsSource')).toHaveAttribute('href',prize.url);await expect(page.locator('#newsShare')).toBeEnabled();expect(aiCalls).toBe(0);

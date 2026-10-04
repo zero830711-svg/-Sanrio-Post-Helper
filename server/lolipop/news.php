@@ -147,12 +147,28 @@ function news_merge_feeds(array $lists,int $now):array{
  $rows=[];foreach($sources as $items){$items=array_values($items);usort($items,static fn($a,$b)=>(strtotime(str_replace('/','-',$b['date']))?:0)<=>(strtotime(str_replace('/','-',$a['date']))?:0));$rows=array_merge($rows,array_slice($items,0,60));}
  usort($rows,static fn($a,$b)=>(strtotime(str_replace('/','-',$b['date']))?:0)<=>(strtotime(str_replace('/','-',$a['date']))?:0));return $rows;
 }
+function news_feed_source(array $feed):string{
+ $names=['official'=>'サンリオ公式','furyu'=>'フリュー','arts'=>'タカラトミーアーツ','rement'=>'リーメント','candy'=>'バンダイ キャンディ','toys'=>'バンダイ おもちゃ','gashapon'=>'ガシャポン公式','thankyou'=>'サンキューマート'];
+ return $names[$feed['kind']??'']??(strpos($feed['url']??'','https://prtimes.jp/')===0?'PR TIMES':'サンリオ公式');
+}
+function news_source_statuses(array $attempts,array $rows):array{
+ $result=[];foreach($attempts as $source=>$counts){$count=count(array_filter($rows,static fn($row)=>($row['source']??'')===$source));$failed=(int)($counts['failed']??0);$ok=(int)($counts['ok']??0);$result[$source]=['state'=>$failed?($ok&&$count?'partial':'failed'):'ok','count'=>$count];}return $result;
+}
 function news_list():array{
- $cache=sys_get_temp_dir().'/sph-news-list-v9-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
- $feeds=news_feeds();$bodies=news_fetch_feeds($feeds);$lists=[];$errors=[];$gashapon=[];$rement=[];
- foreach($feeds as $i=>$feed){try{if($feed['kind']==='thankyou'){$lists[]=news_thankyou_snapshot($bodies[$i],time());continue;}if($bodies[$i]===null)throw new RuntimeException($feed['kind']==='thankyou'?'サンキューマートの公式ニュース配信に接続できませんでした。':'一部のニュース取得元に接続できませんでした。');if($feed['kind']==='rement'){$rement=news_rement_rows($bodies[$i]);continue;}if($feed['kind']==='gashapon'){foreach(news_gashapon_rows($bodies[$i],time()) as $row)$gashapon[$row['url']]=$row;continue;}if(in_array($feed['kind'],['candy','toys'],true)){$lists[]=news_bandai_rows($bodies[$i],$feed['kind'],time());continue;}$lists[]=$feed['kind']==='official'?news_official_rows($bodies[$i]):($feed['kind']==='furyu'?news_furyu_rows($bodies[$i]):($feed['kind']==='arts'?news_arts_rows($bodies[$i],time()):news_html_rows($bodies[$i])));}catch(Throwable $e){$errors[]=$e->getMessage();}}
- if($gashapon||$rement)$lists[]=news_gashapon_enrich(array_values($gashapon),$errors,$rement);
- $rows=news_merge_feeds($lists,time());if(!$rows)throw new RuntimeException('ニュース一覧を取得できませんでした。記事URLから開けます。');$result=['items'=>$rows,'warnings'=>array_values(array_unique($errors)),'fetchedAt'=>gmdate('c')];file_put_contents($cache,json_encode($result),LOCK_EX);@chmod($cache,0600);return $result;
+ $cache=sys_get_temp_dir().'/sph-news-list-v10-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
+ $feeds=news_feeds();$bodies=news_fetch_feeds($feeds);$lists=[];$errors=[];$gashapon=[];$rement=[];$attempts=[];
+ foreach($feeds as $i=>$feed){$source=news_feed_source($feed);$attempts[$source]=$attempts[$source]??['ok'=>0,'failed'=>0];try{
+  if($feed['kind']==='thankyou')$lists[]=news_thankyou_snapshot($bodies[$i],time());
+  elseif($bodies[$i]===null)throw new RuntimeException('公式情報に接続できませんでした。');
+  elseif($feed['kind']==='rement')$rement=news_rement_rows($bodies[$i]);
+  elseif($feed['kind']==='gashapon'){foreach(news_gashapon_rows($bodies[$i],time()) as $row)$gashapon[$row['url']]=$row;}
+  elseif(in_array($feed['kind'],['candy','toys'],true))$lists[]=news_bandai_rows($bodies[$i],$feed['kind'],time());
+  else $lists[]=$feed['kind']==='official'?news_official_rows($bodies[$i]):($feed['kind']==='furyu'?news_furyu_rows($bodies[$i]):($feed['kind']==='arts'?news_arts_rows($bodies[$i],time()):news_html_rows($bodies[$i])));
+  $attempts[$source]['ok']++;
+ }catch(Throwable $e){$attempts[$source]['failed']++;$errors[]=$source.'の情報を更新できませんでした。';}}
+ $before=count($errors);if($gashapon||$rement)$lists[]=news_gashapon_enrich(array_values($gashapon),$errors,$rement);
+ foreach(array_slice($errors,$before) as $error){foreach(['リーメント','ガシャポン公式'] as $source)if(strpos($error,$source)!==false)$attempts[$source]['failed']++;}
+ $rows=news_merge_feeds($lists,time());$result=['items'=>$rows,'sourceStatuses'=>news_source_statuses($attempts,$rows),'warnings'=>array_values(array_unique($errors)),'fetchedAt'=>gmdate('c')];file_put_contents($cache,json_encode($result),LOCK_EX);@chmod($cache,0600);return $result;
 }
 
 function news_ai_settings():array{
