@@ -446,3 +446,7 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #lovelyEditor #lovelyPostText{min-height:130px;font-size:16px}
 #lovelyEditor .lovely-confirmation input{width:20px;height:20px;flex-shrink:0}
 #lovelyPanel #lovelyEditor #lovelyShare{min-height:36px;background:#fff;color:var(--muted);border:1px solid var(--line);font-size:12px}
+
+/* iPhone Safari: 16px controls prevent focus zoom without disabling pinch zoom. */
+#lovelyPanel #lovelyEditor input[type=url],#lovelyPanel #lovelyEditor textarea,#lovelyPanel #lovelyEditor select{font-size:16px}
+#lovelyPanel #lovelyEditor #lovelyPasteHelp{margin:4px 0;font-size:11px}
