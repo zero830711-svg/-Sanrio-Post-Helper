@@ -94,7 +94,8 @@ function ov_merge(array $previous,array $batches,string $now): array {
         foreach($old['items']??[] as $item)if(!isset($byUrl[$item['url']])&&strtotime($item['firstSeenAt'])>=strtotime($now)-180*86400)$byUrl[$item['url']]=$item;
         $items=array_values($byUrl);usort($items,static fn($a,$b)=>strcmp($b['firstSeenAt'],$a['firstSeenAt']));$items=array_slice($items,0,300);
         // Retain discovery identities across list reorder/removal/reappearance.
-        $seen=array_filter($seen,static fn($v)=>strtotime($v['at'])>=strtotime($now)-180*86400);
+        $retained=array_fill_keys(array_column($items,'url'),true);
+        $seen=array_filter($seen,static fn($v,$url)=>isset($retained[$url])||strtotime($v['at'])>=strtotime($now)-180*86400,ARRAY_FILTER_USE_BOTH);
         $saved[$id]=['initialized'=>true,'seen'=>array_slice($seen,-2000,null,true),'items'=>$items,'health'=>['label'=>$meta['source'],'ok'=>true,'count'=>count($items),'attemptedAt'=>$now,'lastSuccessAt'=>$now]];
     }
     return ['sources'=>$saved,'lastAttemptAt'=>$now];

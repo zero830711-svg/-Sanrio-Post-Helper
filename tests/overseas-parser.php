@@ -34,6 +34,9 @@ ov_check($failed['sources']['us']['health']['lastSuccessAt']==='2026-10-04T01:00
 $again=ov_merge($failed,$added,'2026-10-04T02:00:00Z');
 ov_check($again['sources']['us']['items'][0]['firstSeenAt']==='2026-10-04T01:00:00Z','first discovery timestamp stays stable');
 ov_check(!array_filter(ov_payload($again,'2026-10-06T02:00:00Z')['items'],fn($i)=>$i['isNew']),'new badge expires after 24h');
+$longLived=ov_merge($first,$batches,'2027-05-04T00:00:00Z');
+$longLived=ov_merge($longLived,$batches,'2027-05-04T01:00:00Z');
+ov_check(!array_filter(ov_payload($longLived,'2027-05-04T01:10:00Z')['items'],fn($i)=>$i['isNew']),'still-listed old products never become new when identity retention ages');
 json_encode($again,JSON_THROW_ON_ERROR);
 echo "Overseas parsers, discovery baseline, retention and URL checks passed\n";
 if(in_array('--live',$argv,true)){
