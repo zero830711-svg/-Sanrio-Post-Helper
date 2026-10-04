@@ -1,0 +1,42 @@
+name: Patch private share auto init
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/patch-private-share-init.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Patch files
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          marker='</body>'
+          script='''<script>\nwindow.addEventListener("load",()=>{\n  setTimeout(()=>{\n    try{\n      if(sessionStorage.getItem("sphPrivateShareInitAttempted"))return;\n      const key=localStorage.getItem("sanrioCloudSyncKey")||"";\n      const button=document.getElementById("createCodexShareLink");\n      if(!key||!button)return;\n      sessionStorage.setItem("sphPrivateShareInitAttempted","1");\n      button.click();\n    }catch(e){}\n  },2500);\n});\n</script>\n'''
+          if 'sphPrivateShareInitAttempted' not in s:
+              s=s.replace(marker,script+marker)
+              p.write_text(s)
+
+          p=Path('share.html')
+          s=p.read_text()
+          old=''' }catch(error){state.textContent="共有データを読み込めませんでした。リンクの期限切れ、またはサーバー未更新の可能性があります。"}\n}'''
+          new=''' }catch(error){\n  const detail=String(error&&error.message||error||"");\n  if(/Private link is not initialized/i.test(detail)){\n   state.textContent="この固定リンクはまだ初期化されていません。Sanrio Post Helperを一度開くと自動で初期化します。数秒後にこのページを再読み込みしてください。";\n  }else{\n   state.textContent="共有データを読み込めませんでした。"+(detail?" エラー: "+detail:"");\n  }\n }\n}'''
+          if old in s:
+              s=s.replace(old,new)
+              p.write_text(s)
+          else:
+              raise SystemExit('share catch pattern not found')
+          PY
+          rm .github/workflows/patch-private-share-init.yml
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Auto initialize private ChatGPT share link' || exit 0
+          git push
