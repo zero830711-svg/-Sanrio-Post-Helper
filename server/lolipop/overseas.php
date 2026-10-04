@@ -80,6 +80,20 @@ function ov_parse(string $source,string $body): array {
     }
     return array_slice(array_values($rows),0,50);
 }
+function ov_validate_batches(array $input): array {
+    $batches=[];
+    foreach(ov_sources() as $id=>$meta){
+        $batch=$input[$id]??[];$rows=[];
+        if(($batch['ok']??false)!==true||!is_array($batch['items']??null)||!count($batch['items'])||count($batch['items'])>50){$batches[$id]=['ok'=>false];continue;}
+        foreach($batch['items'] as $item){
+            if(!is_array($item)||!is_string($item['title']??null)||!is_string($item['url']??null)||!is_string($item['thumbnail']??null))throw new RuntimeException('Invalid candidate');
+            $row=ov_item($id,$item['url'],$item['title'],$item['thumbnail']);
+            if(!$row||!$row['thumbnail'])throw new RuntimeException('Invalid source URL or image');$rows[$row['url']]=$row;
+        }
+        $batches[$id]=['ok'=>true,'items'=>array_values($rows)];
+    }
+    return $batches;
+}
 function ov_merge(array $previous,array $batches,string $now): array {
     $saved=$previous['sources']??[];
     foreach(ov_sources() as $id=>$meta){
@@ -106,7 +120,7 @@ function ov_payload(array $snapshot,string $now): array {
         $health[]=$source['health'];foreach($source['items']??[] as $item){$item['isNew']=empty($item['baseline'])&&strtotime($item['firstSeenAt'])>strtotime($now)-86400;$items[]=$item;}
     }
     usort($items,static fn($a,$b)=>strcmp($b['firstSeenAt'],$a['firstSeenAt'])?:strcmp($a['url'],$b['url']));
-    return ['ok'=>true,'apiVersion'=>'3431','items'=>$items,'sourceHealth'=>$health,'fetchedAt'=>$snapshot['lastAttemptAt']??null,'nextPage'=>null,'cached'=>true];
+    return ['ok'=>true,'apiVersion'=>'3432','items'=>$items,'sourceHealth'=>$health,'fetchedAt'=>$snapshot['lastAttemptAt']??null,'nextPage'=>null,'cached'=>true];
 }
 function ov_collect(): array {
     $multi=curl_multi_init();$handles=[];$bodies=[];$batches=[];
@@ -126,21 +140,29 @@ function ov_collect(): array {
 if(defined('OV_TEST_ONLY'))return;
 $config=require __DIR__.'/config.php';$origin=$_SERVER['HTTP_ORIGIN']??'';
 if($origin&&in_array($origin,$config['allowed_origins']??[],true)){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}
-header('Access-Control-Allow-Headers: Authorization');header('Access-Control-Allow-Methods: GET, OPTIONS');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
+header('Access-Control-Allow-Headers: Authorization, Content-Type');header('Access-Control-Allow-Methods: GET, POST, OPTIONS');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
 function ov_out(array $data,int $status=200): void {http_response_code($status);echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);exit;}
 if(($_SERVER['REQUEST_METHOD']??'')==='OPTIONS'){http_response_code(204);exit;}
 $token='';if(preg_match('/^Bearer\s+(.+)$/i',$_SERVER['HTTP_AUTHORIZATION']??'',$m))$token=trim($m[1]);
 if(empty($config['sync_key'])||!$token||!hash_equals($config['sync_key'],$token))ov_out(['ok'=>false,'error'=>'Unauthorized'],401);
-if(($_SERVER['REQUEST_METHOD']??'')!=='GET')ov_out(['ok'=>false,'error'=>'GET required'],405);
+$method=$_SERVER['REQUEST_METHOD']??'';$action=$_GET['action']??'list';
+if($method!=='GET'&&!($method==='POST'&&$action==='ingest'))ov_out(['ok'=>false,'error'=>'Method not allowed'],405);
+$incoming=null;
+if($action==='ingest'){
+    if($method!=='POST'||($origin&&!in_array($origin,$config['allowed_origins']??[],true)))ov_out(['ok'=>false,'error'=>'Collector required'],403);
+    if((int)($_SERVER['CONTENT_LENGTH']??0)>256000)ov_out(['ok'=>false,'error'=>'Payload too large'],413);
+    $body=(string)file_get_contents('php://input',false,null,0,256001);
+    try{if(strlen($body)>256000)throw new RuntimeException('Too large');$decoded=json_decode($body,true,512,JSON_THROW_ON_ERROR);if(!is_array($decoded))throw new RuntimeException('Invalid input');$incoming=ov_validate_batches($decoded);}catch(Throwable $e){ov_out(['ok'=>false,'error'=>'Invalid collection payload'],400);}
+}
 try{
     $pdo=new PDO($config['db_dsn'],$config['db_user'],$config['db_password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
     $pdo->exec('CREATE TABLE IF NOT EXISTS sanrio_overseas_snapshot(id TINYINT NOT NULL PRIMARY KEY,payload LONGTEXT NOT NULL) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
     $raw=$pdo->query('SELECT payload FROM sanrio_overseas_snapshot WHERE id=1')->fetchColumn();$snapshot=$raw?json_decode($raw,true,512,JSON_THROW_ON_ERROR):[];$action=$_GET['action']??'list';
-    if($action==='refresh'){
-        if(!empty($snapshot['lastAttemptAt'])&&strtotime($snapshot['lastAttemptAt'])>time()-1500)ov_out(ov_payload($snapshot,gmdate('c')));
+    if($action==='refresh'||$action==='ingest'){
+        if($action==='refresh'&&!empty($snapshot['lastAttemptAt'])&&strtotime($snapshot['lastAttemptAt'])>time()-1500)ov_out(ov_payload($snapshot,gmdate('c')));
         if(!(int)$pdo->query("SELECT GET_LOCK('sph_overseas_collect',0)")->fetchColumn())ov_out($snapshot?ov_payload($snapshot,gmdate('c')):['ok'=>false,'error'=>'海外情報を収集中です。少し待って再確認してください。'],$snapshot?200:503);
         try{
-            $snapshot=ov_merge($snapshot,ov_collect(),gmdate('c'));$write=$pdo->prepare('INSERT INTO sanrio_overseas_snapshot(id,payload) VALUES(1,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)');$write->execute([json_encode($snapshot,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]);
+            $snapshot=ov_merge($snapshot,$incoming??ov_collect(),gmdate('c'));$write=$pdo->prepare('INSERT INTO sanrio_overseas_snapshot(id,payload) VALUES(1,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload)');$write->execute([json_encode($snapshot,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]);
         }finally{$pdo->query("SELECT RELEASE_LOCK('sph_overseas_collect')");}
     }elseif(!in_array($action,['list','detail','image'],true))ov_out(['ok'=>false,'error'=>'Unknown action'],400);
     if(!$snapshot)ov_out(['ok'=>false,'error'=>'海外情報の初回収集待ちです。しばらくして再確認してください。'],503);
