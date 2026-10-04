@@ -62,7 +62,6 @@ window.postAi=(()=>{
    status.textContent=(s.drafts.length?'可愛い投稿案を3つ作成しました。':'AI作成済み：')+'元情報・写真との一致、価格・日程・条件を確認して共有してください。';
   }catch(e){if(s.revision===revision)status.textContent='AI未調整：'+(e.name==='TimeoutError'||e.name==='AbortError'?'通信が時間切れになりました。もう一度お試しください。':e.message);}
   finally{
-   // A newer screen or request owns its own controls.
    if(s.requestId===requestId){
     s.busy=false;el(s.prefix+'Generate').disabled=false;
     if(!current())status.textContent='手動編集・商品情報の変更を優先し、AI文は反映していません。必要なら作り直してください。';
@@ -97,7 +96,6 @@ window.postAi=(()=>{
    }
    const data=files.length?{text,files}:{text};
    if(!navigator.share||(navigator.canShare&&!navigator.canShare(data)))throw new Error('このブラウザーでは共有できません。投稿文のコピーと既存の写真保存を使ってください。');
-   // Release fixed-body modal before iPhone suspends this page for native sharing.
    if(kind==='today')closeTodayDetail();
    const revision=s.revision;
    const result=navigator.share(data);
@@ -106,4 +104,45 @@ window.postAi=(()=>{
  }
  mount('today');mount('product');
  return {weightedLength,openToday:item=>{if(sessions.today)reset('today',item);},closeToday:()=>{if(sessions.today)reset('today');},closeProduct:()=>reset('product')};
+})();
+
+(()=>{
+ const panel=document.getElementById('overseasPanel');
+ const tab=document.getElementById('homeOverseasTab');
+ if(!panel||!tab)return;
+ let loaded=false,busy=false;
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const endpoint=()=>{
+  const input=document.getElementById('cloudApiUrl');
+  const base=(input?.value||localStorage.getItem('sanrioCloudApiUrl')||'https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/api2580.php').trim();
+  return base.replace(/\/api(?:2530|2540|2550|2560|2580)\.php(?:\?.*)?$/,'/overseas.php');
+ };
+ const key=()=>document.getElementById('cloudSyncKey')?.value||localStorage.getItem('sanrioCloudSyncKey')||'';
+ panel.innerHTML='<div class="today-head"><div><h2 class="section-title">海外</h2><p class="backup-note">海外公式Instagramの新着をネタ発見用に表示します。まずは香港公式 @sanrio.hk を監視中。</p></div><button id="overseasRefresh" class="small-btn" type="button">更新</button></div><div class="overseas-source"><span>🇭🇰 Sanrio Hong Kong</span><a class="small-btn link-btn" href="https://www.instagram.com/sanrio.hk/" target="_blank" rel="noopener noreferrer">Instagramを開く</a></div><p id="overseasStatus" class="backup-note" aria-live="polite"></p><div id="overseasInstagramList"></div>';
+ const style=document.createElement('style');style.textContent='#overseasPanel .overseas-source{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:12px 0 16px;padding:12px;border:1px solid #eadde5;border-radius:14px;background:#fff9fc}#overseasPanel .overseas-ig-card{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:14px 0;border-bottom:1px solid #eadde5}#overseasPanel .overseas-ig-card img{width:92px;height:92px;object-fit:cover;border-radius:14px;background:#f7f2f5}#overseasPanel .overseas-ig-card h3{font-size:15px;margin:0 0 6px;line-height:1.45}#overseasPanel .overseas-ig-card p{margin:0 0 8px}#overseasPanel .overseas-actions{display:flex;gap:8px;flex-wrap:wrap}#overseasPanel .overseas-noimage{width:92px;height:92px;border-radius:14px;background:#f3edf1;display:grid;place-items:center;font-size:28px}';document.head.appendChild(style);
+ const status=document.getElementById('overseasStatus'),list=document.getElementById('overseasInstagramList');
+ function promptFor(item){return `Sanrio fan info向けの海外情報投稿を作成してください。\n\n国・地域：香港\n情報源：Sanrio Hong Kong公式Instagram（@sanrio.hk）\n元投稿：${item.url}\n本文：${item.summary||item.title||''}\n\n画像と元投稿で確認できる事実だけを使い、未確認の発売日・価格・在庫・限定情報は断定しないでください。先頭で「海外グッズ情報」または「海外イベント情報」と分かるようにしてください。X用に3案作成してください。`}
+ async function copyPrompt(item,button){
+  const text=promptFor(item);try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);else if(window.legacyCopyText&&!legacyCopyText(text))throw new Error();button.textContent='コピー済み';setTimeout(()=>button.textContent='投稿文プロンプト',1200);}catch{status.textContent='コピーできませんでした。Instagramを開いて内容を確認してください。';}
+ }
+ function render(data){
+  const items=Array.isArray(data.items)?data.items:[];
+  if(!items.length){list.innerHTML='';status.textContent=data.warning||'新着投稿を取得できませんでした。公式Instagramから確認してください。';return;}
+  status.textContent=`@sanrio.hk から ${items.length}件取得しました。投稿前に必ずInstagram本体で内容を確認してください。`;
+  list.innerHTML=items.map((item,i)=>{const date=item.publishedAt?new Date(item.publishedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';const summary=String(item.summary||item.title||'').slice(0,180);return `<article class="overseas-ig-card">${item.thumbnail?`<img src="${esc(item.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:'<div class="overseas-noimage">📷</div>'}<div><h3>${esc(summary||'Sanrio Hong Kong Instagram 投稿')}</h3>${date?`<p class="backup-note">${esc(date)}</p>`:''}<div class="overseas-actions"><a class="small-btn link-btn" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">Instagramで確認</a><button class="small-btn overseasPrompt" type="button" data-i="${i}">投稿文プロンプト</button></div></div></article>`}).join('');
+  list.querySelectorAll('.overseasPrompt').forEach(button=>button.addEventListener('click',()=>copyPrompt(items[Number(button.dataset.i)],button)));
+ }
+ async function load(force=false){
+  if(busy||(!force&&loaded))return;busy=true;status.textContent='香港公式Instagramを確認中…';
+  const refresh=document.getElementById('overseasRefresh');refresh.disabled=true;
+  try{
+   const token=key();if(!token)throw new Error('管理 → ロリポップ同期で同期キーを設定してください。');
+   const r=await fetch(endpoint()+'?action='+(force?'refresh':'list')+'&t='+Date.now(),{headers:{Authorization:'Bearer '+token},cache:'no-store'});const data=await r.json().catch(()=>({}));
+   if(!r.ok||data.ok===false)throw new Error(data.error||('HTTP '+r.status));render(data);loaded=true;
+  }catch(e){status.textContent='海外Instagramを取得できませんでした：'+e.message;}
+  finally{busy=false;refresh.disabled=false;}
+ }
+ document.getElementById('overseasRefresh').addEventListener('click',()=>load(true));
+ tab.addEventListener('click',()=>setTimeout(()=>load(false),0));
+ if(tab.getAttribute('aria-selected')==='true')load(false);
 })();
