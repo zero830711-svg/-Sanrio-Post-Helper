@@ -190,3 +190,10 @@ $failed=false;try{news_parse(file_get_contents(__DIR__.'/rement-news-detail.html
 check(strpos(ai_cute_suffix($arts),'http')===false);check(strpos(ai_cute_suffix($rm),'詳細')===false);
 foreach(['🎀 2026年10月10日発売','🎀 詳細はこちら'] as $body){$failed=false;try{news_groq_validate(json_encode(['body'=>$body],JSON_UNESCAPED_UNICODE),$arts);}catch(RuntimeException $e){$failed=true;}check($failed);}
 echo "Manufacturer identities, date precision, recent products and image scopes passed\n";
+
+check(news_feed_source(['kind'=>'html','url'=>'https://prtimes.jp/topics/keywords/test'])==='PR TIMES');
+check(news_feed_source(['kind'=>'html','url'=>'https://www.sanrio.co.jp/news/'])==='サンリオ公式');
+$status=news_source_statuses(['サンリオ公式'=>['ok'=>2,'failed'=>1],'サンキューマート'=>['ok'=>0,'failed'=>1],'フリュー'=>['ok'=>1,'failed'=>0]],[['source'=>'サンリオ公式']]);
+check($status['サンリオ公式']['state']==='partial');check($status['サンリオ公式']['count']===1);check($status['サンキューマート']['state']==='failed');check($status['フリュー']['state']==='ok');
+check(news_source_statuses(['リーメント'=>['ok'=>1,'failed'=>2]],[])['リーメント']['state']==='failed');
+echo "Per-source partial, failed and empty successful feed states passed\n";
