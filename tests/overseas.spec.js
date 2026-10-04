@@ -16,20 +16,20 @@ async function setup(page){
  await page.route('**/lovely-watch.php?**',r=>r.fulfill({json:{ok:true,items:new URL(r.request().url()).searchParams.has('source')?[]:[{url:domestic,title:'国内のキティ商品',source:'Lovely Fancy',products:[],productIds:[],needsReview:true}],nextPage:null}}));
  await page.goto('/');return overseasCalls;
 }
-test('海外タブは空のまま残り、再読み込みやタブ切り替えで収集しない',async({page})=>{
+test('ホームは国内の3タブに戻り、海外情報を取得しない',async({page})=>{
  const calls=await setup(page);
- await expect(page.locator('.home-tabs [role="tab"]')).toHaveText(['今日の候補','新作ニュース','新着商品','海外']);
- await page.getByRole('tab',{name:'海外',exact:true}).click();
- await expect(page.locator('#overseasPanel')).toBeVisible();await expect(page.locator('#overseasPanel')).toContainText('現在、掲載情報はありません。');
- await expect(page.locator('#overseasPanel button, #overseasPanel select, #overseasPanel img')).toHaveCount(0);
- await expect(page.locator('#lovelyPanel')).toBeHidden();
- await page.reload();await page.getByRole('tab',{name:'海外',exact:true}).click();
- await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();
- await page.locator('#lovelyRestoreBox > summary').click();await page.locator('#lovelyRestore').click();await page.locator('#lovelyFilter').selectOption('all');await expect(page.locator('#lovelyList')).toContainText('国内のキティ商品');await expect(page.locator('#lovelyList')).not.toContainText('古い海外候補');
- await page.getByRole('tab',{name:'海外',exact:true}).click();await expect(page.locator('#lovelyPanel')).toBeHidden();expect(calls).toEqual([]);
- await page.getByRole('tab',{name:'海外',exact:true}).press('Home');await expect(page.getByRole('tab',{name:'今日の候補',exact:true})).toBeFocused();
- await page.getByRole('tab',{name:'今日の候補',exact:true}).press('End');await expect(page.getByRole('tab',{name:'海外',exact:true})).toBeFocused();
+ await expect(page.locator('.home-tabs [role="tab"]')).toHaveText(['今日の候補','新作ニュース','新着商品']);
+ await expect(page.locator('#homeOverseasTab, #overseasPanel')).toHaveCount(0);
+ await page.reload();await page.getByRole('tab',{name:'新着商品',exact:true}).click();
+ await expect(page.locator('#lovelyRefresh')).toBeEnabled();
+ await page.locator('#lovelyRestoreBox > summary').click();await page.locator('#lovelyRestore').click();
+ await page.locator('#lovelyFilter').selectOption('all');await expect(page.locator('#lovelyList')).toContainText('国内のキティ商品');
+ await expect(page.locator('#lovelyList')).not.toContainText('古い海外候補');
+ await page.getByRole('tab',{name:'新着商品',exact:true}).press('Home');await expect(page.getByRole('tab',{name:'今日の候補',exact:true})).toBeFocused();
+ await page.getByRole('tab',{name:'今日の候補',exact:true}).press('End');await expect(page.getByRole('tab',{name:'新着商品',exact:true})).toBeFocused();
+ await page.getByRole('tab',{name:'新着商品',exact:true}).press('ArrowRight');await expect(page.getByRole('tab',{name:'今日の候補',exact:true})).toBeFocused();
  for(const width of [390,320]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();}
+ expect(calls).toEqual([]);
 });
 test('海外候補の端末キャッシュだけを削除し、国内の下書きと紹介リンクを残す',async({page})=>{
  await setup(page);

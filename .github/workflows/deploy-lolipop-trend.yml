@@ -77,3 +77,16 @@ jobs:
           put server/lolipop/overseas.php
           bye
           LFTP
+
+      - name: Verify retired overseas endpoint
+        run: |
+          python3 - <<'PYVERIFY'
+          import json, urllib.request, urllib.error
+          try:
+              urllib.request.urlopen('https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/overseas.php', timeout=20)
+              raise SystemExit('Overseas endpoint is still active')
+          except urllib.error.HTTPError as error:
+              data=json.loads(error.read())
+              assert error.code == 410 and data.get('disabled') is True and data.get('items') == [] and data.get('apiVersion') == '3438'
+              print('Overseas endpoint retired: HTTP 410; no candidates returned.')
+          PYVERIFY
