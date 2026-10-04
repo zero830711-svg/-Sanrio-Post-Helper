@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261004-3427">
+<link rel="stylesheet" href="./styles.css?v=20261004-3428">
 </head>
 <body>
 <main class="app">
@@ -18,7 +18,7 @@
 <details class="home-info"><summary>データ・更新情報</summary>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.10.04-3427</span>
+<span id="appVersionStatus">アプリ版 2026.10.04-3428</span>
 <button id="forceLatest" type="button" >最新版を読み込む</button>
 </div>
 <p class="backup-note app-update-help">更新後もホーム画面のアイコンはそのまま使えます。作り直しは不要です。この端末に保存した投稿データと同期設定は、同じURLを使う限り引き継がれます。</p>
@@ -48,7 +48,8 @@
 </div>
 <div id="todayList" class="today-list"></div>
 <button id="todayMore" class="small-btn" type="button" hidden>もっと見る</button><p id="todayMoreStatus" class="backup-note" aria-live="polite"></p>
-<details class="today-selection-help"><summary>候補の選び方</summary><p class="backup-note">過去投稿から「過去最強 / クリック / 保存」の3枠はAmazon・楽天リンク付き優先、「久しぶり / 別テーマ」の2枠は反応とテーマの変化を重視して自動選定。クリック枠は商品IDが完全一致する報酬実績を優先します（Amazonはアカウントごとの最新商品レポート、楽天は直近3か月の保存済みレポートの確定報酬。投稿経由は不明）。「別テーマ」は季節に合う商品テーマを優先します。単独キャラクターは原則2件まで。複数キャラクターは別扱いとし、候補不足時は制限を緩めます。リンク付き候補が不足する場合は通常候補で補います。似た内容の連投を避け、同じ商品は基本30日空けます。十分なX比較実績がありクリック率が低下した場合は60日・90日に自動延長します（再入荷・発売日変更などの新情報は同商品制限の対象外）。</p></details>
+<details class="today-selection-help"><summary id="todayCountsSummary">件数の内訳</summary><div id="todayCounts" class="backup-note"></div></details>
+<details class="today-selection-help"><summary>候補の選び方</summary><p class="backup-note">過去投稿から「過去最強 / クリック / 保存」の3枠はAmazon・楽天リンク付き優先、「久しぶり / 別テーマ」の2枠は反応とテーマの変化を重視して自動選定。クリック枠は商品IDが完全一致する報酬実績を優先します（Amazonはアカウントごとの最新商品レポート、楽天は直近3か月の保存済みレポートの確定報酬。投稿経由は不明）。「別テーマ」は季節に合う商品テーマを優先します。単独キャラクターは原則2件まで。複数キャラクターは別扱いとし、候補不足時は制限を緩めます。リンク付き候補が不足する場合は通常候補で補います。「もっと見る」の追加候補はAmazon・楽天リンクあり→写真あり→反応などの順で並べます。残り件数は、条件で絞り込み同じ投稿・商品をまとめた後の数です。似た内容の連投を避け、同じ商品は基本30日空けます。十分なX比較実績がありクリック率が低下した場合は60日・90日に自動延長します（再入荷・発売日変更などの新情報は同商品制限の対象外）。</p></details>
 </section>
 
 <section id="newsPanel" class="card" role="tabpanel" aria-labelledby="homeNewsTab" hidden>
@@ -436,12 +437,12 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261004-3427"></script>
+<script src="./app.js?v=20261004-3428"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
-<script src="./lovely-watch.js?v=20261004-3427"></script>
+<script src="./lovely-watch.js?v=20261004-3428"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
-<script src="./news.js?v=20261004-3427"></script>
-<script src="./post-ai.js?v=20261004-3427"></script>
+<script src="./news.js?v=20261004-3428"></script>
+<script src="./post-ai.js?v=20261004-3428"></script>
 </body>
 </html>

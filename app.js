@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.04-3427";
+const APP_VERSION="2026.10.04-3428";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2175,17 +2175,44 @@ async function importAnalyticsCSV(file){
   return {added,updated,total:added+updated,items:[...pending,...matches.updates],repostMatches:matches.matched};
 }
 
-async function getReadyItems(){
-  const all=await dbGetAll();
-  const now=Date.now(),productIndex=recentProductIndex(all,now);
-  return all
-    .filter(x=>isRecommendationEligible(x)&&canRecommendToday(x)&&!recentSameProductReason(x,all,now,productIndex))
-    .sort((a,b)=>{
-      const at=recommendedDay(a)===localDayKey()?1:0;
-      const bt=recommendedDay(b)===localDayKey()?1:0;
-      if(at!==bt)return bt-at;
-      return recommendationScore(b)-recommendationScore(a);
-    });
+function candidatePoolAnalysis(all){
+  const now=Date.now(),productIndex=recentProductIndex(all,now),ready=[];
+  const counts={excluded:0,short:0,interval:0,dated:0,skipped:0,sameProduct:0};
+  // Assign each record to its first exclusion reason so the totals reconcile.
+  for(const x of all){
+    if(isCandidateExcluded(x))counts.excluded++;
+    else if(isLowValueCandidate(x))counts.short++;
+    else if(!isReadyForReuse(x))counts.interval++;
+    else if(isLikelyExpiredNews(x))counts.dated++;
+    else if(!canRecommendToday(x))counts.skipped++;
+    else if(recentSameProductReason(x,all,now,productIndex))counts.sameProduct++;
+    else ready.push(x);
+  }
+  ready.sort((a,b)=>{
+    const at=recommendedDay(a)===localDayKey()?1:0,bt=recommendedDay(b)===localDayKey()?1:0;
+    return bt-at||recommendationScore(b)-recommendationScore(a);
+  });
+  return {total:all.length,posts:new Set(all.map(canonicalPostKey)).size,counts,ready};
+}
+async function getReadyItems(){return candidatePoolAnalysis(await dbGetAll()).ready;}
+function renderCandidateCounts(analysis,base,extra){
+  const summary=$("todayCountsSummary"),root=$("todayCounts");
+  if(!summary||!root)return;
+  const n=value=>Number(value).toLocaleString("ja-JP");
+  const candidates=base.length+extra.length,duplicates=Math.max(0,analysis.ready.length-candidates);
+  summary.textContent="件数の内訳：保存 "+n(analysis.total)+"件 ／ 候補 "+n(candidates)+"件";
+  const linked=analysis.ready.filter(x=>todayAffiliateLinks(x).length).length;
+  const lines=[
+    ["この端末の保存データ",analysis.total],["重複投稿を除いた投稿数",analysis.posts],
+    ["候補にしない設定",analysis.counts.excluded],["本文なし・短い本文など",analysis.counts.short],
+    ["再投稿の間隔待ち",analysis.counts.interval],["日付・告知の条件で対象外",analysis.counts.dated],
+    ["7日以内に見送り",analysis.counts.skipped],["同じ商品の再投稿待ち",analysis.counts.sameProduct],
+    ["条件を通過",analysis.ready.length],["一覧内の同じ投稿・商品をまとめた分",duplicates],
+    ["一覧の候補（最初の枠＋追加候補）",candidates],
+    ["条件通過分のAmazon・楽天リンクあり",linked]
+  ];
+  root.innerHTML="<ul>"+lines.map(([label,count])=>"<li>"+label+"：<strong>"+n(count)+"件</strong></li>").join("")+"</ul>"+
+    '<p class="backup-note">対象外の内訳は上から順に判定し、同じ保存データを二重に数えません。投稿の削除は行いません。同期元やXアーカイブ本体の総数は、この集計では確認していません。</p>';
 }
 function selectionPriority(x){
   return todayAffiliateLinks(x).length?1200:0;
@@ -2423,7 +2450,7 @@ function additionalTodayPicks(pool,base){
  const keysFor=x=>[...productGroupKeys(x).filter(key=>key.startsWith("name:")),...revenueProductIds(x)];
  const products=new Set(base.flatMap(keysFor));
  const result=[];
- for(const x of [...pool].sort((a,b)=>Number(candidateHasPhotos(b))-Number(candidateHasPhotos(a))||recommendationScore(b)-recommendationScore(a))){
+ for(const x of [...pool].sort((a,b)=>Number(todayAffiliateLinks(b).length>0)-Number(todayAffiliateLinks(a).length>0)||Number(candidateHasPhotos(b))-Number(candidateHasPhotos(a))||recommendationScore(b)-recommendationScore(a))){
   const keys=keysFor(x);
   if(posts.has(canonicalPostKey(x))||keys.some(key=>products.has(key)))continue;
   result.push({...x,_role:"追加候補"});
@@ -2435,8 +2462,10 @@ async function renderToday(){
   const root=$("todayList");
   if(todayListDay!==localDayKey()){todayAdditionalLimit=0;todayListDay=localDayKey();}
   const base=await getRoleBasedPicks();
-  const extra=additionalTodayPicks(await getReadyItems(),base);
-  const ranked=[...base,...extra].sort((a,b)=>Number(candidateHasPhotos(b))-Number(candidateHasPhotos(a)));
+  const analysis=candidatePoolAnalysis(await dbGetAll());
+  const extra=additionalTodayPicks(analysis.ready,base);
+  renderCandidateCounts(analysis,base,extra);
+  const ranked=[...base,...extra];
   const items=ranked.slice(0,base.length+todayAdditionalLimit);
   const more=$("todayMore"),status=$("todayMoreStatus");
   more.hidden=extra.length<=todayAdditionalLimit;
@@ -2464,7 +2493,7 @@ async function renderToday(){
     const excerpt=plainText.length>64?plainText.slice(0,64)+"…":plainText;
     return '<article class="today-item today-news-row">'+
       mediaBox+'<div class="today-summary"><div class="today-rank-label">'+esc(x._role||("おすすめ "+(i+1)))+'</div>'+
-      '<h3>'+esc(x.title||shortLabel(x))+'</h3><div class="today-meta">'+esc(formatPostedMeta(x))+'</div></div>'+
+      '<h3>'+esc(x.title||shortLabel(x))+'</h3><div class="today-meta">'+esc(formatPostedMeta(x))+'</div>'+((todayAffiliateLinks(x).length)?'<div class="today-meta">'+[...new Set(todayAffiliateLinks(x).map(link=>link.kind==='amazon'?'Amazon':'楽天'))].join('・')+'リンクあり</div>':'')+'</div>'+
       '<button class="small-btn" data-today-action="detail" data-id="'+esc(x.id)+'">投稿準備</button></article>';
 
   }).join("");
