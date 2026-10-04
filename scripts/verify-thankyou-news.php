@@ -1,0 +1,9 @@
+<?php
+try{
+ define('SPH_NEWS_TEST',true);require __DIR__.'/../server/lolipop/news.php';
+ $rows=news_thankyou_rows(news_fetch('https://thankyoumart.jp/blogs/news.atom'),time());if(!$rows)throw new RuntimeException();
+ $urls=['https://thankyoumart.jp/blogs/news/kuromi'];
+ foreach($urls as $url){$item=news_detail($url);if(empty($item['tipsOnly'])||empty($item['images'])||$item['facts']!==[])throw new RuntimeException();$bytes=news_fetch($item['images'][0],6000000);if(!getimagesizefromstring($bytes))throw new RuntimeException();}
+ echo 'Live Thankyou news: '.count($rows)." Sanrio announcements; article identity and photos verified.\n";
+ if(isset($argv[1])){$config=require $argv[1];foreach(array_merge(['list'],$urls) as $target){$url='https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/news.php?'.http_build_query(['action'=>$target==='list'?'list':'detail','url'=>$target==='list'?'':$target]);$ch=curl_init($url);curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_TIMEOUT=>40,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$config['sync_key']]]);$body=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);$data=json_decode((string)$body,true);if($status!==200||empty($data['ok']))throw new RuntimeException();if($target==='list'){foreach(['サンキューマート'] as $source)if(!array_filter($data['items']??[],static fn($i)=>($i['source']??'')===$source))throw new RuntimeException();}elseif(empty($data['item']['tipsOnly'])||empty($data['item']['images']))throw new RuntimeException();}echo "Deployed Thankyou news: source, requested details and photos verified.\n";}
+}catch(Throwable $e){fwrite(STDERR,"Thankyou verification failed; private details withheld.\n");exit(1);}
