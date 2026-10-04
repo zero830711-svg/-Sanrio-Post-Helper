@@ -493,20 +493,42 @@ const lovelyWatch = (()=>{
   el('lovelyRetailerRetry')?.addEventListener('click',()=>{if(selected&&!detailLoading)choose(selected.url,true)});
   el('lovelyConfirmed')?.addEventListener('change',persist);
   el('lovelyImageRetry')?.addEventListener('click',()=>{for(const i of imageChoices)imageErrors.delete(i);queueImages();});
+  function savePastedRakuten(text){
+    const input=el('lovelyRakuten'),url=text.trim();
+    if(!url)throw new Error('リンクをコピーしてから貼り付けてください。');
+    ownLink(url,'楽天');
+    input.value=url;input.removeAttribute('aria-invalid');el('lovelyConfirmed').checked=false;persist();
+    input.blur();el('lovelyLinkTools').open=false;
+    el('lovelyPostStatus').textContent=postStale?'楽天リンクを保存しました。紹介リンクが変わったため「作り直す」で本文を更新してください。':'楽天リンクを保存しました。投稿文・写真を確認してください。';
+    el('lovelyPostText').scrollIntoView({block:'nearest',behavior:'smooth'});
+    el('rakutenAutoStatus').textContent='楽天リンクを保存しました。';
+  }
+  el('lovelyRakutenPaste')?.addEventListener('click',async()=>{
+    const button=el('lovelyRakutenPaste'),input=el('lovelyRakuten'),status=el('rakutenAutoStatus');
+    const generation=editorGeneration;
+    button.disabled=true;
+    let text;
+    try{
+      // Read directly from the tap: do not focus the input or open the keyboard first.
+      if(!navigator.clipboard?.readText)throw new Error('Clipboard unavailable');
+      text=await navigator.clipboard.readText();
+    }catch(error){
+      if(generation===editorGeneration){
+        input.focus();input.select();
+        status.textContent='既存リンクをすべて選択しました。そのまま「ペースト」で置き換えできます。削除は不要です。';
+      }
+      return;
+    }finally{button.disabled=false;}
+    if(generation!==editorGeneration)return;
+    try{savePastedRakuten(text);}
+    catch(error){status.textContent=error.message;input.setAttribute('aria-invalid','true');}
+  });
   el('lovelyRakuten')?.addEventListener('paste',event=>{
-    // Use the user-initiated native paste once; never request another clipboard read.
     const text=event.clipboardData?.getData('text/plain');
     if(typeof text!=='string'||!text.trim())return;
     event.preventDefault();
-    const input=event.currentTarget,status=el('rakutenAutoStatus');
-    try{
-      const url=text.trim();ownLink(url,'楽天');
-      input.value=url;input.removeAttribute('aria-invalid');el('lovelyConfirmed').checked=false;persist();
-      input.blur();el('lovelyLinkTools').open=false;
-      el('lovelyPostStatus').textContent=postStale?'楽天リンクを保存しました。紹介リンクが変わったため「作り直す」で本文を更新してください。':'楽天リンクを保存しました。投稿文・写真を確認してください。';
-      el('lovelyPostText').scrollIntoView({block:'nearest',behavior:'smooth'});
-      status.textContent='楽天リンクを保存しました。';
-    }catch(error){status.textContent=error.message;input.setAttribute('aria-invalid','true');}
+    try{savePastedRakuten(text);}
+    catch(error){el('rakutenAutoStatus').textContent=error.message;event.currentTarget.setAttribute('aria-invalid','true');}
   });
   for(const id of ['lovelyAmazon','lovelyRakuten','lovelyNote'])el(id)?.addEventListener('input',()=>{el('lovelyConfirmed').checked=false;persist()});
   el('lovelyPhotos')?.addEventListener('change',async e=>{
