@@ -16,15 +16,21 @@ try {
         $data=json_decode($body,true,512,JSON_THROW_ON_ERROR);
         if(empty($data['ok']))throw new RuntimeException('Invalid snapshot');return $data;
     };
-    $data=$fetch('action=refresh');$fresh=$fetch('action=list');
-    if(($fresh['apiVersion']??'')!=='3431'||empty($fresh['items']))throw new RuntimeException('Snapshot unavailable');
+    define('OV_TEST_ONLY',true);require __DIR__.'/../server/lolipop/overseas.php';
+    $batches=ov_collect();$out=json_encode(ov_validate_batches($batches),JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);$body='';
+    $ch=curl_init($base.'?action=ingest');
+    curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$out,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$key,'Content-Type: application/json'],CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>30,CURLOPT_WRITEFUNCTION=>static function($ch,$part)use(&$body){if(strlen($body)+strlen($part)>3000000)return 0;$body.=$part;return strlen($part);}]);
+    $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+    if(!$ok||$status!==200)throw new RuntimeException('Snapshot upload failed');
+    $fresh=$fetch('action=list');
+    if(($fresh['apiVersion']??'')!=='3432'||empty($fresh['items']))throw new RuntimeException('Snapshot unavailable');
     $healthy=0;
     foreach($fresh['sourceHealth']??[] as $source){
         if(!empty($source['ok']))$healthy++;
         echo (!empty($source['ok'])?'OK':'RETAINED').': '.$source['label'].' candidates='.(int)($source['count']??0)."\n";
     }
     echo 'Snapshot candidates: '.count($fresh['items'])."\n";
-    if($healthy<3)throw new RuntimeException('Multiple sources failed');
+    if($healthy<4)throw new RuntimeException('Multiple sources failed');
     if(in_array('--verify-images',$argv,true)){
         $seen=[];
         foreach($fresh['items'] as $item){

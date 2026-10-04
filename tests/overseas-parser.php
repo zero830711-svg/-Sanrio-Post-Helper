@@ -18,6 +18,12 @@ ov_check(ov_image_url('https://shoplineimg.com/5cc813ba527c4b0001a31e32/id/test.
 ov_check(ov_image_url('https://user@shoplineimg.com/5cc813ba527c4b0001a31e32/id/test.png')==='','credentials rejected');
 try{ov_parse('us','{"products":[]}');throw new LogicException('empty list accepted');}catch(RuntimeException $e){}
 try{ov_parse('tarts','<html>maintenance</html>');throw new LogicException('broken structure accepted');}catch(RuntimeException $e){}
+$validated=ov_validate_batches($batches);
+ov_check(count($validated['us']['items'])===3,'fixed-source ingestion accepted');
+$bad=$batches;$bad['us']['items'][0]['url']='https://evil.example/products/test';
+try{ov_validate_batches($bad);throw new LogicException('external ingestion URL accepted');}catch(RuntimeException $e){}
+$spoof=$batches;$spoof['us']['items'][0]['region']='JP';$spoof['us']['items'][0]['date']='2026-10-01';$spoof['us']['items'][0]['firstSeenAt']='2026-01-01';
+$sanitized=ov_validate_batches($spoof)['us']['items'][0];ov_check($sanitized['region']==='US'&&$sanitized['date']===''&&!isset($sanitized['firstSeenAt']),'collector cannot invent country, release or discovery timestamps');
 $first=ov_merge([],$batches,'2026-10-04T00:00:00Z');
 ov_check(count(ov_payload($first,'2026-10-04T00:10:00Z')['items'])===12,'initial snapshot includes linkless products');
 ov_check(!array_filter(ov_payload($first,'2026-10-04T00:10:00Z')['items'],fn($i)=>$i['isNew']),'initial snapshot is baseline');
