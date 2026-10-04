@@ -42,7 +42,7 @@ function news_doc(string $s):DOMXPath{$d=new DOMDocument();libxml_use_internal_e
 function news_text(?DOMNode $n):string{return trim(preg_replace('/\s+/u',' ',$n?$n->textContent:'')??'');}
 function news_detail(string $u):array{
  $cache=sys_get_temp_dir().'/sph-news-v8-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
- $a=news_parse(news_fetch($u),$u);file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
+ $a=strpos($u,'https://thankyoumart.jp/')===0?news_thankyou_detail($u):news_parse(news_fetch($u),$u);file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
 }
 function news_parse(string $html,string $u):array{
  if(strpos($u,'https://thankyoumart.jp/')===0)return news_thankyou_parse($html,$u);
@@ -148,9 +148,9 @@ function news_merge_feeds(array $lists,int $now):array{
  usort($rows,static fn($a,$b)=>(strtotime(str_replace('/','-',$b['date']))?:0)<=>(strtotime(str_replace('/','-',$a['date']))?:0));return $rows;
 }
 function news_list():array{
- $cache=sys_get_temp_dir().'/sph-news-list-v8-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-list-v9-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
  $feeds=news_feeds();$bodies=news_fetch_feeds($feeds);$lists=[];$errors=[];$gashapon=[];$rement=[];
- foreach($feeds as $i=>$feed){try{if($bodies[$i]===null)throw new RuntimeException($feed['kind']==='thankyou'?'サンキューマートの公式ニュース配信に接続できませんでした。':'一部のニュース取得元に接続できませんでした。');if($feed['kind']==='thankyou'){$lists[]=news_thankyou_rows($bodies[$i],time());continue;}if($feed['kind']==='rement'){$rement=news_rement_rows($bodies[$i]);continue;}if($feed['kind']==='gashapon'){foreach(news_gashapon_rows($bodies[$i],time()) as $row)$gashapon[$row['url']]=$row;continue;}if(in_array($feed['kind'],['candy','toys'],true)){$lists[]=news_bandai_rows($bodies[$i],$feed['kind'],time());continue;}$lists[]=$feed['kind']==='official'?news_official_rows($bodies[$i]):($feed['kind']==='furyu'?news_furyu_rows($bodies[$i]):($feed['kind']==='arts'?news_arts_rows($bodies[$i],time()):news_html_rows($bodies[$i])));}catch(Throwable $e){$errors[]=$e->getMessage();}}
+ foreach($feeds as $i=>$feed){try{if($feed['kind']==='thankyou'){$lists[]=news_thankyou_snapshot($bodies[$i],time());continue;}if($bodies[$i]===null)throw new RuntimeException($feed['kind']==='thankyou'?'サンキューマートの公式ニュース配信に接続できませんでした。':'一部のニュース取得元に接続できませんでした。');if($feed['kind']==='rement'){$rement=news_rement_rows($bodies[$i]);continue;}if($feed['kind']==='gashapon'){foreach(news_gashapon_rows($bodies[$i],time()) as $row)$gashapon[$row['url']]=$row;continue;}if(in_array($feed['kind'],['candy','toys'],true)){$lists[]=news_bandai_rows($bodies[$i],$feed['kind'],time());continue;}$lists[]=$feed['kind']==='official'?news_official_rows($bodies[$i]):($feed['kind']==='furyu'?news_furyu_rows($bodies[$i]):($feed['kind']==='arts'?news_arts_rows($bodies[$i],time()):news_html_rows($bodies[$i])));}catch(Throwable $e){$errors[]=$e->getMessage();}}
  if($gashapon||$rement)$lists[]=news_gashapon_enrich(array_values($gashapon),$errors,$rement);
  $rows=news_merge_feeds($lists,time());if(!$rows)throw new RuntimeException('ニュース一覧を取得できませんでした。記事URLから開けます。');$result=['items'=>$rows,'warnings'=>array_values(array_unique($errors)),'fetchedAt'=>gmdate('c')];file_put_contents($cache,json_encode($result),LOCK_EX);@chmod($cache,0600);return $result;
 }
