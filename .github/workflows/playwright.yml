@@ -13,6 +13,9 @@ on:
       - "news.js"
       - "lovely-watch.js"
       - "server/lolipop/lovely-watch.php"
+      - "server/lolipop/overseas.php"
+      - "server/lolipop/news.php"
+      - "scripts/collect-overseas.*"
       - "amazon-reports.js"
       - "revenue-insights.js"
       - "styles.css"
@@ -33,6 +36,9 @@ on:
       - "news.js"
       - "lovely-watch.js"
       - "server/lolipop/lovely-watch.php"
+      - "server/lolipop/overseas.php"
+      - "server/lolipop/news.php"
+      - "scripts/collect-overseas.*"
       - "amazon-reports.js"
       - "revenue-insights.js"
       - "styles.css"
@@ -67,6 +73,11 @@ jobs:
           php tests/hatakeyama-parser.php
           php tests/gourmandise-parser.php
           php tests/skater-parser.php
+          php -l server/lolipop/overseas.php
+          php -l server/lolipop/news.php
+          php -l scripts/collect-overseas.php
+          php tests/news-parser.php
+          php tests/overseas-parser.php --live
 
       - name: Install locked dependencies
         run: npm ci

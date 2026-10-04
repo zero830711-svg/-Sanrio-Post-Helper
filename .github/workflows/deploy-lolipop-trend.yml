@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
     paths:
+      - "server/lolipop/overseas.php"
+      - "tests/overseas-*"
+      - "scripts/collect-overseas.*"
       - "server/lolipop/news.php"
       - "tests/news-parser.php"
       - "server/lolipop/trend.php"
@@ -47,6 +50,9 @@ jobs:
           php tests/hatakeyama-parser.php
           php tests/gourmandise-parser.php
           php tests/skater-parser.php
+          php -l server/lolipop/overseas.php
+          php -l scripts/collect-overseas.php
+          php tests/overseas-parser.php
 
       - name: Deploy PHP endpoints over FTPS
         shell: bash
@@ -60,6 +66,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes lftp
           lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
           set ftp:ssl-force true
           set ftp:ssl-protect-data true
           set ssl:verify-certificate yes
@@ -68,5 +75,9 @@ jobs:
           put server/lolipop/trend.php
           put server/lolipop/archive-media-batch.php
           put server/lolipop/lovely-watch.php
+          put server/lolipop/overseas.php
           bye
           LFTP
+
+      - name: Initialize and verify live overseas snapshot, photos and detail
+        run: bash scripts/collect-overseas.sh --verify-images

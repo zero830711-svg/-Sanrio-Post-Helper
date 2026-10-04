@@ -1,0 +1,31 @@
+{
+  "products": [
+    {
+      "title": "Kuromi Plush Mascot Keychain (Sanrio Friends Cosplay Series - Hello Kitty)",
+      "handle": "kuromi-plush-mascot-keychain-sanrio-friends-cosplay-series-hello-kitty",
+      "images": [
+        {
+          "src": "https://cdn.shopify.com/s/files/1/0416/8083/0620/files/854298-Zoom.1.jpg?v=1774652012"
+        }
+      ]
+    },
+    {
+      "title": "Kuromi Plush Mascot Keychain (Sanrio Friends Cosplay Series - Cinnamoroll)",
+      "handle": "kuromi-plush-mascot-keychain-sanrio-friends-cosplay-series-cinnamoroll",
+      "images": [
+        {
+          "src": "https://cdn.shopify.com/s/files/1/0416/8083/0620/files/855260-Zoom.1.jpg?v=1774651849"
+        }
+      ]
+    },
+    {
+      "title": "Kuromi Plush Mascot Keychain (Sanrio Friends Cosplay Series - My Melody)",
+      "handle": "kuromi-plush-mascot-keychain-sanrio-friends-cosplay-series-my-melody",
+      "images": [
+        {
+          "src": "https://cdn.shopify.com/s/files/1/0416/8083/0620/files/854743-Zoom.1.jpg?v=1774652168"
+        }
+      ]
+    }
+  ]
+}
