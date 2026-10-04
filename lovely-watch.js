@@ -493,21 +493,20 @@ const lovelyWatch = (()=>{
   el('lovelyRetailerRetry')?.addEventListener('click',()=>{if(selected&&!detailLoading)choose(selected.url,true)});
   el('lovelyConfirmed')?.addEventListener('change',persist);
   el('lovelyImageRetry')?.addEventListener('click',()=>{for(const i of imageChoices)imageErrors.delete(i);queueImages();});
-  el('lovelyRakutenPaste')?.addEventListener('click',async()=>{
-    const input=el('lovelyRakuten'),status=el('rakutenAutoStatus'),item=selected,previous=input.value;
-    const manual=()=>{input.focus();input.select();status.textContent='この欄を長押しして、コピーした楽天の短縮URLを貼り付けてください。';};
-    if(!navigator.clipboard?.readText){manual();return;}
+  el('lovelyRakuten')?.addEventListener('paste',event=>{
+    // Use the user-initiated native paste once; never request another clipboard read.
+    const text=event.clipboardData?.getData('text/plain');
+    if(typeof text!=='string'||!text.trim())return;
+    event.preventDefault();
+    const input=event.currentTarget,status=el('rakutenAutoStatus');
     try{
-      const text=(await navigator.clipboard.readText()).trim();
-      if(selected!==item||input.value!==previous)return;
-      if(!text){manual();return;}
-      const url=ownLink(text,'楽天');
-      input.value=url;el('lovelyConfirmed').checked=false;persist();
-      status.textContent='楽天リンクを貼り付けて保存しました。共有するプロンプトにもこのリンクを使います。';
-    }catch(e){
-      if(selected!==item||input.value!==previous)return;
-      manual();
-    }
+      const url=text.trim();ownLink(url,'楽天');
+      input.value=url;input.removeAttribute('aria-invalid');el('lovelyConfirmed').checked=false;persist();
+      input.blur();el('lovelyLinkTools').open=false;
+      el('lovelyPostStatus').textContent=postStale?'楽天リンクを保存しました。紹介リンクが変わったため「作り直す」で本文を更新してください。':'楽天リンクを保存しました。投稿文・写真を確認してください。';
+      el('lovelyPostText').scrollIntoView({block:'nearest',behavior:'smooth'});
+      status.textContent='楽天リンクを保存しました。';
+    }catch(error){status.textContent=error.message;input.setAttribute('aria-invalid','true');}
   });
   for(const id of ['lovelyAmazon','lovelyRakuten','lovelyNote'])el(id)?.addEventListener('input',()=>{el('lovelyConfirmed').checked=false;persist()});
   el('lovelyPhotos')?.addEventListener('change',async e=>{

@@ -81,3 +81,44 @@ test('読み込み完了順が逆でも一覧順と初回取得日が変わら�
  await expect(page.locator('#lovelyList')).toContainText('初回取得');await expect(page.locator('#lovelyList')).toContainText('掲載 2026-10-01');await page.locator('#lovelyRefresh').click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();
  expect(await page.locator('[data-lovely-select]').evaluateAll(bs=>bs.map(b=>b.dataset.lovelySelect))).toEqual(order);expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('sphLovelyDiscoveryV1')).firstSeen)).toEqual(seen);
 });
+
+test('通常のペーストだけで楽天リンクを保存しキーボードを閉じ投稿文へ戻る',async({page})=>{
+ await page.addInitScript(()=>{
+  window.clipboardReads=0;
+  Object.defineProperty(navigator,'clipboard',{configurable:true,value:{readText:async()=>{window.clipboardReads++;throw new Error('No second clipboard permission');}}});
+ });
+ await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
+ await page.locator('#lovelyPostText').fill('🎀 編集済みの紹介文\n'+affiliate+'\n#pr');
+ await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyRakuten').focus();
+ expect(await page.locator('#lovelyRakuten').evaluate(input=>parseFloat(getComputedStyle(input).fontSize))).toBeGreaterThanOrEqual(16);
+ await expect(page.locator('#lovelyRakutenPaste')).toHaveCount(0);
+ const link='https://a.r10.to/hNativePaste';
+ await page.locator('#lovelyRakuten').evaluate((input,text)=>{const data=new DataTransfer();data.setData('text/plain',text);input.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));},link);
+ await expect(page.locator('#lovelyRakuten')).toHaveValue(link);
+ await expect(page.locator('#lovelyLinkTools')).not.toHaveAttribute('open','');
+ await expect(page.locator('#lovelyPostStatus')).toContainText('作り直す');
+ expect(await page.locator('#lovelyRakuten').evaluate(input=>document.activeElement===input)).toBeFalsy();
+ expect(await page.evaluate(()=>window.clipboardReads)).toBe(0);
+ await expect(page.locator('#lovelyPostText')).toHaveValue(/編集済みの紹介文/);
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('sphLovelyDiscoveryV1')).draft.ownRakuten)).toBe(link);
+ await page.locator('#lovelyPostReset').click();await expect(page.locator('#lovelyPostText')).toHaveValue(/hNativePaste/);
+});
+test('通常のペーストで不正なURLを受け取っても入力済みリンクを壊さない',async({page})=>{
+ await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
+ await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyRakuten').focus();
+ await page.locator('#lovelyRakuten').evaluate(input=>{const data=new DataTransfer();data.setData('text/plain','https://example.com/another-product');input.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));});
+ await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);await expect(page.locator('#lovelyRakuten')).toHaveAttribute('aria-invalid','true');
+ await expect(page.locator('#rakutenAutoStatus')).toContainText('自分のアフィリエイトリンク');
+ await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');
+ expect(await page.locator('#lovelyRakuten').evaluate(input=>document.activeElement===input)).toBeTruthy();
+});
+test('通常のペーストで未編集の投稿文へ自分のリンクを反映しPNG共有できる',async({page})=>{
+ await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
+ await page.locator('[data-lovely-image="0"]').check();await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');
+ await page.locator('#lovelyLinkSummary').click();
+ const link='https://hb.afl.rakuten.co.jp/hgc/native123/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2Fcasmin%2Fpnb1-kitty%2F';
+ await page.locator('#lovelyRakuten').evaluate((input,text)=>{const data=new DataTransfer();data.setData('text/plain',text);input.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));},link);
+ await expect(page.locator('#lovelyPostText')).toHaveValue(new RegExp('native123'));
+ await expect(page.locator('[data-lovely-image="0"]')).toBeChecked();await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostShare').click();
+ expect((await page.evaluate(()=>window.skaterShared)).text).toContain(link);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+});
