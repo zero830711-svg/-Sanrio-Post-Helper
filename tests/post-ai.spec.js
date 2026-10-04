@@ -1,6 +1,7 @@
 const {test,expect}=require('@playwright/test');
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
 async function setup(page,respond){
+ await page.route('**/overseas.php?**',r=>r.fulfill({json:{ok:true,items:[],sourceHealth:[],fetchedAt:'2026-10-04T00:00:00Z'}}));
  await page.addInitScript(()=>{
   localStorage.setItem('sanrioCloudSyncKey','test-key');
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
