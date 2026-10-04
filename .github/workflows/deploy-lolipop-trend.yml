@@ -9,6 +9,7 @@ on:
       - "server/lolipop/news-extra.php"
       - "server/lolipop/news-bandai.php"
       - "server/lolipop/news-gashapon.php"
+      - "server/lolipop/news-thankyou.php"
       - "tests/news-parser.php"
       - "server/lolipop/trend.php"
       - "server/lolipop/archive-media-batch.php"
@@ -47,6 +48,8 @@ jobs:
           php -l server/lolipop/news-extra.php
           php -l server/lolipop/news-bandai.php
           php -l server/lolipop/news-gashapon.php
+          php -l server/lolipop/news-thankyou.php
+          php tests/thankyou-parser.php
           php tests/news-parser.php
           php -l server/lolipop/trend.php
           php -l server/lolipop/archive-media-batch.php
@@ -78,6 +81,7 @@ jobs:
           put server/lolipop/news-extra.php
           put server/lolipop/news-bandai.php
           put server/lolipop/news-gashapon.php
+          put server/lolipop/news-thankyou.php
           put server/lolipop/news.php
           put server/lolipop/trend.php
           put server/lolipop/archive-media-batch.php
@@ -139,3 +143,4 @@ jobs:
           php scripts/verify-news-extra.php "$furyu_tmp/config.php"
           php scripts/verify-bandai-news.php "$furyu_tmp/config.php"
           php scripts/verify-gashapon-news.php "$furyu_tmp/config.php"
+          php scripts/verify-thankyou-news.php "$furyu_tmp/config.php"

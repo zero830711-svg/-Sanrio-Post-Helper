@@ -165,7 +165,7 @@ function newsRender(){
  const title=document.createElement('strong');title.textContent=item.title;
  const source=document.createElement('span');source.className='backup-note';
  const mark=newsGroupMark(item);
- source.textContent=[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.gashapon?(item.resale?'再販':'ガシャポン情報'):item.tipsOnly?'メーカー新作':item.prize?'プライズ情報':item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
+ source.textContent=[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.gashapon?(item.resale?'再販':'ガシャポン情報'):item.tipsOnly?'公式新作情報':item.prize?'プライズ情報':item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
  info.append(source,title);
  const schedule=item.members.map(newsScheduleLabel).find(Boolean);if(schedule){const note=document.createElement('span');note.className='news-schedule';note.textContent=schedule;info.append(note);}
  const img=document.createElement('img');img.className='news-thumb';img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';
