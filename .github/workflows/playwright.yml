@@ -18,6 +18,7 @@ on:
       - "server/lolipop/news.php"
       - "server/lolipop/news-extra.php"
       - "server/lolipop/news-bandai.php"
+      - "server/lolipop/news-gashapon.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
       - "styles.css"
@@ -43,6 +44,7 @@ on:
       - "server/lolipop/news.php"
       - "server/lolipop/news-extra.php"
       - "server/lolipop/news-bandai.php"
+      - "server/lolipop/news-gashapon.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
       - "styles.css"
@@ -81,8 +83,10 @@ jobs:
           php -l server/lolipop/news.php
           php -l server/lolipop/news-extra.php
           php -l server/lolipop/news-bandai.php
+          php -l server/lolipop/news-gashapon.php
           php tests/news-parser.php
           php tests/bandai-parser.php
+          php tests/gashapon-parser.php
 
       - name: Install locked dependencies
         run: npm ci

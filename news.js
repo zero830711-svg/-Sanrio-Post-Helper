@@ -28,7 +28,7 @@ function newsDraft(item){
  let title=String(item.title||'').replace(/^【[^】]*】\s*/,'').trim();
  const chars=Array.from(title);
  if(chars.length>60)title=chars.slice(0,59).join('')+'…';
- const heading='🎀 '+title+' ✨';
+ const heading='🎀 '+(item.resale&&!/再販|再発売/.test(title)?'【再販】 ':'')+title+' ✨';
  const footer=item.tipsOnly?'\n\n#サンリオ':item.prize?'\n\n#サンリオ #フリュープライズ':'\n\n🔎 詳細はこちら\n'+item.url+'\n\n#サンリオ';
  const facts=[];
  // Preserve complete source facts; never cut a price, date or qualification midway.
@@ -41,7 +41,8 @@ function newsDraft(item){
   const next=factBlock+(factBlock?'\n':'\n\n')+fact;
   if(Array.from(heading+next+footer).length<=280)factBlock=next;
  }
- const highlight=newsHighlight(item);
+ const rawHighlight=newsHighlight(item);
+ const highlight=item.resale?rawHighlight.replace(/新登場/g,'登場').replace(/新作/g,'商品'):rawHighlight;
  const intro=highlight&&Array.from(heading+'\n\n'+highlight+factBlock+footer).length<=280?'\n\n'+highlight:'';
  return heading+intro+factBlock+footer;
 }
@@ -164,7 +165,7 @@ function newsRender(){
  const title=document.createElement('strong');title.textContent=item.title;
  const source=document.createElement('span');source.className='backup-note';
  const mark=newsGroupMark(item);
- source.textContent=[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.tipsOnly?'メーカー新作':item.prize?'プライズ情報':item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
+ source.textContent=[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.gashapon?(item.resale?'再販':'ガシャポン情報'):item.tipsOnly?'メーカー新作':item.prize?'プライズ情報':item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
  info.append(source,title);
  const schedule=item.members.map(newsScheduleLabel).find(Boolean);if(schedule){const note=document.createElement('span');note.className='news-schedule';note.textContent=schedule;info.append(note);}
  const img=document.createElement('img');img.className='news-thumb';img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';
