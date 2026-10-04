@@ -147,7 +147,7 @@ test('選んだ写真を取得できないときは、不完全な写真共有�
   return route.fulfill({json:action==='list'?{ok:true,items:[item]}:{ok:true,item}});
  });
  await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備'}).click();
- await expect(page.locator('#newsEditorStatus')).toContainText('一部の写真を取得できません');await expect(page.locator('#newsShare')).toBeDisabled();
+ await expect(page.locator('#newsEditorStatus')).toContainText('選んだ写真を取得できません');await expect(page.locator('#newsShare')).toBeDisabled();
  await page.locator('.news-photo').filter({has:page.getByAltText('記事の写真 2',{exact:true})}).getByRole('checkbox').uncheck();
  await expect(page.locator('#newsShare')).toBeEnabled();
 });
