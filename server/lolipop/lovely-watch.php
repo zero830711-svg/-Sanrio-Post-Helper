@@ -617,7 +617,9 @@ try {
     $cacheRevision=lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer';
     $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|'.$cacheRevision.'|'.$url.'|'.(lw_gour_article_url($url)||lw_skater_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
-    $result=!$cron && is_file($cache)&&filemtime($cache)>time()-900?json_decode((string)file_get_contents($cache),true):null;
+    $force=$action==='detail' && ($_GET['refresh']??'')==='1';
+    if($force && is_file($cache) && filemtime($cache)>time()-5){flock($lock,LOCK_UN);fclose($lock);lw_out(['ok'=>false,'error'=>'直前に照合しました。5秒ほど待ってから再照合してください。'],429);}
+    $result=!$force && !$cron && is_file($cache)&&filemtime($cache)>time()-900?json_decode((string)file_get_contents($cache),true):null;
     if(is_array($result)&&!empty($result['partial'])&&filemtime($cache)<=time()-60)$result=null;
     if(is_array($result)&&!empty($result['item']['retryRetailer'])&&filemtime($cache)<=time()-5)$result=null;
     if (!is_array($result)) {
