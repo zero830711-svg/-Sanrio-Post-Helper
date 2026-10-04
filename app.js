@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.04-3433";
+const APP_VERSION="2026.10.04-3434";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -4070,10 +4070,10 @@ $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
 
-const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["new","homeNewTab","lovelyPanel"],["overseas","homeOverseasTab","lovelyPanel"]];
+const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["new","homeNewTab","lovelyPanel"],["overseas","homeOverseasTab","overseasPanel"]];
 function setHomeView(view){
  const active=homeTabViews.find(tab=>tab[0]===view)||homeTabViews[0];
- if(view==="new"||view==="overseas")document.dispatchEvent(new CustomEvent("sph-product-tab",{detail:view}));
+ if(view==="new")document.dispatchEvent(new CustomEvent("sph-product-tab",{detail:view}));
  for(const [name,id] of homeTabViews){const b=$(id);if(!b)continue;const on=name===active[0];b.setAttribute("aria-selected",String(on));b.tabIndex=on?0:-1;}
  for(const panel of new Set(homeTabViews.map(tab=>tab[2]))){const p=$(panel);if(!p)continue;const on=panel===active[2];p.hidden=!on;if(panel==="lovelyPanel"){p.open=on;if(on)p.setAttribute("aria-labelledby",active[1]);}}
  if(view==="news"&&!$("newsList").children.length&&typeof newsLoad==="function")newsLoad();

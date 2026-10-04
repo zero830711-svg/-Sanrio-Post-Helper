@@ -3,8 +3,7 @@ const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
   let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',sourceMode='all',countryMode='all',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
   let discoveryBatchAt='',batchEligible={};
-  let sectionMode='new',overseasLoaded=false,overseasBusy=false;
-  const sectionFilters={new:'new',overseas:'new'};
+  const sectionMode='new';
   let editorGeneration=0,imageBusy=0,uploadBusy=false;
   const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
   const preparations=new Map();
@@ -20,6 +19,18 @@ const lovelyWatch = (()=>{
   }
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function state(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+  // Remove discontinued discovery data without touching saved posts or domestic drafts.
+  function clearOverseasDiscovery(){
+    const saved=state();
+    const overseasUrl=url=>{try{return ['www.sanrio.com','www.toytronmall.co.kr','www.tarts-korea.co.kr','www.sanriogiftgate.com.hk'].includes(new URL(url).hostname);}catch(_){return false;}};
+    if(saved.draft?.overseas||overseasUrl(saved.draft?.url))delete saved.draft;
+    for(const key of ['drafts','firstSeen','hidden','identities','viewed'])if(saved[key]&&typeof saved[key]==='object')for(const [url,item] of Object.entries(saved[key]))if(item?.overseas||overseasUrl(url)||overseasUrl(item?.url))delete saved[key][url];
+    if(saved.sourceChecks)delete saved.sourceChecks.overseas;
+    if(saved.sourceFilter==='overseas')saved.sourceFilter='all';
+    delete saved.countryFilter;
+    try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
+  }
+  clearOverseasDiscovery();
   function shortUrl(value){try{const url=ownLink(value,'楽天');return new URL(url).hostname==='a.r10.to'&&new URL(url).pathname!=='/'?url:''}catch(e){return ''}}
   function productKey(item){
     const url=item?.productInfo?.url;
@@ -145,21 +156,6 @@ const lovelyWatch = (()=>{
       return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!u.hash&&allowed?u.href:'';
     }catch(_){return '';}
   }
-  let overseasGeneration=0;
-  async function loadOverseas(){
-    const generation=++overseasGeneration,status=el('lovelyOverseasStatus');status.textContent='海外の収集済み候補を読み込み中…';
-    try{
-      const data=await request('list','',null,null,'overseas');if(generation!==overseasGeneration)return;
-      const saved=state();saved.firstSeen=saved.firstSeen||{};saved.sourceChecks=saved.sourceChecks||{};
-      const previous=saved.sourceChecks.overseas||{},recent=[];
-      for(const item of data.items||[]){if(!saved.firstSeen[item.url]&&previous.initialized)recent.push(item.url);saved.firstSeen[item.url]=item.firstSeenAt||saved.firstSeen[item.url]||new Date().toISOString();}
-      saved.sourceChecks.overseas={initialized:true,checkedAt:data.fetchedAt,recentUrls:recent};
-      saved.firstSeen=Object.fromEntries(Object.entries(saved.firstSeen).slice(-3000));try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
-      rows=[...rows.filter(item=>!item.overseas),...(data.items||[]).filter(item=>item.overseas&&['KR','HK','US'].includes(item.region))];
-      const failed=(data.sourceHealth||[]).filter(source=>!source.ok).map(source=>source.label);
-      status.textContent='海外：'+(data.fetchedAt?new Date(data.fetchedAt).toLocaleString('ja-JP'):'日時未取得')+'確認 ／ 約30分ごとに定期収集。初回分は新規追加に含めません。'+(failed.length?' 取得失敗：'+failed.join('・')+'（前回分を保持）':'');overseasLoaded=true;render();pagingControls();
-    }catch(e){if(generation===overseasGeneration)status.textContent='海外：'+e.message+' 前回読み込んだ候補は保持しています。';}
-  }
   function markViewed(url){
     const s=state();s.viewed=s.viewed||{};delete s.viewed[url];s.viewed[url]=true;
     s.viewed=Object.fromEntries(Object.entries(s.viewed).slice(-500));
@@ -196,7 +192,7 @@ const lovelyWatch = (()=>{
   }
   function selectedPages(){if(sectionMode==='overseas')return {};return sourceMode==='all'?{...nextPages}:(nextPages[sourceMode]?{[sourceMode]:nextPages[sourceMode]}:{});}
   function pagingControls(){
-    const activeBusy=sectionMode==='overseas'?overseasBusy:busy;
+    const activeBusy=busy;
     el('lovelyRefresh').disabled=activeBusy;el('lovelyRefresh').textContent=sectionMode==='overseas'?'海外商品を確認':'新着商品を確認';
     const button=el('lovelyMore');if(button){button.hidden=!Object.keys(selectedPages()).length;button.disabled=activeBusy;button.textContent=activeBusy?'読み込み中…':'もっと見る';}
   }
@@ -225,7 +221,6 @@ const lovelyWatch = (()=>{
     const status=el('lovelyStatus');status.textContent='ブログ・畑山商事・グルマンディーズ・スケーターの新着を確認しました。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
   }
   async function refresh(){
-    if(sectionMode==='overseas')return refreshOverseas();
     if(busy)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
       historyIds=usedIds(await dbGetAll());nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
@@ -233,27 +228,10 @@ const lovelyWatch = (()=>{
       await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1},true);
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;pagingControls()}
   }
-  async function refreshOverseas(){
-    if(overseasBusy)return;overseasBusy=true;pagingControls();
-    try{historyIds=usedIds(await dbGetAll());await loadOverseas();}catch(e){el('lovelyOverseasStatus').textContent=e.message;}
-    finally{overseasBusy=false;pagingControls();}
-  }
   function setSection(mode){
-    if(!['new','overseas'].includes(mode))return;
-    if(sectionMode!==mode){
-      if(selected)persist();
-      sectionFilters[sectionMode]=filterMode;sectionMode=mode;filterMode=sectionFilters[mode];el('lovelyFilter').value=filterMode;
-      chooseSequence++;detailLoading=false;editorGeneration++;imageBusy=0;uploadBusy=false;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();
-      el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;el('lovelyPhotos').value='';
-      el('lovelyEditor').hidden=true;el('lovelyBrowse').hidden=false;el('lovelyRestoreBox').hidden=false;listScroll=0;listItemUrl='';
-    }
-    const overseas=sectionMode==='overseas';
-    el('lovelySectionTitle').textContent=overseas?'海外':'新着商品';
-    el('lovelySourceFilter').closest('label').hidden=overseas;el('lovelyCountryLabel').hidden=!overseas;
-    el('lovelyDomesticHelp').hidden=overseas;el('lovelyOverseasHelp').hidden=!overseas;
-    el('lovelyStatus').hidden=overseas;el('lovelyOverseasStatus').hidden=!overseas;
+    if(mode!=='new')return;
     render();pagingControls();
-    if(overseas?!overseasLoaded:!loaded)refresh();
+    if(!loaded)refresh();
   }
   document.addEventListener('sph-product-tab',e=>setSection(e.detail));
   async function more(){
@@ -530,7 +508,7 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){el('lovelyShareStatus').textContent='記録を保存できませんでした。';return}
     editorGeneration++;imageBusy=0;uploadBusy=false;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();backToList();
   }
-  el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(sectionMode==='overseas'?!overseasLoaded:!loaded)refresh();const draft=state().draft;if(!selected&&draft&&!!draft.overseas===(sectionMode==='overseas'))edit(draft)}});
+  el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft&&!!draft.overseas===(sectionMode==='overseas'))edit(draft)}});
   el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
   el('rakutenSaveSettings')?.addEventListener('click',saveSettings);
   el('lovelyRakutenProductCopy')?.addEventListener('click',async()=>{
@@ -557,10 +535,6 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
     render();pagingControls();
   });
-  const countrySelect=el('lovelyCountryFilter');
-  countryMode=['all','KR','HK','US'].includes(state().countryFilter)?state().countryFilter:'all';
-  if(countrySelect)countrySelect.value=countryMode;
-  countrySelect?.addEventListener('change',e=>{countryMode=['all','KR','HK','US'].includes(e.target.value)?e.target.value:'all';const saved=state();saved.countryFilter=countryMode;try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}render();pagingControls();});
   el('lovelyFilter')?.addEventListener('change',async e=>{
     filterMode=['new','recent','used','all'].includes(e.target.value)?e.target.value:'new';
     render();
