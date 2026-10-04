@@ -18,7 +18,7 @@ $d=news_parse('<h1>商品ニュース</h1><div id="press-release-body"><table><t
 check(count($d['facts'])===2);check($d['facts'][0]['text']==='発売日：2026年10月上旬予定');check($d['facts'][1]['text']==='価格：各880円（税込）');
 $e=news_parse('<h1>新作</h1><div id="press-release-body"><p>10月3日発売、価格は880円（税込）です。</p></div>',$url);
 check(count($e['facts'])===2);
-$cache=sys_get_temp_dir().'/sph-news-v5-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
+$cache=sys_get_temp_dir().'/sph-news-v6-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
 $previous=is_file($cache)?file_get_contents($cache):null;
 try{
  file_put_contents($cache,json_encode($d));
@@ -173,7 +173,7 @@ check(news_image_url('https://furyuprize.com/files/images/prz/pi-main-22561.webp
 check(news_image_url('https://furyuprize.com/files/images/prz/pc-67.jpg')==='');
 $frows=news_furyu_rows(file_get_contents(__DIR__.'/furyu-list.html'));check(count($frows)===3);check($frows[0]['prize']===true);check($frows[0]['date']==='');check($frows[0]['schedule']==='2026年10月2週');
 $fd=news_parse(file_get_contents(__DIR__.'/furyu-detail.html'),$furyuUrl);check($fd['title']==='クロミ たれ耳ロリータBIGぬいぐるみ');check($fd['schedule']==='2026年10月2週');check($fd['date']==='');check(count($fd['images'])===1);check(strpos($fd['images'][0],'22561')!==false);check(in_array('種類：1種',$fd['paragraphs'],true));
-try{news_parse(file_get_contents(__DIR__.'/furyu-detail.html'),'https://furyuprize.com/item/99999');check(false);}catch(RuntimeException $e){}
+$failed=false;try{news_parse(file_get_contents(__DIR__.'/furyu-detail.html'),'https://furyuprize.com/item/99999');}catch(RuntimeException $e){$failed=true;}check($failed);
 check(strpos(ai_cute_suffix($fd),'https://')===false);check(strpos(ai_cute_suffix($fd),'詳細')===false);check(strpos(ai_cute_suffix($fd),'#pr')===false);
 $good=news_groq_validate(json_encode(['body'=>'💜 クロミのたれ耳ロリータBIGぬいぐるみ✨\n2026年10月2週登場予定。店舗により時期が前後します。'],JSON_UNESCAPED_UNICODE),$fd);check(strpos($good,'https://')===false);
 foreach(['💜 10月2日登場','💜 10月2週登場予定','💜 詳細はこちら','💜 価格は1円'] as $bad){$failed=false;try{news_groq_validate(json_encode(['body'=>$bad],JSON_UNESCAPED_UNICODE),$fd);}catch(RuntimeException $e){$failed=true;}check($failed);}
