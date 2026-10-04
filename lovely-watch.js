@@ -3,6 +3,8 @@ const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
   let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',sourceMode='all',countryMode='all',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
   let discoveryBatchAt='',batchEligible={};
+  let sectionMode='new',overseasLoaded=false,overseasBusy=false;
+  const sectionFilters={new:'new',overseas:'new'};
   let editorGeneration=0,imageBusy=0,uploadBusy=false;
   const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
   const preparations=new Map();
@@ -155,7 +157,7 @@ const lovelyWatch = (()=>{
       saved.firstSeen=Object.fromEntries(Object.entries(saved.firstSeen).slice(-3000));try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
       rows=[...rows.filter(item=>!item.overseas),...(data.items||[]).filter(item=>item.overseas&&['KR','HK','US'].includes(item.region))];
       const failed=(data.sourceHealth||[]).filter(source=>!source.ok).map(source=>source.label);
-      status.textContent='海外：'+(data.fetchedAt?new Date(data.fetchedAt).toLocaleString('ja-JP'):'日時未取得')+'確認 ／ 約30分ごとに定期収集。初回分は新規追加に含めません。'+(failed.length?' 取得失敗：'+failed.join('・')+'（前回分を保持）':'');render();pagingControls();
+      status.textContent='海外：'+(data.fetchedAt?new Date(data.fetchedAt).toLocaleString('ja-JP'):'日時未取得')+'確認 ／ 約30分ごとに定期収集。初回分は新規追加に含めません。'+(failed.length?' 取得失敗：'+failed.join('・')+'（前回分を保持）':'');overseasLoaded=true;render();pagingControls();
     }catch(e){if(generation===overseasGeneration)status.textContent='海外：'+e.message+' 前回読み込んだ候補は保持しています。';}
   }
   function markViewed(url){
@@ -167,7 +169,7 @@ const lovelyWatch = (()=>{
   function render(){
     const value=state(),groups=groupedItems([...rows].sort((a,b)=>compareItems(a,b,value.firstSeen||{})),historyIds,value.hidden||{},value.identities||{});
     const sourceGroups=groups.flatMap(g=>{
-      const matching=g.articles.filter(item=>(sourceMode==='all'||sourceOf(item)===sourceMode)&&(countryMode==='all'||(item.region||'JP')===countryMode)).sort((a,b)=>compareItems(a,b,value.firstSeen||{}));
+      const matching=g.articles.filter(item=>!!item.overseas===(sectionMode==='overseas')&&(sectionMode==='overseas'||sourceMode==='all'||sourceOf(item)===sourceMode)&&(sectionMode!=='overseas'||countryMode==='all'||item.region===countryMode)).sort((a,b)=>compareItems(a,b,value.firstSeen||{}));
       return matching.length?[{...g,item:matching.includes(g.item)?g.item:matching[0]}]:[];
     });
     sourceGroups.sort((a,b)=>compareItems(a.item,b.item,value.firstSeen||{}));
@@ -183,7 +185,7 @@ const lovelyWatch = (()=>{
     }
     const labels={new:'未紹介候補',used:'紹介済み',update:'更新候補（要確認）',review:'一部紹介済み・要確認'};
     el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><span class="backup-note">'+labels[g.status]+' ・ '+escape(g.item.source||'Lovely Fancy')+(g.item.overseas&&g.item.isNew?' ・ 24時間以内の追加':'')+'</span><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong><span class="backup-note">'+escape(g.item.date?'掲載 '+g.item.date:g.item.overseas?'発見 '+new Date(g.item.firstSeenAt||value.firstSeen?.[g.item.url]||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'初回取得 '+new Date(value.firstSeen?.[g.item.url]||Date.now()).toLocaleDateString('ja-JP'))+'</span></div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
-    el('lovelyCount').textContent=(sourceMode==='all'?'':sourceName(sourceMode)+'：')+'未紹介・要確認 '+sourceGroups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+sourceGroups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+sourceGroups.filter(x=>x.status==='used').length+'件';
+    el('lovelyCount').textContent=(sectionMode==='overseas'?'海外：':sourceMode==='all'?'':sourceName(sourceMode)+'：')+'未紹介・要確認 '+sourceGroups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+sourceGroups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+sourceGroups.filter(x=>x.status==='used').length+'件';
   }
   function rememberIdentity(item){
     if(!item?.productInfo?.jan&&!item?.productIds?.length)return;
@@ -192,9 +194,11 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(_){}
     render();
   }
-  function selectedPages(){if(!['all','JP'].includes(countryMode))return {};return sourceMode==='all'?{...nextPages}:(nextPages[sourceMode]?{[sourceMode]:nextPages[sourceMode]}:{});}
+  function selectedPages(){if(sectionMode==='overseas')return {};return sourceMode==='all'?{...nextPages}:(nextPages[sourceMode]?{[sourceMode]:nextPages[sourceMode]}:{});}
   function pagingControls(){
-    const button=el('lovelyMore');if(button){button.hidden=!Object.keys(selectedPages()).length;button.disabled=busy;button.textContent=busy?'読み込み中…':'もっと見る';}
+    const activeBusy=sectionMode==='overseas'?overseasBusy:busy;
+    el('lovelyRefresh').disabled=activeBusy;el('lovelyRefresh').textContent=sectionMode==='overseas'?'海外商品を確認':'新着商品を確認';
+    const button=el('lovelyMore');if(button){button.hidden=!Object.keys(selectedPages()).length;button.disabled=activeBusy;button.textContent=activeBusy?'読み込み中…':'もっと見る';}
   }
   const sourceOf=item=>item.overseas?'overseas':item.source==='スケーター'?'skater':item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
   const sourceName=source=>({overseas:'海外公式',skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ'}[source]||source);
@@ -221,21 +225,43 @@ const lovelyWatch = (()=>{
     const status=el('lovelyStatus');status.textContent='ブログ・畑山商事・グルマンディーズ・スケーターの新着を確認しました。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
   }
   async function refresh(){
+    if(sectionMode==='overseas')return refreshOverseas();
     if(busy)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
       historyIds=usedIds(await dbGetAll());nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
       const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater'].map(source=>[source,checks[source]?.initialized===true]));
-      const overseas=loadOverseas();
       await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1},true);
-      if(sourceMode==='overseas')await overseas;
-    }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
+    }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;pagingControls()}
   }
+  async function refreshOverseas(){
+    if(overseasBusy)return;overseasBusy=true;pagingControls();
+    try{historyIds=usedIds(await dbGetAll());await loadOverseas();}catch(e){el('lovelyOverseasStatus').textContent=e.message;}
+    finally{overseasBusy=false;pagingControls();}
+  }
+  function setSection(mode){
+    if(!['new','overseas'].includes(mode))return;
+    if(sectionMode!==mode){
+      if(selected)persist();
+      sectionFilters[sectionMode]=filterMode;sectionMode=mode;filterMode=sectionFilters[mode];el('lovelyFilter').value=filterMode;
+      chooseSequence++;detailLoading=false;editorGeneration++;imageBusy=0;uploadBusy=false;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();
+      el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;el('lovelyPhotos').value='';
+      el('lovelyEditor').hidden=true;el('lovelyBrowse').hidden=false;el('lovelyRestoreBox').hidden=false;listScroll=0;listItemUrl='';
+    }
+    const overseas=sectionMode==='overseas';
+    el('lovelySectionTitle').textContent=overseas?'海外':'新着商品';
+    el('lovelySourceFilter').closest('label').hidden=overseas;el('lovelyCountryLabel').hidden=!overseas;
+    el('lovelyDomesticHelp').hidden=overseas;el('lovelyOverseasHelp').hidden=!overseas;
+    el('lovelyStatus').hidden=overseas;el('lovelyOverseasStatus').hidden=!overseas;
+    render();pagingControls();
+    if(overseas?!overseasLoaded:!loaded)refresh();
+  }
+  document.addEventListener('sph-product-tab',e=>setSection(e.detail));
   async function more(){
     const pages=selectedPages();if(busy||!Object.keys(pages).length)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='次のページを確認中…';
     try{
       await loadSources(pages,false);pageCount++;
     }catch(e){el('lovelyStatus').textContent=e.message+' 「もっと見る」で再試行できます。'}
-    finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
+    finally{busy=false;pagingControls()}
   }
   function openEditor(url){
     if(el('lovelyEditor').hidden){listScroll=window.scrollY;listItemUrl=url;}
@@ -504,7 +530,7 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){el('lovelyShareStatus').textContent='記録を保存できませんでした。';return}
     editorGeneration++;imageBusy=0;uploadBusy=false;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();backToList();
   }
-  el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft)edit(draft)}});
+  el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(sectionMode==='overseas'?!overseasLoaded:!loaded)refresh();const draft=state().draft;if(!selected&&draft&&!!draft.overseas===(sectionMode==='overseas'))edit(draft)}});
   el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
   el('rakutenSaveSettings')?.addEventListener('click',saveSettings);
   el('lovelyRakutenProductCopy')?.addEventListener('click',async()=>{
@@ -523,18 +549,18 @@ const lovelyWatch = (()=>{
   el('lovelyBackBottom')?.addEventListener('click',backToList);
   const sourceSelect=el('lovelySourceFilter');
   const savedSource=state().sourceFilter;
-  sourceMode=['all','lovely','hatakeyama','gourmandise','skater','overseas'].includes(savedSource)?savedSource:'all';
+  sourceMode=['all','lovely','hatakeyama','gourmandise','skater'].includes(savedSource)?savedSource:'all';
   if(sourceSelect)sourceSelect.value=sourceMode;
   sourceSelect?.addEventListener('change',e=>{
-    sourceMode=['all','lovely','hatakeyama','gourmandise','skater','overseas'].includes(e.target.value)?e.target.value:'all';
+    sourceMode=['all','lovely','hatakeyama','gourmandise','skater'].includes(e.target.value)?e.target.value:'all';
     const saved=state();saved.sourceFilter=sourceMode;
     try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
     render();pagingControls();
   });
   const countrySelect=el('lovelyCountryFilter');
-  countryMode=['all','JP','KR','HK','US'].includes(state().countryFilter)?state().countryFilter:'all';
+  countryMode=['all','KR','HK','US'].includes(state().countryFilter)?state().countryFilter:'all';
   if(countrySelect)countrySelect.value=countryMode;
-  countrySelect?.addEventListener('change',e=>{countryMode=['all','JP','KR','HK','US'].includes(e.target.value)?e.target.value:'all';const saved=state();saved.countryFilter=countryMode;try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}render();pagingControls();});
+  countrySelect?.addEventListener('change',e=>{countryMode=['all','KR','HK','US'].includes(e.target.value)?e.target.value:'all';const saved=state();saved.countryFilter=countryMode;try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}render();pagingControls();});
   el('lovelyFilter')?.addEventListener('change',async e=>{
     filterMode=['new','recent','used','all'].includes(e.target.value)?e.target.value:'new';
     render();
@@ -624,7 +650,7 @@ const lovelyWatch = (()=>{
   el('lovelyPostAi')?.addEventListener('click',generateProductAi);
   el('lovelyDone')?.addEventListener('click',()=>hide('used'));
   el('lovelySkip')?.addEventListener('click',()=>hide('skip'));
-  el('lovelyRestore')?.addEventListener('click',()=>{const s=state();s.hidden={};localStorage.setItem(KEY,JSON.stringify(s));render()});
+  el('lovelyRestore')?.addEventListener('click',()=>{const s=state();for(const url of Object.keys(s.hidden||{})){let overseas=false;try{overseas=['www.sanrio.com','www.toytronmall.co.kr','www.tarts-korea.co.kr','www.sanriogiftgate.com.hk'].includes(new URL(url).hostname);}catch(_){}if(overseas===(sectionMode==='overseas'))delete s.hidden[url];}localStorage.setItem(KEY,JSON.stringify(s));render()});
   function aiContext(){
     if(!selected||detailLoading)throw new Error('商品情報の取得が終わってから実行してください。');
     if(!el('lovelyConfirmed').checked)throw new Error('商品・写真・紹介リンクの確認欄にチェックしてください。');
