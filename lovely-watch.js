@@ -2,7 +2,7 @@
 const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
   let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
-  let discoveryBatchAt='';
+  let discoveryBatchAt='',batchEligible={};
   let editorGeneration=0,imageBusy=0,uploadBusy=false;
   const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
   const preparations=new Map();
@@ -140,7 +140,16 @@ const lovelyWatch = (()=>{
   function render(){
     const value=state(),groups=groupedItems([...rows].sort((a,b)=>compareItems(a,b,value.firstSeen||{})),historyIds,value.hidden||{},value.identities||{});
     groups.sort((a,b)=>compareItems(a.item,b.item,value.firstSeen||{}));
-    const visible=groups.filter(x=>filterMode==='all'||(filterMode==='used'?x.status==='used':x.status!=='used'));
+    const recentUrls=new Set(Object.values(value.sourceChecks||{}).flatMap(check=>check.recentUrls||[]));
+    const recentGroup=g=>g.status!=='used'&&g.articles.every(item=>recentUrls.has(item.url));
+    const visible=groups.filter(x=>filterMode==='all'||(filterMode==='recent'?recentGroup(x):filterMode==='used'?x.status==='used':x.status!=='used'));
+    const recentHelp=el('lovelyRecentHelp');
+    if(recentHelp){
+      recentHelp.hidden=filterMode!=='recent';
+      recentHelp.textContent=Object.values(value.sourceChecks||{}).some(check=>check.initialized)
+        ?'各情報元の前回確認後に初めて取得した未紹介商品です。発売日ではありません。初回取得分は含めません。'
+        :'最初の確認で比較の基準を作ります。次回から追加された商品を表示します。';
+    }
     const labels={new:'未紹介候補',used:'紹介済み',update:'更新候補（要確認）',review:'一部紹介済み・要確認'};
     el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><span class="backup-note">'+labels[g.status]+' ・ '+escape(g.item.source||'Lovely Fancy')+'</span><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong><span class="backup-note">'+escape(g.item.date?'掲載 '+g.item.date:'初回取得 '+new Date(value.firstSeen?.[g.item.url]||Date.now()).toLocaleDateString('ja-JP'))+'</span></div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
     el('lovelyCount').textContent='未紹介・要確認 '+groups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+groups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+groups.filter(x=>x.status==='used').length+'件';
@@ -167,7 +176,11 @@ const lovelyWatch = (()=>{
       try{
         const data=await request('list','',null,page,source),merged=new Map((replace&&!data.partial?rows.filter(item=>sourceOf(item)!==source):rows).map(item=>[item.url,item]));
         const saved=state();saved.firstSeen=saved.firstSeen||{};
-        for(const [index,item] of (data.items||[]).entries()){merged.set(item.url,{...item,discoveryOrder:(page-1)*1000+index});if(!saved.firstSeen[item.url])saved.firstSeen[item.url]=observedAt;}
+        saved.sourceChecks=saved.sourceChecks||{};
+        const previous=saved.sourceChecks[source]||{},recent=new Set(replace?[]:previous.recentUrls||[]);
+        const eligible=batchEligible[source]===true;
+        for(const [index,item] of (data.items||[]).entries()){merged.set(item.url,{...item,discoveryOrder:(page-1)*1000+index});if(!saved.firstSeen[item.url]){if(eligible)recent.add(item.url);saved.firstSeen[item.url]=observedAt;}}
+        saved.sourceChecks[source]={initialized:previous.initialized===true||!data.partial,checkedAt:observedAt,recentUrls:[...recent].slice(-3000)};
         saved.firstSeen=Object.fromEntries(Object.entries(saved.firstSeen).slice(-3000));try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
         rows=[...merged.values()];if(data.partial){nextPages[source]=page;partial.push(sourceName(source));}else if(data.nextPage)nextPages[source]=data.nextPage;else delete nextPages[source];
         loaded=true;render();
@@ -179,6 +192,7 @@ const lovelyWatch = (()=>{
     if(busy)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
       historyIds=usedIds(await dbGetAll());nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
+      const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater'].map(source=>[source,checks[source]?.initialized===true]));
       await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1},true);
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
   }
@@ -471,7 +485,7 @@ const lovelyWatch = (()=>{
   el('lovelyBack')?.addEventListener('click',backToList);
   el('lovelyBackBottom')?.addEventListener('click',backToList);
   el('lovelyFilter')?.addEventListener('change',async e=>{
-    filterMode=['new','used','all'].includes(e.target.value)?e.target.value:'new';
+    filterMode=['new','recent','used','all'].includes(e.target.value)?e.target.value:'new';
     render();
     try{historyIds=usedIds(await dbGetAll());render()}catch(_){el('lovelyStatus').textContent='過去投稿の照合を更新できませんでした。新着を確認して再試行してください。'}
   });

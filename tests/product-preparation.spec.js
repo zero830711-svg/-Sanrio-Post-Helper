@@ -153,3 +153,33 @@ test('ボタンで不正なリンクを読んでも既存リンクと本文を�
  await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);await expect(page.locator('#lovelyPostText')).toHaveValue(body);
  await expect(page.locator('#rakutenAutoStatus')).toContainText('自分のアフィリエイトリンク');await expect(page.locator('#lovelyRakutenPaste')).toBeEnabled();
 });
+
+test('初回は比較基準だけを作り次回に初めて取得した商品だけを絞り込む',async({page})=>{
+ await setup(page);let phase=0;
+ await page.route('**/lovely-watch.php?**',r=>{const q=new URL(r.request().url()).searchParams;return r.fulfill({json:{ok:true,items:q.get('source')==='skater'?(phase===0?[listing]:[listing,other]):[],nextPage:null}});});
+ await page.goto('/');await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();
+ await page.locator('#lovelyFilter').selectOption('recent');await expect(page.locator('[data-lovely-select]')).toHaveCount(0);
+ phase=1;await page.locator('#lovelyRefresh').click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();
+ await expect(page.locator('[data-lovely-select]')).toHaveCount(1);await expect(page.locator('[data-lovely-select]')).toHaveAttribute('data-lovely-select',otherUrl);
+ await expect(page.locator('#lovelyRecentHelp')).toContainText('発売日ではありません');
+ await page.locator('#lovelyFilter').selectOption('new');await expect(page.locator('[data-lovely-select]')).toHaveCount(2);
+ await page.locator('#lovelyFilter').selectOption('recent');await page.locator('#lovelyRefresh').click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();await expect(page.locator('[data-lovely-select]')).toHaveCount(0);
+});
+test('初回の次ページは新着扱いせず次回の次ページ追加を含める',async({page})=>{
+ await setup(page);let phase=0;
+ const third={...other,url:otherUrl+'?third',jan:'4973307103958',title:'次ページの追加商品'};
+ await page.route('**/lovely-watch.php?**',r=>{const q=new URL(r.request().url()).searchParams,source=q.get('source'),p=Number(q.get('page')||1);return r.fulfill({json:{ok:true,items:source==='skater'?(p===1?[listing]:phase===0?[other]:[other,third]):[],nextPage:source==='skater'&&p===1?2:null}});});
+ await page.goto('/');await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();await page.locator('#lovelyMore').click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();
+ await page.locator('#lovelyFilter').selectOption('recent');await expect(page.locator('[data-lovely-select]')).toHaveCount(0);
+ phase=1;await page.locator('#lovelyRefresh').click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();await page.locator('#lovelyMore').click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();
+ await expect(page.locator('[data-lovely-select]')).toHaveCount(1);await expect(page.locator('[data-lovely-select]')).toHaveAttribute('data-lovely-select',third.url);
+});
+test('取得に失敗した情報元の比較結果を消さず再試行で追加を取得する',async({page})=>{
+ await setup(page);let phase=0;
+ await page.route('**/lovely-watch.php?**',r=>{const q=new URL(r.request().url()).searchParams;if(q.get('source')==='skater'&&phase===2)return r.fulfill({status:503,json:{ok:false,error:'Temporary unavailable'}});
+ return r.fulfill({json:{ok:true,items:q.get('source')==='skater'?(phase===0?[listing]:[listing,other]):[],nextPage:null}});});
+ await page.goto('/');await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();
+ phase=1;await page.locator('#lovelyRefresh').click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();await page.locator('#lovelyFilter').selectOption('recent');await expect(page.locator('[data-lovely-select]')).toHaveCount(1);
+ phase=2;await page.locator('#lovelyRefresh').click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();await expect(page.locator('[data-lovely-select]')).toHaveCount(1);
+ phase=3;await page.locator('#lovelyMore').click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();await expect(page.locator('[data-lovely-select]')).toHaveCount(1);
+});
