@@ -82,7 +82,8 @@ jobs:
           put server/lolipop/news-extra.php
           put server/lolipop/news-bandai.php
           put server/lolipop/news-gashapon.php
-          put server/lolipop/.thankyou-news-feed.xml
+          put server/lolipop/.thankyou-news-feed.xml -o .thankyou-news-feed.xml.tmp
+          mv .thankyou-news-feed.xml.tmp .thankyou-news-feed.xml
           put server/lolipop/news-thankyou.php
           put server/lolipop/news.php
           put server/lolipop/trend.php
