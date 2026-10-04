@@ -2,6 +2,7 @@
 const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
   let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
+  let discoveryBatchAt='';
   let editorGeneration=0,imageBusy=0,uploadBusy=false;
   const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
   const preparations=new Map();
@@ -158,15 +159,15 @@ const lovelyWatch = (()=>{
   const sourceName=source=>({skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ'}[source]||source);
   function compareItems(a,b,seen){
     const stamp=item=>{const date=/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(item.date||'')?Date.parse(item.date):NaN;return Number.isFinite(date)?date:Date.parse(seen[item.url]||'1970-01-01');};
-    return stamp(b)-stamp(a)||String(a.url).localeCompare(String(b.url),'en');
+    return stamp(b)-stamp(a)||({lovely:0,hatakeyama:1,gourmandise:2,skater:3}[sourceOf(a)]-{lovely:0,hatakeyama:1,gourmandise:2,skater:3}[sourceOf(b)])||(a.discoveryOrder||0)-(b.discoveryOrder||0)||String(a.url).localeCompare(String(b.url),'en');
   }
   async function loadSources(pages,replace){
-    const errors=[],partial=[],observedAt=new Date().toISOString();
+    const errors=[],partial=[],observedAt=discoveryBatchAt||new Date().toISOString();
     await Promise.all(Object.entries(pages).map(async([source,page])=>{
       try{
         const data=await request('list','',null,page,source),merged=new Map((replace&&!data.partial?rows.filter(item=>sourceOf(item)!==source):rows).map(item=>[item.url,item]));
         const saved=state();saved.firstSeen=saved.firstSeen||{};
-        for(const item of data.items||[]){merged.set(item.url,item);if(!saved.firstSeen[item.url])saved.firstSeen[item.url]=observedAt;}
+        for(const [index,item] of (data.items||[]).entries()){merged.set(item.url,{...item,discoveryOrder:(page-1)*1000+index});if(!saved.firstSeen[item.url])saved.firstSeen[item.url]=observedAt;}
         saved.firstSeen=Object.fromEntries(Object.entries(saved.firstSeen).slice(-3000));try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
         rows=[...merged.values()];if(data.partial){nextPages[source]=page;partial.push(sourceName(source));}else if(data.nextPage)nextPages[source]=data.nextPage;else delete nextPages[source];
         loaded=true;render();
@@ -177,7 +178,7 @@ const lovelyWatch = (()=>{
   async function refresh(){
     if(busy)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
-      historyIds=usedIds(await dbGetAll());nextPages={};pageCount=1;
+      historyIds=usedIds(await dbGetAll());nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
       await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1},true);
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
   }
@@ -200,7 +201,7 @@ const lovelyWatch = (()=>{
     const button=Array.from(el('lovelyList').querySelectorAll('[data-lovely-select]')).find(b=>b.dataset.lovelySelect===listItemUrl);
     if(button)button.focus({preventScroll:true});
   }
-  function photoSignature(item){return JSON.stringify([item?.url,item?.productInfo?.itemCode||'',item?.productInfo?.jan||item?.jan||'',item?.productInfo?.images||[],item?.manufacturerInfo?.facts||{},item?.productInfo?.specs||{},item?.productInfo?.contents||[]]);}
+  function photoSignature(item){return JSON.stringify([item?.url,item?.title,item?.productInfo?.itemCode||'',item?.productInfo?.jan||item?.jan||'',item?.productInfo?.images||[],item?.manufacturerInfo?.facts||{},item?.productInfo?.specs||{},item?.productInfo?.contents||[]]);}
   function rememberPreparation(){
     if(!selected)return;
     preparations.delete(selected.url);preparations.set(selected.url,{signature:photoSignature(selected),choices:[...imageChoices],files:new Map(imageFiles),uploaded:imageChoices.size?[]:files.slice(),confirmed:el('lovelyConfirmed').checked,links:linkSignature()});

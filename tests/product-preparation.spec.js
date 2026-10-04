@@ -37,7 +37,7 @@ async function routes(page,detail){
 }
 async function open(page,product=url){await page.locator('[data-lovely-select="'+product+'"]').click();await expect(page.locator('#lovelyConfirmed')).toBeEnabled();}
 test('商品を切り替えて戻ると本文・写真・確認状態を保持し再取得しない',async({page})=>{
- let images=0;await routes(page,q=>q.get('url')===url?matched:{...matched,...other});
+ let images=0;await routes(page,q=>q.get('url')===url?matched:{...matched,...other,productIds:['rakuten:casmin:other'],productInfo:{...matched.productInfo,jan:other.jan,itemCode:'casmin:other',url:'https://item.rakuten.co.jp/casmin/other/'}});
  await page.route('**/lovely-watch.php?*action=image*',r=>{images++;return r.fulfill({contentType:'image/png',body:png})});
  await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
  await page.locator('#lovelyPostText').fill('🎀 編集した本文\n'+affiliate+'\n#pr');
