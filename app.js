@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.04-3436";
+const APP_VERSION="2026.10.04-3437";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -255,9 +255,8 @@ async function createCodexReviewLink(button){
     let result={};
     try{result=await response.json()}catch(e){}
     if(!response.ok||!result.ok||!result.token)throw new Error(result.error||("共有リンクの作成に失敗しました（HTTP "+response.status+"）"));
-    const shareUrl=new URL("./share.html",location.href);
-    shareUrl.searchParams.set("v","private");
-    shareUrl.hash="token="+encodeURIComponent(result.token);
+    const shareUrl=new URL("https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/share.php");
+    shareUrl.searchParams.set("token",result.token);
     const input=$("codexShareUrl");
     if(input)input.value=shareUrl.href;
     if(linkWrap)linkWrap.classList.remove("hidden");
