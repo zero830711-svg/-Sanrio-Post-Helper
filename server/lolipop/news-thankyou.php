@@ -24,3 +24,16 @@ function news_thankyou_parse(string $html,string $url):array{
  $title=news_text($x->query('.//h1',$root)->item(0));$body=$x->query('.//div[contains(concat(" ",normalize-space(@class)," ")," article-template__content ")]',$root)->item(0);if(!$body)throw new RuntimeException('ニュースの本文を確認できませんでした。');
  return news_thankyou_content($body->ownerDocument->saveHTML($body),$url,$title,news_text($x->query('.//time/@datetime',$root)->item(0)));
 }
+// Hosting connections may be refused by the official shop. Hourly GitHub jobs
+// relay the unmodified public Atom feed; reject snapshots older than three hours.
+function news_thankyou_snapshot(?string $body,int $now,?string $path=null):array{
+ if($body!==null)return news_thankyou_rows($body,$now);
+ $path=$path??__DIR__.'/.thankyou-news-feed.xml';
+ if(!is_file($path)||filemtime($path)<$now-10800||filesize($path)>2000000)throw new RuntimeException('サンキューマートの公式ニュースを更新できませんでした。');
+ return news_thankyou_rows((string)file_get_contents($path),$now);
+}
+function news_thankyou_detail(string $url):array{
+ try{$rows=news_thankyou_snapshot(null,time());}catch(RuntimeException $e){$rows=[];}
+ foreach($rows as $row)if($row['url']===$url)return $row;
+ return news_thankyou_parse(news_fetch($url),$url);
+}

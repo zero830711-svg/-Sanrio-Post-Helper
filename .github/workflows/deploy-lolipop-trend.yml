@@ -70,6 +70,7 @@ jobs:
             exit 0
           fi
 
+          php scripts/build-thankyou-feed.php
           sudo apt-get update
           sudo apt-get install --yes lftp
           lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
@@ -81,6 +82,8 @@ jobs:
           put server/lolipop/news-extra.php
           put server/lolipop/news-bandai.php
           put server/lolipop/news-gashapon.php
+          put server/lolipop/.thankyou-news-feed.xml -o .thankyou-news-feed.xml.tmp
+          mv .thankyou-news-feed.xml.tmp .thankyou-news-feed.xml
           put server/lolipop/news-thankyou.php
           put server/lolipop/news.php
           put server/lolipop/trend.php
