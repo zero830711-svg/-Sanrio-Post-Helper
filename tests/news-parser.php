@@ -160,3 +160,8 @@ foreach(['🎀 素材：ポリエステル','🎀 価格未確認','🎀 在庫�
  try{news_groq_validate(json_encode(['body'=>$bad],JSON_UNESCAPED_UNICODE),$groqProduct);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}
 }
 echo "Groq product draft: shared provider, 300 characters, long affiliate links and no material/price/stock passed\n";
+
+$foreign=post_ai_input(['mode'=>'product','overseas'=>true,'region'=>'KR','title'=>'韓国のサンリオ商品','text'=>'韓国の公式一覧に掲載。国内発売・海外限定は未確認。','links'=>[]]);
+check($foreign['overseas']===true&&$foreign['links']===[]);
+check(str_contains(news_groq_prompt($foreign),'日本からの購入可否は未確認'));
+$domestic=post_ai_input(['mode'=>'product','overseas'=>true,'region'=>'JP','title'=>'商品','text'=>'商品情報','links'=>[]]);check($domestic['overseas']===false);
