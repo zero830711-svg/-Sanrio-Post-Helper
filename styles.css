@@ -450,3 +450,9 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 /* iPhone Safari: 16px controls prevent focus zoom without disabling pinch zoom. */
 #lovelyPanel #lovelyEditor input[type=url],#lovelyPanel #lovelyEditor textarea,#lovelyPanel #lovelyEditor select{font-size:16px}
 #lovelyPanel #lovelyEditor #lovelyPasteHelp{margin:4px 0;font-size:11px}
+
+/* A single thumb-sized action replaces the existing link without editing it. */
+#lovelyPanel #lovelyEditor .lovely-paste-actions{display:grid;grid-template-columns:1fr;gap:6px}
+#lovelyPanel #lovelyEditor #lovelyRakutenPaste{width:100%;min-height:48px;padding:12px;font-size:16px;line-height:1.4}
+#lovelyPanel #lovelyEditor .lovely-paste-actions #rakutenRetry{min-height:40px;font-size:12px;background:#fff;border:1px solid var(--line)}
+#lovelyPanel #lovelyEditor #lovelyRakuten{width:100%;font-size:16px;min-height:44px}
