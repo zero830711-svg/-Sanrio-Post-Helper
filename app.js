@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.04-3437";
+const APP_VERSION="2026.10.04-3438";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -4069,7 +4069,7 @@ $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
 
-const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["new","homeNewTab","lovelyPanel"],["overseas","homeOverseasTab","overseasPanel"]];
+const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["new","homeNewTab","lovelyPanel"]];
 function setHomeView(view){
  const active=homeTabViews.find(tab=>tab[0]===view)||homeTabViews[0];
  if(view==="new")document.dispatchEvent(new CustomEvent("sph-product-tab",{detail:view}));
