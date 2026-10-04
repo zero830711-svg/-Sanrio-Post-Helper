@@ -1,0 +1,38 @@
+name: Fix private share CORS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/fix-share-cors.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Allow GitHub Pages origin for share reader
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('server/lolipop/archive-media-batch.php')
+          s=p.read_text()
+          old="if($origin!==''&&in_array($origin,$config['allowed_origins']??[],true)){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}"
+          new="if($origin==='https://zero830711-svg.github.io'||($origin!==''&&in_array($origin,$config['allowed_origins']??[],true))){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}"
+          if old not in s:
+              raise SystemExit('target line not found')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/lolipop/archive-media-batch.php
+          git commit -m "Allow GitHub Pages private share reader" || exit 0
+          git push
