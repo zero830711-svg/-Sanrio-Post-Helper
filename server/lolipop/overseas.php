@@ -1,161 +1,113 @@
 <?php
 declare(strict_types=1);
-// Fixed public sources only. Discovery does not imply exclusivity or Japanese availability.
-function ov_sources(): array {
-    return [
-        'toytron'=>['source'=>'Toytron公式（韓国）','region'=>'KR','url'=>'https://www.toytronmall.co.kr/goods/goods_list.php?cateCd=034005'],
-        'tarts'=>['source'=>'T-ARTS KOREA公式','region'=>'KR','url'=>'https://www.tarts-korea.co.kr/sub/sub04_01.php?cat_no=40'],
-        'hongkong'=>['source'=>'香港Sanrio Gift Gate公式','region'=>'HK','url'=>'https://www.sanriogiftgate.com.hk/en/'],
-        'us'=>['source'=>'米国サンリオ公式','region'=>'US','url'=>'https://www.sanrio.com/collections/new/products.json?limit=50']
-    ];
-}
-function ov_text(string $value): string {
-    return mb_substr(trim(preg_replace('/\s+/u',' ',html_entity_decode($value,ENT_QUOTES|ENT_HTML5,'UTF-8'))??''),0,400);
-}
-function ov_doc(string $html): DOMXPath {
-    $doc=new DOMDocument();$old=libxml_use_internal_errors(true);
-    $doc->loadHTML('<?xml encoding="UTF-8">'.$html,LIBXML_NONET);libxml_clear_errors();libxml_use_internal_errors($old);
-    return new DOMXPath($doc);
-}
-function ov_product_url(string $url,string $source): string {
-    $p=parse_url($url);if(!$p||($p['scheme']??'')!=='https'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||isset($p['fragment']))return '';
-    $host=$p['host']??'';$path=$p['path']??'';$query=$p['query']??'';
-    if($source==='toytron'&&$host==='www.toytronmall.co.kr'&&$path==='/goods/goods_view.php'&&preg_match('/^goodsNo=[0-9]{5,15}$/D',$query))return $url;
-    if($source==='tarts'&&$host==='www.tarts-korea.co.kr'&&$path==='/sub/sub04_01.php'&&preg_match('/^cat_no=40&mode=view&idx=[0-9]{1,8}$/D',$query))return $url;
-    if($source==='us'&&$host==='www.sanrio.com'&&preg_match('~^/products/[a-z0-9-]+$~D',$path)&&$query==='')return $url;
-    if($source==='hongkong'&&$host==='www.sanriogiftgate.com.hk'&&preg_match('~^/en/products/[a-z0-9-]+$~D',$path)&&$query==='')return $url;
-    return '';
-}
-function ov_image_url(string $url): string {
-    if(str_starts_with($url,'//'))$url='https:'.$url;
-    $p=parse_url($url);if(!$p||($p['scheme']??'')!=='https'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||isset($p['fragment']))return '';
-    $host=$p['host']??'';$path=$p['path']??'';
-    $allowed=($host==='www.tarts-korea.co.kr'&&preg_match('~^/uploaded/product/[0-9]+/[a-z0-9_.-]+\.(jpg|png|webp)$~iD',$path))
-      ||($host==='godomall.speedycdn.net'&&preg_match('~^/3389a8ce9a60e19be9e9c1359129582d/goods/[0-9]+/image/(main|list)/[a-z0-9_.-]+\.(jpg|png|webp)$~iD',$path))
-      ||($host==='cdn-pro-web-250-115.cdn-nhncommerce.com'&&preg_match('~^/toytron_godomall_com/data/goods/[0-9/]+/[a-z0-9_.-]+\.(jpg|png|webp)$~iD',$path))
-      ||($host==='shoplineimg.com'&&preg_match('~^/5cc813ba527c4b0001a31e32/[a-z0-9]+/[a-z0-9_.-]+\.(png|jpg|webp)$~iD',$path))
-      ||($host==='cdn.shopify.com'&&preg_match('~^/s/files/1/0416/8083/0620/(?:files|products)/[a-z0-9_.%+ -]+\.(jpg|jpeg|png|webp)$~iD',$path));
-    return $allowed?$url:'';
-}
-function ov_item(string $source,string $url,string $title,string $image='',string $published=''): ?array {
-    $meta=ov_sources()[$source]??null;$url=ov_product_url($url,$source);$title=ov_text($title);
-    if(!$meta||!$url||!$title)return null;
-    return ['source'=>$meta['source'],'sourceId'=>$source,'sourceType'=>'official','overseas'=>true,'region'=>$meta['region'],'url'=>$url,'title'=>$title,
-      'date'=>$published,'publishedAt'=>$published?:null,'thumbnail'=>ov_image_url($image),'productIds'=>[],'products'=>[],'needsReview'=>true];
-}
-function ov_parse(string $source,string $body): array {
-    $rows=[];$add=static function(?array $item)use(&$rows):void{if($item)$rows[$item['url']]=$item;};
-    if($source==='us'){
-        $data=json_decode($body,true,512,JSON_THROW_ON_ERROR);if(!isset($data['products'])||!is_array($data['products']))throw new RuntimeException('商品一覧の形式を確認できません。');if(!$data['products'])throw new RuntimeException('商品一覧が空です。');
-        foreach(array_slice($data['products'],0,50) as $p){
-            $add(ov_item($source,'https://www.sanrio.com/products/'.($p['handle']??''),(string)($p['title']??''),(string)($p['images'][0]['src']??'')));
-        }
-    }else{
-        $x=ov_doc($body);
-        if($source==='toytron'){
-            foreach($x->query('//div[contains(concat(" ",normalize-space(@class)," ")," item_cont ")]') as $card){
-                $a=$x->query('.//strong[contains(concat(" ",normalize-space(@class)," ")," item_name ")]/parent::a',$card)->item(0);
-                if(!$a)continue;$title=ov_text($a->textContent);
-                if(!preg_match('/산리오|마이멜로디|쿠로미|시나모|헬로키티|폼폼푸린|한교동/u',$title))continue;
-                $href=$a->getAttribute('href');$url='https://www.toytronmall.co.kr/goods/'.basename($href);
-                $img=$x->query('.//div[contains(concat(" ",normalize-space(@class)," ")," item_photo_box ")]//img',$card)->item(0);
-                $add(ov_item($source,$url,$title,$img?$img->getAttribute('src'):''));
-            }
-        }elseif($source==='tarts'){
-            foreach($x->query('//li[.//div[@class="thumb"] and .//div[@class="title"]]') as $card){
-                $a=$x->query('.//div[@class="title"]/a',$card)->item(0);$img=$x->query('.//div[@class="thumb"]//img',$card)->item(0);if(!$a)continue;
-                $title=ov_text($a->textContent);$href=$a->getAttribute('href');
-                $url=str_starts_with($href,'/sub/')?'https://www.tarts-korea.co.kr'.$href:$href;
-                $image=$img?$img->getAttribute('src'):'';if(str_starts_with($image,'/uploaded/'))$image='https://www.tarts-korea.co.kr'.$image;
-                $add(ov_item($source,$url,$title,$image));
-            }
-        }elseif($source==='hongkong'){
-            foreach($x->query('//product-item/a[contains(concat(" ",normalize-space(@class)," ")," Product-item ")]') as $a){
-                $node=$x->query('.//div[contains(concat(" ",normalize-space(@class)," ")," title ")]',$a)->item(0);
-                $image='';foreach($x->query('.//*[@style]',$a) as $n){if(preg_match('~background-image:url\((https://shoplineimg\.com/[^)]+)\)~',$n->getAttribute('style'),$m)){$image=$m[1];break;}}
-                $add(ov_item($source,$a->getAttribute('href'),$node?$node->textContent:'',$image));
-            }
-        }
-        if(!$rows)throw new RuntimeException('商品一覧の構造を確認できません。');
-    }
-    return array_slice(array_values($rows),0,50);
-}
-function ov_validate_batches(array $input): array {
-    $batches=[];
-    foreach(ov_sources() as $id=>$meta){
-        $batch=$input[$id]??[];$rows=[];
-        if(($batch['ok']??false)!==true||!is_array($batch['items']??null)||!count($batch['items'])||count($batch['items'])>50){$batches[$id]=['ok'=>false];continue;}
-        foreach($batch['items'] as $item){
-            if(!is_array($item)||!is_string($item['title']??null)||!is_string($item['url']??null)||!is_string($item['thumbnail']??null))throw new RuntimeException('Invalid candidate');
-            $row=ov_item($id,$item['url'],$item['title'],$item['thumbnail']);
-            if(!$row||!$row['thumbnail'])throw new RuntimeException('Invalid source URL or image');$rows[$row['url']]=$row;
-        }
-        $batches[$id]=['ok'=>true,'items'=>array_values($rows)];
-    }
-    return $batches;
-}
-function ov_merge(array $previous,array $batches,string $now): array {
-    $saved=$previous['sources']??[];
-    foreach(ov_sources() as $id=>$meta){
-        $old=$saved[$id]??[];$batch=$batches[$id]??['ok'=>false];
-        if(empty($batch['ok'])){$saved[$id]=$old+['items'=>[],'seen'=>[],'initialized'=>false];$saved[$id]['health']=['label'=>$meta['source'],'ok'=>false,'attemptedAt'=>$now,'lastSuccessAt'=>$old['health']['lastSuccessAt']??null,'error'=>'取得失敗：前回の候補を保持しています。'];continue;}
-        $seen=$old['seen']??[];$items=[];
-        foreach($batch['items'] as $item){
-            $url=$item['url'];if(!isset($seen[$url]))$seen[$url]=['at'=>$now,'baseline'=>empty($old['initialized'])];
-            $item['firstSeenAt']=$seen[$url]['at'];$item['baseline']=$seen[$url]['baseline'];$items[]=$item;
-        }
-        $byUrl=[];foreach($items as $item)$byUrl[$item['url']]=$item;
-        foreach($old['items']??[] as $item)if(!isset($byUrl[$item['url']])&&strtotime($item['firstSeenAt'])>=strtotime($now)-180*86400)$byUrl[$item['url']]=$item;
-        $items=array_values($byUrl);usort($items,static fn($a,$b)=>strcmp($b['firstSeenAt'],$a['firstSeenAt']));$items=array_slice($items,0,300);
-        // Retain discovery identities across list reorder/removal/reappearance.
-        $retained=array_fill_keys(array_column($items,'url'),true);
-        $seen=array_filter($seen,static fn($v,$url)=>isset($retained[$url])||strtotime($v['at'])>=strtotime($now)-180*86400,ARRAY_FILTER_USE_BOTH);
-        $saved[$id]=['initialized'=>true,'seen'=>array_slice($seen,-2000,null,true),'items'=>$items,'health'=>['label'=>$meta['source'],'ok'=>true,'count'=>count($items),'attemptedAt'=>$now,'lastSuccessAt'=>$now]];
-    }
-    return ['sources'=>$saved,'lastAttemptAt'=>$now];
-}
-function ov_payload(array $snapshot,string $now): array {
-    $items=[];$health=[];
-    foreach($snapshot['sources']??[] as $source){
-        $health[]=$source['health'];foreach($source['items']??[] as $item){$item['isNew']=empty($item['baseline'])&&strtotime($item['firstSeenAt'])>strtotime($now)-86400;$items[]=$item;}
-    }
-    usort($items,static fn($a,$b)=>strcmp($b['firstSeenAt'],$a['firstSeenAt'])?:strcmp($a['url'],$b['url']));
-    return ['ok'=>true,'apiVersion'=>'3432','items'=>$items,'sourceHealth'=>$health,'fetchedAt'=>$snapshot['lastAttemptAt']??null,'nextPage'=>null,'cached'=>true];
-}
-function ov_collect(): array {
-    $multi=curl_multi_init();$handles=[];$bodies=[];$batches=[];
-    foreach(ov_sources() as $id=>$source){
-        $bodies[$id]='';$ch=curl_init($source['url']);
-        curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_USERAGENT=>'SanrioPostHelper/3431 (personal public discovery)',CURLOPT_WRITEFUNCTION=>static function($ch,$chunk)use(&$bodies,$id){if(strlen($bodies[$id])+strlen($chunk)>2000000)return 0;$bodies[$id].=$chunk;return strlen($chunk);}]);
-        $handles[$id]=$ch;curl_multi_add_handle($multi,$ch);
-    }
-    do{$code=curl_multi_exec($multi,$running);if($running)curl_multi_select($multi,0.2);}while($running&&$code===CURLM_OK);
-    foreach($handles as $id=>$ch){
-        try{if(curl_errno($ch)||curl_getinfo($ch,CURLINFO_HTTP_CODE)!==200)throw new RuntimeException('Source unavailable');$batches[$id]=['ok'=>true,'items'=>ov_parse($id,$bodies[$id])];}
-        catch(Throwable $e){$batches[$id]=['ok'=>false];}
-        curl_multi_remove_handle($multi,$ch);curl_close($ch);
-    }
-    curl_multi_close($multi);return $batches;
-}
-if(defined('OV_TEST_ONLY'))return;
-$config=require __DIR__.'/config.php';$origin=$_SERVER['HTTP_ORIGIN']??'';
+
+$config=require __DIR__.'/config.php';
+$origin=$_SERVER['HTTP_ORIGIN']??'';
 if($origin&&in_array($origin,$config['allowed_origins']??[],true)){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}
-header('Access-Control-Allow-Headers: Authorization, Content-Type');header('Access-Control-Allow-Methods: GET, POST, OPTIONS');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
-function ov_out(array $data,int $status=200): void {http_response_code($status);echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);exit;}
+header('Access-Control-Allow-Headers: Authorization, Content-Type');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
 if(($_SERVER['REQUEST_METHOD']??'')==='OPTIONS'){http_response_code(204);exit;}
-$token='';if(preg_match('/^Bearer\s+(.+)$/i',$_SERVER['HTTP_AUTHORIZATION']??'',$m))$token=trim($m[1]);
-if(empty($config['sync_key'])||!$token||!hash_equals($config['sync_key'],$token))ov_out(['ok'=>false,'error'=>'Unauthorized'],401);
-// Overseas discovery has been withdrawn. Never serve, refresh, ingest or proxy old candidates.
-$method=$_SERVER['REQUEST_METHOD']??'';$action=$_GET['action']??'list';
-if($method==='POST'&&$action==='clear'){
-    try{
-        $pdo=new PDO($config['db_dsn'],$config['db_user'],$config['db_password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-        $exists=$pdo->query("SHOW TABLES LIKE 'sanrio_overseas_snapshot'")->fetchColumn();
-        if($exists){
-            if(!(int)$pdo->query("SELECT GET_LOCK('sph_overseas_collect',10)")->fetchColumn())ov_out(['ok'=>false,'error'=>'Cleanup busy'],503);
-            try{$pdo->exec('DELETE FROM sanrio_overseas_snapshot WHERE id=1');}finally{$pdo->query("SELECT RELEASE_LOCK('sph_overseas_collect')");}
+
+function ov_out(array $data,int $status=200): never {
+    http_response_code($status);
+    echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+    exit;
+}
+function ov_token(): string {
+    $h=$_SERVER['HTTP_AUTHORIZATION']??'';
+    return preg_match('/^Bearer\s+(.+)$/i',$h,$m)?trim($m[1]):'';
+}
+function ov_clean(string $s,int $max=1200): string {
+    $s=html_entity_decode($s,ENT_QUOTES|ENT_HTML5,'UTF-8');
+    $s=str_replace(['\\n','\\r','\\t'],["\n","\r","\t"],$s);
+    $s=preg_replace('/\\u([0-9a-fA-F]{4})/', '&#x$1;', $s)??$s;
+    $s=html_entity_decode($s,ENT_QUOTES|ENT_HTML5,'UTF-8');
+    $s=preg_replace('/\s+/u',' ',trim($s))??trim($s);
+    return mb_substr($s,0,$max);
+}
+function ov_fetch(string $url,?array &$meta=null): string {
+    $body='';
+    $ch=curl_init($url);
+    curl_setopt_array($ch,[
+        CURLOPT_FOLLOWLOCATION=>true,
+        CURLOPT_MAXREDIRS=>3,
+        CURLOPT_CONNECTTIMEOUT=>6,
+        CURLOPT_TIMEOUT=>15,
+        CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,
+        CURLOPT_USERAGENT=>'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
+        CURLOPT_HTTPHEADER=>[
+            'Accept: text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+            'Accept-Language: ko-KR,ko;q=0.9,en-US;q=0.7,en;q=0.6',
+            'Cache-Control: no-cache'
+        ],
+        CURLOPT_WRITEFUNCTION=>static function($ch,$chunk)use(&$body){
+            if(strlen($body)+strlen($chunk)>3500000)return 0;
+            $body.=$chunk;return strlen($chunk);
         }
-    }catch(Throwable $e){error_log('Overseas cleanup: '.get_class($e));ov_out(['ok'=>false,'error'=>'Cleanup failed'],502);}
-}elseif($method!=='GET')ov_out(['ok'=>false,'error'=>'Overseas discovery disabled'],410);
-if($method==='GET'&&!in_array($action,['list','refresh'],true))ov_out(['ok'=>false,'error'=>'Overseas discovery disabled'],410);
-ov_out(['ok'=>true,'apiVersion'=>'3434','disabled'=>true,'items'=>[],'sourceHealth'=>[],'fetchedAt'=>null,'nextPage'=>null,'cached'=>false]);
+    ]);
+    $ok=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);$error=curl_error($ch);curl_close($ch);
+    $meta=['status'=>$status,'bytes'=>strlen($body),'error'=>$error];
+    return $ok!==false&&$status>=200&&$status<400?$body:'';
+}
+function ov_json_unescape(string $s): string {
+    $decoded=json_decode('"'.str_replace(['"','\\"'],['\\"','"'],$s).'"',true);
+    if(is_string($decoded))return $decoded;
+    return stripcslashes($s);
+}
+function ov_instagram_items(string $html): array {
+    if($html==='')return [];
+    $items=[];
+    if(preg_match_all('/"shortcode"\s*:\s*"([A-Za-z0-9_-]{5,40})"/',$html,$matches,PREG_OFFSET_CAPTURE)){
+        foreach($matches[1] as $match){
+            [$code,$pos]=$match;$start=max(0,$pos-5000);$chunk=substr($html,$start,12000);
+            $caption='';$image='';$timestamp=null;
+            if(preg_match('/"edge_media_to_caption"\s*:\s*\{.*?"text"\s*:\s*"((?:\\.|[^"\\])*)"/s',$chunk,$m))$caption=ov_clean(ov_json_unescape($m[1]));
+            if($caption===''&&preg_match('/"caption"\s*:\s*\{.*?"text"\s*:\s*"((?:\\.|[^"\\])*)"/s',$chunk,$m))$caption=ov_clean(ov_json_unescape($m[1]));
+            if(preg_match('/"display_url"\s*:\s*"((?:\\.|[^"\\])*)"/s',$chunk,$m))$image=ov_json_unescape($m[1]);
+            if(preg_match('/"taken_at_timestamp"\s*:\s*(\d{9,12})/',$chunk,$m))$timestamp=(int)$m[1];
+            elseif(preg_match('/"taken_at"\s*:\s*(\d{9,12})/',$chunk,$m))$timestamp=(int)$m[1];
+            $url='https://www.instagram.com/p/'.$code.'/';
+            if(isset($items[$url]))continue;
+            $items[$url]=[
+                'id'=>'instagram-sanrio-hk-'.$code,
+                'source'=>'Sanrio Hong Kong Instagram',
+                'sourceId'=>'sanrio.hk',
+                'sourceType'=>'instagram',
+                'region'=>'HK',
+                'overseas'=>true,
+                'title'=>$caption!==''?mb_substr($caption,0,90):'Sanrio Hong Kong Instagram 投稿',
+                'summary'=>$caption,
+                'url'=>$url,
+                'thumbnail'=>preg_match('~^https://~i',$image)?$image:'',
+                'publishedAt'=>$timestamp?date(DATE_ATOM,$timestamp):null,
+                'needsReview'=>true
+            ];
+        }
+    }
+    if(!$items&&preg_match_all('~href=["\'](/p/([A-Za-z0-9_-]{5,40})/)["\']~',$html,$matches,PREG_SET_ORDER)){
+        foreach($matches as $m){$url='https://www.instagram.com'.$m[1];$items[$url]=['id'=>'instagram-sanrio-hk-'.$m[2],'source'=>'Sanrio Hong Kong Instagram','sourceId'=>'sanrio.hk','sourceType'=>'instagram','region'=>'HK','overseas'=>true,'title'=>'Sanrio Hong Kong Instagram 投稿','summary'=>'','url'=>$url,'thumbnail'=>'','publishedAt'=>null,'needsReview'=>true];}
+    }
+    $rows=array_values($items);
+    usort($rows,static fn($a,$b)=>strcmp((string)($b['publishedAt']??''),(string)($a['publishedAt']??'')));
+    return array_slice($rows,0,12);
+}
+
+if(empty($config['sync_key'])||!ov_token()||!hash_equals((string)$config['sync_key'],ov_token()))ov_out(['ok'=>false,'error'=>'Unauthorized'],401);
+if(($_SERVER['REQUEST_METHOD']??'')!=='GET')ov_out(['ok'=>false,'error'=>'Method not allowed'],405);
+$action=$_GET['action']??'list';if(!in_array($action,['list','refresh'],true))ov_out(['ok'=>false,'error'=>'Unknown action'],400);
+
+$profile='https://www.instagram.com/sanrio.hk/';$meta=[];$html=ov_fetch($profile,$meta);$items=ov_instagram_items($html);
+$error='';
+if($html==='')$error='Instagramに接続できませんでした。時間を置いて再試行してください。';
+elseif(!$items)$error='Instagram側の取得制限で投稿一覧を読み取れませんでした。公式プロフィールから確認できます。';
+ov_out([
+    'ok'=>true,
+    'apiVersion'=>'3435',
+    'items'=>$items,
+    'fetchedAt'=>date(DATE_ATOM),
+    'profile'=>['label'=>'Sanrio Hong Kong','handle'=>'@sanrio.hk','region'=>'香港','url'=>$profile],
+    'sourceHealth'=>[['label'=>'Sanrio Hong Kong Instagram','ok'=>count($items)>0,'count'=>count($items),'status'=>$meta['status']??0,'error'=>$error]],
+    'warning'=>$error
+]);
