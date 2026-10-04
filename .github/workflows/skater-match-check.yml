@@ -1,0 +1,36 @@
+name: Verify Skater retailer matching
+on:
+  push:
+    branches: [skater-match-3439]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update && sudo apt-get install --yes lftp
+      - name: Check real API results without exposing credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          match_tmp=$(mktemp -d)
+          trap 'rm -rf "$match_tmp"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get .rakuten-settings.php -o "$match_tmp/settings.php"
+          bye
+          LFTP
+          php scripts/verify-skater-match.php "$match_tmp/settings.php"
