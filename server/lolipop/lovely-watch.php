@@ -215,6 +215,26 @@ function lw_affiliate_result(array $data,string $code,string $affiliateId): arra
     if(!preg_match('~^/hgc/[a-zA-Z0-9._-]{8,128}/?$~D',$p['path']??''))throw new RuntimeException('楽天APIの紹介リンクが対応パスではありません（確認処理v3）。');
     return ['url'=>$url,'itemCode'=>$code,'title'=>(string)($item['itemName']??''),'checkedAt'=>gmdate('c')];
 }
+// The 20260701 search API may return a tracking URL in itemUrl when affiliateId is set.
+// Decode only its fixed HTTPS host/path and exact PC product destination; never follow it.
+function lw_rakuten_search_data(array $data): array {
+    $rows=$data['items']??$data['Items']??[];if(!is_array($rows))return $data;
+    $normalized=[];
+    foreach($rows as $row){
+        $item=$row['item']??$row['Item']??$row;if(!is_array($item)){$normalized[]=$row;continue;}
+        $original=(string)($item['itemUrl']??'');$parts=parse_url(html_entity_decode($original,ENT_QUOTES|ENT_HTML5,'UTF-8'));
+        if($parts&&($parts['scheme']??'')==='https'&&($parts['host']??'')==='hb.afl.rakuten.co.jp'&&!isset($parts['user'])&&!isset($parts['pass'])&&!isset($parts['port'])&&!isset($parts['fragment'])&&preg_match('~^/hgc/[a-zA-Z0-9._-]{8,128}/?$~D',$parts['path']??'')){
+            $params=[];parse_str($parts['query']??'',$params);
+            $target=is_string($params['pc']??null)?lw_product($params['pc']):null;
+            if($target&&$target['store']==='楽天'){
+                $item['itemUrl']=$target['url'];
+                if(empty($item['affiliateUrl']))$item['affiliateUrl']=$original;
+            }
+        }
+        $normalized[]=$item;
+    }
+    unset($data['Items']);$data['items']=$normalized;return $data;
+}
 function lw_rakuten_error(int $status,string $body): string {
     $data=json_decode($body,true);
     $description=is_array($data)?(string)($data['error_description']??$data['message']??''):'';
@@ -265,7 +285,7 @@ function lw_affiliate(string $code,array $settings,array $info=[]): array {
         if($ok===false)throw new RuntimeException('楽天APIへの接続に失敗しました。再試行してください。');
         if($status!==200)throw new RuntimeException(lw_rakuten_error($status,$body));
         $data=json_decode($body,true);if(!is_array($data))throw new RuntimeException('楽天APIの応答を確認できませんでした。');
-        $result=lw_resolve_result($data,$code,$settings['affiliateId'],(string)($info['url']??''));
+        $result=lw_resolve_result(lw_rakuten_search_data($data),$code,$settings['affiliateId'],(string)($info['url']??''));
         $tmp=tempnam(sys_get_temp_dir(),'sph-rak-');if($tmp!==false){chmod($tmp,0600);file_put_contents($tmp,json_encode($result));rename($tmp,$cache);}
         return $result;
     }finally{flock($lock,LOCK_UN);fclose($lock);}
@@ -466,7 +486,7 @@ function lw_gour_search(string $keyword,array $settings,string $shopCode='gourma
         if($ok===false)throw new RuntimeException('楽天APIに接続できませんでした。');
         if($status!==200)throw new RuntimeException(lw_rakuten_error($status,$body));
         $data=json_decode($body,true);if(!is_array($data))throw new RuntimeException('楽天APIの応答を確認できませんでした。');
-        return $data;
+        return lw_rakuten_search_data($data);
     }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
 function lw_gour_enriched(string $html,string $url): array {
@@ -620,7 +640,7 @@ try {
     elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
-    $cacheRevision=lw_skater_list_url($url)?'3430-utf8-titles':(lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer');
+    $cacheRevision=(lw_skater_article_url($url)||lw_gour_article_url($url))?'3439-api-product-url':(lw_skater_list_url($url)?'3430-utf8-titles':(lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer'));
     $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|'.$cacheRevision.'|'.$url.'|'.(lw_gour_article_url($url)||lw_skater_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
     $force=$action==='detail' && ($_GET['refresh']??'')==='1';
