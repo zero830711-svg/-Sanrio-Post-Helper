@@ -63,7 +63,7 @@ const lovelyWatch = (()=>{
       settingsRevision++;
       for(const id of ['rakutenAppId','rakutenAffiliateId','rakutenAccessKey'])el(id).value='';
       el('rakutenSettingsStatus').textContent='保存しました。楽天の商品を選ぶと紹介リンクを取得します。';
-      if(selected?.source==='グルマンディーズ'&&!el('lovelyRakuten').value.trim()){
+      if(['グルマンディーズ','スケーター'].includes(selected?.source)&&!el('lovelyRakuten').value.trim()){
         detailCache.delete(selected.url);
         if(!el('lovelyEditor').hidden)await choose(selected.url);
       }else if(selected&&!el('lovelyRakuten').value.trim())autoRakuten(selected);
@@ -71,7 +71,7 @@ const lovelyWatch = (()=>{
   }
   let affiliateBusy=false,settingsRevision=0;
   async function autoRakuten(item){
-    if(!item?.productInfo?.itemCode||!item.productInfo.url){if(item?.source==='グルマンディーズ')el('rakutenAutoStatus').textContent=item.retailerStatus||'楽天公式店との照合が必要です。';return;}
+    if(!item?.productInfo?.itemCode||!item.productInfo.url){if(['グルマンディーズ','スケーター'].includes(item?.source))el('rakutenAutoStatus').textContent=item.retailerStatus||'楽天公式店との照合が必要です。';return;}
     if(el('lovelyRakuten').value.trim()){el('rakutenAutoStatus').textContent='入力済みの楽天リンクを使用します。';return}
     if(item.source==='楽天API'){el('rakutenAutoStatus').textContent='自分の楽天リンクを手動で入力してください。';return;}
     if(affiliateBusy)return;
@@ -120,7 +120,7 @@ const lovelyWatch = (()=>{
   }
   function visibleItems(items,ids,hidden){return groupedItems(items,ids,hidden).filter(x=>x.status!=='used').map(x=>x.item);}
   function thumbnailUrl(value){
-    try{const u=new URL(value);const allowed=(u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname))||(u.hostname==='www.hatakeyamashoji.jp'&&/^\/wp\/wp-content\/uploads\/(?:[0-9]{4}\/[0-9]{2}\/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/.test(u.pathname))||(u.hostname==='makeshop-multi-images.akamaized.net'&&/^\/gourmandise\/itemimages\/[0-9]{12}[0-9]*_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?[0-9]+)?$/.test(u.search)&&!u.hash);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&allowed?u.href:''}catch(_){return ''}
+    try{const u=new URL(value);const allowed=(u.hostname==='www.skater-onlineshop.com'&&/^\/img\/goods\/(?:[SL]|[0-9])\/[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&!u.search&&!u.hash)||(u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname))||(u.hostname==='www.hatakeyamashoji.jp'&&/^\/wp\/wp-content\/uploads\/(?:[0-9]{4}\/[0-9]{2}\/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/.test(u.pathname))||(u.hostname==='makeshop-multi-images.akamaized.net'&&/^\/gourmandise\/itemimages\/[0-9]{12}[0-9]*_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?[0-9]+)?$/.test(u.search)&&!u.hash);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&allowed?u.href:''}catch(_){return ''}
   }
   function thumbnailHtml(item){
     const url=thumbnailUrl(item.thumbnail);
@@ -149,8 +149,8 @@ const lovelyWatch = (()=>{
   function pagingControls(){
     const button=el('lovelyMore');if(button){button.hidden=!Object.keys(nextPages).length;button.disabled=busy;button.textContent=busy?'読み込み中…':'もっと見る';}
   }
-  const sourceOf=item=>item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
-  const sourceName=source=>({gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ'}[source]||source);
+  const sourceOf=item=>item.source==='スケーター'?'skater':item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
+  const sourceName=source=>({skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ'}[source]||source);
   async function loadSources(pages,replace){
     const errors=[],partial=[];
     await Promise.all(Object.entries(pages).map(async([source,page])=>{
@@ -161,13 +161,13 @@ const lovelyWatch = (()=>{
         loaded=true;render();
       }catch(e){nextPages[source]=page;errors.push(sourceName(source)+'：'+e.message);}
     }));
-    const status=el('lovelyStatus');status.textContent='ブログ・畑山商事・グルマンディーズの新着を確認しました。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
+    const status=el('lovelyStatus');status.textContent='ブログ・畑山商事・グルマンディーズ・スケーターの新着を確認しました。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
   }
   async function refresh(){
     if(busy)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
       historyIds=usedIds(await dbGetAll());nextPages={};pageCount=1;
-      await loadSources({lovely:1,hatakeyama:1,gourmandise:1},true);
+      await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1},true);
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
   }
   async function more(){
@@ -193,11 +193,11 @@ const lovelyWatch = (()=>{
     const group=groupedItems(rows,historyIds,state().hidden||{},state().identities||{}).find(g=>g.articles.some(a=>a.url===item.url));
     el('lovelyRelatedArticles').innerHTML=group&&group.articles.length>1?'<details><summary>同じ商品のほかの記事</summary>'+group.articles.filter(a=>a.url!==item.url).map(a=>'<p><a target="_blank" rel="noopener noreferrer" href="'+escape(a.url)+'">'+escape(a.title)+'</a></p>').join('')+'</details>':'';
     el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='';el('lovelyPhotoCount').hidden=true;el('lovelyImageRetry').hidden=true;el('lovelyConfirmed').checked=false;
-    el('lovelySource').textContent=item.source==='楽天API'?'楽天の販売ページを確認':item.source==='グルマンディーズ'?'メーカーの商品ページを確認':item.source==='畑山商事'?'メーカーの記事を確認':'元記事を確認';
+    el('lovelySource').textContent=item.source==='楽天API'?'楽天の販売ページを確認':['グルマンディーズ','スケーター'].includes(item.source)?'メーカーの商品ページを確認':item.source==='畑山商事'?'メーカーの記事を確認':'元記事を確認';
     el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=savedRakuten(item)||item.ownRakuten||'';el('lovelyNote').value='';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
     el('lovelyReview').textContent=item.needsReview?'主商品リンクは要確認です。自分で商品を特定してから進めてください。':'記事の主商品リンク候補です。販売ページで商品・セット内容を確認してください。';
-    if(item.source==='グルマンディーズ'){
+    if(['グルマンディーズ','スケーター'].includes(item.source)){
       el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">楽天公式店の商品を確認</a>').join('');
       el('lovelyReview').textContent=item.retailerStatus||'楽天公式店の掲載状況を確認中…';
     }
@@ -210,6 +210,7 @@ const lovelyWatch = (()=>{
     el('lovelyAmazonSearch').href='https://www.amazon.co.jp/s?k='+encodeURIComponent(item.title);
     el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.title)+'/';
     if(item.source==='グルマンディーズ')el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.productInfo?.searchKeyword||item.title)+'/?sid=312278';
+    if(item.source==='スケーター')el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.productInfo?.jan||item.jan||item.title)+'/?sid=206803';
     postEdited=!!item.postEdited;postLinks=item.postLinks||linkSignature();postStale=false;
     el('lovelyPostText').value=postEdited?String(item.postText||''):'';el('lovelyPostStatus').textContent='';el('lovelyPostAiStatus').textContent='';
     el('lovelyShareStatus').textContent='';persist();
