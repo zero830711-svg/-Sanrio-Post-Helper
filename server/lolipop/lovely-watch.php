@@ -515,7 +515,7 @@ function lw_skater_list(string $html,int $page): array {
         $href=$a->getAttribute('href');if(strpos($href,'/shop/g/')===0)$href='https://www.skater-onlineshop.com'.$href;
         $url=lw_skater_article_url($href);if(!$url)continue;
         $name=lw_text($x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," variation-name ")]',$row)->item(0));
-        $title=$name?preg_replace('/^[（）()\s]+|[（）()\s]+$/u','',$name):lw_text($a);if(!$title)continue;
+        $title=$name?preg_replace('/^(?:（(.*)）|\((.*)\))$/us','$1$2',trim($name)):lw_text($a);if(!$title)continue;
         $thumbnail='';foreach($x->query('.//dt//img',$row) as $img){foreach(['data-src','src'] as $attr){$thumbnail=lw_skater_thumbnail_url($img->getAttribute($attr));if($thumbnail)break;}if($thumbnail)break;}
         preg_match('~/g([0-9]{13})/$~',$url,$m);
         $rows[$url]=['source'=>'スケーター','url'=>$url,'title'=>$title,'date'=>'','jan'=>$m[1],'thumbnail'=>$thumbnail,'productIds'=>[],'products'=>[],'needsReview'=>true];
