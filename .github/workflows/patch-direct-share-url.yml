@@ -1,0 +1,52 @@
+name: Patch ChatGPT direct share URL
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/patch-direct-share-url.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Replace GitHub Pages share URL with direct Lolipop viewer
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path('app.js')
+          s = app.read_text(encoding='utf-8')
+          old = '''    const shareUrl=new URL("./share.html",location.href);
+    shareUrl.searchParams.set("v","private");
+    shareUrl.hash="token="+encodeURIComponent(result.token);'''
+          new = '''    const shareUrl=new URL("https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/share.php");
+    shareUrl.searchParams.set("token",result.token);'''
+          if old not in s:
+              raise SystemExit('share URL block not found')
+          s = s.replace(old, new, 1)
+          s = s.replace('const APP_VERSION="2026.10.04-3436";', 'const APP_VERSION="2026.10.04-3437";', 1)
+          app.write_text(s, encoding='utf-8')
+
+          index = Path('index.html')
+          h = index.read_text(encoding='utf-8')
+          h = h.replace('styles.css?v=20261004-3436', 'styles.css?v=20261004-3437')
+          h = h.replace('アプリ版 2026.10.04-3436', 'アプリ版 2026.10.04-3437')
+          h = h.replace('app.js?v=20261004-3436', 'app.js?v=20261004-3437')
+          h = h.replace('lovely-watch.js?v=20261004-3436', 'lovely-watch.js?v=20261004-3437')
+          h = h.replace('news.js?v=20261004-3436', 'news.js?v=20261004-3437')
+          h = h.replace('post-ai.js?v=20261004-3436', 'post-ai.js?v=20261004-3437')
+          index.write_text(h, encoding='utf-8')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Use direct Lolipop URL for ChatGPT share links"
+          git push
