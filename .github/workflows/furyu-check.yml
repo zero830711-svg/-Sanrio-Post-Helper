@@ -1,0 +1,14 @@
+name: Verify live FURYU news
+on:
+  push:
+    branches: [furyu-news-3441]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v6
+      - run: php scripts/verify-furyu-news.php

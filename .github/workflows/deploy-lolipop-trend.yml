@@ -109,3 +109,21 @@ jobs:
           bye
           LFTP
           php scripts/verify-skater-match.php "$match_tmp/settings.php" "$match_tmp/config.php"
+
+      - name: Verify deployed FURYU news
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          furyu_tmp=$(mktemp -d)
+          trap 'rm -rf "$furyu_tmp"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get config.php -o "$furyu_tmp/config.php"
+          bye
+          LFTP
+          php scripts/verify-furyu-news.php "$furyu_tmp/config.php"
