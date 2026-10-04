@@ -1,7 +1,7 @@
 /* Loaded without network activity; discovery starts only when its section opens. */
 const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
-  let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
+  let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',sourceMode='all',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
   let discoveryBatchAt='',batchEligible={};
   let editorGeneration=0,imageBusy=0,uploadBusy=false;
   const pickedImages=new Set(),imageChoices=new Set(),imageFiles=new Map(),imageErrors=new Map(),imageActive=new Set();
@@ -139,10 +139,14 @@ const lovelyWatch = (()=>{
   }
   function render(){
     const value=state(),groups=groupedItems([...rows].sort((a,b)=>compareItems(a,b,value.firstSeen||{})),historyIds,value.hidden||{},value.identities||{});
-    groups.sort((a,b)=>compareItems(a.item,b.item,value.firstSeen||{}));
+    const sourceGroups=sourceMode==='all'?groups:groups.flatMap(g=>{
+      const matching=g.articles.filter(item=>sourceOf(item)===sourceMode).sort((a,b)=>compareItems(a,b,value.firstSeen||{}));
+      return matching.length?[{...g,item:matching.includes(g.item)?g.item:matching[0]}]:[];
+    });
+    sourceGroups.sort((a,b)=>compareItems(a.item,b.item,value.firstSeen||{}));
     const recentUrls=new Set(Object.values(value.sourceChecks||{}).flatMap(check=>check.recentUrls||[]));
     const recentGroup=g=>g.status!=='used'&&g.articles.every(item=>recentUrls.has(item.url));
-    const visible=groups.filter(x=>filterMode==='all'||(filterMode==='recent'?recentGroup(x):filterMode==='used'?x.status==='used':x.status!=='used'));
+    const visible=sourceGroups.filter(x=>filterMode==='all'||(filterMode==='recent'?recentGroup(x):filterMode==='used'?x.status==='used':x.status!=='used'));
     const recentHelp=el('lovelyRecentHelp');
     if(recentHelp){
       recentHelp.hidden=filterMode!=='recent';
@@ -152,7 +156,7 @@ const lovelyWatch = (()=>{
     }
     const labels={new:'未紹介候補',used:'紹介済み',update:'更新候補（要確認）',review:'一部紹介済み・要確認'};
     el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><span class="backup-note">'+labels[g.status]+' ・ '+escape(g.item.source||'Lovely Fancy')+'</span><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong><span class="backup-note">'+escape(g.item.date?'掲載 '+g.item.date:'初回取得 '+new Date(value.firstSeen?.[g.item.url]||Date.now()).toLocaleDateString('ja-JP'))+'</span></div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
-    el('lovelyCount').textContent='未紹介・要確認 '+groups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+groups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+groups.filter(x=>x.status==='used').length+'件';
+    el('lovelyCount').textContent=(sourceMode==='all'?'':sourceName(sourceMode)+'：')+'未紹介・要確認 '+sourceGroups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+sourceGroups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+sourceGroups.filter(x=>x.status==='used').length+'件';
   }
   function rememberIdentity(item){
     if(!item?.productInfo?.jan&&!item?.productIds?.length)return;
@@ -161,8 +165,9 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(_){}
     render();
   }
+  function selectedPages(){return sourceMode==='all'?{...nextPages}:(nextPages[sourceMode]?{[sourceMode]:nextPages[sourceMode]}:{});}
   function pagingControls(){
-    const button=el('lovelyMore');if(button){button.hidden=!Object.keys(nextPages).length;button.disabled=busy;button.textContent=busy?'読み込み中…':'もっと見る';}
+    const button=el('lovelyMore');if(button){button.hidden=!Object.keys(selectedPages()).length;button.disabled=busy;button.textContent=busy?'読み込み中…':'もっと見る';}
   }
   const sourceOf=item=>item.source==='スケーター'?'skater':item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
   const sourceName=source=>({skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ'}[source]||source);
@@ -197,9 +202,9 @@ const lovelyWatch = (()=>{
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
   }
   async function more(){
-    if(busy||!Object.keys(nextPages).length)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='次のページを確認中…';
+    const pages=selectedPages();if(busy||!Object.keys(pages).length)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='次のページを確認中…';
     try{
-      await loadSources({...nextPages},false);pageCount++;
+      await loadSources(pages,false);pageCount++;
     }catch(e){el('lovelyStatus').textContent=e.message+' 「もっと見る」で再試行できます。'}
     finally{busy=false;el('lovelyRefresh').disabled=false;pagingControls()}
   }
@@ -484,6 +489,16 @@ const lovelyWatch = (()=>{
   el('lovelyMore')?.addEventListener('click',more);
   el('lovelyBack')?.addEventListener('click',backToList);
   el('lovelyBackBottom')?.addEventListener('click',backToList);
+  const sourceSelect=el('lovelySourceFilter');
+  const savedSource=state().sourceFilter;
+  sourceMode=['all','lovely','hatakeyama','gourmandise','skater'].includes(savedSource)?savedSource:'all';
+  if(sourceSelect)sourceSelect.value=sourceMode;
+  sourceSelect?.addEventListener('change',e=>{
+    sourceMode=['all','lovely','hatakeyama','gourmandise','skater'].includes(e.target.value)?e.target.value:'all';
+    const saved=state();saved.sourceFilter=sourceMode;
+    try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
+    render();pagingControls();
+  });
   el('lovelyFilter')?.addEventListener('change',async e=>{
     filterMode=['new','recent','used','all'].includes(e.target.value)?e.target.value:'new';
     render();
