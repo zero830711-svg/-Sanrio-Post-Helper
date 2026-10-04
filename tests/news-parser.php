@@ -18,7 +18,7 @@ $d=news_parse('<h1>商品ニュース</h1><div id="press-release-body"><table><t
 check(count($d['facts'])===2);check($d['facts'][0]['text']==='発売日：2026年10月上旬予定');check($d['facts'][1]['text']==='価格：各880円（税込）');
 $e=news_parse('<h1>新作</h1><div id="press-release-body"><p>10月3日発売、価格は880円（税込）です。</p></div>',$url);
 check(count($e['facts'])===2);
-$cache=sys_get_temp_dir().'/sph-news-v5-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
+$cache=sys_get_temp_dir().'/sph-news-v6-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
 $previous=is_file($cache)?file_get_contents($cache):null;
 try{
  file_put_contents($cache,json_encode($d));
@@ -141,7 +141,7 @@ $stale=$pr[0];$stale['url']='https://prtimes.jp/main/html/rd/p/9.2.html';$stale[
 $unknown=$pr[0];$unknown['url']='https://prtimes.jp/main/html/rd/p/8.2.html';$unknown['date']='';
 $merged=news_merge_feeds([$many,$pr,$pr,[$stale,$unknown]],strtotime('2026-10-03'));
 check(count($merged)===62);check($merged[0]['source']==='PR TIMES');check(count(array_filter($merged,fn($item)=>$item['source']==='PR TIMES'))===2);
-check(count(news_feeds())===11);check(strpos(news_feeds()[1]['url'],'page=2')!==false);
+check(count(news_feeds())===13);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='furyu'))===2);check(strpos(news_feeds()[1]['url'],'page=2')!==false);
 echo "Expanded news sources, deduplication and quotas passed\n";
 
 $groqItem=['title'=>'クロミのリボンバッグ','url'=>'https://www.sanrio.co.jp/news/goods/test-20261003/','paragraphs'=>['リボン付きバッグ。価格は880円（税込）。']];
@@ -165,3 +165,16 @@ $foreign=post_ai_input(['mode'=>'product','overseas'=>true,'region'=>'KR','title
 check($foreign['overseas']===true&&$foreign['links']===[]);
 check(str_contains(news_groq_prompt($foreign),'日本からの購入可否は未確認'));
 $domestic=post_ai_input(['mode'=>'product','overseas'=>true,'region'=>'JP','title'=>'商品','text'=>'商品情報','links'=>[]]);check($domestic['overseas']===false);
+// FURYU prizes: identity and schedule come from the requested body, never related items.
+$furyuUrl='https://furyuprize.com/item/22561';
+check(news_url($furyuUrl.'/')===$furyuUrl);
+foreach(['https://furyuprize.com.evil.example/item/22561','https://furyuprize.com/item/22561/shoplist','https://furyuprize.com/item/22561?next=evil','http://furyuprize.com/item/22561'] as $bad)check(news_url($bad)==='');
+check(news_image_url('https://furyuprize.com/files/images/prz/pi-main-22561.webp')!=='');
+check(news_image_url('https://furyuprize.com/files/images/prz/pc-67.jpg')==='');
+$frows=news_furyu_rows(file_get_contents(__DIR__.'/furyu-list.html'));check(count($frows)===3);check($frows[0]['prize']===true);check($frows[0]['date']==='');check($frows[0]['schedule']==='2026年10月2週');
+$fd=news_parse(file_get_contents(__DIR__.'/furyu-detail.html'),$furyuUrl);check($fd['title']==='クロミ たれ耳ロリータBIGぬいぐるみ');check($fd['schedule']==='2026年10月2週');check($fd['date']==='');check(count($fd['images'])===1);check(strpos($fd['images'][0],'22561')!==false);check(in_array('種類：1種',$fd['paragraphs'],true));
+$failed=false;try{news_parse(file_get_contents(__DIR__.'/furyu-detail.html'),'https://furyuprize.com/item/99999');}catch(RuntimeException $e){$failed=true;}check($failed);
+check(strpos(ai_cute_suffix($fd),'https://')===false);check(strpos(ai_cute_suffix($fd),'詳細')===false);check(strpos(ai_cute_suffix($fd),'#pr')===false);
+$good=news_groq_validate(json_encode(['body'=>'💜 クロミのたれ耳ロリータBIGぬいぐるみ✨\n2026年10月2週登場予定。店舗により時期が前後します。'],JSON_UNESCAPED_UNICODE),$fd);check(strpos($good,'https://')===false);
+foreach(['💜 10月2日登場','💜 10月2週登場予定','💜 詳細はこちら','💜 価格は1円'] as $bad){$failed=false;try{news_groq_validate(json_encode(['body'=>$bad],JSON_UNESCAPED_UNICODE),$fd);}catch(RuntimeException $e){$failed=true;}check($failed);}
+echo "FURYU identity, weekly schedule, photo scope and URL-free draft checks passed\n";
