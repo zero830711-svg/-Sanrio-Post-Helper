@@ -63,3 +63,8 @@ foreach(['https://evil.test/casmin/72123-6-sdpc4/','https://search.rakuten.co.jp
 $row=$real;$row['itemUrl']=str_replace('hb.afl.rakuten.co.jp','hb.afl.rakuten.co.jp.evil.test',$row['itemUrl']);
 skater_check(lw_skater_match(lw_rakuten_search_data(['Items'=>[$row]]),'4973307721236')===null,'Tracking lookalike host rejected');
 echo "API tracking product identity regression passed\n";
+
+$apiImage='https://thumbnail.image.rakuten.co.jp/@0_mall/casmin/cabinet/cross45/sdpc4_72123_01__mm_s.jpg?_ex=128x128';
+skater_check(lw_image_url($apiImage)==='https://image.rakuten.co.jp/casmin/cabinet/cross45/sdpc4_72123_01__mm_s.jpg?_ex=128x128','Current API thumbnail resolves to same shop cabinet photo');
+foreach([str_replace('thumbnail.image.rakuten.co.jp','thumbnail.image.rakuten.co.jp.evil.test',$apiImage),str_replace('/cabinet/','/other/',$apiImage),$apiImage.'&redirect=evil',$apiImage.'#x',str_replace('/cross45/','/../',$apiImage)] as $bad)skater_check(lw_image_url($bad)==='','Unsafe API image path/host/query rejected');
+echo "API thumbnail photo regression passed\n";

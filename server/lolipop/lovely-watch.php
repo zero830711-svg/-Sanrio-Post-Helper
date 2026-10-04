@@ -118,6 +118,12 @@ function lw_detail(string $html,string $url): array {
 function lw_image_url(string $url): string {
     $p=parse_url($url);$host=$p['host']??'';
     if(($p['scheme']??'')!=='https'||isset($p['user'])||isset($p['pass'])||isset($p['port']))return '';
+    if($host==='thumbnail.image.rakuten.co.jp'){
+        // Current API thumbnails name the same public shop cabinet through /@0_mall/.
+        $path=$p['path']??'';$query=$p['query']??'';
+        if(isset($p['fragment'])||!preg_match('~^/@0_mall/([a-zA-Z0-9_-]+)/cabinet/([a-zA-Z0-9_/-]+\.(?:jpe?g|png|webp))$~iD',$path,$m)||($query!==''&&!preg_match('/^_ex=[0-9]{1,4}x[0-9]{1,4}$/D',$query)))return '';
+        return 'https://image.rakuten.co.jp/'.$m[1].'/cabinet/'.$m[2].($query!==''?'?'.$query:'');
+    }
     if(!in_array($host,['shop.r10s.jp','image.rakuten.co.jp','tshop.r10s.jp'],true))return '';
     return preg_match('~\.(?:jpe?g|png|webp)$~i',$p['path']??'')?$url:'';
 }
