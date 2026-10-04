@@ -16,6 +16,7 @@ on:
       - "server/lolipop/lovely-watch.php"
       - "server/lolipop/overseas.php"
       - "server/lolipop/news.php"
+      - "server/lolipop/news-extra.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
       - "styles.css"
@@ -39,6 +40,7 @@ on:
       - "server/lolipop/lovely-watch.php"
       - "server/lolipop/overseas.php"
       - "server/lolipop/news.php"
+      - "server/lolipop/news-extra.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
       - "styles.css"
@@ -75,6 +77,7 @@ jobs:
           php tests/skater-parser.php
           php -l server/lolipop/overseas.php
           php -l server/lolipop/news.php
+          php -l server/lolipop/news-extra.php
           php tests/news-parser.php
 
       - name: Install locked dependencies

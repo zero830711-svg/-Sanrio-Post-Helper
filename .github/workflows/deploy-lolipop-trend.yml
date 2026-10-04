@@ -6,6 +6,7 @@ on:
     paths:
       - "server/lolipop/overseas.php"
       - "server/lolipop/news.php"
+      - "server/lolipop/news-extra.php"
       - "tests/news-parser.php"
       - "server/lolipop/trend.php"
       - "server/lolipop/archive-media-batch.php"
@@ -41,6 +42,7 @@ jobs:
       - name: Check PHP syntax
         run: |
           php -l server/lolipop/news.php
+          php -l server/lolipop/news-extra.php
           php tests/news-parser.php
           php -l server/lolipop/trend.php
           php -l server/lolipop/archive-media-batch.php
@@ -69,6 +71,7 @@ jobs:
           set ftp:ssl-protect-data true
           set ssl:verify-certificate yes
           cd "$LOLIPOP_TREND_DIR"
+          put server/lolipop/news-extra.php
           put server/lolipop/news.php
           put server/lolipop/trend.php
           put server/lolipop/archive-media-batch.php
@@ -127,3 +130,4 @@ jobs:
           bye
           LFTP
           php scripts/verify-furyu-news.php "$furyu_tmp/config.php"
+          php scripts/verify-news-extra.php "$furyu_tmp/config.php"

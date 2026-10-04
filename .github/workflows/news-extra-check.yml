@@ -1,0 +1,14 @@
+name: Verify live manufacturer news
+on:
+  push:
+    branches: [manufacturer-news-3442]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v6
+      - run: php scripts/verify-news-extra.php

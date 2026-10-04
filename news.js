@@ -29,7 +29,7 @@ function newsDraft(item){
  const chars=Array.from(title);
  if(chars.length>60)title=chars.slice(0,59).join('')+'…';
  const heading='🎀 '+title+' ✨';
- const footer=item.prize?'\n\n#サンリオ #フリュープライズ':'\n\n🔎 詳細はこちら\n'+item.url+'\n\n#サンリオ';
+ const footer=item.tipsOnly?'\n\n#サンリオ':item.prize?'\n\n#サンリオ #フリュープライズ':'\n\n🔎 詳細はこちら\n'+item.url+'\n\n#サンリオ';
  const facts=[];
  // Preserve complete source facts; never cut a price, date or qualification midway.
  for(const kind of ['schedule','price']){
@@ -48,6 +48,7 @@ function newsDraft(item){
 function newsDateLabel(value){const m=String(value||'').match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);return m?Number(m[2])+'/'+Number(m[3]):value;}
 
 function newsScheduleLabel(item){
+ if(item.tipsOnly)return item.schedule||'';
  if(item.prize)return item.schedule?item.schedule+'登場予定':'';
  const texts=[...(item.facts||[]).filter(f=>f.kind==='schedule').map(f=>f.text),item.title||''];
  const date='(?:[0-9]{4}年)?[0-9]{1,2}(?:月[0-9]{1,2}日?|/[0-9]{1,2}|月(?:上旬|中旬|下旬)?)';
@@ -68,6 +69,7 @@ function newsCharacters(title){
  return [...new Set(String(title||'').normalize('NFKC').match(/ハローキティ|クロミ|マイメロディ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|バッドばつ丸|ウサハナ|リトルツインスターズ|タキシードサム|あひるのペックル|こぎみゅん|けろけろけろっぴ|ぐでたま/g)||[])].sort();
 }
 function newsSameStory(a,b){
+ if(!!a.tipsOnly!==!!b.tipsOnly)return false;
  if(!!a.prize!==!!b.prize)return false;
  const articleKey=u=>{try{const p=new URL(u);return p.origin+p.pathname.replace(/\/$/,'');}catch{return '';}};
  const ua=articleKey(a.url),ub=articleKey(b.url);if(ua&&ua===ub)return true;
@@ -162,7 +164,7 @@ function newsRender(){
  const title=document.createElement('strong');title.textContent=item.title;
  const source=document.createElement('span');source.className='backup-note';
  const mark=newsGroupMark(item);
- source.textContent=[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.prize?'プライズ情報':item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
+ source.textContent=[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.tipsOnly?'メーカー新作':item.prize?'プライズ情報':item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
  info.append(source,title);
  const schedule=item.members.map(newsScheduleLabel).find(Boolean);if(schedule){const note=document.createElement('span');note.className='news-schedule';note.textContent=schedule;info.append(note);}
  const img=document.createElement('img');img.className='news-thumb';img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';
@@ -214,7 +216,7 @@ async function newsPrepare(url){
   newsSourceLinks(url);
   $('newsDone').disabled=false;$('newsSkip').disabled=false;
   $('newsTitle').textContent=entry.item.title;$('newsSource').href=entry.item.url;$('newsSource').textContent=entry.item.source+'の記事を確認';
-  $('newsDate').textContent=entry.item.prize?(entry.item.schedule?entry.item.schedule+'登場予定（店舗により時期が前後します）':'登場時期は公式ページで確認'):entry.item.date?'発表日：'+entry.item.date+'（発売日とは別）':'発表日を元記事で確認';
+  $('newsDate').textContent=entry.item.tipsOnly?(entry.item.schedule||'発売時期は公式ページで確認'):entry.item.prize?(entry.item.schedule?entry.item.schedule+'登場予定（店舗により時期が前後します）':'登場時期は公式ページで確認'):entry.item.date?'発表日：'+entry.item.date+'（発売日とは別）':'発表日を元記事で確認';
   $('newsText').value=entry.text;$('newsAiChoiceLabel').hidden=true;$('newsAiChoice').value=String(entry.aiChoice||0);$('newsFacts').textContent=(entry.item.paragraphs||[]).slice(0,6).join('\n\n');
   // Show every preview before waiting for downloadable photo files.
   newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();
