@@ -2,7 +2,7 @@
 declare(strict_types=1);
 $config=require __DIR__.'/config.php';
 $origin=$_SERVER['HTTP_ORIGIN']??'';
-if($origin!==''&&in_array($origin,$config['allowed_origins']??[],true)){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}
+if($origin==='https://zero830711-svg.github.io'||($origin!==''&&in_array($origin,$config['allowed_origins']??[],true))){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}
 header('Content-Type: application/json; charset=utf-8');header('Access-Control-Allow-Headers: Authorization, Content-Type');header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 if($_SERVER['REQUEST_METHOD']==='OPTIONS'){http_response_code(204);exit;}
 function out(array $x,int $s=200):void{http_response_code($s);echo json_encode($x,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
