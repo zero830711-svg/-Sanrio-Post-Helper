@@ -9,6 +9,7 @@ on:
       - "tests/news-parser.php"
       - "server/lolipop/trend.php"
       - "server/lolipop/archive-media-batch.php"
+      - "server/lolipop/share.php"
       - "server/lolipop/lovely-watch.php"
       - "tests/lovely-parser.php"
       - "tests/hatakeyama-*"
@@ -43,6 +44,7 @@ jobs:
           php tests/news-parser.php
           php -l server/lolipop/trend.php
           php -l server/lolipop/archive-media-batch.php
+          php -l server/lolipop/share.php
           php -l server/lolipop/lovely-watch.php
           php tests/lovely-parser.php
           php tests/hatakeyama-parser.php
@@ -70,9 +72,8 @@ jobs:
           put server/lolipop/news.php
           put server/lolipop/trend.php
           put server/lolipop/archive-media-batch.php
+          put server/lolipop/share.php
           put server/lolipop/lovely-watch.php
           put server/lolipop/overseas.php
           bye
           LFTP
-
-# redeploy marker: private share CORS fix
