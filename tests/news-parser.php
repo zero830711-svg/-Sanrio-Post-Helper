@@ -18,7 +18,7 @@ $d=news_parse('<h1>商品ニュース</h1><div id="press-release-body"><table><t
 check(count($d['facts'])===2);check($d['facts'][0]['text']==='発売日：2026年10月上旬予定');check($d['facts'][1]['text']==='価格：各880円（税込）');
 $e=news_parse('<h1>新作</h1><div id="press-release-body"><p>10月3日発売、価格は880円（税込）です。</p></div>',$url);
 check(count($e['facts'])===2);
-$cache=sys_get_temp_dir().'/sph-news-v7-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
+$cache=sys_get_temp_dir().'/sph-news-v8-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
 $previous=is_file($cache)?file_get_contents($cache):null;
 try{
  file_put_contents($cache,json_encode($d));
@@ -141,7 +141,7 @@ $stale=$pr[0];$stale['url']='https://prtimes.jp/main/html/rd/p/9.2.html';$stale[
 $unknown=$pr[0];$unknown['url']='https://prtimes.jp/main/html/rd/p/8.2.html';$unknown['date']='';
 $merged=news_merge_feeds([$many,$pr,$pr,[$stale,$unknown]],strtotime('2026-10-03'));
 check(count($merged)===62);check($merged[0]['source']==='PR TIMES');check(count(array_filter($merged,fn($item)=>$item['source']==='PR TIMES'))===2);
-check(count(news_feeds())===17);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='furyu'))===2);check(strpos(news_feeds()[1]['url'],'page=2')!==false);
+check(count(news_feeds())===19);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='furyu'))===2);check(strpos(news_feeds()[1]['url'],'page=2')!==false);
 echo "Expanded news sources, deduplication and quotas passed\n";
 
 $groqItem=['title'=>'クロミのリボンバッグ','url'=>'https://www.sanrio.co.jp/news/goods/test-20261003/','paragraphs'=>['リボン付きバッグ。価格は880円（税込）。']];

@@ -53,6 +53,6 @@ function news_extra_parse(string $html,string $url):array{
 }
 function news_extra_enrich(array $rows,array &$errors):array{
  $feeds=[];foreach($rows as $row){$feeds[]=['url'=>$row['url'],'kind'=>'detail'];}$bodies=news_fetch_feeds($feeds);$result=[];
- foreach($rows as $i=>$row){try{if($bodies[$i]===null)throw new RuntimeException();$detail=news_extra_parse($bodies[$i],$row['url']);$period=news_extra_period($detail['schedule']);if(!news_extra_recent($period,time()))continue;$cache=sys_get_temp_dir().'/sph-news-v7-'.hash('sha256',__DIR__.$row['url']).'.json';file_put_contents($cache,json_encode($detail,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);$result[]=$detail;}catch(Throwable $e){$errors[]='リーメントの一部の商品情報を取得できませんでした。';}}
+ foreach($rows as $i=>$row){try{if($bodies[$i]===null)throw new RuntimeException();$detail=news_extra_parse($bodies[$i],$row['url']);$period=news_extra_period($detail['schedule']);if(!news_extra_recent($period,time()))continue;$cache=sys_get_temp_dir().'/sph-news-v8-'.hash('sha256',__DIR__.$row['url']).'.json';file_put_contents($cache,json_encode($detail,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);$result[]=$detail;}catch(Throwable $e){$errors[]='リーメントの一部の商品情報を取得できませんでした。';}}
  return $result;
 }
