@@ -32,7 +32,7 @@ test('もっと見るでも先頭枠とリンク優先を保持し件数を表�
   await dbDeleteMany((await dbGetAll()).map(x=>x.id));
   const old=new Date(Date.now()-100*86400000).toISOString();
   const make=(id,props={})=>({id,title:'独立した商品 '+id+' の紹介',text:'商品について確認した情報を紹介する十分な長さの本文です。',postedAt:old,...props});
-  const base=make('base');
+  const base=make('base',{amazon:'https://amzn.to/base',images:['data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>']});
   const rows=[base,make('no-link',{images:['data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>'],impressions:999999}),...Array.from({length:7},(_,i)=>make('linked-'+i,{amazon:'https://amzn.to/item'+i,impressions:100+i}))];
   await dbPutMany(rows);getRoleBasedPicks=async()=>[{...base,_role:'久しぶり'}];stampRecommendations=async()=>{};todayAdditionalLimit=0;await renderToday();
  });
@@ -40,6 +40,6 @@ test('もっと見るでも先頭枠とリンク優先を保持し件数を表�
  await page.locator('#todayMore').click();await expect(page.locator('.today-news-row')).toHaveCount(6);
  expect(await page.locator('.today-news-row').evaluateAll(rows=>rows.map(r=>r.querySelector('[data-id]').dataset.id))).toEqual(['base','linked-6','linked-5','linked-4','linked-3','linked-2']);
  await expect(page.locator('#todayCountsSummary')).toContainText('保存 9件 ／ 候補 9件');
- await page.locator('#todayCountsSummary').click();await expect(page.locator('#todayCounts')).toContainText('リンクあり：7件');
+ await page.locator('#todayCountsSummary').click();await expect(page.locator('#todayCounts')).toContainText('リンクあり：8件');
  await page.locator('#todayMore').click();await expect(page.locator('.today-news-row')).toHaveCount(9);await expect(page.locator('#todayMore')).toBeHidden();
 });

@@ -2463,9 +2463,9 @@ async function renderToday(){
   if(todayListDay!==localDayKey()){todayAdditionalLimit=0;todayListDay=localDayKey();}
   const base=await getRoleBasedPicks();
   const analysis=candidatePoolAnalysis(await dbGetAll());
-  const extra=additionalTodayPicks(analysis.ready,base);
+  const extra=additionalTodayPicks(await getReadyItems(),base);
   renderCandidateCounts(analysis,base,extra);
-  const ranked=[...base,...extra];
+  const ranked=[...base,...extra].sort((a,b)=>Number(todayAffiliateLinks(b).length>0)-Number(todayAffiliateLinks(a).length>0)||Number(candidateHasPhotos(b))-Number(candidateHasPhotos(a)));
   const items=ranked.slice(0,base.length+todayAdditionalLimit);
   const more=$("todayMore"),status=$("todayMoreStatus");
   more.hidden=extra.length<=todayAdditionalLimit;
