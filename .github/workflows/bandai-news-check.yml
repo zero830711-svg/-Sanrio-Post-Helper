@@ -1,0 +1,14 @@
+name: Verify live Bandai news
+on:
+  push:
+    branches: [bandai-news-3443]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v6
+      - run: php scripts/verify-bandai-news.php

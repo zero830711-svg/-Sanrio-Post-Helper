@@ -7,6 +7,7 @@ on:
       - "server/lolipop/overseas.php"
       - "server/lolipop/news.php"
       - "server/lolipop/news-extra.php"
+      - "server/lolipop/news-bandai.php"
       - "tests/news-parser.php"
       - "server/lolipop/trend.php"
       - "server/lolipop/archive-media-batch.php"
@@ -43,6 +44,7 @@ jobs:
         run: |
           php -l server/lolipop/news.php
           php -l server/lolipop/news-extra.php
+          php -l server/lolipop/news-bandai.php
           php tests/news-parser.php
           php -l server/lolipop/trend.php
           php -l server/lolipop/archive-media-batch.php
@@ -72,6 +74,7 @@ jobs:
           set ssl:verify-certificate yes
           cd "$LOLIPOP_TREND_DIR"
           put server/lolipop/news-extra.php
+          put server/lolipop/news-bandai.php
           put server/lolipop/news.php
           put server/lolipop/trend.php
           put server/lolipop/archive-media-batch.php
@@ -131,3 +134,4 @@ jobs:
           LFTP
           php scripts/verify-furyu-news.php "$furyu_tmp/config.php"
           php scripts/verify-news-extra.php "$furyu_tmp/config.php"
+          php scripts/verify-bandai-news.php "$furyu_tmp/config.php"
