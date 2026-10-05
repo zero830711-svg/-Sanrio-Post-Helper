@@ -18,7 +18,8 @@ test('コピー失敗では手動コピー欄を残し、通常のコピー成�
 test('起動と再起動の共有データ更新ではコピーせず、コピー操作時だけ案内する',async({page})=>{
  let shares=0;
  await page.addInitScript(()=>{localStorage.setItem('sanrioCloudSyncKey','test-key');window.copyCalls=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copyCalls.push(text);throw new Error('NotAllowedError');}}});});
- await page.route('**/api2580.php?**',r=>{if(new URL(r.request().url()).searchParams.get('action')==='share'){shares++;return r.fulfill({json:{ok:true,token:'a'.repeat(64)}});}return r.fulfill({json:{ok:true,items:[]}});});
+ await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.route('**/archive-media-batch.php?**',r=>{shares++;return r.fulfill({json:{ok:true,token:'a'.repeat(64)}});});
  await page.goto('/');await page.waitForFunction(()=>typeof dbPutMany==='function');
  await page.evaluate(async()=>{await dbPutMany([{id:'startup-copy-test',text:'サンリオのリボンバッグ',title:'リボンバッグ',postedAt:'2026-09-01',images:[],savedAt:new Date().toISOString()}]);sessionStorage.removeItem('sphPrivateShareInitAttempted');});
  await page.reload();await expect.poll(()=>shares,{timeout:15000}).toBeGreaterThan(0);await expect(page.locator('#copyFallbackPanel')).toHaveCount(0);expect(await page.evaluate(()=>window.copyCalls)).toHaveLength(0);
