@@ -2810,12 +2810,12 @@ function buildThreadsPrompt(item){
     source
   ].join("\n");
 }
-function copyPromptFallback(text,title,onCopied){
+function copyPromptFallback(text,title,onCopied,returnFocus){
   let panel=$("copyFallbackPanel");
   if(!panel){
     panel=document.createElement("section");panel.id="copyFallbackPanel";
     panel.setAttribute("role","dialog");panel.setAttribute("aria-modal","true");panel.setAttribute("aria-labelledby","copyFallbackTitle");
-    panel.returnFocus=document.activeElement;panel.returnY=window.scrollY;
+    panel.returnFocus=returnFocus||document.activeElement;panel.returnY=window.scrollY;
     panel.dismiss=()=>{panel.remove();panel.returnFocus?.focus?.({preventScroll:true});window.scrollTo({top:panel.returnY,behavior:"instant"});};
     panel.style.cssText="position:fixed;z-index:10050;left:16px;right:16px;bottom:24px;max-width:680px;max-height:80dvh;overflow:auto;margin:auto;padding:16px;background:#fff;border:2px solid #8c4964;border-radius:16px;box-shadow:0 8px 40px #0005";
     const heading=document.createElement("strong");heading.id="copyFallbackTitle";panel.appendChild(heading);
@@ -2862,12 +2862,12 @@ function copyTextFromClick(text,button,label){
   try{
     if(navigator.clipboard?.writeText){
       const request=navigator.clipboard.writeText(text);
-      request.then(success).catch(()=>{copyPromptFallback(text,"コピーできませんでした",success);if(button)button.textContent="もう一度コピー"});
+      request.then(success).catch(()=>{copyPromptFallback(text,"コピーできませんでした",success,button);if(button)button.textContent="もう一度コピー"});
       return;
     }
   }catch(e){}
   if(legacyCopyText(text)){success();return}
-  copyPromptFallback(text,"コピーできませんでした",success);
+  copyPromptFallback(text,"コピーできませんでした",success,button);
   if(button)button.textContent="文章を選択してコピー";
 }
 function recentRewriteContext(item,items=rewriteContextItems){
