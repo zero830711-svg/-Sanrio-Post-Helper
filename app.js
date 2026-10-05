@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.05-3448";
+const APP_VERSION="2026.10.05-3449";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -261,11 +261,12 @@ async function createCodexReviewLink(button){
     if(input)input.value=shareUrl.href;
     if(linkWrap)linkWrap.classList.remove("hidden");
     if(status)status.textContent="個人用リンクを更新しました。URLは固定で、最新の候補に更新されました。期限はありません。";
-    button.textContent="Codex確認用リンクを作る";
-    copyTextFromClick(shareUrl.href,button,"リンクをコピーしました");
+    button.textContent="ChatGPT確認用リンクを更新";
+    // Updating the snapshot must not read or write the clipboard.
+    // Copy only from the dedicated button while the user is interacting.
   }catch(error){
     if(status)status.textContent=error?.message||"共有リンクを作成できませんでした。";
-    button.textContent="Codex確認用リンクを作る";
+    button.textContent="ChatGPT確認用リンクを更新";
   }finally{
     button.disabled=false;
   }
