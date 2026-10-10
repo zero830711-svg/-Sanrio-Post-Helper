@@ -141,7 +141,7 @@ $stale=$pr[0];$stale['url']='https://prtimes.jp/main/html/rd/p/9.2.html';$stale[
 $unknown=$pr[0];$unknown['url']='https://prtimes.jp/main/html/rd/p/8.2.html';$unknown['date']='';
 $merged=news_merge_feeds([$many,$pr,$pr,[$stale,$unknown]],strtotime('2026-10-03'));
 check(count($merged)===62);check($merged[0]['source']==='PR TIMES');check(count(array_filter($merged,fn($item)=>$item['source']==='PR TIMES'))===2);
-check(count(news_feeds())===20);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='furyu'))===2);check(strpos(news_feeds()[2]['url'],'page=2')!==false);
+check(count(news_feeds())===21);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='eikoh'))===1);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='furyu'))===2);check(strpos(news_feeds()[2]['url'],'page=2')!==false);
 echo "Expanded news sources, deduplication and quotas passed\n";
 
 $groqItem=['title'=>'クロミのリボンバッグ','url'=>'https://www.sanrio.co.jp/news/goods/test-20261003/','paragraphs'=>['リボン付きバッグ。価格は880円（税込）。']];
@@ -191,8 +191,15 @@ check(strpos(ai_cute_suffix($arts),'http')===false);check(strpos(ai_cute_suffix(
 foreach(['🎀 2026年10月10日発売','🎀 詳細はこちら'] as $body){$failed=false;try{news_groq_validate(json_encode(['body'=>$body],JSON_UNESCAPED_UNICODE),$arts);}catch(RuntimeException $e){$failed=true;}check($failed);}
 echo "Manufacturer identities, date precision, recent products and image scopes passed\n";
 
+$eikohList='<a href="/shopdetail/000000002622/ct200/page1/recommend/"><img src="https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg">サンリオキャラクターズ ラブレターフォーユーマスコット1</a>';
+$eikohRows=news_eikoh_rows($eikohList);check(count($eikohRows)===1);check($eikohRows[0]['source']==='エイコープライズ');check($eikohRows[0]['date']==='');check($eikohRows[0]['tipsOnly']===true);
+$eikohUrl='https://www.eikoh-prize.jp/shopdetail/000000002622/ct200/page1/recommend/';
+$eikohDetail='<meta property="og:url" content="'.$eikohUrl.'"><h1>サンリオキャラクターズ ラブレターフォーユーマスコット1</h1><p>9月1週より順次登場</p><img src="https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg">';
+$eikohItem=news_parse($eikohDetail,$eikohUrl);check($eikohItem['schedule']==='登場時期：9月1週より順次登場');check($eikohItem['date']==='');check($eikohItem['tipsOnly']===true);
+check(news_url('https://www.eikoh-prize.jp.evil.example/shopdetail/000000002622/ct200/page1/recommend/')==='');
+check(news_image_url('https://makeshop-multi-images.akamaized.net.eikoh/shopimages/01/00/main_2622.jpg')==='');check($eikohItem['image']==='https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg');
 check(news_feed_source(['kind'=>'html','url'=>'https://prtimes.jp/topics/keywords/test'])==='PR TIMES');
-check(news_feed_source(['kind'=>'html','url'=>'https://www.sanrio.co.jp/news/'])==='サンリオ公式');
+check(news_feed_source(['kind'=>'html','url'=>'https://www.sanrio.co.jp/news/'])==='サンリオ公式');check(news_feed_source(['kind'=>'eikoh','url'=>'https://www.eikoh-prize.jp/shopbrand/ct200/'])==='エイコープライズ');
 $status=news_source_statuses(['サンリオ公式'=>['ok'=>2,'failed'=>1],'サンキューマート'=>['ok'=>0,'failed'=>1],'フリュー'=>['ok'=>1,'failed'=>0]],[['source'=>'サンリオ公式']]);
 check($status['サンリオ公式']['state']==='partial');check($status['サンリオ公式']['count']===1);check($status['サンキューマート']['state']==='failed');check($status['フリュー']['state']==='ok');
 check(news_source_statuses(['リーメント'=>['ok'=>1,'failed'=>2]],[])['リーメント']['state']==='failed');

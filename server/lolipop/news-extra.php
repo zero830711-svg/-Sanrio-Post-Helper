@@ -23,6 +23,15 @@ function news_arts_rows(string $json,int $now):array{
  $rows[]=['url'=>'https://www.takaratomy-arts.co.jp/items/item.html?n=Y'.$m[1],'source'=>'タカラトミーアーツ','tipsOnly'=>true,'title'=>$title,'date'=>'','schedule'=>'発売時期：'.$period,'facts'=>[['kind'=>'schedule','text'=>'発売時期：'.$period]],'image'=>$image];
  }return $rows;
 }
+function news_eikoh_rows(string $html):array{
+ $x=news_doc($html);$rows=[];
+ foreach($x->query('//a[@href]') as $a){$url=$a->getAttribute('href');if(strpos($url,'/')===0)$url='https://www.eikoh-prize.jp'.$url;$url=news_url($url);if(!$url||isset($rows[$url]))continue;
+  $title=news_text($a);if(!$title||!preg_match('/サンリオ/u',$title))continue;
+  $image='';$img=$x->query('.//img[@src]',$a)->item(0);if($img)$image=news_image_url($img->getAttribute('src'));
+  $rows[$url]=['url'=>$url,'source'=>'エイコープライズ','tipsOnly'=>true,'title'=>$title,'date'=>'','image'=>$image];
+  if(count($rows)>=30)break;
+ }return array_values($rows);
+}
 function news_rement_rows(string $html):array{
  $x=news_doc($html);$rows=[];
  foreach($x->query('//div[contains(concat(" ",normalize-space(@class)," ")," items ")]//a[@href]') as $a){$url=news_url(news_extra_abs($a->getAttribute('href'),'rement'));$title=news_text($x->query('.//p[contains(concat(" ",normalize-space(@class)," ")," name ")]',$a)->item(0));if(!$url||!$title)continue;
@@ -31,11 +40,23 @@ function news_rement_rows(string $html):array{
  }return $rows;
 }
 function news_extra_parse(string $html,string $url):array{
- $x=news_doc($html);$arts=strpos($url,'https://www.takaratomy-arts.co.jp/')===0;$source=$arts?'タカラトミーアーツ':'リーメント';
+ $x=news_doc($html);$arts=strpos($url,'https://www.takaratomy-arts.co.jp/')===0;$eikoh=strpos($url,'https://www.eikoh-prize.jp/')===0;$source=$arts?'タカラトミーアーツ':($eikoh?'エイコープライズ':'リーメント');
  $identity=news_url(news_text($x->query('//meta[@property="og:url"]/@content')->item(0)));if($identity!==$url)throw new RuntimeException('メーカーの商品識別が一致しませんでした。');
- $root=$x->query($arts?'//section[@id="detail"]':'//div[@id="items"]')->item(0);if(!$root)throw new RuntimeException('メーカーの商品本体を確認できませんでした。');
- $title=news_text($x->query($arts?'./div[contains(concat(" ",normalize-space(@class)," ")," head ")]/h2':'.//h4',$root)->item(0));
- $lines=[];$facts=[];$period='';$price='';
+ $root=$x->query($arts?'//section[@id="detail"]':($eikoh?'//body':'//div[@id="items"]'))->item(0);if(!$root)throw new RuntimeException('メーカーの商品本体を確認できませんでした。');
+ $title=news_text($x->query($arts?'./div[contains(concat(" ",normalize-space(@class)," ")," head ")]/h2':($eikoh?'//h1 | //meta[@property="og:title"]/@content':'.//h4'),$root)->item(0));
+ $lines=[];$facts=[];$period='';$price='';$images=[];
+ if($eikoh){
+  if(!$title||!preg_match('/サンリオ/u',$title))throw new RuntimeException('サンリオ商品名を確認できませんでした。');
+  $all=news_text($x->query('//body')->item(0));
+  if(!preg_match('/(?:[1-9]|1[0-2])月(?:第?[1-5]週|上旬|中旬|下旬)(?:より順次登場|登場)/u',$all,$m))throw new RuntimeException('登場時期を確認できませんでした。');
+  $period='登場時期：'.$m[0];$facts[]=['kind'=>'schedule','text'=>$period];$lines[]=$period;
+  foreach($x->query('//p | //li | //h2 | //h3') as $node){$line=news_text($node);if(mb_strlen($line)>=4&&mb_strlen($line)<=600&&!preg_match('/(?:掲載写真と商品|内容は予告なく)/u',$line))$lines[]=$line;}
+  $nodes=$x->query('//img[@src]');
+  foreach($nodes as $node){$image=news_image_url($node->getAttribute('src'));if($image&&!in_array($image,$images??[],true))$images[]=$image;}
+  $images=$images??[];
+  if(!$images)throw new RuntimeException('商品写真を確認できませんでした。');
+  return ['url'=>$url,'source'=>$source,'tipsOnly'=>true,'title'=>$title,'date'=>'','schedule'=>$period,'facts'=>$facts,'paragraphs'=>array_slice(array_unique($lines),0,60),'images'=>array_slice($images,0,8),'image'=>$images[0]];
+ }
  if($arts){
   $head=news_text($x->query('./div[contains(concat(" ",normalize-space(@class)," ")," head ")]/p',$root)->item(0));$period=news_extra_period($head);
   if(preg_match('/価格[：:]([^■]+)/u',$head,$m))$price=trim($m[1]);
