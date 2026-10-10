@@ -86,6 +86,9 @@ function ig_h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-
 <h1>Instagram収集の初回設定</h1><p>friendcharactersの写真と本文を、サーバーから取得できるか検証します。</p>
 <p><small>Instagramの認証情報はこのサーバーからInstagramへ送信します。パスワードは保存せず、成功したログイン状態だけを非公開領域に保存します。追加認証やアクセス制限が出た場合は停止します。</small></p>
 <?php if ($message): ?><p class="status"><?=ig_h($message)?></p><?php endif; ?>
+<?php $confirmationUrl = $_SESSION['lastResult']['confirmationUrl'] ?? ''; if ($unlocked && is_string($confirmationUrl) && preg_match('~^https://www\.instagram\.com/challenge/[A-Za-z0-9/_-]+$~D', $confirmationUrl)): ?>
+<p class="status"><a href="<?=ig_h($confirmationUrl)?>" target="_blank" rel="noopener noreferrer">今回のログインの本人確認をInstagram公式で開く</a><br><small>このログイン試行に対応する確認画面です。確認後も同じ要求が出る場合は再試行を停止してください。</small></p>
+<?php endif; ?>
 <?php if (!$unlocked): ?>
 <form method="post"><input type="hidden" name="action" value="unlock"><input type="hidden" name="csrf" value="<?=ig_h($_SESSION['csrf'])?>"><label>アプリの同期キー<input name="sync_key" type="password" autocomplete="off" required></label><button type="submit">設定画面を開く</button></form>
 <?php elseif (($_SESSION['state'] ?? '') === 'two_factor'): ?>

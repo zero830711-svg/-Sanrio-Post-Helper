@@ -5,6 +5,7 @@ import io
 import json
 import os
 import pathlib
+import re
 import sys
 import time
 
@@ -110,7 +111,13 @@ def safe_error(error, action):
         reason, message = 'network_error', 'サーバーからInstagramへの通信に失敗しました。パスワードの誤りとは限りません。'
     elif name in ('KeyError', 'JSONDecodeError') or 'json decode' in detail or 'unexpected response' in detail:
         reason, message = 'unexpected_response', 'Instagramから想定外の応答が返りました。サーバー側の認証方式を確認する必要があります。'
-    return {'ok': False, 'state': state, 'errorType': name, 'reason': reason, 'message': message}
+    result = {'ok': False, 'state': state, 'errorType': name, 'reason': reason, 'message': message}
+    if reason == 'instagram_confirmation':
+        # Only expose Instagram's own challenge path inside the unlocked setup page.
+        match = re.search(r'(?:https://www\.instagram\.com|(?<!\S))(/challenge/[A-Za-z0-9/_-]+)', str(error))
+        if match:
+            result['confirmationUrl'] = 'https://www.instagram.com' + match.group(1)
+    return result
 
 
 def main():
