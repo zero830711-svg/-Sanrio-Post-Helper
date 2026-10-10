@@ -66,6 +66,7 @@ jobs:
           put server/lolipop/instagram-worker.py
           put server/lolipop/instagram-setup.php
           put server/lolipop/news-instagram.php
+          put server/lolipop/news.php
           get config.php -o "$ig_tmp/config.php"
           bye
           LFTP
@@ -85,4 +86,16 @@ jobs:
           $accounts=array_column($d["accounts"]??[],"account");
           foreach(["friendcharacters","sanrio_kr","sanriogiftgatehk"] as $account){if(!in_array($account,$accounts,true)){fwrite(STDERR,"Instagram account not collected: ".$account."; no retry.\\n");exit(1);}}
           foreach($d["accounts"] as $row)echo "Collected ".$row["account"].": ".(int)$row["photoCount"]." photos; ".(int)$row["captionLength"]." caption characters.\\n";
+          ' "$ig_tmp/config.php"
+
+          php -r '
+          $config=require $argv[1];$base="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/news.php";
+          $c=curl_init($base."?action=list");curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>35,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"]]]);$list=json_decode((string)curl_exec($c),true);curl_close($c);
+          foreach(["sanrio_kr","sanriogiftgatehk"] as $account){
+          $row=null;foreach($list["items"]??[] as $item)if(($item["instagramAccount"]??"")===$account){$row=$item;break;}
+          if(!$row)throw new RuntimeException("Saved overseas post unavailable");
+          $c=curl_init($base."?action=ai-draft");curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode(["url"=>$row["url"]]),CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>75,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"],"Content-Type: application/json","Origin: https://zero830711-svg.github.io"]]);$d=json_decode((string)curl_exec($c),true);curl_close($c);
+          $text=$d["text"]??"";if(empty($d["ok"])||!$text||!preg_match("/[ぁ-ゖァ-ヺ]/u",$text)||preg_match("/[\\x{AC00}-\\x{D7AF}]|優惠|購物|會員/u",$text)){fwrite(STDERR,"Japanese generation check failed: ".$account."\\n");exit(1);}
+          echo "Japanese generation verified: ".$account."; ".mb_strlen($text)." characters.\\n";
+          }
           ' "$ig_tmp/config.php"
