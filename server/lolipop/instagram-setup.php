@@ -68,12 +68,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $_SESSION['lastAttempt'] = time();
                 $result = ig_worker(['action'=>$action,'username'=>substr((string)($_POST['username'] ?? ''),0,100),'password'=>substr((string)($_POST['password'] ?? ''),0,1024),'code'=>substr((string)($_POST['code'] ?? ''),0,20)]);
                 $_SESSION['state'] = $result['state'] ?? 'blocked';
+                $_SESSION['lastResult'] = $result;
             }
             $message = $result['message'] ?? '';
         }
     } else { http_response_code(403); $message='画面の有効時間が切れました。'; }
     }
 }
+if (!$message && !empty($_SESSION['lastResult']['message'])) $message = $_SESSION['lastResult']['message'];
+$errorType = $result['errorType'] ?? ($_SESSION['lastResult']['errorType'] ?? '');
+if (is_string($errorType) && preg_match('/^[A-Za-z][A-Za-z0-9_]{0,79}$/D', $errorType)) $message .= '（診断コード：'.$errorType.'）';
 $unlocked = ($_SESSION['unlockedUntil'] ?? 0) > time();
 function ig_h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 ?>
