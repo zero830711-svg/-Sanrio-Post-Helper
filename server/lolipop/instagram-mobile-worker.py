@@ -36,6 +36,7 @@ def run(data):
         (deps / '.ready').touch(mode=0o600)
     sys.path.insert(0, str(deps))
     from instagrapi import Client
+    from instagrapi.exceptions import TwoFactorRequired
     import requests
     state_path = root / 'mobile-state.json'
     saved = json.loads(state_path.read_text()) if state_path.exists() else {}
@@ -43,11 +44,22 @@ def run(data):
     if action == 'runtime':
         return {'ok': True, 'engine': 'instagrapi', 'version': importlib.metadata.version('instagrapi'),
                 'configured': bool(saved.get('authenticated'))}
-    client = Client(request_timeout=1, session_retry_total=0,
+    class WebClient(Client):
+        def bloks_ap_two_step_verification_code_entry(self, context_data, domain=None):
+            result = super().bloks_ap_two_step_verification_code_entry(context_data, domain=domain)
+            context = self.bloks_extract_context_data(result, 'com.bloks.www.ap.two_step_verification.code_entry_async')
+            if context:
+                self.pending_web_code = {'context': context, 'domain': domain, 'createdAt': time.time()}
+            return result
+    client = WebClient(request_timeout=1, session_retry_total=0,
                     public_request_retries_count=0, session_retry_statuses=[])
     def stop_on_exception(_client, error):
         raise error
     client.handle_exception = stop_on_exception
+    def request_web_code(_username, _choice):
+        raise TwoFactorRequired('Enter the requested code in the web form')
+    client.challenge_code_handler = request_web_code
+    client.change_password_handler = lambda _username: (_ for _ in ()).throw(RuntimeError('Manual password change required'))
     client.delay_range = [1, 2]
     if time.time() - saved.get('blockedAt', 0) < 600:
         return {'ok': False, 'state': 'blocked', 'message': '本人確認・アクセス制限の後は10分以上停止します。公式Instagramで状況を確認してください。'}
@@ -63,7 +75,20 @@ def run(data):
         saved['settings'] = client.get_settings()
         private_json(state_path, saved)
         try:
-            if saved.get('authenticated'):
+            if action == 'two_factor' and saved.get('pendingCode'):
+                pending = saved['pendingCode']
+                if time.time() - pending['createdAt'] > 600:
+                    saved.pop('pendingCode', None)
+                    return {'ok': False, 'state': 'login_required', 'message': 'コード入力の有効時間が過ぎました。初回認証からやり直してください。'}
+                code = str(data.get('code', '')).strip()
+                if not code:
+                    return {'ok': False, 'state': 'two_factor', 'message': 'Instagramから届いた認証コードを入力してください。'}
+                client.username = username
+                response = client.bloks_ap_two_step_verification_submit_code(pending['context'], code, domain=pending.get('domain'))
+                if not client.bloks_apply_login_response(response) or not client.user_id:
+                    return {'ok': False, 'state': 'two_factor', 'message': '認証コードを受け付けませんでした。届いたコードと有効時間を確認してください。'}
+                saved.pop('pendingCode', None)
+            elif saved.get('authenticated'):
                 # Validate the existing session without initiating password login.
                 client.account_info()
             else:
@@ -78,6 +103,8 @@ def run(data):
             result = _safe.safe_error(error, action)
             result['errorType'] = name
             if name == 'TwoFactorRequired':
+                if getattr(client, 'pending_web_code', None):
+                    saved['pendingCode'] = client.pending_web_code
                 result.update(state='two_factor', message='二段階認証コードを入力してください。パスワードは保存しないため、同じアカウントのログイン情報も再入力してください。')
             elif name.startswith('Challenge') or result.get('reason') == 'instagram_confirmation':
                 result.update(state='blocked', message='instagrapiでも本人確認が必要になりました。自動処理を停止しました。公式Instagramで確認してください。')

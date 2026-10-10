@@ -12,6 +12,9 @@ worker = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(worker)
 
 
+class TwoFactorRequired(Exception): pass
+
+
 class FakeClient:
     logins = 0
     validations = 0
@@ -25,10 +28,22 @@ class FakeClient:
         self.user_id = settings.get('authenticatedUser')
     def login(self, username, password, **kwargs):
         FakeClient.logins += 1
+        if FakeClient.fail == 'code':
+            self.bloks_ap_two_step_verification_code_entry('entry')
+            self.challenge_code_handler(username, 1)
         if FakeClient.fail:
             raise type('ChallengeRequired', (Exception,), {})('PRIVATE_SECRET')
         self.user_id = 123
         self.settings['authenticatedUser'] = 123
+    def bloks_ap_two_step_verification_code_entry(self, context_data, domain=None): return {'context': 'private-submit-context'}
+    def bloks_extract_context_data(self, result, app): return result['context']
+    def bloks_ap_two_step_verification_submit_code(self, context, code, domain=None):
+        if context != 'private-submit-context': raise AssertionError('Lost original code context')
+        return {'accepted': code == '123456'}
+    def bloks_apply_login_response(self, response):
+        if response['accepted']:
+            self.user_id = 123; self.settings['authenticatedUser'] = 123
+        return response['accepted']
     def account_info(self): FakeClient.validations += 1
 
 
@@ -40,11 +55,13 @@ class SessionTests(unittest.TestCase):
         deps.mkdir(); (deps / '.ready').touch()
         self.fake_module = types.ModuleType('instagrapi')
         self.fake_module.Client = FakeClient
+        self.fake_exceptions = types.ModuleType('instagrapi.exceptions')
+        self.fake_exceptions.TwoFactorRequired = TwoFactorRequired
         FakeClient.logins = FakeClient.validations = 0
         FakeClient.fail = False
     def tearDown(self): self.tmp.cleanup()
     def run_worker(self, **data):
-        with patch.object(worker, 'sys', types.SimpleNamespace(version_info=(3,13),path=sys.path.copy())), patch.dict(sys.modules, {'instagrapi': self.fake_module}):
+        with patch.object(worker, 'sys', types.SimpleNamespace(version_info=(3,13),path=sys.path.copy())), patch.dict(sys.modules, {'instagrapi': self.fake_module, 'instagrapi.exceptions': self.fake_exceptions}):
             return worker.run(dict(privateDir=str(self.root), **data))
     def test_saved_session_validates_without_password_login(self):
         self.assertTrue(self.run_worker(action='login', username='testuser', password='PRIVATE_SECRET')['ok'])
@@ -64,6 +81,18 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(state['settings']['uuids']['uuid'], 'stable-device')
         self.assertEqual(self.run_worker(action='login', username='testuser', password='PRIVATE_SECRET')['state'], 'blocked')
         self.assertEqual(FakeClient.logins, 1)
+    def test_web_code_resumes_without_new_login_or_terminal_input(self):
+        FakeClient.fail = 'code'
+        result = self.run_worker(action='login', username='testuser', password='PRIVATE_SECRET')
+        self.assertEqual(result['state'], 'two_factor')
+        self.assertNotIn('private-submit-context', json.dumps(result))
+        self.assertTrue(self.run_worker(action='two_factor', username='testuser', password='PRIVATE_SECRET', code='123456')['ok'])
+        self.assertEqual(FakeClient.logins, 1)
+        state = json.loads((self.root / 'mobile-state.json').read_text())
+        self.assertTrue(state['authenticated'])
+        self.assertNotIn('pendingCode', state)
+        self.assertNotIn('123456', json.dumps(state))
+
     def test_other_account_cannot_reuse_identity(self):
         self.run_worker(action='login', username='testuser', password='PRIVATE_SECRET')
         self.assertFalse(self.run_worker(action='login', username='otheruser', password='OTHER')['ok'])
