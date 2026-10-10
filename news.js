@@ -157,9 +157,21 @@ function newsSameStory(a,b){
  const gx=grams(x),gy=grams(y);const shared=[...gx].filter(g=>gy.has(g)).length;
  return 2*shared/(gx.size+gy.size)>=.86;
 }
+let newsHomeView='news';
+function newsSetHomeView(view){
+ if(newsHomeView!==view){newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;newsState.limit=5;}
+ newsHomeView=view;
+ const instagram=view==='instagram';
+ $('newsBrowseTitle').textContent=instagram?'Instagram':'新作ニュース';
+ $('newsBrowseDescription').textContent=instagram?'friendcharactersの取得済み投稿から準備・2時間ごとに自動確認':'公式ニュース・メーカー新作から投稿を準備';
+ $('newsSourceFilter').closest('label').hidden=instagram;
+ if(instagram)$('newsSourceFilter').value='all';
+ newsRender();
+}
 function newsGroups(){
  const groups=[],seen=new Set();
  for(const item of newsState.items){
+  if(Boolean(item.instagram)!==(newsHomeView==='instagram'))continue;
   if(seen.has(item.url))continue;seen.add(item.url);
   const group=groups.find(g=>g.members.every(m=>newsSameStory(m,item)));
   if(group)group.members.push(item);else groups.push({members:[item]});
