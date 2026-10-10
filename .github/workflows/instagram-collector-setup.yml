@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
     paths:
+      - server/lolipop/news.php
       - server/lolipop/instagram-worker.py
       - server/lolipop/instagram-mobile-worker.py
       - tests/test_instagram_mobile.py
