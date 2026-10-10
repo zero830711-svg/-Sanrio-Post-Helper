@@ -1,0 +1,48 @@
+name: Refresh saved Instagram news
+on:
+  schedule:
+    - cron: '17 */2 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: instagram-refresh
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - name: Refresh once using the saved session
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          ig_tmp=$(mktemp -d)
+          trap 'rm -rf "$ig_tmp"' EXIT
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 15
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get config.php -o "$ig_tmp/config.php"
+          bye
+          LFTP
+          php -r '
+          $config=require $argv[1];
+          $c=curl_init("https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/instagram-setup.php?action=refresh");
+          curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>"",CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>80,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"]]]);
+          $body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_HTTP_CODE);curl_close($c);$d=json_decode((string)$body,true);
+          if($status!==200||empty($d["ok"])){fwrite(STDERR,"Instagram refresh stopped; no automatic login or retries.\n");exit(1);}
+          echo "Instagram cache refreshed; photos: ".(int)($d["photoCount"]??0)."; caption length: ".(int)($d["captionLength"]??0).".\n";
+          ' "$ig_tmp/config.php"

@@ -6,6 +6,7 @@ on:
     paths:
       - "server/lolipop/overseas.php"
       - "server/lolipop/news.php"
+      - "server/lolipop/news-instagram.php"
       - "server/lolipop/news-extra.php"
       - "server/lolipop/news-bandai.php"
       - "server/lolipop/news-gashapon.php"
@@ -45,6 +46,7 @@ jobs:
       - name: Check PHP syntax
         run: |
           php -l server/lolipop/news.php
+          php -l server/lolipop/news-instagram.php
           php -l server/lolipop/news-extra.php
           php -l server/lolipop/news-bandai.php
           php -l server/lolipop/news-gashapon.php
@@ -85,6 +87,7 @@ jobs:
           put server/lolipop/.thankyou-news-feed.xml -o .thankyou-news-feed.xml.tmp
           mv .thankyou-news-feed.xml.tmp .thankyou-news-feed.xml
           put server/lolipop/news-thankyou.php
+          put server/lolipop/news-instagram.php
           put server/lolipop/news.php
           put server/lolipop/trend.php
           put server/lolipop/archive-media-batch.php

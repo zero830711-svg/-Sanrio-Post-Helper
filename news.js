@@ -82,6 +82,7 @@ function newsHighlight(item){
  return candidates[0]?.text||'';
 }
 function newsDraft(item){
+ if(item.instagram)return '🎀 '+item.title+' ✨\n\n'+newsHighlight(item)+'\n\n🔎 元の投稿はこちら\n'+item.url+'\n\n#サンリオ';
  let title=String(item.title||'').replace(/^【[^】]*】\s*/,'').trim();
  const chars=Array.from(title);
  if(chars.length>60)title=chars.slice(0,59).join('')+'…';

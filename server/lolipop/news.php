@@ -4,9 +4,11 @@ require_once __DIR__.'/news-extra.php';
 require_once __DIR__.'/news-bandai.php';
 require_once __DIR__.'/news-gashapon.php';
 require_once __DIR__.'/news-thankyou.php';
+require_once __DIR__.'/news-instagram.php';
 function news_url(string $u): string {
  $p=parse_url(html_entity_decode(trim($u),ENT_QUOTES|ENT_HTML5,'UTF-8'));if(($p['scheme']??'')!=='https'||isset($p['user'])||isset($p['pass'])||isset($p['port']))return '';
  $h=$p['host']??'';$path=$p['path']??'';
+ if($h==='www.instagram.com'&&preg_match('~^/p/[A-Za-z0-9_-]+/$~D',$path)&&!isset($p['query'])&&!isset($p['fragment']))return 'https://'.$h.$path;
  if($h==='thankyoumart.jp'&&preg_match('~^/blogs/news/[a-zA-Z0-9_-]+$~D',$path)&&!isset($p['query'])&&!isset($p['fragment']))return 'https://'.$h.$path;
  if(in_array($h,['gashapon.jp','www.gashapon.jp'],true)&&$path==='/products/detail.php'&&preg_match('/^jan_code=[0-9]{16}$/D',$p['query']??'')&&!isset($p['fragment']))return 'https://gashapon.jp'.$path.'?'.$p['query'];
  if($h==='www.bandai.co.jp'&&preg_match('~^/candy/products/20[0-9]{2}/[0-9]{16}\.html$~D',$path)&&!isset($p['query'])&&!isset($p['fragment']))return 'https://'.$h.$path;
@@ -43,6 +45,7 @@ function news_fetch(string $u,int $limit=2000000):string {
 function news_doc(string $s):DOMXPath{$d=new DOMDocument();libxml_use_internal_errors(true);$d->loadHTML('<?xml encoding="UTF-8">'.str_replace("\0",'',$s),LIBXML_NONET);libxml_clear_errors();return new DOMXPath($d);}
 function news_text(?DOMNode $n):string{return trim(preg_replace('/\s+/u',' ',$n?$n->textContent:'')??'');}
 function news_detail(string $u):array{
+ if(strpos($u,'https://www.instagram.com/p/')===0)return news_instagram_detail($u);
  $cache=sys_get_temp_dir().'/sph-news-v8-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
  $a=strpos($u,'https://thankyoumart.jp/')===0?news_thankyou_detail($u):news_parse(news_fetch($u),$u);file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
 }
@@ -467,4 +470,4 @@ try{
   if(strlen($raw)>65536||!is_array($input))news_out(['ok'=>false,'error'=>'資料の形式を確認してください。'],400);
   news_out(['ok'=>true]+news_ai_draft(post_ai_input($input)));
  }
-if(($_SERVER['REQUEST_METHOD']??'')!=='GET')news_out(['ok'=>false,'error'=>'GET required'],405);$action=$_GET['action']??'list';if($action==='list')news_out(['ok'=>true]+news_list_metadata(news_list()));$u=news_url((string)($_GET['url']??''));if(!$u)news_out(['ok'=>false,'error'=>'サンリオ公式・PR TIMES・フリューの商品URLを入力してください。'],400);$item=news_detail($u);if($action==='detail')news_out(['ok'=>true,'item'=>$item]);if($action!=='image')news_out(['ok'=>false,'error'=>'Unknown action'],400);$i=filter_var($_GET['index']??0,FILTER_VALIDATE_INT);if($i===false||!isset($item['images'][$i]))news_out(['ok'=>false,'error'=>'画像がありません。'],400);$bytes=news_fetch($item['images'][$i],6000000);$size=@getimagesizefromstring($bytes);if(!$size||!in_array($size['mime'],['image/jpeg','image/png','image/webp'],true)||$size[0]*$size[1]>30000000)throw new RuntimeException('画像形式を確認できませんでした。');header('Content-Type: '.$size['mime']);header('X-Content-Type-Options: nosniff');echo $bytes;}catch(Throwable $e){news_out(['ok'=>false,'error'=>$e->getMessage(),'retryable'=>$e->getCode()===503],502);}
+if(($_SERVER['REQUEST_METHOD']??'')!=='GET')news_out(['ok'=>false,'error'=>'GET required'],405);$action=$_GET['action']??'list';if($action==='list')news_out(['ok'=>true]+news_list_metadata(news_instagram_list(news_list())));$u=news_url((string)($_GET['url']??''));if(!$u)news_out(['ok'=>false,'error'=>'サンリオ公式・PR TIMES・フリューの商品URLを入力してください。'],400);$item=news_detail($u);if($action==='detail')news_out(['ok'=>true,'item'=>$item]);if($action!=='image')news_out(['ok'=>false,'error'=>'Unknown action'],400);$i=filter_var($_GET['index']??0,FILTER_VALIDATE_INT);if($i===false||!isset($item['images'][$i]))news_out(['ok'=>false,'error'=>'画像がありません。'],400);$bytes=news_fetch($item['images'][$i],6000000);$size=@getimagesizefromstring($bytes);if(!$size||!in_array($size['mime'],['image/jpeg','image/png','image/webp'],true)||$size[0]*$size[1]>30000000)throw new RuntimeException('画像形式を確認できませんでした。');header('Content-Type: '.$size['mime']);header('X-Content-Type-Options: nosniff');echo $bytes;}catch(Throwable $e){news_out(['ok'=>false,'error'=>$e->getMessage(),'retryable'=>$e->getCode()===503],502);}

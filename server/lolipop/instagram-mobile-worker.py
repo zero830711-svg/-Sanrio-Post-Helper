@@ -61,7 +61,7 @@ def run(data):
     client.challenge_code_handler = request_web_code
     client.change_password_handler = lambda _username: (_ for _ in ()).throw(RuntimeError('Manual password change required'))
     client.delay_range = [1, 2]
-    if time.time() - saved.get('blockedAt', 0) < 600:
+    if saved.get('blockedAt') and (action == 'collect' or time.time() - saved['blockedAt'] < 600):
         return {'ok': False, 'state': 'blocked', 'message': '本人確認・アクセス制限の後は10分以上停止します。公式Instagramで状況を確認してください。'}
     if saved.get('settings'):
         client.set_settings(saved['settings'])
@@ -148,7 +148,10 @@ def run(data):
             raise ValueError('Invalid image data')
         item = {'shortcode': post.code, 'url': 'https://www.instagram.com/p/' + post.code + '/',
                 'caption': caption, 'published': post.taken_at.isoformat(), 'images': images}
-        private_json(root / 'feed.json', {'checkedAt': int(time.time()), 'engine': 'instagrapi', 'items': [item]})
+        feed_path = root / 'feed.json'
+        previous = json.loads(feed_path.read_text()).get('items', []) if feed_path.exists() else []
+        items = [item] + [row for row in previous if row.get('shortcode') != item['shortcode']]
+        private_json(feed_path, {'checkedAt': int(time.time()), 'engine': 'instagrapi', 'items': items[:20]})
         return {'ok': True, 'state': 'collected', 'photoCount': len(images), 'captionLength': len(caption),
                 'postUrl': item['url'], 'message': 'instagrapiで投稿本文と写真データを取得できました。'}
     except Exception as error:

@@ -45,7 +45,8 @@ $token = '';
 if (preg_match('/^Bearer\s+(.+)$/i', $_SERVER['HTTP_AUTHORIZATION'] ?? '', $m)) $token = trim($m[1]);
 if ($token && !empty($config['sync_key']) && hash_equals((string)$config['sync_key'], $token)) {
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(ig_worker(['action'=>'runtime']), JSON_UNESCAPED_UNICODE); exit;
+    $action = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_GET['action'] ?? '') === 'refresh' ? 'collect' : 'runtime';
+    echo json_encode(ig_worker(['action'=>$action]), JSON_UNESCAPED_UNICODE); exit;
 }
 session_name('sph_ig_setup');
 session_set_cookie_params(['lifetime'=>1800, 'path'=>parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), 'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict']);
