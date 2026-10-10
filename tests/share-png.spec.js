@@ -24,15 +24,15 @@ test('通常のChatGPTボタンはコピーに失敗してもJPEG写真と投稿
  await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
  await page.route('**/share-fixture.webp',r=>r.fulfill({contentType:'image/webp',body:Buffer.from(webp,'base64')}));
  await page.goto('/');
- await page.evaluate(()=>{
+ await page.evaluate(async()=>{
   legacyCopyText=text=>{window.copiedPrompt=text;return true;};
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
   Object.defineProperty(navigator,'share',{value:async data=>{window.pngShared={text:data.text,files:await Promise.all(data.files.map(async f=>({name:f.name,type:f.type,signature:Array.from(new Uint8Array(await f.slice(0,8).arrayBuffer()))})))}}});
-  showTodayDetail({id:'png-test',title:'【サンリオ新商品情報】\n'+ '🌈✨可愛いグラデーション'.repeat(15),text:'リボンバッグの情報です。',images:[location.origin+'/share-fixture.webp',location.origin+'/share-fixture.webp']});
+  await showTodayDetail({id:'png-test',title:'【サンリオ新商品情報】\n'+ '🌈✨可愛いグラデーション'.repeat(15),text:'リボンバッグの情報です。',images:[location.origin+'/share-fixture.webp',location.origin+'/share-fixture.webp']});
  });
  await expect(page.locator('#detailMediaStatus')).toContainText('写真の準備ができました');
  await page.getByRole('button',{name:'写真2を前へ',exact:true}).click();
- await page.evaluate(()=>{legacyCopyText=()=>false;});
+ await page.evaluate(async()=>{legacyCopyText=()=>false;});
  await page.locator('#detailChatGPTShare').click();
  await expect.poll(()=>page.evaluate(()=>window.pngShared?.files.length)).toBe(2);
  const data=await page.evaluate(()=>pngShared);
@@ -54,7 +54,7 @@ test('写真のみの補助共有はJPEGを準備し、コピー失敗なら送�
   const ctx=c.getContext('2d');ctx.fillStyle='#ff77cc';ctx.fillRect(0,0,1200,1200);
   const blob=await new Promise(resolve=>c.toBlob(resolve,'image/jpeg'));
   const png=await sharePhotoPng(blob);
-  showTodayDetail({id:'rainbow-jpeg',title:'【サンリオ新商品情報】🌈✨レインボーシリーズ',text:'レインボーシリーズの情報です。',images:[]});
+  await showTodayDetail({id:'rainbow-jpeg',title:'【サンリオ新商品情報】🌈✨レインボーシリーズ',text:'レインボーシリーズの情報です。',images:[]});
   detailImageBlobs=[png,png];detailJpegBlobs=[null,null];detailPhotoSelection=[1,0];updateDetailPhotoControls();
   legacyCopyText=text=>{window.jpegPrompt=text;return true;};
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
@@ -66,11 +66,11 @@ test('写真のみの補助共有はJPEGを準備し、コピー失敗なら送�
  await page.locator('#detailChatGPTPhotosShare').click();
  await expect(page.locator('#detailChatGPTStatus')).toContainText('もう一度押して共有');
  expect(await page.evaluate(()=>window.jpegShared)).toBeUndefined();
- await page.evaluate(()=>{legacyCopyText=()=>false;});
+ await page.evaluate(async()=>{legacyCopyText=()=>false;});
  await page.locator('#detailChatGPTPhotosShare').click();
  await expect(page.locator('#detailChatGPTStatus')).toContainText('プロンプトをコピーできません');
  expect(await page.evaluate(()=>window.jpegShared)).toBeUndefined();
- await page.evaluate(()=>{legacyCopyText=text=>{window.jpegPrompt=text;return true;};});
+ await page.evaluate(async()=>{legacyCopyText=text=>{window.jpegPrompt=text;return true;};});
  await page.locator('#detailChatGPTPhotosShare').click();
  await expect.poll(()=>page.evaluate(()=>window.jpegShared?.files.length)).toBe(2);
  const result=await page.evaluate(()=>({data:jpegShared,prompt:jpegPrompt}));
