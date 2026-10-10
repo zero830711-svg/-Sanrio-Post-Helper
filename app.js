@@ -2930,14 +2930,18 @@ function keepDetailPhotoChoice(){
  detailWholeImageBlob=null;detailWholeImagePromise=null;
  renderDetailPhotos();
 }
-function showTodayDetail(item,continueQueue=false){
+async function showTodayDetail(item,continueQueue=false){
   if(!item)return;
+  const openSeq=++candidateEditOpenSeq;
+  item=await candidateLoadItem(item);
+  if(openSeq!==candidateEditOpenSeq)return;
   if(!continueQueue){
     const candidates=[...todayPicksById.values()];
     const index=candidates.findIndex(x=>canonicalPostKey(x)===canonicalPostKey(item));
     detailCandidateQueue=index>=0?[...candidates.slice(index+1),...candidates.slice(0,index)]:candidates;
   }
   detailCurrentItem=item;
+  candidateEditRender(item);
   if($("detailChatGPTStatus"))$("detailChatGPTStatus").textContent="写真＋投稿依頼文をChatGPTへ共有します（動画は対象外）。";
   const imgs=mediaArray(item.images||(item.image?[item.image]:[]));
   const vids=mediaArray(item.videos);
@@ -3409,6 +3413,7 @@ async function repostDetailAndAdvance(){
   }
 }
 function closeTodayDetail(){
+  ++candidateEditOpenSeq;
   $("todayDetailModal").classList.add("hidden");
   $("detailMedia").innerHTML="";
   detailCurrentItem=null;
