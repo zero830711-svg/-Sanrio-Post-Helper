@@ -5,7 +5,7 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'");
 function ig_worker(array $input): array {
-    $bins = array_merge(glob('/usr/local/python/*/bin/python') ?: [], ['/usr/bin/python3']);
+    $bins = array_unique(array_merge(glob('/usr/local/python/*/bin/python3') ?: [], glob('/usr/local/python/*/bin/python') ?: [], ['/usr/bin/python3']));
     $input['privateDir'] = sys_get_temp_dir().'/sph-ig-'.hash('sha256', __DIR__);
     foreach ($bins as $bin) {
         if (!is_file($bin) || !is_executable($bin)) continue;
@@ -38,7 +38,7 @@ function ig_worker(array $input): array {
             return is_array($result) ? $result : ['ok'=>false,'message'=>'処理が時間切れになりました。自動再試行はしません。'];
         } finally { flock($lock, LOCK_UN); fclose($lock); }
     }
-    return ['ok'=>false,'message'=>'Pythonの実行環境が見つかりません。'];
+    return ['ok'=>false,'errorType'=>'Python313Unavailable','message'=>'Python 3.13の実行環境が見つかりません。'];
 }
 $config = require __DIR__.'/config.php';
 $token = '';
