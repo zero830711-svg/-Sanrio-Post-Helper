@@ -50,7 +50,7 @@ $message = ''; $result = [];
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
     $validCsrf = is_string($_POST['csrf'] ?? null) && hash_equals($_SESSION['csrf'], $_POST['csrf']);
-    if (($origin !== '' && $origin !== 'https://fan-info.zombie.jp') || !$validCsrf) {
+    if (!in_array($origin, ['', 'null', 'https://fan-info.zombie.jp'], true) || !$validCsrf) {
         http_response_code(403);
         $message = '画面の確認ができませんでした。このページを開き直して、もう一度入力してください。';
     } else {
