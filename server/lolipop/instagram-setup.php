@@ -18,10 +18,10 @@ function ig_worker(array $input): array {
             if (!is_resource($process)) continue;
             fwrite($pipes[0], json_encode($input)); fclose($pipes[0]);
             stream_set_blocking($pipes[1], false); stream_set_blocking($pipes[2], false);
-            $body = ''; $deadline = microtime(true) + 70;
+            $body = ''; $runtimeStderr = ''; $deadline = microtime(true) + 70;
             do {
                 $body .= stream_get_contents($pipes[1], 32768);
-                stream_get_contents($pipes[2], 8192);
+                $runtimeStderr .= stream_get_contents($pipes[2], 8192);
                 $status = proc_get_status($process);
                 if (!$status['running']) break;
                 usleep(50000);
@@ -31,6 +31,10 @@ function ig_worker(array $input): array {
             fclose($pipes[1]); fclose($pipes[2]); proc_close($process);
             $result = json_decode($body, true);
             if (is_array($result) && ($result['errorType'] ?? '') === 'PythonVersionMismatch') continue;
+            if (!is_array($result) && ($input['action'] ?? '') === 'runtime') {
+                preg_match_all('/GLIBC_[0-9.]+|GLIBCXX_[0-9.]+|lib[A-Za-z0-9_.+-]+\.so(?:\.[0-9]+)*|ModuleNotFoundError|ImportError|Fatal Python error|Segmentation fault/', $runtimeStderr, $diagnosis);
+                return ['ok'=>false,'errorType'=>'WorkerNoJson','runtimeDiagnostic'=>implode(' ', $diagnosis[0]),'processExit'=>$status['exitcode'] ?? -1];
+            }
             return is_array($result) ? $result : ['ok'=>false,'message'=>'処理が時間切れになりました。自動再試行はしません。'];
         } finally { flock($lock, LOCK_UN); fclose($lock); }
     }

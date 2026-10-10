@@ -73,6 +73,6 @@ jobs:
           $c=curl_init("https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/instagram-setup.php");
           curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>80,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"]]]);
           $body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_HTTP_CODE);curl_close($c);$d=json_decode((string)$body,true);
-          if($status!==200||empty($d["ok"])||($d["version"]??"")!=="3.0.21"||($d["engine"]??"")!=="instagrapi"){fwrite(STDERR,"Collector runtime import failed; private details withheld.\n");echo "Runtime diagnosis: ".($d["errorType"]??"unknown")." ".($d["runtimeDiagnostic"]??"")."\n";exit(1);}
+          if($status!==200||empty($d["ok"])||($d["version"]??"")!=="3.0.21"||($d["engine"]??"")!=="instagrapi"){fwrite(STDERR,"Collector runtime import failed; private details withheld.\n");echo "HTTP status: ".$status."; process exit: ".($d["processExit"]??"unknown")."\n";echo "Runtime diagnosis: ".($d["errorType"]??"unknown")." ".($d["runtimeDiagnostic"]??"")."\n";exit(1);}
           echo "Lolipop collector import verified: instagrapi ".$d["version"]."; authenticated session ".(!empty($d["configured"])?"present":"not yet configured").".\n";
           ' "$ig_tmp/config.php"
