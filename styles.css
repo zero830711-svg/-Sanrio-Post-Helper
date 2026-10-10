@@ -471,3 +471,5 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #newsCollageControls input[type="checkbox"]{width:20px;height:20px;flex:0 0 20px;padding:0;margin:0}
 #newsCollageControls label{min-height:44px;justify-content:flex-start;line-height:1.5}
 .news-photo select{width:100%;min-width:0;min-height:44px;font-size:16px;padding:6px;border:1px solid var(--line);border-radius:8px;background:#fff}
+
+#newsPanel .news-filter[hidden]{display:none!important}
