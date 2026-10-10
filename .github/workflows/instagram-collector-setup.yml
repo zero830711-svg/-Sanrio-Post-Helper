@@ -65,6 +65,7 @@ jobs:
           put server/lolipop/instagram-mobile-worker.py
           put server/lolipop/instagram-worker.py
           put server/lolipop/instagram-setup.php
+          put server/lolipop/news-instagram.php
           get config.php -o "$ig_tmp/config.php"
           bye
           LFTP
@@ -75,4 +76,13 @@ jobs:
           $body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_HTTP_CODE);curl_close($c);$d=json_decode((string)$body,true);
           if($status!==200||empty($d["ok"])||($d["version"]??"")!=="3.0.21"||($d["engine"]??"")!=="instagrapi"){fwrite(STDERR,"Collector runtime import failed; private details withheld.\n");echo "HTTP status: ".$status."; process exit: ".($d["processExit"]??"unknown")."\n";echo "Runtime diagnosis: ".($d["errorType"]??"unknown")." ".($d["runtimeDiagnostic"]??"")."\n";exit(1);}
           echo "Lolipop collector import verified: instagrapi ".$d["version"]."; authenticated session ".(!empty($d["configured"])?"present":"not yet configured").".\n";
+          ' "$ig_tmp/config.php"
+
+          php -r '
+          $config=require $argv[1];$c=curl_init("https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/instagram-setup.php?action=refresh");
+          curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>"",CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>80,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"]]]);
+          $body=curl_exec($c);curl_close($c);$d=json_decode((string)$body,true);
+          $accounts=array_column($d["accounts"]??[],"account");
+          foreach(["friendcharacters","sanrio_kr","sanriogiftgatehk"] as $account){if(!in_array($account,$accounts,true)){fwrite(STDERR,"Instagram account not collected: ".$account."; no retry.\\n");exit(1);}}
+          foreach($d["accounts"] as $row)echo "Collected ".$row["account"].": ".(int)$row["photoCount"]." photos; ".(int)$row["captionLength"]." caption characters.\\n";
           ' "$ig_tmp/config.php"

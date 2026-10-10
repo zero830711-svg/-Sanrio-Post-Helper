@@ -6,6 +6,7 @@ function news_instagram_items():array {
  if(!is_file($path)||filesize($path)>2000000)return [];
  $feed=json_decode((string)file_get_contents($path),true);$items=[];
  foreach($feed['items']??[] as $row){
+  $account=(string)($row['account']??'friendcharacters');if(!in_array($account,['friendcharacters','sanrio_kr','sanriogiftgatehk'],true))continue;
   $code=(string)($row['shortcode']??'');$caption=trim((string)($row['caption']??''));
   if(!preg_match('/^[A-Za-z0-9_-]{1,80}$/D',$code)||!$caption)continue;
   $images=[];foreach($row['images']??[] as $image){
@@ -14,10 +15,10 @@ function news_instagram_items():array {
   }
   if(!$images)continue;
   $lines=preg_split('/\R/u',$caption);$title='';foreach($lines as $line){$line=trim($line);if(mb_strlen($line)>=4&&!preg_match('/^[#@]|^https?:/u',$line)){$title=mb_substr($line,0,90);break;}}
-  if(!$title)$title='friendcharactersの投稿';
+  if(!$title)$title=$account.'の投稿';
   $date=substr((string)($row['published']??''),0,10);
   if(!preg_match('/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/D',$date))$date='';
-  $items[]=['title'=>$title,'url'=>'https://www.instagram.com/p/'.$code.'/','source'=>'Instagram（friendcharacters）','date'=>$date,'image'=>$images[0],'images'=>array_slice($images,0,8),'paragraphs'=>[$caption],'facts'=>[],'instagram'=>true,'collectedAt'=>(int)($feed['checkedAt']??0)];
+  $items[]=['title'=>$title,'url'=>'https://www.instagram.com/p/'.$code.'/','source'=>'Instagram（'.$account.'）','instagramAccount'=>$account,'date'=>$date,'image'=>$images[0],'images'=>array_slice($images,0,8),'paragraphs'=>[$caption],'facts'=>[],'instagram'=>true,'collectedAt'=>(int)($feed['checkedAt']??0)];
  }
  return $items;
 }

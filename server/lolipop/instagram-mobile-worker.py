@@ -124,36 +124,38 @@ def run(data):
     if action != 'collect' or not saved.get('authenticated'):
         return {'ok': False, 'state': 'login_required', 'message': 'instagrapiでの初回認証が必要です。'}
     try:
-        user_id = client.user_info_by_username_v1('friendcharacters').pk
-        posts = client.user_medias_v1(user_id, amount=1)
-        if not posts:
-            return {'ok': False, 'state': 'authenticated', 'message': '投稿を取得できませんでした。'}
-        post = posts[0]
-        images = []
-        if post.media_type == 1 and post.thumbnail_url:
-            images = [str(post.thumbnail_url)]
-        elif post.media_type == 8:
-            images = [str(resource.thumbnail_url) for resource in post.resources
-                      if resource.media_type == 1 and resource.thumbnail_url][:10]
-        caption = post.caption_text or ''
-        if not images or not caption:
-            return {'ok': False, 'state': 'authenticated', 'message': '先頭投稿に写真と本文の両方がありません。'}
-        parsed = urlparse(images[0])
-        if parsed.scheme != 'https' or not any((parsed.hostname or '').endswith('.' + host) for host in ('cdninstagram.com', 'fbcdn.net')):
-            raise ValueError('Untrusted photo host')
-        with requests.get(images[0], timeout=12, stream=True, allow_redirects=False) as response:
-            response.raise_for_status()
-            prefix = next(response.iter_content(64), b'')
-        if not (prefix.startswith(b'\xff\xd8\xff') or prefix.startswith(b'\x89PNG') or prefix.startswith(b'RIFF')):
-            raise ValueError('Invalid image data')
-        item = {'shortcode': post.code, 'url': 'https://www.instagram.com/p/' + post.code + '/',
-                'caption': caption, 'published': post.taken_at.isoformat(), 'images': images}
-        feed_path = root / 'feed.json'
-        previous = json.loads(feed_path.read_text()).get('items', []) if feed_path.exists() else []
-        items = [item] + [row for row in previous if row.get('shortcode') != item['shortcode']]
-        private_json(feed_path, {'checkedAt': int(time.time()), 'engine': 'instagrapi', 'items': items[:20]})
-        return {'ok': True, 'state': 'collected', 'photoCount': len(images), 'captionLength': len(caption),
-                'postUrl': item['url'], 'message': 'instagrapiで投稿本文と写真データを取得できました。'}
+        results = []
+        for account in ('friendcharacters', 'sanrio_kr', 'sanriogiftgatehk'):
+            user_id = client.user_info_by_username_v1(account).pk
+            posts = client.user_medias_v1(user_id, amount=4)
+            if not posts:
+                continue
+            post = next((p for p in posts if p.media_type in (1, 8) and p.caption_text), posts[0])
+            images = []
+            if post.media_type == 1 and post.thumbnail_url:
+                images = [str(post.thumbnail_url)]
+            elif post.media_type == 8:
+                images = [str(resource.thumbnail_url) for resource in post.resources
+                          if resource.media_type == 1 and resource.thumbnail_url][:10]
+            caption = post.caption_text or ''
+            if not images or not caption:
+                continue
+            parsed = urlparse(images[0])
+            if parsed.scheme != 'https' or not any((parsed.hostname or '').endswith('.' + host) for host in ('cdninstagram.com', 'fbcdn.net')):
+                raise ValueError('Untrusted photo host')
+            with requests.get(images[0], timeout=12, stream=True, allow_redirects=False) as response:
+                response.raise_for_status()
+                prefix = next(response.iter_content(64), b'')
+            if not (prefix.startswith(b'\xff\xd8\xff') or prefix.startswith(b'\x89PNG') or prefix.startswith(b'RIFF')):
+                raise ValueError('Invalid image data')
+            item = {'account': account, 'shortcode': post.code, 'url': 'https://www.instagram.com/p/' + post.code + '/',
+                    'caption': caption, 'published': post.taken_at.isoformat(), 'images': images}
+            feed_path = root / 'feed.json'
+            previous = json.loads(feed_path.read_text()).get('items', []) if feed_path.exists() else []
+            items = [item] + [row for row in previous if row.get('shortcode') != item['shortcode']]
+            private_json(feed_path, {'checkedAt': int(time.time()), 'engine': 'instagrapi', 'items': items[:60]})
+            results.append({'account': account, 'photoCount': len(images), 'captionLength': len(caption), 'postUrl': item['url']})
+        return {'ok': bool(results), 'state': 'collected', 'accounts': results, 'photoCount': sum(r['photoCount'] for r in results), 'captionLength': sum(r['captionLength'] for r in results), 'message': 'Instagramの投稿本文と写真を取得しました。取得アカウント：' + '、'.join(r['account'] for r in results)}
     except Exception as error:
         name = type(error).__name__
         result = _safe.safe_error(error, action)

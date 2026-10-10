@@ -163,8 +163,9 @@ function newsSetHomeView(view){
  newsHomeView=view;
  const instagram=view==='instagram';
  $('newsBrowseTitle').textContent=instagram?'Instagram':'新作ニュース';
- $('newsBrowseDescription').textContent=instagram?'friendcharactersの取得済み投稿から準備・2時間ごとに自動確認':'公式ニュース・メーカー新作から投稿を準備';
+ $('newsBrowseDescription').textContent=instagram?'3アカウントの取得済み投稿から準備・2時間ごとに自動確認':'公式ニュース・メーカー新作から投稿を準備';
  $('newsSourceFilter').closest('label').hidden=instagram;
+ $('instagramAccountFilter').closest('label').hidden=!instagram;
  if(instagram)$('newsSourceFilter').value='all';
  newsRender();
 }
@@ -172,6 +173,7 @@ function newsGroups(){
  const groups=[],seen=new Set();
  for(const item of newsState.items){
   if(Boolean(item.instagram)!==(newsHomeView==='instagram'))continue;
+  const account=$('instagramAccountFilter').value;if(newsHomeView==='instagram'&&account!=='all'&&item.instagramAccount!==account)continue;
   if(seen.has(item.url))continue;seen.add(item.url);
   const group=groups.find(g=>g.members.every(m=>newsSameStory(m,item)));
   if(group)group.members.push(item);else groups.push({members:[item]});
@@ -422,3 +424,5 @@ $('newsCollageMode').addEventListener('change',()=>{
  newsKeepDraft();newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();
 });
 $('newsCollageRetry').addEventListener('click',()=>{const entry=newsCollageEntry();if(entry){entry.collageFailed=null;newsPhotoStatus();}});
+
+$('instagramAccountFilter').addEventListener('change',()=>{newsState.limit=5;newsRender();});
