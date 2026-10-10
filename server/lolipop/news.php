@@ -29,7 +29,7 @@ function news_image_url(string $u): string {
  if($h==='assets-toy.bandai.co.jp'&&preg_match('~^/toy/ja/product/20[0-9]{2}/[0-9]{2}/[a-zA-Z0-9]+/[a-zA-Z0-9_-]+\.(?:png|jpe?g|webp)$~D',$path)&&!isset($p['query'])&&!isset($p['fragment']))return 'https://'.$h.$path;
  if($h==='www.takaratomy-arts.co.jp'&&preg_match('~^/upfiles/products/Y[0-9]{6}_[a-zA-Z0-9_-]+\.(?:png|jpe?g|webp)$~D',$path)&&!isset($p['query'])&&!isset($p['fragment']))return 'https://'.$h.$path;
  if($h==='www.re-ment.co.jp'&&preg_match('~^/data/photo/product/t2?/[0-9]+\.(?:png|jpe?g|webp)$~D',$path)&&!isset($p['query'])&&!isset($p['fragment']))return 'https://'.$h.$path;
- if($h==='makeshop-multi-images.akamaized.net'&&preg_match('~^/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|webp)$~D',$path)&&strpos($path,'..')===false&&!isset($p['query'])&&!isset($p['fragment']))return 'https://'.$h.$path;
+ if($h==='makeshop-multi-images.akamaized.net'&&preg_match('~^/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|webp)$~D',$path)&&strpos($path,'..')===false&&!isset($p['fragment']))return 'https://'.$h.$path;
  if($h==='furyuprize.com'&&preg_match('~^/files/images/prz/pi-[a-zA-Z0-9_-]+\.(?:png|jpe?g|webp)$~D',$path)&&!isset($p['query'])&&!isset($p['fragment']))return 'https://'.$h.$path;
  if($h==='prcdn.freetls.fastly.net'&&preg_match('~^/release_image/[0-9]+/[0-9]+/[a-zA-Z0-9_.-]+\.(png|jpe?g|webp)$~D',$path))return 'https://'.$h.$path.'?format=jpeg&width=1600&fit=bounds';
  if($h==='prtimes.jp'&&preg_match('~^/i/[0-9]+/[0-9]+/thumb/[0-9]+x[0-9]+/[a-zA-Z0-9_.-]+\\.(png|jpe?g|webp)$~D',$path))return 'https://'.$h.$path;
