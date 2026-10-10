@@ -204,3 +204,8 @@ $status=news_source_statuses(['サンリオ公式'=>['ok'=>2,'failed'=>1],'サ�
 check($status['サンリオ公式']['state']==='partial');check($status['サンリオ公式']['count']===1);check($status['サンキューマート']['state']==='failed');check($status['フリュー']['state']==='ok');check($status['エイコープライズ']['state']==='ok');
 check(news_source_statuses(['リーメント'=>['ok'=>1,'failed'=>2]],[])['リーメント']['state']==='failed');
 echo "Per-source partial, failed and empty successful feed states passed\n";
+
+// Regression: live MakeShop structure has EUC-JP and separate image/name anchors.
+$legacy='<meta http-equiv="Content-Type" content="text/html; charset=EUC-JP"><div class="innerBox"><a href="/shopdetail/000000002657/ct200/page1/recommend/"><img alt="サンリオキャラクターズ マスコット" src="https://makeshop-multi-images.akamaized.net/eikohprize/itemimages/000000002657_test.jpg"></a><p><a href="/shopdetail/000000002657/ct200/page1/recommend/">サンリオキャラクターズ マスコット</a></p></div>';
+$legacyRows=news_eikoh_rows(mb_convert_encoding($legacy,'EUC-JP','UTF-8'));check(count($legacyRows)===1);check($legacyRows[0]['title']==='サンリオキャラクターズ マスコット');check($legacyRows[0]['image']!=='');
+echo "Eikoh EUC-JP and split-anchor regression passed\n";

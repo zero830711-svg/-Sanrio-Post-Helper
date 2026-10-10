@@ -31,11 +31,18 @@ function news_eikoh_identity_matches(string $requested,string $canonical):bool{
  if(!preg_match('~^/shopdetail/([0-9]{12})(?:/ct[0-9]+(?:/page[1-9]/recommend)?)?/?$~D',$b['path']??'',$canonicalId))return false;
  return $requestedId[1]===$canonicalId[1];
 }
+function news_eikoh_doc(string $html):DOMXPath{
+ // The official MakeShop pages use EUC-JP; fixtures and cached UTF-8 remain valid.
+ if(!mb_check_encoding($html,'UTF-8'))$html=mb_convert_encoding($html,'UTF-8','EUC-JP');
+ $html=preg_replace('/charset\s*=\s*["\x27]?EUC-JP/i','charset=UTF-8',$html);
+ return news_doc($html);
+}
 function news_eikoh_rows(string $html):array{
- $x=news_doc($html);$rows=[];
+ $x=news_eikoh_doc($html);$rows=[];
  foreach($x->query('//a[@href]') as $a){$url=$a->getAttribute('href');if(strpos($url,'/')===0)$url='https://www.eikoh-prize.jp'.$url;$url=news_url($url);if(!$url||isset($rows[$url]))continue;
-  $title=news_text($a);if(!$title||!preg_match('/サンリオ/u',$title))continue;
-  $image='';$img=$x->query('.//img[@src]',$a)->item(0);if($img)$image=news_image_url($img->getAttribute('src'));
+  $img=$x->query('.//img[@src]',$a)->item(0);
+  $title=news_text($a);if(!$title&&$img)$title=trim($img->getAttribute('alt'));if(!$title||!preg_match('/サンリオ/u',$title))continue;
+  $image=$img?news_image_url($img->getAttribute('src')):'';
   $rows[$url]=['url'=>$url,'source'=>'エイコープライズ','tipsOnly'=>true,'title'=>$title,'date'=>'','image'=>$image];
   if(count($rows)>=30)break;
  }return array_values($rows);
@@ -48,19 +55,22 @@ function news_rement_rows(string $html):array{
  }return $rows;
 }
 function news_extra_parse(string $html,string $url):array{
- $x=news_doc($html);$arts=strpos($url,'https://www.takaratomy-arts.co.jp/')===0;$eikoh=strpos($url,'https://www.eikoh-prize.jp/')===0;$source=$arts?'タカラトミーアーツ':($eikoh?'エイコープライズ':'リーメント');
+ $x=strpos($url,'https://www.eikoh-prize.jp/')===0?news_eikoh_doc($html):news_doc($html);$arts=strpos($url,'https://www.takaratomy-arts.co.jp/')===0;$eikoh=strpos($url,'https://www.eikoh-prize.jp/')===0;$source=$arts?'タカラトミーアーツ':($eikoh?'エイコープライズ':'リーメント');
  $identity=news_text($x->query('//meta[@property="og:url"]/@content | //link[@rel="canonical"]/@href')->item(0));if($eikoh?!news_eikoh_identity_matches($url,$identity):news_url($identity)!==$url)throw new RuntimeException('メーカーの商品識別が一致しませんでした。');
  $root=$x->query($arts?'//section[@id="detail"]':($eikoh?'//body':'//div[@id="items"]'))->item(0);if(!$root)throw new RuntimeException('メーカーの商品本体を確認できませんでした。');
  $title=news_text($x->query($arts?'./div[contains(concat(" ",normalize-space(@class)," ")," head ")]/h2':($eikoh?'//h1 | //meta[@property="og:title"]/@content':'.//h4'),$root)->item(0));
  $lines=[];$facts=[];$period='';$price='';$images=[];
  if($eikoh){
   if(!$title||!preg_match('/サンリオ/u',$title))throw new RuntimeException('サンリオ商品名を確認できませんでした。');
-  $all=news_text($x->query('//body')->item(0));
+  $description=$x->query('//div[contains(concat(" ",normalize-space(@class)," ")," detailTxt ")]')->item(0);
+  $all=$description?news_text($description):news_text($x->query('//meta[@property="og:description"]/@content')->item(0));
+  if(!$all)$all=news_text($x->query('//body')->item(0));
   if(!preg_match('/(?:[1-9]|1[0-2])月(?:第?[1-5]週|上旬|中旬|下旬)(?:より順次登場|登場)/u',$all,$m))throw new RuntimeException('登場時期を確認できませんでした。');
   $period='登場時期：'.$m[0];$facts[]=['kind'=>'schedule','text'=>$period];$lines[]=$period;
-  foreach($x->query('//p | //li | //h2 | //h3') as $node){$line=news_text($node);if(mb_strlen($line)>=4&&mb_strlen($line)<=600&&!preg_match('/(?:掲載写真と商品|内容は予告なく)/u',$line))$lines[]=$line;}
+  if(preg_match('/種類[：:]\s*([0-9]+種)/u',$all,$kind))$lines[]='種類：'.$kind[1];
   $nodes=$x->query('//img[@src]');
-  foreach($nodes as $node){$image=news_image_url($node->getAttribute('src'));if($image&&!in_array($image,$images??[],true))$images[]=$image;}
+  foreach($nodes as $node){$image=news_image_url($node->getAttribute('src'));preg_match('~/shopdetail/([0-9]{12})/~',$url,$product);
+   if($image&&strpos(basename((string)parse_url($image,PHP_URL_PATH)),$product[1])===0&&!in_array($image,$images,true))$images[]=$image;}
   $images=$images??[];
   if(!$images)throw new RuntimeException('商品写真を確認できませんでした。');
   return ['url'=>$url,'source'=>$source,'tipsOnly'=>true,'title'=>$title,'date'=>'','schedule'=>$period,'facts'=>$facts,'paragraphs'=>array_slice(array_unique($lines),0,60),'images'=>array_slice($images,0,8),'image'=>$images[0]];
