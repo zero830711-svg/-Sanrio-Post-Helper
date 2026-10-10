@@ -403,7 +403,7 @@ function news_groq_validate(string $json,array $item):string{
 }
 function news_groq_draft(array $item):array{
  $settings=news_groq_settings();if(empty($settings['apiKey']))return ['configured'=>false];
- $model='openai/gpt-oss-20b';$system=news_groq_prompt($item);
+ $model=(!empty($item['instagram'])&&in_array($item['instagramAccount']??'',['sanrio_kr','sanriogiftgatehk'],true))?'openai/gpt-oss-120b':'openai/gpt-oss-20b';$system=news_groq_prompt($item);
  $article=mb_substr(implode("\n",$item['paragraphs']??[]),0,4500);
  $cache=sys_get_temp_dir().'/sph-news-groq-'.hash('sha256',__DIR__.$model.$system.$item['url'].$item['title'].$article.json_encode($item['facts']??[]).json_encode($item['links']??[])).'.json';
  $lock=fopen(sys_get_temp_dir().'/sph-groq-budget-'.hash('sha256',__DIR__),'c+');

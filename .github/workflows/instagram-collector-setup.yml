@@ -95,7 +95,7 @@ jobs:
           $row=null;foreach($list["items"]??[] as $item)if(($item["instagramAccount"]??"")===$account){$row=$item;break;}
           if(!$row)throw new RuntimeException("Saved overseas post unavailable");
           $c=curl_init($base."?action=ai-draft");curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode(["url"=>$row["url"]]),CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>75,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"],"Content-Type: application/json","Origin: https://zero830711-svg.github.io"]]);$d=json_decode((string)curl_exec($c),true);curl_close($c);
-          $text=$d["text"]??"";if(empty($d["ok"])||!$text||!preg_match("/[ぁ-ゖァ-ヺ]/u",$text)||preg_match("/[\\x{AC00}-\\x{D7AF}]|優惠|購物|會員/u",$text)){fwrite(STDERR,"Japanese generation check failed: ".$account."\\n");exit(1);}
+          $text=$d["text"]??"";if(empty($d["ok"])||!$text||!preg_match("/[ぁ-ゖァ-ヺ]/u",$text)||preg_match("/[\\x{AC00}-\\x{D7AF}]|優惠|購物|會員/u",$text)){fwrite(STDERR,"Japanese generation check failed: ".$account."; ".($d["error"]??"language check")."\\n");exit(1);}
           echo "Japanese generation verified: ".$account."; ".mb_strlen($text)." characters.\\n";
           }
           ' "$ig_tmp/config.php"
