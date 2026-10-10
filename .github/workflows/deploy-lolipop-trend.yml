@@ -145,9 +145,9 @@ jobs:
           get config.php -o "$furyu_tmp/config.php"
           bye
           LFTP
+          php scripts/verify-instagram-news.php "$furyu_tmp/config.php"
           php scripts/verify-furyu-news.php "$furyu_tmp/config.php"
           php scripts/verify-news-extra.php "$furyu_tmp/config.php"
           php scripts/verify-bandai-news.php "$furyu_tmp/config.php"
           php scripts/verify-gashapon-news.php "$furyu_tmp/config.php"
           php scripts/verify-thankyou-news.php "$furyu_tmp/config.php"
-          php scripts/verify-instagram-news.php "$furyu_tmp/config.php"
