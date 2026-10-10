@@ -201,6 +201,6 @@ check(news_image_url('https://makeshop-multi-images.akamaized.net.eikoh/shopimag
 check(news_feed_source(['kind'=>'html','url'=>'https://prtimes.jp/topics/keywords/test'])==='PR TIMES');
 check(news_feed_source(['kind'=>'html','url'=>'https://www.sanrio.co.jp/news/'])==='サンリオ公式');check(news_feed_source(['kind'=>'eikoh','url'=>'https://www.eikoh-prize.jp/shopbrand/ct200/'])==='エイコープライズ');
 $status=news_source_statuses(['サンリオ公式'=>['ok'=>2,'failed'=>1],'サンキューマート'=>['ok'=>0,'failed'=>1],'フリュー'=>['ok'=>1,'failed'=>0]],[['source'=>'サンリオ公式']]);
-check($status['サンリオ公式']['state']==='partial');check($status['サンリオ公式']['count']===1);check($status['サンキューマート']['state']==='failed');check($status['フリュー']['state']==='ok');
+check($status['サンリオ公式']['state']==='partial');check($status['サンリオ公式']['count']===1);check($status['サンキューマート']['state']==='failed');check($status['フリュー']['state']==='ok');check($status['エイコープライズ']['state']==='ok');
 check(news_source_statuses(['リーメント'=>['ok'=>1,'failed'=>2]],[])['リーメント']['state']==='failed');
 echo "Per-source partial, failed and empty successful feed states passed\n";
