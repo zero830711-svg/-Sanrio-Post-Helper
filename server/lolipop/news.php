@@ -121,7 +121,7 @@ function news_feeds():array{
  for($i=0;$i<2;$i++)$feeds[]=['url'=>'https://furyuprize.com/schedule?month='.$month->modify('+'.$i.' month')->format('Y-m'),'kind'=>'furyu'];
  $feeds[]=['url'=>'https://www.takaratomy-arts.co.jp/specials/sanrio/include/getnewitem.php','kind'=>'arts','post'=>'category=p&page=1&flg=all&seg=16'];
  $feeds[]=['url'=>'https://www.re-ment.co.jp/product/brand.php?c=sanrio','kind'=>'rement'];
- $feeds[]=['url'=>'https://www.eikoh-prize.jp/shopbrand/ct200/','kind'=>'eikoh'];
+ $feeds[]=['url'=>'https://www.eikoh-prize.jp/shopbrand/ct200','kind'=>'eikoh'];
  $feeds[]=['url'=>'https://www.bandai.co.jp/candy/characters/sanrio/','kind'=>'candy'];
  $feeds[]=['url'=>'https://toy.bandai.co.jp/ja/item/?q=&series=sanrio','kind'=>'toys'];
  for($i=0;$i<2;$i++){$target=$month->modify('+'.$i.' month');$feeds[]=['url'=>'https://gashapon.jp/sanrio-characters/item/?m='.$target->format('m').'&y='.$target->format('Y'),'kind'=>'gashapon'];}
