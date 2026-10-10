@@ -197,7 +197,7 @@ $eikohUrl='https://www.eikoh-prize.jp/shopdetail/000000002622/ct200/page1/recomm
 $eikohDetail='<meta property="og:url" content="'.$eikohUrl.'"><h1>サンリオキャラクターズ ラブレターフォーユーマスコット1</h1><p>9月1週より順次登場</p><img src="https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg">';
 $eikohItem=news_parse($eikohDetail,$eikohUrl);check($eikohItem['schedule']==='登場時期：9月1週より順次登場');check($eikohItem['date']==='');check($eikohItem['tipsOnly']===true);
 check(news_url('https://www.eikoh-prize.jp.evil.example/shopdetail/000000002622/ct200/page1/recommend/')==='');
-check(news_image_url('https://makeshop-multi-images.akamaized.net.eikoh/shopimages/01/00/main_2622.jpg')==='');check($eikohItem['image']==='https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg');
+check(news_image_url('https://makeshop-multi-images.akamaized.net.eikoh/shopimages/01/00/main_2622.jpg')==='');check(news_url('https://www.eikoh-prize.jp/shopdetail/000000002657/ct200/page1/recommend/')==='https://www.eikoh-prize.jp/shopdetail/000000002657/ct200/page1/recommend/');check($eikohItem['image']==='https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg');
 check(news_feed_source(['kind'=>'html','url'=>'https://prtimes.jp/topics/keywords/test'])==='PR TIMES');
 check(news_feed_source(['kind'=>'html','url'=>'https://www.sanrio.co.jp/news/'])==='サンリオ公式');check(news_feed_source(['kind'=>'eikoh','url'=>'https://www.eikoh-prize.jp/shopbrand/ct200/'])==='エイコープライズ');
 $status=news_source_statuses(['サンリオ公式'=>['ok'=>2,'failed'=>1],'サンキューマート'=>['ok'=>0,'failed'=>1],'フリュー'=>['ok'=>1,'failed'=>0],'エイコープライズ'=>['ok'=>1,'failed'=>0]],[['source'=>'サンリオ公式']]);
