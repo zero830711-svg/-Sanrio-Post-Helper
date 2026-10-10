@@ -5,6 +5,7 @@ import io
 import json
 import os
 import pathlib
+import re
 import sys
 import time
 import zipfile
@@ -145,6 +146,8 @@ def main():
             result = run(data)
     except Exception as error:
         result = _safe.safe_error(error, data.get('action') if isinstance(data, dict) else None)
+        if isinstance(data, dict) and data.get('action') == 'runtime':
+            result['runtimeDiagnostic'] = ' '.join(re.findall(r'GLIBC_[0-9.]+|GLIBCXX_[0-9.]+|lib[A-Za-z0-9_.+-]+\.so(?:\.[0-9]+)*|No module named [\"\'][A-Za-z0-9_.]+[\"\']', str(error)))[:240]
     print(json.dumps(result, ensure_ascii=False))
 
 
