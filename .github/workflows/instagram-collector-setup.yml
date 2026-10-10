@@ -1,0 +1,70 @@
+name: Deploy and verify Instagram collector setup
+on:
+  push:
+    branches: [main]
+    paths:
+      - server/lolipop/instagram-worker.py
+      - server/lolipop/instagram-setup.php
+      - .github/workflows/instagram-collector-setup.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: instagram-collector-setup
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Build read-only collector dependencies
+        run: |
+          python -m pip install --target build/ig-lib --no-compile --no-binary charset-normalizer instaloader==4.15.3
+          printf 'Require all denied\n' > build/ig-lib/.htaccess
+          PYTHONPATH=build/ig-lib python -c 'import instaloader; assert instaloader.__version__ == "4.15.3"'
+          python -m py_compile server/lolipop/instagram-worker.py
+          php -l server/lolipop/instagram-setup.php
+      - name: Install FTPS client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp
+      - name: Deploy setup and verify server import
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          ig_tmp=$(mktemp -d)
+          trap 'rm -rf "$ig_tmp"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          mkdir -p .ig-lib
+          put build/ig-lib/.htaccess -o .ig-lib/.htaccess
+          mirror --reverse --parallel=3 --exclude-glob __pycache__ build/ig-lib .ig-lib
+          put server/lolipop/instagram-worker.py
+          put server/lolipop/instagram-setup.php
+          get config.php -o "$ig_tmp/config.php"
+          bye
+          LFTP
+          php -r '
+          $config=require $argv[1];
+          $c=curl_init("https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/instagram-setup.php");
+          curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>80,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"]]]);
+          $body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_HTTP_CODE);curl_close($c);$d=json_decode((string)$body,true);
+          if($status!==200||empty($d["ok"])||($d["version"]??"")!=="4.15.3"){fwrite(STDERR,"Collector runtime import failed; private details withheld.\n");exit(1);}
+          echo "Lolipop collector import verified: Instaloader ".$d["version"]."; authenticated session ".(!empty($d["configured"])?"present":"not yet configured").".\n";
+          ' "$ig_tmp/config.php"
