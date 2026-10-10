@@ -45,10 +45,15 @@ if ($token && !empty($config['sync_key']) && hash_equals((string)$config['sync_k
 session_name('sph_ig_setup');
 session_set_cookie_params(['lifetime'=>1800, 'path'=>parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), 'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict']);
 session_start();
+if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(24));
 $message = ''; $result = [];
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    if ($origin !== 'https://fan-info.zombie.jp') { http_response_code(403); exit('許可された画面から実行してください。'); }
+    $validCsrf = is_string($_POST['csrf'] ?? null) && hash_equals($_SESSION['csrf'], $_POST['csrf']);
+    if (($origin !== '' && $origin !== 'https://fan-info.zombie.jp') || !$validCsrf) {
+        http_response_code(403);
+        $message = '画面の確認ができませんでした。このページを開き直して、もう一度入力してください。';
+    } else {
     if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 8192) { http_response_code(413); exit; }
     if (($_POST['action'] ?? '') === 'unlock') {
         if (!empty($config['sync_key']) && hash_equals((string)$config['sync_key'], (string)($_POST['sync_key'] ?? ''))) {
@@ -67,6 +72,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $message = $result['message'] ?? '';
         }
     } else { http_response_code(403); $message='画面の有効時間が切れました。'; }
+    }
 }
 $unlocked = ($_SESSION['unlockedUntil'] ?? 0) > time();
 function ig_h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
@@ -77,7 +83,7 @@ function ig_h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-
 <p><small>Instagramの認証情報はこのサーバーからInstagramへ送信します。パスワードは保存せず、成功したログイン状態だけを非公開領域に保存します。追加認証やアクセス制限が出た場合は停止します。</small></p>
 <?php if ($message): ?><p class="status"><?=ig_h($message)?></p><?php endif; ?>
 <?php if (!$unlocked): ?>
-<form method="post"><input type="hidden" name="action" value="unlock"><label>アプリの同期キー<input name="sync_key" type="password" autocomplete="off" required></label><button type="submit">設定画面を開く</button></form>
+<form method="post"><input type="hidden" name="action" value="unlock"><input type="hidden" name="csrf" value="<?=ig_h($_SESSION['csrf'])?>"><label>アプリの同期キー<input name="sync_key" type="password" autocomplete="off" required></label><button type="submit">設定画面を開く</button></form>
 <?php elseif (($_SESSION['state'] ?? '') === 'two_factor'): ?>
 <form method="post"><input type="hidden" name="action" value="two_factor"><input type="hidden" name="csrf" value="<?=ig_h($_SESSION['csrf'])?>"><label>二段階認証コード<input name="code" type="text" autocomplete="one-time-code" required></label><button type="submit">認証する</button></form>
 <?php elseif (in_array($_SESSION['state'] ?? '', ['authenticated','collected'], true)): ?>
