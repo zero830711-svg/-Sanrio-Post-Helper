@@ -421,7 +421,19 @@ function news_groq_draft(array $item):array{
   if($ok===false)throw new RuntimeException($error===28?'AI通信が時間切れになりました。再度お試しください。':'Groqへ接続できませんでした。');
   if($status!==200){$message=$status===429?'Groqの利用上限です。少し時間を空けてお試しください（429）。':($status===401?'GroqのAPIキーを確認してください。':'Groqで生成できませんでした（HTTP '.$status.'）。');throw new RuntimeException($message,$status>=500?503:0);}
   $d=json_decode($body,true);if(($d['choices'][0]['finish_reason']??'')!=='stop')throw new RuntimeException('生成が完了しませんでした。本文は変更していません。');
-  $text=news_groq_validate((string)($d['choices'][0]['message']['content']??''),$item);
+  try{$text=news_groq_validate((string)($d['choices'][0]['message']['content']??''),$item);}
+  catch(RuntimeException $validation){
+   if(empty($item['instagram'])||!in_array($item['instagramAccount']??'',['sanrio_kr','sanriogiftgatehk'],true))throw $validation;
+   $payload['messages'][]=['role'=>'assistant','content'=>(string)($d['choices'][0]['message']['content']??'')];
+   $payload['messages'][]=['role'=>'user','content'=>'前の本文は検査で不合格：'.$validation->getMessage().' 元資料の事実だけを使って本文を修正してください。中国語・広東語の原語を括弧内やタイトルにも残さず、日本語に訳してください。會員→会員、購物→お買い物、優惠→特典、心水→お気に入り。一田は店舗名として残せます。韓国語のブランド名は資料にある英字表記を使う。記事にない数字や換算した割引率は削除する。JSONのbody文字列だけ返す。'];
+   $c=curl_init('https://api.groq.com/openai/v1/chat/completions');
+   curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload),CURLOPT_HTTPHEADER=>['Content-Type: application/json','Authorization: Bearer '.$settings['apiKey']],CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>45]);
+   $repair=curl_exec($c);$repairStatus=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
+   if($repairStatus!==200||!is_string($repair))throw $validation;
+   $repaired=json_decode($repair,true);
+   if(($repaired['choices'][0]['finish_reason']??'')!=='stop')throw $validation;
+   $text=news_groq_validate((string)($repaired['choices'][0]['message']['content']??''),$item);
+  }
   $result=['configured'=>true,'text'=>$text,'provider'=>'groq'];file_put_contents($cache,json_encode($result,JSON_UNESCAPED_UNICODE),LOCK_EX);@chmod($cache,0600);return $result;
  }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
