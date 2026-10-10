@@ -380,7 +380,7 @@ function news_groq_validate(string $json,array $item):string{
  if(!is_array($d)||!isset($d['body'])||!is_string($d['body'])||!trim($d['body']))throw new RuntimeException('AIの本文を読み取れませんでした。もう一度お試しください。本文は変更していません。');
  $body=trim($d['body']);
  if(!empty($item['instagram'])&&in_array($item['instagramAccount']??'',['sanrio_kr','sanriogiftgatehk'],true)){
-  $body=strtr($body,['一田會員購物日'=>'一田の会員向けお買い物セール','一田會員'=>'一田の会員','會員購物日'=>'会員向けお買い物セール','限定優惠'=>'期間限定の特典']);
+  $body=strtr($body,['一田會員購物日'=>'一田の会員向けお買い物セール','一田會員'=>'一田の会員','會員購物日'=>'会員向けお買い物セール','限定優惠'=>'期間限定の特典','購物日'=>'お買い物セール','購物'=>'お買い物','會員'=>'会員','優惠'=>'特典']);
   if(preg_match('/[\x{AC00}-\x{D7AF}\x{1100}-\x{11FF}\x{3130}-\x{318F}]/u',$body)||!preg_match('/[ぁ-ゖァ-ヺ]/u',$body)||preg_match('/即將|優惠|購物|會員|帶返|屋企|心水/u',$body,$foreignTerm))throw new RuntimeException('韓国語・中国語が残っているため保存しませんでした。'.(isset($foreignTerm[0])?'検出語：'.$foreignTerm[0]:'').'もう一度AI生成してください。本文は変更していません。');
  }
  // Official headlines may contain stars/hearts. Normalize decoration, not facts.
