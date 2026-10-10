@@ -28,7 +28,7 @@ function news_eikoh_identity_matches(string $requested,string $canonical):bool{
  if(($a['scheme']??'')!=='https'||($a['host']??'')!=='www.eikoh-prize.jp'||isset($a['user'])||isset($a['pass'])||isset($a['port'])||isset($a['query'])||isset($a['fragment']))return false;
  if(($b['scheme']??'')!=='https'||($b['host']??'')!=='www.eikoh-prize.jp'||isset($b['user'])||isset($b['pass'])||isset($b['port'])||isset($b['query'])||isset($b['fragment']))return false;
  if(!preg_match('~^/shopdetail/([0-9]{12})/ct200(?:/page[1-9]/recommend)?/?$~D',$a['path']??'',$requestedId))return false;
- if(!preg_match('~^/shopdetail/([0-9]{12})(?:/ct[0-9]+(?:/page[1-9]/recommend)?/?)?$~D',$b['path']??'',$canonicalId))return false;
+ if(!preg_match('~^/shopdetail/([0-9]{12})(?:/ct[0-9]+(?:/page[1-9]/recommend)?)?/?$~D',$b['path']??'',$canonicalId))return false;
  return $requestedId[1]===$canonicalId[1];
 }
 function news_eikoh_rows(string $html):array{
