@@ -327,7 +327,7 @@ async function newsPrepare(url){
   newsSaveDrafts();if(entry.restored&&$('newsDraftStatus'))$('newsDraftStatus').textContent='保存した準備を復元しました。日程は元記事で確認してください。';
   // Show every preview before waiting for downloadable photo files.
   newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();
-  $('newsAiRetry').disabled=!!entry.aiPending;$('newsAiStatus').textContent=entry.aiStatus||'文字数制限なしで、華やかで可愛いニュース投稿文を1案作れます。';
+  $('newsAiRetry').disabled=!!entry.aiPending;$('newsAiStatus').textContent=entry.aiStatus||'文字数制限なしで、華やかで可愛いニュース投稿文を1案作れます。';editor.scrollIntoView({block:'start',behavior:'instant'});
  }catch(e){if(seq===newsState.seq)$('newsEditorStatus').textContent=e.message;}
 }
 $('newsText').addEventListener('input',newsKeepDraft);

@@ -419,7 +419,7 @@
 <p id="detailChatGPTStatus" class="backup-note" aria-live="polite"></p>
 <details class="backup-note"><summary>ChatGPTが共有先に出ない場合</summary><p>写真だけを共有し、コピー済みの投稿依頼文をChatGPTで貼り付けてください。</p><button id="detailChatGPTPhotosShare" class="small-btn" type="button">写真のみ共有</button></details>
 <div id="detailExtraTools" class="detail-top-tools" aria-label="リンク・保存・候補の操作"><div id="detailCandidateTools"></div><div class="detail-action-row"><button id="detailRepostNext" class="small-btn" type="button">再投稿済み → 次の候補</button><button id="detailCandidateSkip" class="small-btn" type="button">見送る</button><button id="detailCandidateExclude" class="small-btn" type="button">候補にしない</button></div></div>
-<details class="backup-note"><summary>紹介リンクを修正・追加</summary><label>Amazon・楽天のリンク（1行に1本）<textarea id="candidateLinks" rows="4" style="width:100%;box-sizing:border-box"></textarea></label><button id="candidateLinksSave" class="small-btn" type="button">リンクを保存</button><p id="candidateEditStatus" aria-live="polite"></p></details>
+
 <section class="detail-text-section">
 <h3>投稿本文</h3>
 <details id="detailTextMore"><summary>全文を表示</summary><p id="detailText"></p></details>
@@ -427,9 +427,11 @@
 </section>
 <section class="detail-media-section">
 <h3>写真・動画 <span class="detail-zoom-hint">写真をタップで拡大</span></h3>
-<label class="small-btn">写真を追加<input id="candidatePhotos" type="file" accept="image/*" multiple style="display:block;max-width:100%"></label><p id="candidatePhotoStatus" class="backup-note" aria-live="polite"></p>
+
 <p id="detailMediaStatus" class="detail-media-status" aria-live="polite"></p>
 <p class="backup-note">使う写真を4枚まで選択。「前へ／後へ」で順番を変更できます。</p><div id="detailMedia" class="detail-media"></div>
+<label class="small-btn">写真を追加<input id="candidatePhotos" type="file" accept="image/*" multiple style="display:block;max-width:100%"></label><p id="candidatePhotoStatus" class="backup-note" aria-live="polite"></p>
+<details class="backup-note"><summary>紹介リンクを修正・追加</summary><label>Amazon・楽天のリンク（1行に1本）<textarea id="candidateLinks" rows="4" style="width:100%;box-sizing:border-box"></textarea></label><button id="candidateLinksSave" class="small-btn" type="button">リンクを保存</button><p id="candidateEditStatus" aria-live="polite"></p></details>
 </section>
 
 
@@ -455,7 +457,7 @@
 <script src="./lovely-watch.js?v=20261005-3451"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
 <script src="./news-collage.js?v=20261010-3452"></script>
-<script src="./news.js?v=20261010-3456"></script>
+<script src="./news.js?v=20261010-3458"></script>
 <script src="./post-ai.js?v=20261005-3451"></script>
 <script>
 window.addEventListener("load",()=>{
