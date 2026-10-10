@@ -127,7 +127,7 @@ def run(data):
         results = []
         for account in ('friendcharacters', 'sanrio_kr', 'sanriogiftgatehk', 'sanrio_ec_official'):
             user_id = client.user_info_by_username_v1(account).pk
-            posts = client.user_medias_v1(user_id, amount=4)
+            posts = sorted(client.user_medias_v1(user_id, amount=4), key=lambda post: post.taken_at, reverse=True)
             if not posts:
                 continue
             post = next((p for p in posts if p.media_type in (1, 8) and p.caption_text), posts[0])
