@@ -303,7 +303,7 @@ async function newsPrepare(url){
   newsSaveDrafts();if(entry.restored&&$('newsDraftStatus'))$('newsDraftStatus').textContent='保存した準備を復元しました。日程は元記事で確認してください。';
   // Show every preview before waiting for downloadable photo files.
   newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();
-  $('newsAiRetry').disabled=!!entry.aiPending;$('newsAiStatus').textContent=entry.aiStatus||'可愛い絵文字で300文字以内の投稿文を1案作れます。';
+  $('newsAiRetry').disabled=!!entry.aiPending;$('newsAiStatus').textContent=entry.aiStatus||'文字数制限なしで、華やかで可愛いニュース投稿文を1案作れます。';
  }catch(e){if(seq===newsState.seq)$('newsEditorStatus').textContent=e.message;}
 }
 $('newsText').addEventListener('input',newsKeepDraft);
@@ -356,7 +356,7 @@ async function newsAiAdjust(entry,seq,force=false){
   if(!d.configured){entry.aiStatus='GroqのAPIキーを「AI設定」に保存してください。';}
   else if(typeof d.text!=='string'||!d.text.trim()){throw new Error('AI文を取得できません。');}
   else if(entry.text!==before||(seq===newsState.seq&&$('newsText').value!==before)){entry.aiStatus='手動編集を優先しました。AI文は反映していません。';}
-  else{entry.aiDrafts=Array.isArray(d.drafts)&&d.drafts.length===3&&d.drafts.every(v=>typeof v.text==='string'&&v.text.trim())?d.drafts.map(v=>({...v})):[];entry.aiChoice=0;entry.text=entry.aiDrafts[0]?.text||d.text;entry.aiStatus=(entry.aiDrafts.length?'可愛い投稿案を3つ作成しました。':'AI生成済み（300文字以内）：')+'価格・日程・条件を元記事で確認してください。';if(newsState.item===entry.item){$('newsText').value=entry.text;$('newsAiChoice').value='0';$('newsAiChoiceLabel').hidden=!entry.aiDrafts.length;}}
+  else{entry.aiDrafts=Array.isArray(d.drafts)&&d.drafts.length===3&&d.drafts.every(v=>typeof v.text==='string'&&v.text.trim())?d.drafts.map(v=>({...v})):[];entry.aiChoice=0;entry.text=entry.aiDrafts[0]?.text||d.text;entry.aiStatus=(entry.aiDrafts.length?'可愛い投稿案を3つ作成しました。':'AI生成済み（文字数制限なし）：')+'価格・日程・条件を元記事で確認してください。';if(newsState.item===entry.item){$('newsText').value=entry.text;$('newsAiChoice').value='0';$('newsAiChoiceLabel').hidden=!entry.aiDrafts.length;}}
  }catch(e){entry.aiStatus='AI未調整：'+e.message;}
  finally{entry.aiPending=false;entry.savedAt=Date.now();newsSaveDrafts();if(newsState.item===entry.item){$('newsAiStatus').textContent=entry.aiStatus;$('newsAiRetry').disabled=false;}}
 }

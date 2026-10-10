@@ -147,15 +147,22 @@ echo "Expanded news sources, deduplication and quotas passed\n";
 $groqItem=['title'=>'クロミのリボンバッグ','url'=>'https://www.sanrio.co.jp/news/goods/test-20261003/','paragraphs'=>['リボン付きバッグ。価格は880円（税込）。']];
 $out=news_groq_validate(json_encode(['body'=>'🎀 クロミのリボンバッグ 💜' . "\n価格：880円（税込）"],JSON_UNESCAPED_UNICODE),$groqItem);
 check(mb_strlen($out)<=300);check(strpos($out,$groqItem['url'])!==false);check(strpos(news_groq_prompt($groqItem),'1案だけ')!==false);
-foreach(['not json',json_encode(['body'=>'🎀 価格：999円']),json_encode(['body'=>str_repeat('可愛い',120)]),json_encode(['body'=>'🎀 https://evil.example/']),json_encode(['body'=>'☆ クロミ ♡'])] as $bad){
+foreach(['not json',json_encode(['body'=>'🎀 価格：999円']),json_encode(['body'=>'🎀 https://evil.example/']),json_encode(['body'=>'☆ クロミ ♡'])] as $bad){
  try{news_groq_validate($bad,$groqItem);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}
 }
-echo "Groq single draft: 300 characters, original link, unsupported numbers and invalid output checked\n";
+$longNews='🎀💖【クロミのリボンバッグ】💖🎀'."\n\n".str_repeat('💜 リボン付きのバッグをチェック。',20);
+$longText=news_groq_validate(json_encode(['body'=>$longNews],JSON_UNESCAPED_UNICODE),$groqItem);
+check(mb_strlen($longText)>300);check(str_contains($longText,$groqItem['url']));
+check(str_contains(news_groq_prompt($groqItem),'文字数制限なし'));
+check(!str_contains(news_groq_prompt($groqItem),'3〜6個'));
+check(str_contains(news_groq_prompt($groqItem),'カラー絵文字を両側'));
+echo "Groq news: unlimited length, original link, unsupported numbers and invalid output checked\n";
 
 $groqProduct=post_ai_input(['mode'=>'product','title'=>'ウサハナ コスメポーチ','text'=>'サイズ：約200×130×55mm','links'=>[['kind'=>'rakuten','url'=>'https://hb.afl.rakuten.co.jp/hgc/'.str_repeat('a',500)]]]);
 $groqProduct['url']='product';
 $productText=news_groq_validate(json_encode(['body'=>'🎀 ウサハナのポーチ ✨' . "\nサイズ：約200×130×55mm"],JSON_UNESCAPED_UNICODE),$groqProduct);
 check(ai_cute_length($productText)<=300);check(strpos($productText,$groqProduct['links'][0]['url'])!==false);check(substr($productText,-3)==='#pr');check(strpos(news_groq_prompt($groqProduct),'新規の商品紹介')!==false);
+try{news_groq_validate(json_encode(['body'=>$longNews],JSON_UNESCAPED_UNICODE),$groqProduct);check(false);}catch(RuntimeException $e){check(str_contains($e->getMessage(),'300文字'));}
 foreach(['🎀 素材：ポリエステル','🎀 価格未確認','🎀 在庫あります','🎀 サイズ：999mm',str_repeat('可愛い',120)] as $bad){
  try{news_groq_validate(json_encode(['body'=>$bad],JSON_UNESCAPED_UNICODE),$groqProduct);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}
 }

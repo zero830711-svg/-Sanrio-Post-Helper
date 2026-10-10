@@ -15,7 +15,7 @@ test('ニュースはGeminiを呼ばず通常の下書きを使い、編集と�
  await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  await expect(page.locator('#newsText')).toHaveValue(/リボンバッグ/);
  await expect(page.locator('#newsShare')).toBeEnabled();
- await expect(page.locator('#newsAiRetry')).toBeEnabled();await expect(page.locator('#newsAiStatus')).toContainText('300文字');await expect(page.locator('#newsAiChoice')).not.toBeVisible();
+ await expect(page.locator('#newsAiRetry')).toBeEnabled();await expect(page.locator('#newsAiStatus')).toContainText('文字数制限なし');await expect(page.locator('#newsAiChoice')).not.toBeVisible();
  await page.locator('#newsText').fill('確認して編集したニュース本文');
  await page.locator('#newsBackBottom').click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  await expect(page.locator('#newsText')).toHaveValue('確認して編集したニュース本文');
@@ -260,7 +260,7 @@ test('Groq設定とボタン生成、生成中の編集保護と失敗時の本�
  await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();expect(calls).toBe(0);
  await page.locator('#newsGroqSettings summary').click();await page.locator('#newsGroqKey').fill('gsk_test_12345678901234567890');await page.locator('#newsGroqSave').click();await expect(page.locator('#newsGroqKey')).toHaveValue('');await expect(page.locator('#newsGroqStatus')).toContainText('保存しました');
  expect(await page.evaluate(()=>Object.values(localStorage).some(v=>v.includes('gsk_test')))).toBe(false);
- await page.locator('#newsAiRetry').click();await expect(page.locator('#newsText')).toHaveValue(response.text);await expect(page.locator('#newsAiStatus')).toContainText('300文字以内');
+ await page.locator('#newsAiRetry').click();await expect(page.locator('#newsText')).toHaveValue(response.text);await expect(page.locator('#newsAiStatus')).toContainText('文字数制限なし');
  await page.locator('#newsAiRetry').click();await expect.poll(()=>calls).toBe(2);await page.locator('#newsText').fill('手動で編集した本文');release();await expect(page.locator('#newsAiStatus')).toContainText('手動編集を優先');await expect(page.locator('#newsText')).toHaveValue('手動で編集した本文');
  response={ok:false,error:'Groqの利用上限です（429）。'};await page.locator('#newsAiRetry').click();await expect(page.locator('#newsAiStatus')).toContainText('429');await expect(page.locator('#newsText')).toHaveValue('手動で編集した本文');await expect(page.locator('#newsAiRetry')).toBeEnabled();
 });
