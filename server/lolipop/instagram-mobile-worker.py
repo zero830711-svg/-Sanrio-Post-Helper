@@ -125,7 +125,7 @@ def run(data):
         return {'ok': False, 'state': 'login_required', 'message': 'instagrapiでの初回認証が必要です。'}
     try:
         results = []
-        for account in ('friendcharacters', 'sanrio_kr', 'sanriogiftgatehk'):
+        for account in ('friendcharacters', 'sanrio_kr', 'sanriogiftgatehk', 'sanrio_ec_official'):
             user_id = client.user_info_by_username_v1(account).pk
             posts = client.user_medias_v1(user_id, amount=4)
             if not posts:

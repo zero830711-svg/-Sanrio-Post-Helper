@@ -6,7 +6,7 @@ function news_instagram_items():array {
  if(!is_file($path)||filesize($path)>2000000)return [];
  $feed=json_decode((string)file_get_contents($path),true);$items=[];
  foreach($feed['items']??[] as $row){
-  $account=(string)($row['account']??'friendcharacters');if(!in_array($account,['friendcharacters','sanrio_kr','sanriogiftgatehk'],true))continue;
+  $account=(string)($row['account']??'friendcharacters');if(!in_array($account,['friendcharacters','sanrio_kr','sanriogiftgatehk','sanrio_ec_official'],true))continue;
   $code=(string)($row['shortcode']??'');$caption=trim((string)($row['caption']??''));
   if(!preg_match('/^[A-Za-z0-9_-]{1,80}$/D',$code)||!$caption)continue;
   $images=[];foreach($row['images']??[] as $image){
