@@ -14,7 +14,7 @@ function ig_worker(array $input): array {
         @chmod($input['privateDir'].'.lock', 0600);
         $pipes = [];
         try {
-            $process = proc_open([$bin, __DIR__.'/instagram-worker.py'], [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']], $pipes);
+            $process = proc_open([$bin, __DIR__.'/instagram-mobile-worker.py'], [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']], $pipes);
             if (!is_resource($process)) continue;
             fwrite($pipes[0], json_encode($input)); fclose($pipes[0]);
             stream_set_blocking($pipes[1], false); stream_set_blocking($pipes[2], false);
@@ -30,6 +30,7 @@ function ig_worker(array $input): array {
             $body .= stream_get_contents($pipes[1], 32768);
             fclose($pipes[1]); fclose($pipes[2]); proc_close($process);
             $result = json_decode($body, true);
+            if (is_array($result) && ($result['errorType'] ?? '') === 'PythonVersionMismatch') continue;
             return is_array($result) ? $result : ['ok'=>false,'message'=>'処理が時間切れになりました。自動再試行はしません。'];
         } finally { flock($lock, LOCK_UN); fclose($lock); }
     }
@@ -45,6 +46,10 @@ if ($token && !empty($config['sync_key']) && hash_equals((string)$config['sync_k
 session_name('sph_ig_setup');
 session_set_cookie_params(['lifetime'=>1800, 'path'=>parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), 'secure'=>true, 'httponly'=>true, 'samesite'=>'Strict']);
 session_start();
+if (($_SESSION['engine'] ?? '') !== 'instagrapi') {
+    unset($_SESSION['state'], $_SESSION['lastResult'], $_SESSION['lastAttempt']);
+    $_SESSION['engine'] = 'instagrapi';
+}
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(24));
 $message = ''; $result = [];
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -84,6 +89,7 @@ function ig_h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-
 <!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Instagram収集の初回設定</title>
 <style>body{font-family:system-ui;background:#fff7fb;color:#302a35;margin:24px auto;padding:0 20px;max-width:560px}label{display:block;margin:16px 0}input,button{box-sizing:border-box;width:100%;padding:14px;border:1px solid #ddd;border-radius:12px;font:inherit}button{background:#f8ddea;font-weight:bold}.status{padding:16px;background:white;border-radius:12px}small{color:#756977}</style>
 <h1>Instagram収集の初回設定</h1><p>friendcharactersの写真と本文を、サーバーから取得できるか検証します。</p>
+<p><small>認証方式：instagrapi 3.0.21。端末情報を保存し、次回も同じセッションを使用します。</small></p>
 <p><small>Instagramの認証情報はこのサーバーからInstagramへ送信します。パスワードは保存せず、成功したログイン状態だけを非公開領域に保存します。追加認証やアクセス制限が出た場合は停止します。</small></p>
 <?php if ($message): ?><p class="status"><?=ig_h($message)?></p><?php endif; ?>
 <?php $confirmationUrl = $_SESSION['lastResult']['confirmationUrl'] ?? ''; if ($unlocked && is_string($confirmationUrl) && preg_match('~^https://www\.instagram\.com/challenge/[A-Za-z0-9/_-]+$~D', $confirmationUrl)): ?>
@@ -92,7 +98,7 @@ function ig_h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-
 <?php if (!$unlocked): ?>
 <form method="post"><input type="hidden" name="action" value="unlock"><input type="hidden" name="csrf" value="<?=ig_h($_SESSION['csrf'])?>"><label>アプリの同期キー<input name="sync_key" type="password" autocomplete="off" required></label><button type="submit">設定画面を開く</button></form>
 <?php elseif (($_SESSION['state'] ?? '') === 'two_factor'): ?>
-<form method="post"><input type="hidden" name="action" value="two_factor"><input type="hidden" name="csrf" value="<?=ig_h($_SESSION['csrf'])?>"><label>二段階認証コード<input name="code" type="text" autocomplete="one-time-code" required></label><button type="submit">認証する</button></form>
+<form method="post"><input type="hidden" name="action" value="two_factor"><input type="hidden" name="csrf" value="<?=ig_h($_SESSION['csrf'])?>"><label>ご自身のInstagramユーザーネーム（@なし）<input name="username" type="text" autocomplete="username" required></label><label>Instagramパスワード（保存しません）<input name="password" type="password" autocomplete="current-password" required></label><label>二段階認証コード<input name="code" type="text" autocomplete="one-time-code" required></label><button type="submit">認証する</button></form>
 <?php elseif (in_array($_SESSION['state'] ?? '', ['authenticated','collected'], true)): ?>
 <?php if (($result['state'] ?? '') === 'collected'): ?><p>取得できた写真：<?=(int)$result['photoCount']?>枚／本文：<?=(int)$result['captionLength']?>文字</p><p>投稿URL：<?=ig_h($result['postUrl'])?></p><?php endif; ?>
 <form method="post"><input type="hidden" name="action" value="collect"><input type="hidden" name="csrf" value="<?=ig_h($_SESSION['csrf'])?>"><button type="submit">投稿1件の取得を検証</button></form>
