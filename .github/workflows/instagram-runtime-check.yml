@@ -1,0 +1,73 @@
+name: Check Instagram collector runtime on Lolipop
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/instagram-runtime-probe.php
+      - scripts/verify-instagram-runtime.php
+      - .github/workflows/instagram-runtime-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: instagram-runtime-check
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check PHP syntax
+        run: |
+          php -l scripts/instagram-runtime-probe.php
+          php -l scripts/verify-instagram-runtime.php
+      - name: Install FTPS client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp
+      - name: Probe server and remove temporary endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          probe_tmp=$(mktemp -d)
+          probe_name="ig-probe-$(openssl rand -hex 12).php"
+          cleanup() {
+            lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 15
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          rm -f "$probe_name"
+          bye
+          LFTP
+            rm -rf "$probe_tmp"
+          }
+          trap cleanup EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 15
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get config.php -o "$probe_tmp/config.php"
+          put scripts/instagram-runtime-probe.php -o "$probe_name"
+          bye
+          LFTP
+          php scripts/verify-instagram-runtime.php "$probe_tmp/config.php" "$probe_name" instagram-runtime-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instagram-runtime-report
+          path: instagram-runtime-report.json
+          retention-days: 3
