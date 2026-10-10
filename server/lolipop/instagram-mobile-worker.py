@@ -18,6 +18,27 @@ _spec.loader.exec_module(_safe)
 private_json = _safe.private_json
 
 
+TRUSTED_ACCOUNTS = ["friendcharacters","sanrio_kr","sanriogiftgatehk","sanrio_ec_official","pompompurin_30th","sanrio_tw","sanrio.hk","sanrio","sanriosports"]
+ACCOUNTS = ["friendcharacters","sanrio_kr","sanriogiftgatehk","sanrio_ec_official","pompompurin_30th","sanrio_tw","sanrio.hk","sanrio","sanriosports","skater_all","gravail","grchambre","grshimamura","grbirthday","hk_zip","khtoyy","segaplaza","childtoys.hk","7eleventw","7elevenhk","razer","jy_enc","spaofriends","kiiwio.tw"]
+SANRIO_TERMS = (
+    'sanrio', 'サンリオ', '三麗鷗', '三丽鸥', '산리오', 'hello kitty', 'hellokitty', 'ハローキティ', 'キティ',
+    '헬로키티', '美樂蒂', '美乐蒂', '마이멜로디', 'my melody', 'mymelody', 'マイメロディ', 'マイメロ',
+    'kuromi', 'クロミ', '酷洛米', '쿠로미', 'cinnamoroll', 'シナモロール', '시나모롤', '大耳狗',
+    'pompompurin', 'ポムポムプリン', '布丁狗', '폼폼푸린', 'pochacco', 'ポチャッコ', '帕恰狗', '포차코',
+    'hangyodon', 'ハンギョドン', '漢頓', '한교동', 'badtz', 'バッドばつ丸', 'ばつ丸', '酷企鵝',
+    'keroppi', 'けろけろけろっぴ', 'ケロッピ', '大眼蛙', 'gudetama', 'ぐでたま', '蛋黃哥', '蛋黄哥',
+    'little twin stars', 'littletwinstars', 'キキララ', 'キキ＆ララ', '雙子星', '双子星',
+    'こぎみゅん', 'cogimyun', 'ウィッシュミーメル', 'wish me mell', 'あひるのペックル', 'pekkle',
+)
+def is_sanrio_post(account, caption):
+    text = (caption or '').casefold()
+    return account in TRUSTED_ACCOUNTS or any(term in text for term in SANRIO_TERMS)
+
+def collection_batch(cursor):
+    start = int(cursor or 0) % len(ACCOUNTS)
+    return [ACCOUNTS[(start + i) % len(ACCOUNTS)] for i in range(5)]
+
+
 def run(data):
     if sys.version_info[:2] != (3, 13):
         return {'ok': False, 'errorType': 'PythonVersionMismatch'}
@@ -125,12 +146,22 @@ def run(data):
         return {'ok': False, 'state': 'login_required', 'message': 'instagrapiでの初回認証が必要です。'}
     try:
         results = []
-        for account in ('friendcharacters', 'sanrio_kr', 'sanriogiftgatehk', 'sanrio_ec_official', 'pompompurin_30th'):
-            user_id = client.user_info_by_username_v1(account).pk
-            posts = sorted(client.user_medias_v1(user_id, amount=4), key=lambda post: post.taken_at, reverse=True)
+        batch = collection_batch(saved.get('collectionCursor', 5))
+        saved['collectionCursor'] = (int(saved.get('collectionCursor', 5)) + len(batch)) % len(ACCOUNTS)
+        private_json(state_path, saved)
+        for account in batch:
+            try:
+                user_id = client.user_info_by_username_v1(account).pk
+            except Exception as account_error:
+                if type(account_error).__name__ == 'UserNotFound':
+                    continue
+                raise
+            posts = sorted(client.user_medias_v1(user_id, amount=12), key=lambda post: post.taken_at, reverse=True)
             if not posts:
                 continue
-            post = next((p for p in posts if p.media_type in (1, 8) and p.caption_text), posts[0])
+            post = next((p for p in posts if p.media_type in (1, 8) and p.caption_text and is_sanrio_post(account, p.caption_text)), None)
+            if post is None:
+                continue
             images = []
             if post.media_type == 1 and post.thumbnail_url:
                 images = [str(post.thumbnail_url)]
@@ -155,7 +186,7 @@ def run(data):
             items = [item] + [row for row in previous if row.get('shortcode') != item['shortcode']]
             private_json(feed_path, {'checkedAt': int(time.time()), 'engine': 'instagrapi', 'items': items[:60]})
             results.append({'account': account, 'photoCount': len(images), 'captionLength': len(caption), 'postUrl': item['url']})
-        return {'ok': bool(results), 'state': 'collected', 'accounts': results, 'photoCount': sum(r['photoCount'] for r in results), 'captionLength': sum(r['captionLength'] for r in results), 'message': 'Instagramの投稿本文と写真を取得しました。取得アカウント：' + '、'.join(r['account'] for r in results)}
+        return {'ok': True, 'checkedAccounts': batch, 'state': 'collected', 'accounts': results, 'photoCount': sum(r['photoCount'] for r in results), 'captionLength': sum(r['captionLength'] for r in results), 'message': 'Instagramの投稿本文と写真を取得しました。取得アカウント：' + '、'.join(r['account'] for r in results)}
     except Exception as error:
         name = type(error).__name__
         result = _safe.safe_error(error, action)

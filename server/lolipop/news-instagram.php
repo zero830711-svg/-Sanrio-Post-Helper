@@ -6,7 +6,7 @@ function news_instagram_items():array {
  if(!is_file($path)||filesize($path)>2000000)return [];
  $feed=json_decode((string)file_get_contents($path),true);$items=[];
  foreach($feed['items']??[] as $row){
-  $account=(string)($row['account']??'friendcharacters');if(!in_array($account,['friendcharacters','sanrio_kr','sanriogiftgatehk','sanrio_ec_official','pompompurin_30th'],true))continue;
+  $account=(string)($row['account']??'friendcharacters');if(!in_array($account,['friendcharacters','sanrio_kr','sanriogiftgatehk','sanrio_ec_official','pompompurin_30th','sanrio_tw','sanrio.hk','sanrio','sanriosports','skater_all','gravail','grchambre','grshimamura','grbirthday','hk_zip','khtoyy','segaplaza','childtoys.hk','7eleventw','7elevenhk','razer','jy_enc','spaofriends','kiiwio.tw'],true))continue;
   $code=(string)($row['shortcode']??'');$caption=trim((string)($row['caption']??''));
   if(!preg_match('/^[A-Za-z0-9_-]{1,80}$/D',$code)||!$caption)continue;
   $images=[];foreach($row['images']??[] as $image){
@@ -28,6 +28,6 @@ function news_instagram_detail(string $url):array {
 }
 function news_instagram_list(array $list):array {
  $rows=news_instagram_items();$list['items']=array_merge($rows,$list['items']??[]);
- $list['sourceStatuses']['Instagram（friendcharacters）']=['state'=>$rows?'ok':'failed','count'=>count($rows)];
+ $list['sourceStatuses']['Instagram']=['state'=>$rows?'ok':'failed','count'=>count($rows)];
  return $list;
 }
