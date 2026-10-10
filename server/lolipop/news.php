@@ -381,7 +381,7 @@ function news_groq_validate(string $json,array $item):string{
  $body=trim($d['body']);
  if(!empty($item['instagram'])&&in_array($item['instagramAccount']??'',['sanrio_kr','sanriogiftgatehk'],true)){
   $body=strtr($body,['一田會員購物日'=>'一田の会員向けお買い物セール','一田會員'=>'一田の会員','會員購物日'=>'会員向けお買い物セール','限定優惠'=>'期間限定の特典']);
-  if(preg_match('/[\x{AC00}-\x{D7AF}\x{1100}-\x{11FF}\x{3130}-\x{318F}]/u',$body)||!preg_match('/[ぁ-ゖァ-ヺ]/u',$body)||preg_match('/即將|優惠|購物|會員|帶返|屋企|心水|限定優| Sanrio characters/u',$body))throw new RuntimeException('韓国語・中国語が残っているため保存しませんでした。もう一度AI生成してください。本文は変更していません。');
+  if(preg_match('/[\x{AC00}-\x{D7AF}\x{1100}-\x{11FF}\x{3130}-\x{318F}]/u',$body)||!preg_match('/[ぁ-ゖァ-ヺ]/u',$body)||preg_match('/即將|優惠|購物|會員|帶返|屋企|心水/u',$body))throw new RuntimeException('韓国語・中国語が残っているため保存しませんでした。もう一度AI生成してください。本文は変更していません。');
  }
  // Official headlines may contain stars/hearts. Normalize decoration, not facts.
  $body=strtr($body,['♡'=>'💖','♥'=>'💖','☆'=>'✨','★'=>'✨','✦'=>'✨']);
