@@ -367,11 +367,19 @@ function news_groq_prompt(array $item):string{
  .(isset($item['mode'])?'本文は'.$room.'文字以内。商品名と具体的な魅力を冒頭に置き、特徴を1〜2点。':'【新作ニュースの文体】Xプレミアム向け。文字数制限なし。情報量に合わせた自然な長さにし、短い資料を無理に長文化しない。商品・コラボ・イベント名がすぐ分かる、可愛く華やかな情報系の投稿にする。').(isset($item['mode'])?'メーカーが明記した発売時期だけ必要なら含める。価格・在庫は含めない。':'明記された発売日・開催日・価格・場所が主題に必要なら短く整理してください。').'発表日は発売日ではありません。'
  .(isset($item['mode'])?'可愛いカラー絵文字🎀💖✨🌸🧸🛍️📅を内容に合わせ3〜6個使い、短い段落と改行で読みやすくしてください。長い飾りライン・モノクロ特殊記号は不要です。':'【構成と可愛さ】冒頭は🎀💖【商品名・ニュースの内容】💖🎀のようにカラー絵文字を両側に組み合わせたタイトル。続けて、資料で確認できる具体的な特徴を可愛い言葉で伝える導入を1〜2文。情報が複数ある場合は💜💖🛍️🗓️等で始まる箇条書きで、特徴・種類・発売時期などを整理する。情報量がある場合は💖✨💖✨💖等の短い区切りを1つ使ってもよい。余白と改行で読みやすく、絵文字の個数制限は設けない。クロミなら💜🖤、キティなら🎀❤️、プリンなら💛🧡など資料で確認できるキャラクターに合わせる。不明なら🎀💖✨を使う。絵文字から商品の色や外観を推測しない。可愛いフックは使えるが、過剰な煽り・購入の催促・定型質問・架空の自分の感想は避ける。♡♥☆★✦や罫線などモノクロ特殊記号は使わない。通常の句読点・【】は使える。')
  .'資料にない事実、人気、限定、販売中、体験談を作らないでください。素材情報・送料・主題と無関係な参加費は不要。予定・税込税抜・適用条件は省略しない。参照注記だけを書かない。写真は見ていないので外観を推測しない。'
- .'URL・ハッシュタグはサーバーが追加するので書かない。説明やコードブロックなし。JSON形式 {"body":"投稿本文"} のみを返してください。';
+ .'元の記事タイトルに☆★♡♥✦などがあってもその記号はコピーせず、✨💖などに置き換える。URL・ハッシュタグはサーバーが追加するので書かない。説明やコードブロックなし。bodyは文字列にする。JSON形式 {"body":"投稿本文"} のみを返してください。';
 }
 function news_groq_validate(string $json,array $item):string{
- $d=json_decode($json,true);$body=trim((string)($d['body']??''));
- if(!$body||preg_match('~https?://|#|```|[♡♥☆★✦]|※[0-9０-９]+|\\(\\*?[0-9]+\\)~u',$body))throw new RuntimeException('AI文の形式を確認できませんでした。本文は変更していません。');
+ // Accept only a JSON body string; an optional outer Markdown fence is cosmetic.
+ $json=trim($json);
+ if(preg_match('~^```(?:json)?\s*([\s\S]*?)\s*```$~iD',$json,$fence))$json=trim($fence[1]);
+ $d=json_decode($json,true);
+ if(!is_array($d)||!isset($d['body'])||!is_string($d['body'])||!trim($d['body']))throw new RuntimeException('AIの本文を読み取れませんでした。もう一度お試しください。本文は変更していません。');
+ $body=trim($d['body']);
+ // Official headlines may contain stars/hearts. Normalize decoration, not facts.
+ $body=strtr($body,['♡'=>'💖','♥'=>'💖','☆'=>'✨','★'=>'✨','✦'=>'✨']);
+ $body=preg_replace('/^[ \t]*[─━═ー－—]{3,}[ \t]*$/mu','💖✨💖✨💖',$body);
+ if(preg_match('~https?://|#|```|※[0-9０-９]+|\\(\\*?[0-9]+\\)~u',$body))throw new RuntimeException('AI文に不要なリンク・タグ・参照注記があります。もう一度お試しください。本文は変更していません。');
  $source=mb_convert_kana($item['title']."\n".implode("\n",$item['paragraphs']??[]),'n','UTF-8');
  preg_match_all('/[0-9０-９]+(?:[,，.．][0-9０-９]+)*/u',$body,$m);
  foreach($m[0] as $n)if(strpos($source,mb_convert_kana($n,'n','UTF-8'))===false)throw new RuntimeException('記事にない数値を検出しました。本文は変更していません。');

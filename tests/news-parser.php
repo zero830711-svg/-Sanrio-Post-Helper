@@ -147,9 +147,17 @@ echo "Expanded news sources, deduplication and quotas passed\n";
 $groqItem=['title'=>'クロミのリボンバッグ','url'=>'https://www.sanrio.co.jp/news/goods/test-20261003/','paragraphs'=>['リボン付きバッグ。価格は880円（税込）。']];
 $out=news_groq_validate(json_encode(['body'=>'🎀 クロミのリボンバッグ 💜' . "\n価格：880円（税込）"],JSON_UNESCAPED_UNICODE),$groqItem);
 check(mb_strlen($out)<=300);check(strpos($out,$groqItem['url'])!==false);check(strpos(news_groq_prompt($groqItem),'1案だけ')!==false);
-foreach(['not json',json_encode(['body'=>'🎀 価格：999円']),json_encode(['body'=>'🎀 https://evil.example/']),json_encode(['body'=>'☆ クロミ ♡'])] as $bad){
+foreach(['not json',json_encode(['body'=>'🎀 価格：999円']),json_encode(['body'=>'🎀 https://evil.example/']),json_encode(['body'=>['text'=>'🎀 クロミ']]),json_encode(['body'=>'']),json_encode(['body'=>123])] as $bad){
  try{news_groq_validate($bad,$groqItem);check(false);}catch(RuntimeException $e){check($e->getMessage()!=='News parser check failed');}
 }
+$handsItem=['title'=>'ハンズ50周年をお祝い☆ハンギョドンとのコラボキャンペーンを実施！','url'=>'https://www.sanrio.co.jp/news/event/test-hands/','paragraphs'=>['10月10日から11月12日までの期間限定。ハンズ50周年のコラボキャンペーン。']];
+$decorated='🎀💖【ハンズ50周年をお祝い☆】💖🎀'."\n\n".'♡ ハンギョドンとのコラボキャンペーン ★'."\n".'10月10日から11月12日までの期間限定。';
+$clean=news_groq_validate(json_encode(['body'=>$decorated],JSON_UNESCAPED_UNICODE),$handsItem);
+check(!preg_match('/[♡♥☆★✦]/u',$clean));check(str_contains($clean,'お祝い✨'));check(str_contains($clean,'10月10日から11月12日'));check(str_contains($clean,$handsItem['url']));
+$fenced=news_groq_validate("```json\n".json_encode(['body'=>$decorated],JSON_UNESCAPED_UNICODE)."\n```",$handsItem);
+check($fenced===$clean);
+foreach(['🎀 10月15日まで','🎀 https://evil.example/','🎀 #サンリオ'] as $bad){$failed=false;try{news_groq_validate(json_encode(['body'=>$bad],JSON_UNESCAPED_UNICODE),$handsItem);}catch(RuntimeException $e){$failed=true;}check($failed);}
+echo "Groq official title decoration and fenced JSON normalized; invalid body types and unsupported facts rejected\n";
 $longNews='🎀💖【クロミのリボンバッグ】💖🎀'."\n\n".str_repeat('💜 リボン付きのバッグをチェック。',20);
 $longText=news_groq_validate(json_encode(['body'=>$longNews],JSON_UNESCAPED_UNICODE),$groqItem);
 check(mb_strlen($longText)>300);check(str_contains($longText,$groqItem['url']));
