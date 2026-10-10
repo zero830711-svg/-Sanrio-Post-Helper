@@ -87,19 +87,40 @@ def run(data):
             'postUrl': item['url'], 'message': '本文と写真の取得に成功しました。'}
 
 
+def safe_error(error, action):
+    name = type(error).__name__
+    detail = str(error).lower()
+    reason = 'unknown'
+    message = 'Instagramへの接続・認証を完了できませんでした。自動再試行はしません。'
+    state = 'blocked'
+    if name == 'ModuleNotFoundError':
+        reason, message = 'library_missing', '収集ライブラリを読み込めませんでした。'
+    elif any(word in detail for word in ('checkpoint', 'challenge_required')):
+        reason, message = 'instagram_confirmation', 'Instagram側で本人確認が必要です。Instagram公式アプリで通知・確認画面を確認してください。この画面では本人確認を自動処理しません。'
+    elif any(word in detail for word in ('feedback_required', 'please wait', '429', 'blocked ip')):
+        reason, message = 'instagram_restricted', 'Instagram側のアクセス制限が疑われます。ログインの再試行を停止してください。'
+    elif name == 'BadCredentialsException':
+        if action == 'two_factor':
+            reason, state, message = 'two_factor_rejected', 'two_factor', '二段階認証コードを受け付けませんでした。コードの有効時間を確認してください。'
+        else:
+            reason, message = 'credentials_rejected', 'Instagramがログイン情報を受け付けませんでした。公式で同じ情報を使ってログインできるか確認してください。'
+    elif name == 'LoginException' and 'does not exist' in detail:
+        reason, message = 'username_rejected', 'Instagramがこのユーザーネームを確認できませんでした。ご自身のユーザーネーム（@なし）を確認してください。'
+    elif name in ('Timeout', 'ReadTimeout', 'ConnectTimeout', 'ConnectionError', 'SSLError'):
+        reason, message = 'network_error', 'サーバーからInstagramへの通信に失敗しました。パスワードの誤りとは限りません。'
+    elif name in ('KeyError', 'JSONDecodeError') or 'json decode' in detail or 'unexpected response' in detail:
+        reason, message = 'unexpected_response', 'Instagramから想定外の応答が返りました。サーバー側の認証方式を確認する必要があります。'
+    return {'ok': False, 'state': state, 'errorType': name, 'reason': reason, 'message': message}
+
+
 def main():
+    data = {}
     try:
         data = json.loads(sys.stdin.read(16384))
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             result = run(data)
     except Exception as error:
-        name = type(error).__name__
-        message = 'Instagramへの接続・認証を完了できませんでした。繰り返し実行せず、取得は停止してください。'
-        if name == 'ModuleNotFoundError':
-            message = '収集ライブラリを読み込めませんでした。'
-        elif name == 'BadCredentialsException':
-            message = 'ログイン情報または認証コードを確認してください。'
-        result = {'ok': False, 'state': 'blocked', 'errorType': name, 'message': message}
+        result = safe_error(error, data.get('action') if isinstance(data, dict) else None)
     print(json.dumps(result, ensure_ascii=False))
 
 
