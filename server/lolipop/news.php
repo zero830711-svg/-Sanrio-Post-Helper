@@ -389,7 +389,7 @@ function news_groq_validate(string $json,array $item):string{
  if(preg_match('~https?://|#|```|※[0-9０-９]+|\\(\\*?[0-9]+\\)~u',$body))throw new RuntimeException('AI文に不要なリンク・タグ・参照注記があります。もう一度お試しください。本文は変更していません。');
  $source=mb_convert_kana($item['title']."\n".implode("\n",$item['paragraphs']??[]),'n','UTF-8');
  preg_match_all('/[0-9０-９]+(?:[,，.．][0-9０-９]+)*/u',$body,$m);
- foreach($m[0] as $n)if(strpos($source,mb_convert_kana($n,'n','UTF-8'))===false)throw new RuntimeException('記事にない数値を検出しました。本文は変更していません。');
+ foreach($m[0] as $n)if(strpos(str_replace([',','，'],'',$source),str_replace([',','，'],'',mb_convert_kana($n,'n','UTF-8')))===false)throw new RuntimeException('記事にない数値を検出しました。本文は変更していません。');
  news_gashapon_validate_body($body,$item);
  if(!empty($item['tipsOnly'])&&preg_match('/詳細はこちら|詳しくはこちら/u',$body))throw new RuntimeException('不要なリンク案内を検出しました。');
  if(!empty($item['tipsOnly'])&&preg_match('/[0-9０-９]+月[0-9０-９]+日/u',$body)&&!preg_match('/[0-9]+月[0-9]+日/u',$source))throw new RuntimeException('資料にない具体的な発売日を検出しました。');
