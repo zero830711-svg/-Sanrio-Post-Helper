@@ -150,3 +150,4 @@ jobs:
           php scripts/verify-bandai-news.php "$furyu_tmp/config.php"
           php scripts/verify-gashapon-news.php "$furyu_tmp/config.php"
           php scripts/verify-thankyou-news.php "$furyu_tmp/config.php"
+          php scripts/verify-instagram-news.php "$furyu_tmp/config.php"
