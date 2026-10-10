@@ -264,3 +264,18 @@ test('Groq設定とボタン生成、生成中の編集保護と失敗時の本�
  await page.locator('#newsAiRetry').click();await expect.poll(()=>calls).toBe(2);await page.locator('#newsText').fill('手動で編集した本文');release();await expect(page.locator('#newsAiStatus')).toContainText('手動編集を優先');await expect(page.locator('#newsText')).toHaveValue('手動で編集した本文');
  response={ok:false,error:'Groqの利用上限です（429）。'};await page.locator('#newsAiRetry').click();await expect(page.locator('#newsAiStatus')).toContainText('429');await expect(page.locator('#newsText')).toHaveValue('手動で編集した本文');await expect(page.locator('#newsAiRetry')).toBeEnabled();
 });
+
+test('ニュースのリンクを返信枠に分け、本文切替と編集を保存する',async({page})=>{
+ const item={url:'https://www.sanrio.co.jp/news/goods/reply-test/',title:'クロミのリボンバッグ',source:'サンリオ公式',paragraphs:['リボン付きのバッグです。'],images:[]};
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.route('**/news.php?**',r=>r.fulfill({json:new URL(r.request().url()).searchParams.get('action')==='ai-draft'?{ok:true,configured:true,text:'🎀💜 AIのバッグ紹介 ✨\n\n🔎 詳細：\n'+item.url+'\n\n#サンリオ'}:{ok:true,items:[item],item}}));
+ const open=async()=>{await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();};
+ await page.goto('/');await open();
+ await expect(page.locator('#newsIncludeLink')).not.toBeChecked();await expect(page.locator('#newsText')).not.toHaveValue(/https:/);await expect(page.locator('#newsReplyText')).toHaveValue('🔎 詳細はこちら\n'+item.url);
+ await page.locator('#newsReplyText').fill('🔎 公式の詳細はこちら\n'+item.url);
+ await page.locator('#newsIncludeLink').check();await expect(page.locator('#newsText')).toHaveValue(/公式の詳細はこちら/);await expect(page.locator('#newsReplyBox')).toBeHidden();
+ await page.locator('#newsIncludeLink').uncheck();await expect(page.locator('#newsText')).not.toHaveValue(/https:/);await expect(page.locator('#newsReplyBox')).toBeVisible();
+ await page.locator('#newsAiRetry').click();await expect(page.locator('#newsText')).toHaveValue(/AIのバッグ紹介/);await expect(page.locator('#newsText')).not.toHaveValue(/https:/);await expect(page.locator('#newsReplyText')).toHaveValue('🔎 公式の詳細はこちら\n'+item.url);
+ await page.reload();await open();await expect(page.locator('#newsIncludeLink')).not.toBeChecked();await expect(page.locator('#newsReplyText')).toHaveValue('🔎 公式の詳細はこちら\n'+item.url);await expect(page.locator('#newsText')).not.toHaveValue(/https:/);
+});
