@@ -24,7 +24,7 @@ jobs:
       LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
       LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
