@@ -23,6 +23,14 @@ function news_arts_rows(string $json,int $now):array{
  $rows[]=['url'=>'https://www.takaratomy-arts.co.jp/items/item.html?n=Y'.$m[1],'source'=>'タカラトミーアーツ','tipsOnly'=>true,'title'=>$title,'date'=>'','schedule'=>'発売時期：'.$period,'facts'=>[['kind'=>'schedule','text'=>'発売時期：'.$period]],'image'=>$image];
  }return $rows;
 }
+function news_eikoh_identity_matches(string $requested,string $canonical):bool{
+ $a=parse_url($requested);$b=parse_url(html_entity_decode(trim($canonical),ENT_QUOTES|ENT_HTML5,'UTF-8'));
+ if(($a['scheme']??'')!=='https'||($a['host']??'')!=='www.eikoh-prize.jp'||isset($a['user'])||isset($a['pass'])||isset($a['port'])||isset($a['query'])||isset($a['fragment']))return false;
+ if(($b['scheme']??'')!=='https'||($b['host']??'')!=='www.eikoh-prize.jp'||isset($b['user'])||isset($b['pass'])||isset($b['port'])||isset($b['query'])||isset($b['fragment']))return false;
+ if(!preg_match('~^/shopdetail/([0-9]{12})/ct200(?:/page[1-9]/recommend)?/?$~D',$a['path']??'',$requestedId))return false;
+ if(!preg_match('~^/shopdetail/([0-9]{12})(?:/ct[0-9]+(?:/page[1-9]/recommend)?)?/?$~D',$b['path']??'',$canonicalId))return false;
+ return $requestedId[1]===$canonicalId[1];
+}
 function news_eikoh_rows(string $html):array{
  $x=news_doc($html);$rows=[];
  foreach($x->query('//a[@href]') as $a){$url=$a->getAttribute('href');if(strpos($url,'/')===0)$url='https://www.eikoh-prize.jp'.$url;$url=news_url($url);if(!$url||isset($rows[$url]))continue;
@@ -41,7 +49,7 @@ function news_rement_rows(string $html):array{
 }
 function news_extra_parse(string $html,string $url):array{
  $x=news_doc($html);$arts=strpos($url,'https://www.takaratomy-arts.co.jp/')===0;$eikoh=strpos($url,'https://www.eikoh-prize.jp/')===0;$source=$arts?'タカラトミーアーツ':($eikoh?'エイコープライズ':'リーメント');
- $identity=news_url(news_text($x->query('//meta[@property="og:url"]/@content')->item(0)));if($identity!==$url)throw new RuntimeException('メーカーの商品識別が一致しませんでした。');
+ $identity=news_text($x->query('//meta[@property="og:url"]/@content | //link[@rel="canonical"]/@href')->item(0));if($eikoh?!news_eikoh_identity_matches($url,$identity):news_url($identity)!==$url)throw new RuntimeException('メーカーの商品識別が一致しませんでした。');
  $root=$x->query($arts?'//section[@id="detail"]':($eikoh?'//body':'//div[@id="items"]'))->item(0);if(!$root)throw new RuntimeException('メーカーの商品本体を確認できませんでした。');
  $title=news_text($x->query($arts?'./div[contains(concat(" ",normalize-space(@class)," ")," head ")]/h2':($eikoh?'//h1 | //meta[@property="og:title"]/@content':'.//h4'),$root)->item(0));
  $lines=[];$facts=[];$period='';$price='';$images=[];
