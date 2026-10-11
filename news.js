@@ -190,7 +190,7 @@ function newsSetHomeView(view){
  newsHomeView=view;
  const instagram=view==='instagram';
  $('newsBrowseTitle').textContent=instagram?'Instagram':'新作ニュース';
- $('newsBrowseDescription').textContent=instagram?'サンリオ関連のみ・2時間ごとに最大5件のアカウントを確認':'公式ニュース・メーカー新作から投稿を準備';
+ $('newsBrowseDescription').textContent=instagram?'サンリオ関連のみ・約30分ごとに最大5アカウントを確認（お気に入りを優先）':'公式ニュース・メーカー新作から投稿を準備';
  $('newsSourceFilter').closest('label').hidden=instagram;
  $('instagramAccountFilter').closest('label').hidden=!instagram;
  $('instagramTools').hidden=!instagram;
@@ -497,6 +497,12 @@ $('instagramRegionFilter').addEventListener('change',()=>{newsState.limit=5;news
 $('instagramSearch').addEventListener('input',()=>{newsState.limit=5;newsRender();});
 
 function instagramUpdateDropdown(){
+ if(newsHomeView==='instagram'){
+  const active=(newsState.instagramAccounts||[]).filter(r=>r.enabled),favorites=active.filter(r=>r.favorite).length;
+  const slots=5-Math.min(2,favorites),regular=active.length-Math.min(2,favorites);
+  const hours=Math.ceil(regular/slots)*.5;
+  $('newsBrowseDescription').textContent='サンリオ関連のみ・約30分ごとに最大5アカウントを確認'+(active.length?'・全体一巡の目安 約'+hours+'時間':'')+'（お気に入りを優先）';
+ }
  const select=$('instagramAccountFilter'),current=select.value;select.replaceChildren();
  const all=document.createElement('option');all.value='all';all.textContent='すべて';select.append(all);
  for(const row of newsState.instagramAccounts||[]){if(!row.enabled)continue;const option=document.createElement('option');option.value=row.account;option.textContent=(row.favorite?'⭐ ':'')+row.account;select.append(option);}
