@@ -18,8 +18,8 @@ _spec.loader.exec_module(_safe)
 private_json = _safe.private_json
 
 
-TRUSTED_ACCOUNTS = ["friendcharacters","sanrio_kr","sanriogiftgatehk","sanrio_ec_official","pompompurin_30th","sanrio_tw","sanrio.hk","sanrio","sanriosports"]
-ACCOUNTS = ["friendcharacters","sanrio_kr","sanriogiftgatehk","sanrio_ec_official","pompompurin_30th","sanrio_tw","sanrio.hk","sanrio","sanriosports","skater_all","gravail","grchambre","grshimamura","grbirthday","hk_zip","khtoyy","segaplaza","childtoys.hk","7eleventw","7elevenhk","razer","jy_enc","spaofriends","kiiwio.tw"]
+TRUSTED_ACCOUNTS = ["friendcharacters","sanrio_kr","sanriogiftgatehk","sanrio_ec_official","pompompurin_30th","sanrio_tw","sanrio.hk","sanriosports"]
+ACCOUNTS = ["friendcharacters","sanrio_kr","sanriogiftgatehk","sanrio_ec_official","pompompurin_30th","sanrio_tw","sanrio.hk","sanriosports","skater_all","gravail","grchambre","grshimamura","grbirthday","hk_zip","khtoyy","segaplaza","childtoys.hk","7eleventw","7elevenhk","razer","jy_enc","spaofriends","kiiwio.tw"]
 SANRIO_TERMS = (
     'sanrio', 'サンリオ', '三麗鷗', '三丽鸥', '산리오', 'hello kitty', 'hellokitty', 'ハローキティ', 'キティ',
     '헬로키티', '美樂蒂', '美乐蒂', '마이멜로디', 'my melody', 'mymelody', 'マイメロディ', 'マイメロ',
