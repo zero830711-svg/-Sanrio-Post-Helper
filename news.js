@@ -23,6 +23,10 @@ function newsSaveDrafts(){
 }
 function newsSplitReply(text,item){
  const lines=String(text||'').split('\n');
+ if(item.instagram){
+  const clean=lines.filter(line=>line.trim()!==item.url&&!/^(?:🔎\s*)?(?:元の投稿|詳細|詳しく)(?:はこちら)?[：:]?\s*$/.test(line.trim())).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+  return {text:clean,reply:''};
+ }
  const index=lines.findIndex(line=>line.trim()===item.url);
  if(index<0)return {text,reply:''};
  lines.splice(index,1);
@@ -30,6 +34,7 @@ function newsSplitReply(text,item){
  return {text:lines.join('\n').replace(/\n{3,}/g,'\n\n').trim(),reply:'🔎 詳細はこちら\n'+item.url};
 }
 function newsSetupReply(entry){
+ if(entry.item.instagram){entry.text=newsSplitReply(entry.text,entry.item).text;entry.replyText='';entry.includeLink=false;return;}
  if(typeof entry.includeLink==='boolean')return;
  const split=newsSplitReply(entry.text,entry.item);
  entry.text=split.text;entry.replyText=split.reply;entry.includeLink=false;
@@ -42,6 +47,7 @@ function newsReplyRender(entry){
 }
 function newsApplyGenerated(entry,text){
  const split=newsSplitReply(text,entry.item);
+ if(entry.item.instagram){entry.replyText='';entry.includeLink=false;}
  if(split.reply&&!entry.replyText)entry.replyText=split.reply;
  entry.text=split.text+(entry.includeLink&&entry.replyText?'\n\n'+entry.replyText:'');
 }
@@ -82,7 +88,7 @@ function newsHighlight(item){
  return candidates[0]?.text||'';
 }
 function newsDraft(item){
- if(item.instagram)return '🎀 '+item.title+' ✨\n\n'+newsHighlight(item)+'\n\n🔎 元の投稿はこちら\n'+item.url+'\n\n#サンリオ';
+ if(item.instagram)return '🎀 '+item.title+' ✨\n\n'+newsHighlight(item)+'\n\n#サンリオ';
  let title=String(item.title||'').replace(/^【[^】]*】\s*/,'').trim();
  const chars=Array.from(title);
  if(chars.length>60)title=chars.slice(0,59).join('')+'…';
