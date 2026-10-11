@@ -167,7 +167,7 @@ function newsSetHomeView(view){
  $('newsSourceFilter').closest('label').hidden=instagram;
  $('instagramAccountFilter').closest('label').hidden=!instagram;
  $('instagramTools').hidden=!instagram;
- if(instagram)$('newsSourceFilter').value='all';
+ if(instagram){$('newsSourceFilter').value='all';instagramLoadAccounts();}
  newsRender();
 }
 function newsGroups(){
@@ -319,7 +319,7 @@ function newsMark(url,kind){
  if(kind){for(const u of urls)newsState.drafts.delete(u);newsSaveDrafts();}
  newsRender();if(editing)window.scrollTo({top:newsState.browseY,behavior:'instant'});
 }
-async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsTrackItems(d.items);newsState.items=d.items;newsState.instagramAccounts=d.instagramAccounts||[];instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
+async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsTrackItems(d.items);newsState.items=d.items;newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
 async function newsPrepare(url){
  newsKeepDraft();if(!$('newsBrowse').hidden)newsState.browseY=window.scrollY;
  const seq=++newsState.seq;$('newsAiStatus').textContent='';$('newsAiRetry').disabled=true;$('newsAiChoiceLabel').hidden=true;newsState.item=null;newsState.files=[];newsState.selected=[];
@@ -485,6 +485,7 @@ function instagramRenderAccounts(){
  }
 }
 async function instagramSaveAccounts(accounts){
+ if(!newsState.accountsLoaded){$('instagramManageStatus').textContent='先にアカウント設定を読み込んでください。一覧を更新してください。';return;}
  if(newsState.managing)return;
  newsState.managing=true;$('instagramManageStatus').textContent='保存中…';
  try{const data=await newsAiPost('instagram-accounts',{accounts});newsState.instagramAccounts=data.accounts;instagramUpdateDropdown();$('instagramManageStatus').textContent='保存しました。次の自動取得から適用されます。';await newsLoad();}
@@ -519,6 +520,7 @@ $('instagramAdd').addEventListener('click',async()=>{
   const url=new URL($('instagramAddUrl').value.trim());
   if(url.protocol!=='https:'||!['www.instagram.com','instagram.com'].includes(url.hostname)||url.username||url.password||url.port)throw new Error('InstagramのアカウントURLを入力してください。');
   const match=url.pathname.match(/^\/([a-zA-Z0-9_.]{1,30})\/?$/);if(!match||['p','reel','stories','explore','accounts'].includes(match[1]))throw new Error('投稿ではなくアカウントのURLを入力してください。');
+  if(!newsState.accountsLoaded)throw new Error('アカウント設定の読み込み後に追加してください。');
   const account=match[1].toLowerCase(),rows=(newsState.instagramAccounts||[]).map(r=>({...r}));
   if(rows.some(r=>r.account===account))throw new Error('登録済みのアカウントです。');
   rows.push({account,region:$('instagramAddRegion').value,enabled:true,favorite:false});await instagramSaveAccounts(rows);$('instagramAddUrl').value='';
@@ -529,3 +531,11 @@ $('newsComparePhotos').addEventListener('click',()=>{if(newsState.item){newsPhot
 $('newsPhotoDialogClose').addEventListener('click',()=>$('newsPhotoDialog').close());
 
 $('newsPhotoDialog').addEventListener('close',()=>$('newsPhotoAreaHome').append($('newsPhotoArea')));
+
+async function instagramLoadAccounts(){
+ if(newsState.accountsLoading)return;
+ newsState.accountsLoading=true;
+ try{const data=await newsRequest('instagram-accounts');newsState.instagramAccounts=data.accounts;newsState.accountsLoaded=true;instagramUpdateDropdown();instagramRenderAccounts();}
+ catch(error){$('instagramManageStatus').textContent=error.message;}
+ finally{newsState.accountsLoading=false;}
+}
