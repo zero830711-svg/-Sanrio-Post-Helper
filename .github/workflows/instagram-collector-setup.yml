@@ -86,18 +86,18 @@ jobs:
           ' "$ig_tmp/config.php"
 
 
-          if [ "${{ github.event.head_commit.message == 'Add Kamio, Crux, Loungefly and Nakajima Instagram sources' }}" = "true" ]; then
+          if [ "${{ github.event.head_commit.message == 'Add Samantha Vega and Poneycomb Instagram sources' }}" = "true" ]; then
           php -r '
           $config=require $argv[1];$url="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/news.php?action=instagram-accounts";
           $headers=["Authorization: Bearer ".$config["sync_key"],"Content-Type: application/json","Origin: https://zero830711-svg.github.io"];
           $c=curl_init($url);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>$headers]);$d=json_decode((string)curl_exec($c),true);curl_close($c);
           if(empty($d["ok"])||!is_array($d["accounts"]??null))throw new RuntimeException("Cannot load existing sources");
           $rows=$d["accounts"];$names=array_column($rows,"account");
-          foreach(["kj_license_news","crux_choice","loungefly","nakajimacorp1919"] as $account)if(!in_array($account,$names,true))$rows[]=["account"=>$account,"region"=>$account==="loungefly"?"その他":"日本","enabled"=>true,"favorite"=>false];
+          foreach(["samantha.vega_official","poneycombtokyo"] as $account)if(!in_array($account,$names,true))$rows[]=["account"=>$account,"region"=>$account==="loungefly"?"その他":"日本","enabled"=>true,"favorite"=>false];
           $c=curl_init($url);curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode(["accounts"=>$rows]),CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>$headers]);$d=json_decode((string)curl_exec($c),true);curl_close($c);
           if(empty($d["ok"]))throw new RuntimeException("Source additions failed");
-          foreach(["kj_license_news","crux_choice","loungefly","nakajimacorp1919"] as $account)if(!in_array($account,array_column($d["accounts"]??[],"account"),true))throw new RuntimeException("Added source missing");
-          echo "Requested sources added and verified: kj_license_news, crux_choice, loungefly, nakajimacorp1919\n";
+          foreach(["samantha.vega_official","poneycombtokyo"] as $account)if(!in_array($account,array_column($d["accounts"]??[],"account"),true))throw new RuntimeException("Added source missing");
+          echo "Requested sources added and verified: samantha.vega_official, poneycombtokyo\n";
           ' "$ig_tmp/config.php"
           fi
 
