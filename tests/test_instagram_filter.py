@@ -34,3 +34,16 @@ class RequestedBatchTests(unittest.TestCase):
         for account in ('stopped','unknown','all','../session',None):
             with self.assertRaises(ValueError):
                 worker.requested_batch(rows,account)
+
+class MultiplePostTests(unittest.TestCase):
+    def post(self, code, date, caption='クロミのバッグ', kind=1):
+        from types import SimpleNamespace
+        return SimpleNamespace(code=code,taken_at=date,caption_text=caption,media_type=kind)
+    def test_three_new_matching_posts_only(self):
+        posts=[self.post('old',9),self.post('unrelated',8,'洋服'),self.post('video',7,kind=2)]+[self.post(str(i),i) for i in range(6)]
+        chosen=worker.selected_posts('gravail',posts,[{'shortcode':'old'}])
+        self.assertEqual([p.code for p in chosen],['5','4','3'])
+    def test_refresh_existing_when_no_new(self):
+        posts=[self.post('old',9)]
+        self.assertEqual([p.code for p in worker.selected_posts('gravail',posts,[{'shortcode':'old'}])],['old'])
+        self.assertEqual(worker.selected_posts('gravail',[self.post('x',1,'洋服')],[]),[])

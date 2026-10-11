@@ -3,7 +3,7 @@ declare(strict_types=1);
 // Read only the collector's private cache, never Instagram credentials.
 function news_instagram_items():array {
  $path=sys_get_temp_dir().'/sph-ig-'.hash('sha256',__DIR__).'/feed.json';
- if(!is_file($path)||filesize($path)>2000000)return [];
+ if(!is_file($path)||filesize($path)>6000000)return [];
  $feed=json_decode((string)file_get_contents($path),true);$items=[];
  foreach($feed['items']??[] as $row){
   $account=(string)($row['account']??'friendcharacters');if(!in_array($account,array_column(array_filter(news_instagram_settings(),fn($r)=>$r['enabled']),'account'),true))continue;
@@ -27,7 +27,7 @@ function news_instagram_detail(string $url):array {
  throw new RuntimeException('このInstagram投稿は取得済み一覧にありません。ニュース一覧を更新してください。');
 }
 function news_instagram_list(array $list):array {
- $list['instagramStatuses']=news_instagram_statuses();$list['instagramAccounts']=news_instagram_settings();
+ $list['instagramStatuses']=news_instagram_statuses();$list['instagramCollection']=news_instagram_collection_summary($list['instagramStatuses']);$list['instagramAccounts']=news_instagram_settings();
  $rows=news_instagram_items();$list['items']=array_merge($rows,$list['items']??[]);
  $list['sourceStatuses']['Instagram']=['state'=>$rows?'ok':'failed','count'=>count($rows)];
  return $list;
@@ -39,7 +39,7 @@ function news_instagram_statuses():array {
  $rows=news_instagram_items();$result=[];
  foreach(array_column(news_instagram_settings(),'account') as $account){
   $value=$saved[$account]??[];
-  $result[]=['account'=>$account,'state'=>($value['state']??'')==='checking'?'error':(in_array($value['state']??'', ['ok','empty','error'],true)?$value['state']:'pending'),'checkedAt'=>(int)($value['checkedAt']??0),'count'=>count(array_filter($rows,fn($row)=>$row['instagramAccount']===$account)),'error'=>($value['state']??'')==='error'?'取得を完了できませんでした':''];
+  $result[]=['account'=>$account,'state'=>($value['state']??'')==='checking'?'error':(in_array($value['state']??'', ['ok','empty','error'],true)?$value['state']:'pending'),'checkedAt'=>(int)($value['checkedAt']??0),'lastSuccessfulAt'=>(int)($value['lastSuccessfulAt']??(in_array($value['state']??'', ['ok','empty'],true)?($value['checkedAt']??0):0)),'count'=>count(array_filter($rows,fn($row)=>$row['instagramAccount']===$account)),'error'=>($value['state']??'')==='error'?'取得を完了できませんでした':''];
  }
  return $result;
 }
@@ -65,4 +65,13 @@ function news_instagram_save_settings(array $rows):void{
  if(!is_dir($root))mkdir($root,0700,true);
  $lock=fopen($root.'/accounts.lock','c');if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('設定を保存できませんでした。');
  try{$tmp=tempnam($root,'accounts-');if($tmp===false)throw new RuntimeException('設定を保存できませんでした。');chmod($tmp,0600);file_put_contents($tmp,json_encode($clean,JSON_UNESCAPED_UNICODE),LOCK_EX);rename($tmp,$root.'/accounts.json');}finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+
+function news_instagram_collection_summary(array $statuses):array{
+ $last=0;$success=0;$latestState='pending';
+ foreach($statuses as $row){
+  if(($row['checkedAt']??0)>$last){$last=(int)$row['checkedAt'];$latestState=$row['state'];}
+  $success=max($success,(int)($row['lastSuccessfulAt']??0));
+ }
+ return ['lastCheckedAt'=>$last,'lastSuccessfulAt'=>$success,'state'=>$latestState];
 }

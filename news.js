@@ -305,10 +305,10 @@ function newsSourceStatusLabel(){
  return labels.length?' ・ '+labels.join(' ／ '):Object.keys(newsState.sourceStatuses||{}).length?'':newsState.warnings.length?' ・ 一部の取得に失敗しました':'';
 }
 function newsRender(){
- instagramRenderStatuses();
+ instagramRenderStatuses();instagramRenderCollection();
  instagramRenderAccounts();
  const filter=$('newsFilter').value;const sourceFilter=$('newsSourceFilter')?.value||'all';const rows=newsGroups().filter(i=>(sourceFilter==='all'||i.members.some(m=>m.source===sourceFilter))).filter(i=>filter==='draft'?newsGroupDraft(i)&&!newsGroupMark(i):filter==='all'||(filter==='hidden'?!!newsGroupMark(i):!newsGroupMark(i)));
- rows.sort((a,b)=>newsHomeView==='instagram'&&$('instagramSort').value==='schedule'?(instagramScheduleTime(a)-instagramScheduleTime(b)||newsGroupTime(b)-newsGroupTime(a)):(newsHomeView==='instagram'?newsGroupTime(b)-newsGroupTime(a):Number(newsGroupNew(b))-Number(newsGroupNew(a))||newsGroupTime(b)-newsGroupTime(a)));
+ rows.sort((a,b)=>newsHomeView==='instagram'?instagramCompare(a,b,$('instagramSort').value):Number(newsGroupNew(b))-Number(newsGroupNew(a))||newsGroupTime(b)-newsGroupTime(a));
  $('newsList').replaceChildren();
  for(const item of rows.slice(0,newsState.limit)){
  const row=document.createElement('article');row.className='news-row';
@@ -349,7 +349,7 @@ function newsMark(url,kind){
  if(kind){for(const u of urls)newsState.drafts.delete(u);newsSaveDrafts();}
  newsRender();if(editing)window.scrollTo({top:newsState.browseY,behavior:'instant'});
 }
-async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsTrackItems(d.items);newsState.items=d.items;newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
+async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsTrackItems(d.items);newsState.items=d.items;newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsState.instagramCollection=d.instagramCollection||{};newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
 async function newsPrepare(url){
  newsKeepDraft();if(!$('newsBrowse').hidden)newsState.browseY=window.scrollY;
  const seq=++newsState.seq;$('newsAiStatus').textContent='';$('newsAiRetry').disabled=true;$('newsAiChoiceLabel').hidden=true;newsState.item=null;newsState.files=[];newsState.selected=[];
@@ -607,3 +607,17 @@ $('instagramFetchNow').addEventListener('click',async()=>{
  }catch(error){status.textContent=error.name==='TimeoutError'?'通信が時間切れになりました。アカウント別の取得状況で結果を確認してください。自動再試行はしません。':error.message;}
  finally{newsState.fetchingInstagram=false;instagramFetchButton();}
 });
+
+function instagramGroupDate(item){return Math.max(0,...(item.members||[item]).map(m=>Date.parse(m.date||'')||0));}
+function instagramFirstTime(item){return Math.max(0,...(item.members||[item]).map(m=>Number(m.collectedAt)*1000||newsState.seen?.[newsArticleKey(m.url)]||Date.parse(m.date||'')||0));}
+function instagramCompare(a,b,mode){
+ if(mode==='schedule')return instagramScheduleTime(a)-instagramScheduleTime(b)||instagramGroupDate(b)-instagramGroupDate(a);
+ if(mode==='published')return instagramGroupDate(b)-instagramGroupDate(a)||instagramFirstTime(b)-instagramFirstTime(a);
+ return instagramFirstTime(b)-instagramFirstTime(a)||instagramGroupDate(b)-instagramGroupDate(a);
+}
+function instagramRenderCollection(){
+ const box=$('instagramCollectionStatus');if(!box||newsHomeView!=='instagram')return;
+ const s=newsState.instagramCollection||{},now=Date.now()/1000;
+ const date=t=>t?new Date(t*1000).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'}):'未確認';
+ box.textContent='最終取得成功：'+date(s.lastSuccessfulAt)+(s.lastCheckedAt?' ・ 最終確認：'+date(s.lastCheckedAt):'')+(s.state==='error'?' ・ 取得エラーあり':s.lastCheckedAt&&now-s.lastCheckedAt>3600?' ・ 更新間隔が空いています':'')+'（巡回の一部を確認した時刻）';
+}

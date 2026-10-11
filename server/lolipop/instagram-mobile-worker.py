@@ -47,6 +47,13 @@ def managed_batch(rows, cursor, favorite_cursor):
     rest = [regular[(cursor+i) % len(regular)] for i in range(min(5-len(preferred), len(regular)))] if regular else []
     return preferred + rest
 
+def selected_posts(account, posts, previous):
+    eligible = [p for p in sorted(posts, key=lambda p: p.taken_at, reverse=True)
+                if p.media_type in (1, 8) and p.caption_text and is_sanrio_post(account, p.caption_text)]
+    known = {r.get('shortcode') for r in previous}
+    unseen = [p for p in eligible if p.code not in known]
+    return unseen[:3] if unseen else eligible[:1]
+
 def requested_batch(rows, account):
     if not isinstance(account, str) or not re.fullmatch(r'[a-z0-9_.]{1,30}', account):
         raise ValueError('アカウントを選択してください。')
@@ -162,7 +169,7 @@ def run(data):
     status_path = root / 'collection-status.json'
     status = json.loads(status_path.read_text()) if status_path.exists() else {}
     def record(account, state, **extra):
-        status[account] = {'state': state, 'checkedAt': int(time.time()), **extra}
+        status[account] = {'state': state, 'checkedAt': int(time.time()), 'lastSuccessfulAt': int(time.time()) if state in ('ok', 'empty') else status.get(account, {}).get('lastSuccessfulAt', 0), **extra}
         private_json(status_path, status)
     account = None
     try:
@@ -194,36 +201,41 @@ def run(data):
             if not posts:
                 record(account, 'empty', matchedCount=0)
                 continue
-            post = next((p for p in posts if p.media_type in (1, 8) and p.caption_text and is_sanrio_post(account, p.caption_text)), None)
-            if post is None:
-                record(account, 'empty', matchedCount=0)
-                continue
-            images = []
-            if post.media_type == 1 and post.thumbnail_url:
-                images = [str(post.thumbnail_url)]
-            elif post.media_type == 8:
-                images = [str(resource.thumbnail_url) for resource in post.resources
-                          if resource.media_type == 1 and resource.thumbnail_url][:10]
-            caption = post.caption_text or ''
-            if not images or not caption:
-                record(account, 'empty', matchedCount=0)
-                continue
-            parsed = urlparse(images[0])
-            if parsed.scheme != 'https' or not any((parsed.hostname or '').endswith('.' + host) for host in ('cdninstagram.com', 'fbcdn.net')):
-                raise ValueError('Untrusted photo host')
-            with requests.get(images[0], timeout=12, stream=True, allow_redirects=False) as response:
-                response.raise_for_status()
-                prefix = next(response.iter_content(64), b'')
-            if not (prefix.startswith(b'\xff\xd8\xff') or prefix.startswith(b'\x89PNG') or prefix.startswith(b'RIFF')):
-                raise ValueError('Invalid image data')
-            item = {'account': account, 'shortcode': post.code, 'url': 'https://www.instagram.com/p/' + post.code + '/',
-                    'caption': caption, 'published': post.taken_at.isoformat(), 'images': images, 'collectedAt': int(time.time())}
             feed_path = root / 'feed.json'
             previous = json.loads(feed_path.read_text()).get('items', []) if feed_path.exists() else []
-            items = [item] + [row for row in previous if row.get('shortcode') != item['shortcode']]
-            private_json(feed_path, {'checkedAt': int(time.time()), 'engine': 'instagrapi', 'items': items[:60]})
-            record(account, 'ok', matchedCount=1, photoCount=len(images))
-            results.append({'account': account, 'photoCount': len(images), 'captionLength': len(caption), 'postUrl': item['url']})
+            chosen = selected_posts(account, posts, previous)
+            if not chosen:
+                record(account, 'empty', matchedCount=0, newCount=0)
+                continue
+            account_results = []
+            new_count = 0
+            for post in chosen:
+                images = []
+                if post.media_type == 1 and post.thumbnail_url:
+                    images = [str(post.thumbnail_url)]
+                elif post.media_type == 8:
+                    images = [str(resource.thumbnail_url) for resource in post.resources
+                              if resource.media_type == 1 and resource.thumbnail_url][:10]
+                caption = post.caption_text or ''
+                if not images or not caption:
+                    continue
+                parsed = urlparse(images[0])
+                if parsed.scheme != 'https' or not any((parsed.hostname or '').endswith('.' + host) for host in ('cdninstagram.com', 'fbcdn.net')):
+                    raise ValueError('Untrusted photo host')
+                with requests.get(images[0], timeout=12, stream=True, allow_redirects=False) as response:
+                    response.raise_for_status()
+                    prefix = next(response.iter_content(64), b'')
+                if not (prefix.startswith(b'\xff\xd8\xff') or prefix.startswith(b'\x89PNG') or prefix.startswith(b'RIFF')):
+                    raise ValueError('Invalid image data')
+                item = {'account': account, 'shortcode': post.code, 'url': 'https://www.instagram.com/p/' + post.code + '/',
+                        'caption': caption, 'published': post.taken_at.isoformat(), 'images': images, 'collectedAt': next((r.get('collectedAt', 0) for r in previous if r.get('shortcode') == post.code), 0) or int(time.time())}
+                is_new = not any(r.get('shortcode') == post.code for r in previous)
+                previous = [item] + [row for row in previous if row.get('shortcode') != item['shortcode']]
+                private_json(feed_path, {'checkedAt': int(time.time()), 'engine': 'instagrapi', 'items': previous[:300]})
+                new_count += int(is_new)
+                account_results.append({'account': account, 'photoCount': len(images), 'captionLength': len(caption), 'postUrl': item['url']})
+            record(account, 'ok' if account_results else 'empty', matchedCount=len(account_results), newCount=new_count, photoCount=sum(r['photoCount'] for r in account_results))
+            results.extend(account_results)
         return {'ok': True, 'checkedAt': int(time.time()), 'checkedAccounts': batch, 'state': 'collected', 'accounts': results, 'photoCount': sum(r['photoCount'] for r in results), 'captionLength': sum(r['captionLength'] for r in results), 'message': 'Instagramの投稿本文と写真を取得しました。取得アカウント：' + '、'.join(r['account'] for r in results)}
     except Exception as error:
         if account:
