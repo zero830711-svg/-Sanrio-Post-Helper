@@ -9,7 +9,7 @@ spec.loader.exec_module(worker)
 
 class SanrioFilterTests(unittest.TestCase):
     def test_multilingual_matches(self):
-        for caption in ('クロミのバッグ', '三麗鷗限定系列', '산리오 쿠로미', 'HELLO KITTY collaboration'):
+        for caption in ('クロミのバッグ', '三麗鷗限定系列', '산리오 쿠로미', 'HELLO KITTY collaboration', '#hello_kitty', '#MyMelody'):
             self.assertTrue(worker.is_sanrio_post('gravail', caption))
         self.assertFalse(worker.is_sanrio_post('gravail', '新作ジャケット発売'))
     def test_trusted_source_and_rotation(self):

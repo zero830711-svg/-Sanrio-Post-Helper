@@ -163,7 +163,7 @@ function newsSetHomeView(view){
  newsHomeView=view;
  const instagram=view==='instagram';
  $('newsBrowseTitle').textContent=instagram?'Instagram':'新作ニュース';
- $('newsBrowseDescription').textContent=instagram?'23アカウント・サンリオ関連のみ表示・2時間ごとに5アカウントずつ確認':'公式ニュース・メーカー新作から投稿を準備';
+ $('newsBrowseDescription').textContent=instagram?'62アカウント・サンリオ関連のみ表示・2時間ごとに5アカウントずつ確認':'公式ニュース・メーカー新作から投稿を準備';
  $('newsSourceFilter').closest('label').hidden=instagram;
  $('instagramAccountFilter').closest('label').hidden=!instagram;
  if(instagram)$('newsSourceFilter').value='all';

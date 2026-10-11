@@ -19,7 +19,7 @@ private_json = _safe.private_json
 
 
 TRUSTED_ACCOUNTS = ["friendcharacters","sanrio_kr","sanriogiftgatehk","sanrio_ec_official","pompompurin_30th","sanrio_tw","sanrio.hk","sanriosports"]
-ACCOUNTS = ["friendcharacters","sanrio_kr","sanriogiftgatehk","sanrio_ec_official","pompompurin_30th","sanrio_tw","sanrio.hk","sanriosports","skater_all","gravail","grchambre","grshimamura","grbirthday","hk_zip","khtoyy","segaplaza","childtoys.hk","7eleventw","7elevenhk","razer","jy_enc","spaofriends","kiiwio.tw"]
+ACCOUNTS = ["friendcharacters","sanrio_kr","sanriogiftgatehk","sanrio_ec_official","pompompurin_30th","sanrio_tw","sanrio.hk","sanriosports","skater_all","gravail","grchambre","grshimamura","grbirthday","hk_zip","khtoyy","segaplaza","childtoys.hk","7eleventw","7elevenhk","razer","jy_enc","spaofriends","kiiwio.tw","lunchgoods.skater","minilike_official","ds_x_kawaii_collabroom","toptoy.international","benelic.capsuletoy","mash_sanriohouse_official","kiddyland_co.jp","7elevenkorea","epoch1958_jp","sanrioatarikuji","daiso_official","hellokitty.india","shuwatama_times","fuiuchi_official","miniso.official","perihapi_official","petitpoche_official","parade_prize","purolandjp","takaratomyarts.nuigurumi","ftoys_character","tokyo_characterstreet","roychefriends","kthings_official","takaratomyarts.gacha","takaratomyarts","shop_nui_bnn","390webshop","awajihellokittyappleland","bandaicandy","seven_eleven_japan","gotochi_kitty","paseos_official","ichibankuji","k2_capsule","thankyoumart","shobido_corporation","gashapon_instabu","takaratomytoys"]
 SANRIO_TERMS = (
     'sanrio', 'サンリオ', '三麗鷗', '三丽鸥', '산리오', 'hello kitty', 'hellokitty', 'ハローキティ', 'キティ',
     '헬로키티', '美樂蒂', '美乐蒂', '마이멜로디', 'my melody', 'mymelody', 'マイメロディ', 'マイメロ',
@@ -31,8 +31,8 @@ SANRIO_TERMS = (
     'こぎみゅん', 'cogimyun', 'ウィッシュミーメル', 'wish me mell', 'あひるのペックル', 'pekkle',
 )
 def is_sanrio_post(account, caption):
-    text = (caption or '').casefold()
-    return account in TRUSTED_ACCOUNTS or any(term in text for term in SANRIO_TERMS)
+    text = re.sub(r'[\s_\-]+', '', (caption or '').casefold())
+    return account in TRUSTED_ACCOUNTS or any(re.sub(r'[\s_\-]+', '', term.casefold()) in text for term in SANRIO_TERMS)
 
 def collection_batch(cursor):
     start = int(cursor or 0) % len(ACCOUNTS)
