@@ -500,7 +500,7 @@ function instagramUpdateDropdown(){
  if(newsHomeView==='instagram'){
   const active=(newsState.instagramAccounts||[]).filter(r=>r.enabled),favorites=active.filter(r=>r.favorite).length;
   const slots=5-Math.min(2,favorites),regular=active.length-Math.min(2,favorites);
-  const hours=Math.ceil(regular/slots)*.5;
+  const hours=Math.max(1,Math.ceil(regular/slots))*.5;
   $('newsBrowseDescription').textContent='サンリオ関連のみ・約30分ごとに最大5アカウントを確認'+(active.length?'・全体一巡の目安 約'+hours+'時間':'')+'（お気に入りを優先）';
  }
  const select=$('instagramAccountFilter'),current=select.value;select.replaceChildren();
