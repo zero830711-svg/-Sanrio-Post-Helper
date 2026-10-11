@@ -446,6 +446,15 @@ function news_out(array $a,int $s=200):void{http_response_code($s);header('Conte
 $token='';if(preg_match('/^Bearer\s+(.+)$/i',$_SERVER['HTTP_AUTHORIZATION']??'',$m))$token=trim($m[1]);$key=(string)($config['sync_key']??'');if(!$key||!hash_equals($key,$token))news_out(['ok'=>false,'error'=>'同期キーを設定してください。'],401);
 try{
  $action=$_GET['action']??'list';
+ if($action==='instagram-accounts'){
+  if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
+   if(!in_array($origin,$config['allowed_origins']??[],true))news_out(['ok'=>false,'error'=>'許可されたアプリから設定してください。'],403);
+   $raw=(string)file_get_contents('php://input',false,null,0,32769);$input=json_decode($raw,true);
+   if(strlen($raw)>32768||!is_array($input['accounts']??null))news_out(['ok'=>false,'error'=>'設定の形式を確認してください。'],400);
+   news_instagram_save_settings($input['accounts']);
+  }elseif(($_SERVER['REQUEST_METHOD']??'')!=='GET')news_out(['ok'=>false],405);
+  news_out(['ok'=>true,'accounts'=>news_instagram_settings()]);
+ }
  if($action==='groq-settings'){
   if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
    if(!in_array($origin,$config['allowed_origins']??[],true))news_out(['ok'=>false,'error'=>'許可されたアプリから設定してください。'],403);

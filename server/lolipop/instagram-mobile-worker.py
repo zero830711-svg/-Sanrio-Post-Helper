@@ -39,6 +39,14 @@ def collection_batch(cursor):
     return [ACCOUNTS[(start + i) % len(ACCOUNTS)] for i in range(5)]
 
 
+def managed_batch(rows, cursor, favorite_cursor):
+    active = [r['account'] for r in rows if r.get('enabled') and re.fullmatch(r'[a-z0-9_.]{1,30}', r.get('account', ''))]
+    favorites = [r['account'] for r in rows if r.get('enabled') and r.get('favorite') and r['account'] in active]
+    preferred = [favorites[(favorite_cursor+i) % len(favorites)] for i in range(min(2, len(favorites)))] if favorites else []
+    regular = [a for a in active if a not in preferred]
+    rest = [regular[(cursor+i) % len(regular)] for i in range(min(5-len(preferred), len(regular)))] if regular else []
+    return preferred + rest
+
 def run(data):
     if sys.version_info[:2] != (3, 13):
         return {'ok': False, 'errorType': 'PythonVersionMismatch'}
@@ -152,8 +160,11 @@ def run(data):
     account = None
     try:
         results = []
-        batch = collection_batch(saved.get('collectionCursor', 5))
-        saved['collectionCursor'] = (int(saved.get('collectionCursor', 5)) + len(batch)) % len(ACCOUNTS)
+        config_path = root / 'accounts.json'
+        rows = json.loads(config_path.read_text()) if config_path.exists() else [{'account': a, 'enabled': True, 'favorite': False} for a in ACCOUNTS]
+        batch = managed_batch(rows, int(saved.get('collectionCursor', 5)), int(saved.get('favoriteCursor', 0)))
+        saved['favoriteCursor'] = int(saved.get('favoriteCursor', 0)) + 2
+        saved['collectionCursor'] = int(saved.get('collectionCursor', 5)) + max(1, len(batch) - min(2, sum(bool(r.get('enabled') and r.get('favorite')) for r in rows)))
         private_json(state_path, saved)
         for account in batch:
             record(account, 'checking')

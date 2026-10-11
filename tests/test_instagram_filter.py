@@ -17,3 +17,12 @@ class SanrioFilterTests(unittest.TestCase):
         batches = [worker.collection_batch(i) for i in range(0, len(worker.ACCOUNTS), 5)]
         self.assertTrue(all(len(batch) == 5 for batch in batches))
         self.assertEqual(set(sum(batches, [])), set(worker.ACCOUNTS))
+
+class ManagedBatchTests(unittest.TestCase):
+    def test_favorites_and_stopped_accounts(self):
+        rows=[{'account':str(i),'enabled':i!=9,'favorite':i<3} for i in range(10)]
+        self.assertEqual(worker.managed_batch(rows,0,0)[:2], ['0','1'])
+        self.assertEqual(worker.managed_batch(rows,3,2)[:2], ['2','0'])
+        checked=set(sum([worker.managed_batch(rows,i*3,i*2) for i in range(30)], []))
+        self.assertEqual(checked, set(str(i) for i in range(9)))
+        self.assertEqual(worker.managed_batch([],0,0), [])

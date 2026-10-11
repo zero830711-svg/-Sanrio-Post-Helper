@@ -163,7 +163,7 @@ function newsSetHomeView(view){
  newsHomeView=view;
  const instagram=view==='instagram';
  $('newsBrowseTitle').textContent=instagram?'Instagram':'新作ニュース';
- $('newsBrowseDescription').textContent=instagram?'62アカウント・サンリオ関連のみ表示・2時間ごとに5アカウントずつ確認':'公式ニュース・メーカー新作から投稿を準備';
+ $('newsBrowseDescription').textContent=instagram?'サンリオ関連のみ・2時間ごとに最大5件のアカウントを確認':'公式ニュース・メーカー新作から投稿を準備';
  $('newsSourceFilter').closest('label').hidden=instagram;
  $('instagramAccountFilter').closest('label').hidden=!instagram;
  $('instagramTools').hidden=!instagram;
@@ -242,6 +242,7 @@ function newsLoadPhotos(entry){
  });
 }
 function newsPhotosRender(){
+ $('newsPhotoSelectionSummary').textContent='選択 '+newsState.selected.length+'枚・'+(newsCollageEntry()?.collageMode?'まとめる写真 '+newsCollageIndices().length+'/4枚':'個別写真は4枚まで');
  const box=$('newsImages');box.replaceChildren();const entry=newsState.drafts.get(newsState.item.url);
  [...newsState.selected,...newsState.files.map((_,i)=>i).filter(i=>!newsState.selected.includes(i))].forEach(i=>{const file=newsState.files[i];
  const card=document.createElement('div');card.className='news-photo';
@@ -278,8 +279,9 @@ function newsSourceStatusLabel(){
 }
 function newsRender(){
  instagramRenderStatuses();
+ instagramRenderAccounts();
  const filter=$('newsFilter').value;const sourceFilter=$('newsSourceFilter')?.value||'all';const rows=newsGroups().filter(i=>(sourceFilter==='all'||i.members.some(m=>m.source===sourceFilter))).filter(i=>filter==='draft'?newsGroupDraft(i)&&!newsGroupMark(i):filter==='all'||(filter==='hidden'?!!newsGroupMark(i):!newsGroupMark(i)));
- rows.sort((a,b)=>Number(newsGroupNew(b))-Number(newsGroupNew(a))||newsGroupTime(b)-newsGroupTime(a));
+ rows.sort((a,b)=>newsHomeView==='instagram'&&$('instagramSort').value==='schedule'?(instagramScheduleTime(a)-instagramScheduleTime(b)||newsGroupTime(b)-newsGroupTime(a)):(newsHomeView==='instagram'?newsGroupTime(b)-newsGroupTime(a):Number(newsGroupNew(b))-Number(newsGroupNew(a))||newsGroupTime(b)-newsGroupTime(a)));
  $('newsList').replaceChildren();
  for(const item of rows.slice(0,newsState.limit)){
  const row=document.createElement('article');row.className='news-row';
@@ -289,6 +291,7 @@ function newsRender(){
  const mark=newsGroupMark(item);
  source.textContent=(item.instagram?'地域：'+instagramRegion(item.instagramAccount)+' ・ ':'')+(newsGroupNew(item)?'NEW ・ ':'')+(newsGroupDraft(item)&&!mark?'準備中 ・ ':'')+[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.gashapon?(item.resale?'再販':'ガシャポン情報'):item.tipsOnly?'公式新作情報'+(item.date?' ・ 発表 '+newsDateLabel(item.date):''):item.prize?'プライズ情報':item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
  info.append(source,title);
+ const previous=instagramPreviouslyIntroduced(item);if(previous){const hint=document.createElement('details');const summary=document.createElement('summary');summary.textContent='紹介済み候補'+(/再販|再入荷|新色/.test(item.title)?'（更新情報か確認）':'');const description=document.createElement('p');description.className='backup-note';description.textContent='類似商品の過去投稿があります。新色・再販・販売地域の違いは手動で確認してください。';hint.append(summary,description);if(previous.xUrl&&/^https:\/\/(?:x.com|twitter.com)\//.test(previous.xUrl)){const link=document.createElement('a');link.href=previous.xUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent='過去の投稿を確認';hint.append(link);}info.append(hint);}
  const schedule=item.members.map(newsScheduleLabel).find(Boolean);if(schedule){const note=document.createElement('span');note.className='news-schedule';note.textContent=schedule;info.append(note);}
  const img=document.createElement('img');img.className='news-thumb';img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';
  if(item.image){img.src=item.image;img.onerror=()=>{img.hidden=true;};}else img.hidden=true;
@@ -316,7 +319,7 @@ function newsMark(url,kind){
  if(kind){for(const u of urls)newsState.drafts.delete(u);newsSaveDrafts();}
  newsRender();if(editing)window.scrollTo({top:newsState.browseY,behavior:'instant'});
 }
-async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsTrackItems(d.items);newsState.items=d.items;newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
+async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsTrackItems(d.items);newsState.items=d.items;newsState.instagramAccounts=d.instagramAccounts||[];instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsRender();}catch(e){$('newsStatus').textContent=e.message;}finally{newsState.busy=false;}}
 async function newsPrepare(url){
  newsKeepDraft();if(!$('newsBrowse').hidden)newsState.browseY=window.scrollY;
  const seq=++newsState.seq;$('newsAiStatus').textContent='';$('newsAiRetry').disabled=true;$('newsAiChoiceLabel').hidden=true;newsState.item=null;newsState.files=[];newsState.selected=[];
@@ -436,6 +439,7 @@ $('newsCollageRetry').addEventListener('click',()=>{const entry=newsCollageEntry
 $('instagramAccountFilter').addEventListener('change',()=>{newsState.limit=5;newsRender();});
 
 function instagramRegion(account){
+ const configured=(newsState.instagramAccounts||[]).find(r=>r.account===account);if(configured)return configured.region;
  if(['sanrio_kr','jy_enc','spaofriends','7elevenkorea','roychefriends'].includes(account))return '韓国';
  if(['sanrio_tw','7eleventw','kiiwio.tw'].includes(account))return '台湾';
  if(['sanriogiftgatehk','sanrio.hk','hk_zip','khtoyy','childtoys.hk','7elevenhk'].includes(account))return '香港';
@@ -460,3 +464,68 @@ function instagramRenderStatuses(){
 }
 $('instagramRegionFilter').addEventListener('change',()=>{newsState.limit=5;newsRender();});
 $('instagramSearch').addEventListener('input',()=>{newsState.limit=5;newsRender();});
+
+function instagramUpdateDropdown(){
+ const select=$('instagramAccountFilter'),current=select.value;select.replaceChildren();
+ const all=document.createElement('option');all.value='all';all.textContent='すべて';select.append(all);
+ for(const row of newsState.instagramAccounts||[]){if(!row.enabled)continue;const option=document.createElement('option');option.value=row.account;option.textContent=(row.favorite?'⭐ ':'')+row.account;select.append(option);}
+ select.value=[...select.options].some(o=>o.value===current)?current:'all';
+}
+function instagramRenderAccounts(){
+ if(newsHomeView!=='instagram')return;
+ const box=$('instagramManageRows');box.replaceChildren();
+ for(const row of newsState.instagramAccounts||[]){
+  const p=document.createElement('p');const name=document.createElement('strong');name.textContent=row.account+'（'+row.region+'）';p.append(name);const region=document.createElement('select');region.setAttribute('aria-label',row.account+'の地域');for(const value of ['日本','韓国','台湾','香港','その他']){const option=document.createElement('option');option.value=value;option.textContent=value;region.append(option);}region.value=row.region;region.onchange=()=>instagramSaveAccounts((newsState.instagramAccounts||[]).map(r=>r.account===row.account?{...r,region:region.value}:{...r}));p.append(region);
+  for(const [text,field] of [[row.favorite?'⭐ お気に入り解除':'お気に入りにする','favorite'],[row.enabled?'取得を停止':'取得を再開','enabled'],['一覧から削除','remove']]){
+   const button=document.createElement('button');button.type='button';button.className='small-btn';button.textContent=text;
+   button.onclick=async()=>{const rows=(newsState.instagramAccounts||[]).map(r=>({...r}));const target=rows.find(r=>r.account===row.account);if(field==='remove')await instagramSaveAccounts(rows.filter(r=>r.account!==row.account));else{target[field]=!target[field];await instagramSaveAccounts(rows);}};
+   p.append(button);
+  }
+  box.append(p);
+ }
+}
+async function instagramSaveAccounts(accounts){
+ if(newsState.managing)return;
+ newsState.managing=true;$('instagramManageStatus').textContent='保存中…';
+ try{const data=await newsAiPost('instagram-accounts',{accounts});newsState.instagramAccounts=data.accounts;instagramUpdateDropdown();$('instagramManageStatus').textContent='保存しました。次の自動取得から適用されます。';await newsLoad();}
+ catch(error){$('instagramManageStatus').textContent=error.message;}
+ finally{newsState.managing=false;instagramRenderAccounts();}
+}
+function instagramScheduleTime(item){
+ const text=[item.title,...(item.paragraphs||[])].join(' ').normalize('NFKC').replace(/년/g,'年').replace(/월/g,'月').replace(/일/g,'日').replace(/號|号/g,'日').replace(/출시|발매|開售|开售|發售|发售/g,'発売');
+ // Only an explicitly labeled release/event date; announcement date is never a schedule.
+ const match=text.match(/(?:([0-9]{4})年\s*)?([0-9]{1,2})月([0-9]{1,2})日(?:[（(][^）)]*[）)])?\s*(?:から|より)?\s*(?:発売|販売開始|開催|スタート)/)||text.match(/(?:発売日|開催日)[:：\s]*(?:([0-9]{4})年)?([0-9]{1,2})月([0-9]{1,2})日/);
+ if(!match)return Infinity;
+ const year=match[1]||String(item.date||'').match(/^([0-9]{4})/)?.[1];if(!year)return Infinity;
+ const date=Date.UTC(Number(year),Number(match[2])-1,Number(match[3]));const parsed=new Date(date);if(parsed.getUTCMonth()!==Number(match[2])-1||parsed.getUTCDate()!==Number(match[3]))return Infinity;
+ const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Tokyo'});const now=Date.parse(today+'T00:00:00Z');
+ return Number.isFinite(date)&&date>=now?date:Infinity;
+}
+function instagramPreviouslyIntroduced(item){
+ if(!item.instagram)return null;
+ const key=newsTitleKey(item.title),id=newsProductId(item.url);
+ const quoted=String(item.title||'').match(/[「『]([^」』]{6,})[」』]/)?.[1];
+ return (newsState.history||[]).find(p=>{
+  if(p.xUrl===item.url)return true;
+  if(id&&id===newsProductId(p.url||''))return true;
+  const previous=newsTitleKey(p.title||'');
+  if(key.length>=14&&key===previous)return true;
+  if(quoted&&!/^(サンリオキャラクターズ|ハローキティ|サンリオ)$/.test(quoted)&&String(p.text||'').includes(quoted))return true;
+  return false;
+ })||null;
+}
+$('instagramAdd').addEventListener('click',async()=>{
+ try{
+  const url=new URL($('instagramAddUrl').value.trim());
+  if(url.protocol!=='https:'||!['www.instagram.com','instagram.com'].includes(url.hostname)||url.username||url.password||url.port)throw new Error('InstagramのアカウントURLを入力してください。');
+  const match=url.pathname.match(/^\/([a-zA-Z0-9_.]{1,30})\/?$/);if(!match||['p','reel','stories','explore','accounts'].includes(match[1]))throw new Error('投稿ではなくアカウントのURLを入力してください。');
+  const account=match[1].toLowerCase(),rows=(newsState.instagramAccounts||[]).map(r=>({...r}));
+  if(rows.some(r=>r.account===account))throw new Error('登録済みのアカウントです。');
+  rows.push({account,region:$('instagramAddRegion').value,enabled:true,favorite:false});await instagramSaveAccounts(rows);$('instagramAddUrl').value='';
+ }catch(error){$('instagramManageStatus').textContent=error.message;}
+});
+$('instagramSort').addEventListener('change',()=>{newsState.limit=5;newsRender();});
+$('newsComparePhotos').addEventListener('click',()=>{if(newsState.item){newsPhotosRender();$('newsPhotoDialogArea').append($('newsPhotoArea'));$('newsPhotoDialog').showModal();}});
+$('newsPhotoDialogClose').addEventListener('click',()=>$('newsPhotoDialog').close());
+
+$('newsPhotoDialog').addEventListener('close',()=>$('newsPhotoAreaHome').append($('newsPhotoArea')));
