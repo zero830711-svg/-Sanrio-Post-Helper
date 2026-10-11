@@ -16,9 +16,9 @@ async function setup(page){
  await page.route('**/lovely-watch.php?**',r=>r.fulfill({json:{ok:true,items:new URL(r.request().url()).searchParams.has('source')?[]:[{url:domestic,title:'国内のキティ商品',source:'Lovely Fancy',products:[],productIds:[],needsReview:true}],nextPage:null}}));
  await page.goto('/');return overseasCalls;
 }
-test('ホームは国内の3タブに戻り、海外情報を取得しない',async({page})=>{
+test('ホームはInstagramを含む4タブで、旧海外情報を取得しない',async({page})=>{
  const calls=await setup(page);
- await expect(page.locator('.home-tabs [role="tab"]')).toHaveText(['今日の候補','新作ニュース','新着商品']);
+ await expect(page.locator('.home-tabs [role="tab"]')).toHaveText(['今日の候補','新作ニュース','Instagram','新着商品']);
  await expect(page.locator('#homeOverseasTab, #overseasPanel')).toHaveCount(0);
  await page.reload();await page.getByRole('tab',{name:'新着商品',exact:true}).click();
  await expect(page.locator('#lovelyRefresh')).toBeEnabled();
