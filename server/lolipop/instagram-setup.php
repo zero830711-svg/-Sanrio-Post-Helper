@@ -1,9 +1,11 @@
 <?php
 declare(strict_types=1);
+if(!defined('SPH_IG_WORKER_ONLY')){
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'");
+}
 function ig_worker(array $input): array {
     $bins = array_unique(array_merge(glob('/usr/local/python/*/bin/python3') ?: [], glob('/usr/local/python/*/bin/python') ?: [], ['/usr/bin/python3']));
     $input['privateDir'] = sys_get_temp_dir().'/sph-ig-'.hash('sha256', __DIR__);
@@ -40,6 +42,7 @@ function ig_worker(array $input): array {
     }
     return ['ok'=>false,'errorType'=>'Python313Unavailable','message'=>'Python 3.13の実行環境が見つかりません。'];
 }
+if(defined('SPH_IG_WORKER_ONLY'))return;
 $config = require __DIR__.'/config.php';
 $token = '';
 if (preg_match('/^Bearer\s+(.+)$/i', $_SERVER['HTTP_AUTHORIZATION'] ?? '', $m)) $token = trim($m[1]);

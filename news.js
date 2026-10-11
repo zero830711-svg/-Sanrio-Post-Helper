@@ -419,7 +419,7 @@ $('newsSkip').addEventListener('click',()=>{if(newsState.item)newsMark(newsState
 async function newsAiPost(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('同期キーを設定してください。');
  const drafting=action==='ai-draft'||action==='post-ai-draft'||action==='product-groq-draft';
- const r=await fetch(newsApiUrl(action),{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(data),cache:'no-store',signal:AbortSignal.timeout(drafting?85000:25000)});
+ const r=await fetch(newsApiUrl(action),{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(data),cache:'no-store',signal:AbortSignal.timeout((drafting||action==='instagram-fetch')?85000:25000)});
  const d=await r.json();if(!r.ok||d.ok===false){const e=new Error(d.error||'AIを利用できません。');e.retryable=drafting&&d.retryable===true;throw e;}return d;
 }
 async function newsAiDraftWithRetry(entry,seq){
@@ -509,6 +509,7 @@ function instagramUpdateDropdown(){
  select.value=[...select.options].some(o=>o.value===current)?current:'all';
 }
 function instagramRenderAccounts(){
+ instagramFetchButton();
  if(newsHomeView!=='instagram')return;
  const box=$('instagramManageRows');box.replaceChildren();
  for(const row of newsState.instagramAccounts||[]){
@@ -585,3 +586,24 @@ $('newsAffiliateSave').addEventListener('click',()=>{
 });
 $('newsConfirmedRegion').addEventListener('change',()=>{const entry=newsCollageEntry();if(!entry)return;newsKeepDraft();entry.confirmedRegion=$('newsConfirmedRegion').value;newsApplyExtras(entry);$('newsText').value=entry.text;newsKeepDraft();});
 $('newsPostedUrl').addEventListener('input',()=>{const entry=newsCollageEntry();if(entry){entry.postedUrl=$('newsPostedUrl').value.trim();newsKeepDraft();}});
+
+function instagramFetchButton(){
+ const account=$('instagramAccountFilter').value;
+ $('instagramFetchNow').disabled=!!newsState.fetchingInstagram||account==='all'||!(newsState.instagramAccounts||[]).some(r=>r.account===account&&r.enabled);
+}
+$('instagramAccountFilter').addEventListener('change',instagramFetchButton);
+$('instagramFetchNow').addEventListener('click',async()=>{
+ if(newsState.fetchingInstagram)return;
+ const account=$('instagramAccountFilter').value;
+ if(account==='all')return;
+ newsState.fetchingInstagram=true;instagramFetchButton();
+ const status=$('instagramFetchStatus');status.textContent=account+'の投稿を取得中…（最大約70秒）';
+ try{
+  const result=await newsAiPost('instagram-fetch',{account});
+  await newsLoad();
+  const date=new Date(result.checkedAt*1000).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'});
+  const row=(result.instagramStatuses||[]).find(r=>r.account===account);
+  status.textContent=account+'・確認 '+date+'・'+(row?.state==='error'?'アカウントを確認できませんでした。':result.accounts?.length?'本文と写真'+result.photoCount+'枚を取得しました。':'直近12件に対象の写真付きサンリオ投稿がありませんでした。');
+ }catch(error){status.textContent=error.name==='TimeoutError'?'通信が時間切れになりました。アカウント別の取得状況で結果を確認してください。自動再試行はしません。':error.message;}
+ finally{newsState.fetchingInstagram=false;instagramFetchButton();}
+});

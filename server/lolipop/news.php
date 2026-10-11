@@ -446,6 +446,18 @@ function news_out(array $a,int $s=200):void{http_response_code($s);header('Conte
 $token='';if(preg_match('/^Bearer\s+(.+)$/i',$_SERVER['HTTP_AUTHORIZATION']??'',$m))$token=trim($m[1]);$key=(string)($config['sync_key']??'');if(!$key||!hash_equals($key,$token))news_out(['ok'=>false,'error'=>'同期キーを設定してください。'],401);
 try{
  $action=$_GET['action']??'list';
+ if($action==='instagram-fetch'){
+  if(($_SERVER['REQUEST_METHOD']??'')!=='POST')news_out(['ok'=>false,'error'=>'POST required'],405);
+  if(!in_array($origin,$config['allowed_origins']??[],true))news_out(['ok'=>false,'error'=>'許可されたアプリから実行してください。'],403);
+  $raw=(string)file_get_contents('php://input',false,null,0,4097);$input=json_decode($raw,true);
+  $account=$input['account']??null;
+  if(strlen($raw)>4096||!is_string($account)||!preg_match('/^[a-z0-9_.]{1,30}$/D',$account))news_out(['ok'=>false,'error'=>'アカウントを選択してください。'],400);
+  if(!in_array($account,array_column(array_filter(news_instagram_settings(),fn($r)=>$r['enabled']),'account'),true))news_out(['ok'=>false,'error'=>'取得対象の有効なアカウントを選択してください。'],400);
+  define('SPH_IG_WORKER_ONLY',true);require_once __DIR__.'/instagram-setup.php';@set_time_limit(85);
+  $result=ig_worker(['action'=>'collect','account'=>$account]);
+  if(empty($result['ok']))news_out(['ok'=>false,'error'=>$result['message']??'取得できませんでした。自動再試行はしません。'],502);
+  news_out($result+['instagramStatuses'=>news_instagram_statuses()]);
+ }
  if($action==='instagram-accounts'){
   if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
    if(!in_array($origin,$config['allowed_origins']??[],true))news_out(['ok'=>false,'error'=>'許可されたアプリから設定してください。'],403);

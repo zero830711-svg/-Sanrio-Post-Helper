@@ -47,6 +47,13 @@ def managed_batch(rows, cursor, favorite_cursor):
     rest = [regular[(cursor+i) % len(regular)] for i in range(min(5-len(preferred), len(regular)))] if regular else []
     return preferred + rest
 
+def requested_batch(rows, account):
+    if not isinstance(account, str) or not re.fullmatch(r'[a-z0-9_.]{1,30}', account):
+        raise ValueError('アカウントを選択してください。')
+    if not any(r.get('account') == account and r.get('enabled') for r in rows):
+        raise ValueError('取得対象の有効なアカウントを選択してください。')
+    return [account]
+
 def run(data):
     if sys.version_info[:2] != (3, 13):
         return {'ok': False, 'errorType': 'PythonVersionMismatch'}
@@ -162,9 +169,17 @@ def run(data):
         results = []
         config_path = root / 'accounts.json'
         rows = json.loads(config_path.read_text()) if config_path.exists() else [{'account': a, 'enabled': True, 'favorite': False} for a in ACCOUNTS]
-        batch = managed_batch(rows, int(saved.get('collectionCursor', 5)), int(saved.get('favoriteCursor', 0)))
-        saved['favoriteCursor'] = int(saved.get('favoriteCursor', 0)) + 2
-        saved['collectionCursor'] = int(saved.get('collectionCursor', 5)) + max(1, len(batch) - min(2, sum(bool(r.get('enabled') and r.get('favorite')) for r in rows)))
+        target = data.get('account')
+        if target is not None:
+            batch = requested_batch(rows, target)
+            remaining = 60 - int(time.time() - saved.get('manualCheckedAt', 0))
+            if remaining > 0:
+                return {'ok': False, 'message': '次の手動取得まで' + str(remaining) + '秒お待ちください。'}
+            saved['manualCheckedAt'] = int(time.time())
+        else:
+            batch = managed_batch(rows, int(saved.get('collectionCursor', 5)), int(saved.get('favoriteCursor', 0)))
+            saved['favoriteCursor'] = int(saved.get('favoriteCursor', 0)) + 2
+            saved['collectionCursor'] = int(saved.get('collectionCursor', 5)) + max(1, len(batch) - min(2, sum(bool(r.get('enabled') and r.get('favorite')) for r in rows)))
         private_json(state_path, saved)
         for account in batch:
             record(account, 'checking')
@@ -202,14 +217,14 @@ def run(data):
             if not (prefix.startswith(b'\xff\xd8\xff') or prefix.startswith(b'\x89PNG') or prefix.startswith(b'RIFF')):
                 raise ValueError('Invalid image data')
             item = {'account': account, 'shortcode': post.code, 'url': 'https://www.instagram.com/p/' + post.code + '/',
-                    'caption': caption, 'published': post.taken_at.isoformat(), 'images': images}
+                    'caption': caption, 'published': post.taken_at.isoformat(), 'images': images, 'collectedAt': int(time.time())}
             feed_path = root / 'feed.json'
             previous = json.loads(feed_path.read_text()).get('items', []) if feed_path.exists() else []
             items = [item] + [row for row in previous if row.get('shortcode') != item['shortcode']]
             private_json(feed_path, {'checkedAt': int(time.time()), 'engine': 'instagrapi', 'items': items[:60]})
             record(account, 'ok', matchedCount=1, photoCount=len(images))
             results.append({'account': account, 'photoCount': len(images), 'captionLength': len(caption), 'postUrl': item['url']})
-        return {'ok': True, 'checkedAccounts': batch, 'state': 'collected', 'accounts': results, 'photoCount': sum(r['photoCount'] for r in results), 'captionLength': sum(r['captionLength'] for r in results), 'message': 'Instagramの投稿本文と写真を取得しました。取得アカウント：' + '、'.join(r['account'] for r in results)}
+        return {'ok': True, 'checkedAt': int(time.time()), 'checkedAccounts': batch, 'state': 'collected', 'accounts': results, 'photoCount': sum(r['photoCount'] for r in results), 'captionLength': sum(r['captionLength'] for r in results), 'message': 'Instagramの投稿本文と写真を取得しました。取得アカウント：' + '、'.join(r['account'] for r in results)}
     except Exception as error:
         if account:
             record(account, 'error', error='取得を完了できませんでした（' + type(error).__name__ + '）')

@@ -26,3 +26,11 @@ class ManagedBatchTests(unittest.TestCase):
         checked=set(sum([worker.managed_batch(rows,i*3,i*2) for i in range(30)], []))
         self.assertEqual(checked, set(str(i) for i in range(9)))
         self.assertEqual(worker.managed_batch([],0,0), [])
+
+class RequestedBatchTests(unittest.TestCase):
+    def test_only_selected_enabled_account(self):
+        rows=[{'account':'marimocraft','enabled':True},{'account':'sunstar_now','enabled':True},{'account':'stopped','enabled':False}]
+        self.assertEqual(worker.requested_batch(rows,'sunstar_now'),['sunstar_now'])
+        for account in ('stopped','unknown','all','../session',None):
+            with self.assertRaises(ValueError):
+                worker.requested_batch(rows,account)
