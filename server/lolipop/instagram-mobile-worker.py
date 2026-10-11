@@ -144,23 +144,33 @@ def run(data):
             private_json(state_path, saved)
     if action != 'collect' or not saved.get('authenticated'):
         return {'ok': False, 'state': 'login_required', 'message': 'instagrapiでの初回認証が必要です。'}
+    status_path = root / 'collection-status.json'
+    status = json.loads(status_path.read_text()) if status_path.exists() else {}
+    def record(account, state, **extra):
+        status[account] = {'state': state, 'checkedAt': int(time.time()), **extra}
+        private_json(status_path, status)
+    account = None
     try:
         results = []
         batch = collection_batch(saved.get('collectionCursor', 5))
         saved['collectionCursor'] = (int(saved.get('collectionCursor', 5)) + len(batch)) % len(ACCOUNTS)
         private_json(state_path, saved)
         for account in batch:
+            record(account, 'checking')
             try:
                 user_id = client.user_info_by_username_v1(account).pk
             except Exception as account_error:
                 if type(account_error).__name__ == 'UserNotFound':
+                    record(account, 'error', error='アカウントを確認できません')
                     continue
                 raise
             posts = sorted(client.user_medias_v1(user_id, amount=12), key=lambda post: post.taken_at, reverse=True)
             if not posts:
+                record(account, 'empty', matchedCount=0)
                 continue
             post = next((p for p in posts if p.media_type in (1, 8) and p.caption_text and is_sanrio_post(account, p.caption_text)), None)
             if post is None:
+                record(account, 'empty', matchedCount=0)
                 continue
             images = []
             if post.media_type == 1 and post.thumbnail_url:
@@ -170,6 +180,7 @@ def run(data):
                           if resource.media_type == 1 and resource.thumbnail_url][:10]
             caption = post.caption_text or ''
             if not images or not caption:
+                record(account, 'empty', matchedCount=0)
                 continue
             parsed = urlparse(images[0])
             if parsed.scheme != 'https' or not any((parsed.hostname or '').endswith('.' + host) for host in ('cdninstagram.com', 'fbcdn.net')):
@@ -185,9 +196,12 @@ def run(data):
             previous = json.loads(feed_path.read_text()).get('items', []) if feed_path.exists() else []
             items = [item] + [row for row in previous if row.get('shortcode') != item['shortcode']]
             private_json(feed_path, {'checkedAt': int(time.time()), 'engine': 'instagrapi', 'items': items[:60]})
+            record(account, 'ok', matchedCount=1, photoCount=len(images))
             results.append({'account': account, 'photoCount': len(images), 'captionLength': len(caption), 'postUrl': item['url']})
         return {'ok': True, 'checkedAccounts': batch, 'state': 'collected', 'accounts': results, 'photoCount': sum(r['photoCount'] for r in results), 'captionLength': sum(r['captionLength'] for r in results), 'message': 'Instagramの投稿本文と写真を取得しました。取得アカウント：' + '、'.join(r['account'] for r in results)}
     except Exception as error:
+        if account:
+            record(account, 'error', error='取得を完了できませんでした（' + type(error).__name__ + '）')
         name = type(error).__name__
         result = _safe.safe_error(error, action)
         if name.startswith('Challenge') or name in ('PleaseWaitFewMinutes', 'FeedbackRequired', 'ClientThrottledError', 'SentryBlock'):

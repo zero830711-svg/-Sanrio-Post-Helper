@@ -27,7 +27,19 @@ function news_instagram_detail(string $url):array {
  throw new RuntimeException('このInstagram投稿は取得済み一覧にありません。ニュース一覧を更新してください。');
 }
 function news_instagram_list(array $list):array {
+ $list['instagramStatuses']=news_instagram_statuses();
  $rows=news_instagram_items();$list['items']=array_merge($rows,$list['items']??[]);
  $list['sourceStatuses']['Instagram']=['state'=>$rows?'ok':'failed','count'=>count($rows)];
  return $list;
+}
+
+function news_instagram_statuses():array {
+ $path=sys_get_temp_dir().'/sph-ig-'.hash('sha256',__DIR__).'/collection-status.json';
+ $saved=is_file($path)&&filesize($path)<200000?json_decode((string)file_get_contents($path),true):[];
+ $rows=news_instagram_items();$result=[];
+ foreach(['friendcharacters','sanrio_kr','sanriogiftgatehk','sanrio_ec_official','pompompurin_30th','sanrio_tw','sanrio.hk','sanriosports','skater_all','gravail','grchambre','grshimamura','grbirthday','hk_zip','khtoyy','segaplaza','childtoys.hk','7eleventw','7elevenhk','razer','jy_enc','spaofriends','kiiwio.tw','lunchgoods.skater','minilike_official','ds_x_kawaii_collabroom','toptoy.international','benelic.capsuletoy','mash_sanriohouse_official','kiddyland_co.jp','7elevenkorea','epoch1958_jp','sanrioatarikuji','daiso_official','hellokitty.india','shuwatama_times','fuiuchi_official','miniso.official','perihapi_official','petitpoche_official','parade_prize','purolandjp','takaratomyarts.nuigurumi','ftoys_character','tokyo_characterstreet','roychefriends','kthings_official','takaratomyarts.gacha','takaratomyarts','shop_nui_bnn','390webshop','awajihellokittyappleland','bandaicandy','seven_eleven_japan','gotochi_kitty','paseos_official','ichibankuji','k2_capsule','thankyoumart','shobido_corporation','gashapon_instabu','takaratomytoys'] as $account){
+  $value=$saved[$account]??[];
+  $result[]=['account'=>$account,'state'=>($value['state']??'')==='checking'?'error':(in_array($value['state']??'', ['ok','empty','error'],true)?$value['state']:'pending'),'checkedAt'=>(int)($value['checkedAt']??0),'count'=>count(array_filter($rows,fn($row)=>$row['instagramAccount']===$account)),'error'=>($value['state']??'')==='error'?'取得を完了できませんでした':''];
+ }
+ return $result;
 }

@@ -43,6 +43,7 @@ jobs:
           python -m py_compile server/lolipop/instagram-worker.py server/lolipop/instagram-mobile-worker.py
           PYTHONPATH=build/ig-mobile python -m unittest discover -s tests -p test_instagram_mobile.py
           python -m unittest discover -s tests -p test_instagram_filter.py
+          php -l server/lolipop/share.php
           php -l server/lolipop/news-instagram.php
           php -l server/lolipop/instagram-setup.php
       - name: Install FTPS client
@@ -70,6 +71,7 @@ jobs:
           put server/lolipop/instagram-setup.php
           put server/lolipop/news-instagram.php
           put server/lolipop/news.php
+          put server/lolipop/share.php
           get config.php -o "$ig_tmp/config.php"
           bye
           LFTP

@@ -50,11 +50,18 @@ $updated=(string)($row['updated_at']??'');
 <body><main>
 <section class="head"><span class="badge">Sanrio Post Helper</span><h1>個人用確認ページ</h1><div class="meta">期限なし共有リンク<?= $updated!==''?' ・ 最終更新 '.h($updated):'' ?></div><div><?= count($posts) ?>件の投稿候補を表示しています。</div></section>
 <?php if(!$posts): ?><section class="post empty">共有する投稿がありません。</section><?php endif; ?>
-<?php foreach($posts as $post): if(!is_array($post))continue; ?>
+<?php foreach($posts as $post): if(!is_array($post))continue;
+ $text=(string)($post['text']??'');$selection=[];
+ if(preg_match('/^SPH_META_V1:([^\\r\\n]+)\\R?/u',$text,$match)){
+  $decoded=json_decode($match[1],true);
+  if(is_array($decoded)){$selection=$decoded;$text=substr($text,strlen($match[0]));}
+ }
+?>
 <article class="post">
 <h2><?= h((string)($post['title']??'投稿')) ?></h2>
 <div class="meta"><?= h((string)($post['postedAt']??'')) ?></div>
-<?php if((string)($post['text']??'')!==''): ?><div class="text"><?= h((string)$post['text']) ?></div><?php endif; ?>
+<?php if($selection): ?><div class="meta"><span class="badge"><?= h((string)($selection['role']??'選定理由')) ?></span> <?= h((string)($selection['reason']??'')) ?></div><?php endif; ?>
+<?php if($text!==''): ?><div class="text"><?= h($text) ?></div><?php endif; ?>
 <?php $images=is_array($post['images']??null)?$post['images']:[]; if($images): ?><div class="media"><?php foreach($images as $src): if(!is_string($src)||!preg_match('~^https://~i',$src))continue; ?><img src="<?= h($src) ?>" alt="投稿写真" loading="lazy"><?php endforeach; ?></div><?php endif; ?>
 <?php if(!empty($post['xUrl'])&&is_string($post['xUrl'])): ?><p><a href="<?= h($post['xUrl']) ?>" target="_blank" rel="noopener noreferrer">Xで開く</a></p><?php endif; ?>
 </article>
