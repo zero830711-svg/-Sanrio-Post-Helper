@@ -25,7 +25,7 @@ test('取得時刻、投稿日順、初回取得順、詳細条件を確認す�
  await expect(page.locator('#instagramSort')).toHaveValue('published');
  await expect(page.locator('#newsList strong').first()).toContainText('キティ');
  await page.locator('#instagramSort').selectOption('new');
- await expect(page.locator('#newsList .news-title').first()).toContainText('クロミ');
+ await expect(page.locator('#newsList strong').first()).toContainText('クロミ');
  await expect(page.locator('#instagramRegionFilter')).toBeHidden();
  await page.getByText('詳細条件・アカウント管理',{exact:true}).click();await expect(page.locator('#instagramRegionFilter')).toBeVisible();
 });
