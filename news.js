@@ -53,6 +53,23 @@ function newsApplyGenerated(entry,text){
  if(split.reply&&!entry.replyText)entry.replyText=split.reply;
  entry.text=split.text+(entry.includeLink&&entry.replyText?'\n\n'+entry.replyText:'');newsApplyExtras(entry);
 }
+function newsRemoveBlock(text,block){return block?String(text||'').split(block).join('').replace(/\n{3,}/g,'\n\n').trim():String(text||'');}
+function newsAffiliateBlock(entry){const links=entry.affiliateLinks||{};return [links.rakuten?'🛍️ 楽天\n'+links.rakuten:'',links.amazon?'🛍️ Amazon\n'+links.amazon:''].filter(Boolean).join('\n\n')+((links.rakuten||links.amazon)?'\n\n#pr':'');}
+function newsValidAffiliate(value,kind){if(!value)return true;try{const u=new URL(value);const roots=kind==='rakuten'?['rakuten.co.jp','rakuten.ne.jp','r10.to']:['amazon.co.jp','amazon.com','amzn.to','link.amazon'];return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&roots.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false;}}
+function newsValidPostedUrl(value){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['x.com','www.x.com','twitter.com','www.twitter.com'].includes(u.hostname)&&/^\/[a-zA-Z0-9_]+\/status\/[0-9]+\/?$/.test(u.pathname);}catch{return false;}}
+function newsApplyExtras(entry){
+ entry.text=newsRemoveBlock(entry.text,entry.affiliateBlock);entry.text=newsRemoveBlock(entry.text,entry.regionBlock);
+ entry.affiliateBlock=entry.affiliatePlacement==='body'?newsAffiliateBlock(entry):'';
+ entry.regionBlock=entry.confirmedRegion?'🌏 '+entry.confirmedRegion+'の情報':'';
+ entry.text=[entry.regionBlock,entry.text,entry.affiliateBlock].filter(Boolean).join('\n\n');
+}
+function newsExtrasRender(entry){
+ $('newsAffiliateRakuten').value=entry.affiliateLinks?.rakuten||'';$('newsAffiliateAmazon').value=entry.affiliateLinks?.amazon||'';$('newsAffiliatePlacement').value=entry.affiliatePlacement||'reply';
+ $('newsConfirmedRegionBox').hidden=!entry.item.instagram;$('newsConfirmedRegion').value=entry.confirmedRegion||'';
+ $('newsRegionSource').textContent=entry.item.instagram?'情報元の地域：'+instagramRegion(entry.item.instagramAccount)+'。販売・開催地域は原文で確認してから選択してください。':'';
+ $('newsPostedUrl').value=entry.postedUrl||'';$('newsAffiliateStatus').textContent='';
+}
+
 function newsReadSeen(){try{const d=JSON.parse(localStorage.getItem(newsStorageKey('Seen'))||'null');return d?.version===1&&d.known&&typeof d.known==='object'?d.known:null;}catch{return null;}}
 function newsTrackItems(items){
  const previous=newsState.seen,known={...(previous||{})},added=new Set(),now=Date.now();
@@ -555,22 +572,6 @@ async function instagramLoadAccounts(){
 }
 
 
-function newsRemoveBlock(text,block){return block?String(text||'').split(block).join('').replace(/\n{3,}/g,'\n\n').trim():String(text||'');}
-function newsAffiliateBlock(entry){const links=entry.affiliateLinks||{};return [links.rakuten?'🛍️ 楽天\n'+links.rakuten:'',links.amazon?'🛍️ Amazon\n'+links.amazon:''].filter(Boolean).join('\n\n')+((links.rakuten||links.amazon)?'\n\n#pr':'');}
-function newsValidAffiliate(value,kind){if(!value)return true;try{const u=new URL(value);const roots=kind==='rakuten'?['rakuten.co.jp','rakuten.ne.jp','r10.to']:['amazon.co.jp','amazon.com','amzn.to','link.amazon'];return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&roots.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false;}}
-function newsValidPostedUrl(value){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['x.com','www.x.com','twitter.com','www.twitter.com'].includes(u.hostname)&&/^\/[a-zA-Z0-9_]+\/status\/[0-9]+\/?$/.test(u.pathname);}catch{return false;}}
-function newsApplyExtras(entry){
- entry.text=newsRemoveBlock(entry.text,entry.affiliateBlock);entry.text=newsRemoveBlock(entry.text,entry.regionBlock);
- entry.affiliateBlock=entry.affiliatePlacement==='body'?newsAffiliateBlock(entry):'';
- entry.regionBlock=entry.confirmedRegion?'🌏 '+entry.confirmedRegion+'の情報':'';
- entry.text=[entry.regionBlock,entry.text,entry.affiliateBlock].filter(Boolean).join('\n\n');
-}
-function newsExtrasRender(entry){
- $('newsAffiliateRakuten').value=entry.affiliateLinks?.rakuten||'';$('newsAffiliateAmazon').value=entry.affiliateLinks?.amazon||'';$('newsAffiliatePlacement').value=entry.affiliatePlacement||'reply';
- $('newsConfirmedRegionBox').hidden=!entry.item.instagram;$('newsConfirmedRegion').value=entry.confirmedRegion||'';
- $('newsRegionSource').textContent=entry.item.instagram?'情報元の地域：'+instagramRegion(entry.item.instagramAccount)+'。販売・開催地域は原文で確認してから選択してください。':'';
- $('newsPostedUrl').value=entry.postedUrl||'';$('newsAffiliateStatus').textContent='';
-}
 $('newsAffiliateSave').addEventListener('click',()=>{
  const entry=newsCollageEntry();if(!entry)return;const rakuten=$('newsAffiliateRakuten').value.trim(),amazon=$('newsAffiliateAmazon').value.trim();
  if(!newsValidAffiliate(rakuten,'rakuten')||!newsValidAffiliate(amazon,'amazon')){$('newsAffiliateStatus').textContent='楽天／AmazonのHTTPSリンクを確認してください。';return;}
