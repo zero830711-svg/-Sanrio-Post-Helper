@@ -10,7 +10,7 @@ async function api(action,data){
  if(!r.ok||d.ok===false)throw new Error(d.error||'下書きの準備を完了できませんでした。');return d;
 }
 function status(s){el('flowStatus').textContent=s;}
-function queueAutoSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{saveDraft(false);},1000);}
+function queueAutoSave(){clearTimeout(saveTimer);status('編集内容を自動保存します…');saveTimer=setTimeout(()=>{saveDraft(false);},1000);}
 async function saveDraft(showMessage=true){
  if(!current||!dirty)return true;
  if(busy||saving){queueAutoSave();return false;}
@@ -20,10 +20,10 @@ async function saveDraft(showMessage=true){
   const d=await api('save',{id,body,selected,linkMode});apply(d);
   const unchanged=current?.id===id&&el('flowBody').value===body&&el('flowLinkMode').value===linkMode&&JSON.stringify(current.selected)===JSON.stringify(selected);
   dirty=!unchanged;
-  if(showMessage)status(d.message||'下書きを保存しました。');
+  status(showMessage?(d.message||'下書きを保存しました。'):'自動保存しました。');
   return !dirty;
  }catch(e){status('自動保存できませんでした。'+e.message);return false;}
- finally{saving=false;if(dirty)queueAutoSave();}
+ finally{saving=false;if(dirty)queueAutoSave();if(current?.id===id)updateFinal();}
 }
 function closeEditor(){clearTimeout(saveTimer);++requestSeq;current=null;files=[];el('flowEditor').hidden=true;el('flowBrowse').hidden=false;render();}
 function button(text,fn){const b=document.createElement('button');b.type='button';b.className='small-btn';b.textContent=text;b.onclick=fn;return b;}
@@ -111,7 +111,7 @@ function updateFinal(){
  const body=current.body.replace(/(?:\s*#pr)+\s*$/iu,'').trim();
  el('flowFinal').value=body+(link?'\n\n🛍️ 楽天でチェック\n'+link+'\n\n#pr':'');
  const count=current.selected.length;el('flowPhotoStatus').textContent=count+'枚選択 ・ '+files.filter(Boolean).length+'枚準備済み';
- el('flowShare').disabled=busy||!body||!count||current.selected.some(i=>!files[i])||!el('flowConfirm').checked;
+ el('flowShare').disabled=busy||saving||dirty||!body||!count||current.selected.some(i=>!files[i])||!el('flowConfirm').checked;
  el('flowSavePhotos').disabled=busy||!count||current.selected.some(i=>!files[i]);
  el('flowCopy').disabled=busy||!body;
 }
@@ -186,7 +186,7 @@ el('flowBack').onclick=async()=>{if(dirty&&!await saveDraft(true))return;closeEd
 el('flowCopy').onclick=()=>copyTextFromClick(el('flowFinal').value,el('flowCopy'),'リンク付き本文をコピーしました');
 el('flowShare').onclick=async()=>{
  if(!el('flowConfirm').checked){status('商品・掲載内容・在庫・リンク・写真を確認してください。');return;}
- if(dirty&&!await saveDraft(true))return;
+ if(dirty||saving){status('編集内容を保存中です。自動保存後に共有できます。');queueAutoSave();return;}
  const text=el('flowFinal').value,data={text,files:current.selected.map(i=>files[i]).filter(Boolean)};
  try{
   if(navigator.canShare?.(data)){await navigator.share(data);status('共有画面を閉じました。Xで投稿後、「投稿済みにして次へ」を押してください。');}
