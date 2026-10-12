@@ -90,7 +90,16 @@
 <p id="flowEvidence" class="backup-note"></p>
 <label>投稿本文（編集できます）<textarea id="flowBody" rows="8"></textarea></label>
 <label>楽天リンク<select id="flowLinkMode"><option value="search">検索ページ</option><option value="item">単品の商品ページ</option><option value="none">リンクなし</option></select></label>
-<input id="flowLink" type="url" readonly aria-label="投稿に付ける楽天アフィリエイトリンク">
+<input id="flowLink" type="url" aria-label="投稿に付ける楽天アフィリエイトリンク" autocomplete="off" autocapitalize="none" spellcheck="false">
+<div class="lovely-url-actions lovely-paste-actions"><button id="flowShortUrlPaste" type="button" class="small-btn">📋 短縮URLを貼り付けて反映</button></div>
+<p id="flowShortUrlStatus" class="backup-note" aria-live="polite"></p>
+<details id="flowShortUrlBox">
+<summary>楽天の短縮URLを作成・変更</summary>
+<label>楽天の商品URL（短縮URL作成用）<input id="flowItemUrl" type="url" readonly aria-label="楽天の商品URL"></label>
+<div class="lovely-url-actions"><button id="flowItemUrlCopy" type="button" class="small-btn">商品URLをコピー</button>
+<a class="small-btn link-btn" id="flowRakutenAffiliateOpen" href="https://affiliate.rakuten.co.jp/" target="_blank" rel="noopener noreferrer">楽天アフィリエイトを開く</a></div>
+<p class="backup-note">楽天アフィリエイトで短縮URLを作成した後、「短縮URLを貼り付けて反映」を押してください。楽天市場・楽天ブックスの短縮URL（a.r10.to）が下書きに反映されます。</p>
+</details>
 <p class="backup-note">商品情報とアフィリエイトリンクは楽天APIから自動取得しています。</p>
 <details><summary>原文を確認</summary><p id="flowOriginal"></p></details>
 <p class="backup-note">使う写真を4枚まで選択できます。楽天の候補画像は商品照合用です。</p>
@@ -542,7 +551,7 @@ window.addEventListener("load",()=>{
   },2500);
 });
 </script>
-<script src="./product-flow.js?v=20261012-3501"></script>
+<script src="./product-flow.js?v=20261012-3502"></script>
 </body>
 </html>
 
