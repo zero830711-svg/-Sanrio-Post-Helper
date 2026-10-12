@@ -116,6 +116,12 @@ function pf_image_url(string $url):string{
  if(($p['scheme']??'')==='https'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&$host==='img.travel.rakuten.co.jp'&&preg_match('~\\.(?:jpe?g|png|webp)$~iD',$path))return $url;
  return '';
 }
+function pf_image_fetch_candidates(string $url):array{
+ $p=parse_url($url);$host=strtolower((string)($p['host']??''));$path=(string)($p['path']??'');$query=rawurldecode((string)($p['query']??''));
+ if(($p['scheme']??'')==='https'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&$host==='image.rakuten.co.jp'&&preg_match('~^/(?:[a-zA-Z0-9_-]+)/cabinet/[a-zA-Z0-9_/-]+\\.(?:jpe?g|png|webp)$~iD',$path)&&preg_match('/^_ex=[0-9]{1,4}x[0-9]{1,4}$/D',$query))return ['https://'.$host.$path,$url];
+ if(($p['scheme']??'')==='https'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&$host==='tshop.r10s.jp'&&preg_match('~^/[a-zA-Z0-9_-]+/cabinet/[a-zA-Z0-9_/-]+\\.(?:jpe?g|png|webp)$~iD',$path)&&preg_match('/^(?:fitin|downsize)=[0-9]{1,4}:(?:[0-9]{1,4}|\\*)$/D',$query))return ['https://'.$host.$path,$url];
+ return [$url];
+}
 function pf_rakuten_book_images_from_html(string $html,string $isbn):array{
  $isbn=strtoupper(preg_replace('/[^0-9X]/i','',$isbn));if(!preg_match('/^[0-9]{13}$/D',$isbn))return [];
  $html=html_entity_decode($html,ENT_QUOTES|ENT_HTML5,'UTF-8');
@@ -428,11 +434,14 @@ function pf_tick(array &$state,bool $manual=false):array{
 if(defined('SPH_FLOW_TEST'))return;
 function pf_image_out(string $source,string $isbn='',string $productUrl=''):void{
  $url=pf_image_url($source);if($isbn!==''){$gallery=pf_rakuten_books_images($productUrl,$isbn);$selected='';foreach($gallery as $image)if($image===$source){$selected=$image;break;}$cover=$selected?:($gallery[0]??'');if(!$cover)$cover=pf_google_books_cover($isbn);if($cover)$url=$cover;}if(!$url)pf_out(['ok'=>false,'error'=>'写真URLを確認できません。'],400);
- $bytes='';$c=curl_init($url);curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>true,CURLOPT_MAXREDIRS=>4,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_REDIR_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,CURLOPT_USERAGENT=>'Mozilla/5.0 (compatible; SanrioPostHelper/1.0)',CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$bytes){if(strlen($bytes)+strlen($chunk)>4000000)return 0;$bytes.=$chunk;return strlen($chunk);}]);
- $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
- $imageInfo=$bytes?@getimagesizefromstring($bytes):false;$type=strtolower((string)($imageInfo['mime']??''));
- if($ok===false||$status!==200||!in_array($type,['image/jpeg','image/png','image/webp'],true)||!$bytes)pf_out(['ok'=>false,'error'=>'楽天の商品写真を取得できませんでした（画像URLまたは接続を確認してください）。'],502);
- header('Content-Type: '.$type);header('Content-Length: '.strlen($bytes));header('Cache-Control: private, max-age=300');echo $bytes;exit;
+ foreach(pf_image_fetch_candidates($url) as $candidate){
+  $bytes='';$c=curl_init($candidate);curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>true,CURLOPT_MAXREDIRS=>4,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_REDIR_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,CURLOPT_USERAGENT=>'Mozilla/5.0 (compatible; SanrioPostHelper/1.0)',CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$bytes){if(strlen($bytes)+strlen($chunk)>4000000)return 0;$bytes.=$chunk;return strlen($chunk);}]);
+  $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
+  $imageInfo=$bytes?@getimagesizefromstring($bytes):false;$type=strtolower((string)($imageInfo['mime']??''));
+  if($ok===false||$status!==200||!in_array($type,['image/jpeg','image/png','image/webp'],true)||!$bytes)continue;
+  header('Content-Type: '.$type);header('Content-Length: '.strlen($bytes));header('Cache-Control: private, max-age=300');echo $bytes;exit;
+ }
+ pf_out(['ok'=>false,'error'=>'楽天の商品写真を取得できませんでした。楽天の高画質画像が利用できない場合は、商品ページから写真を保存してください。'],502);
 }
 function pf_out(array $data,int $status=200):void{http_response_code($status);header('Content-Type: application/json; charset=utf-8');echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);exit;}
 $config=require __DIR__.'/config.php';$origin=$_SERVER['HTTP_ORIGIN']??'';
