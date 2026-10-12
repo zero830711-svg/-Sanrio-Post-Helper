@@ -117,6 +117,37 @@ function pf_image_url(string $url):string{
  if(($p['scheme']??'')==='https'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&$host==='img.travel.rakuten.co.jp'&&preg_match('~\\.(?:jpe?g|png|webp)$~iD',$path))return $url;
  return '';
 }
+function pf_rakuten_book_cover_from_html(string $html,string $isbn):string{
+ $isbn=strtoupper(preg_replace('/[^0-9X]/i','',$isbn));if(!preg_match('/^[0-9]{13}$/D',$isbn))return '';
+ $html=html_entity_decode($html,ENT_QUOTES|ENT_HTML5,'UTF-8');
+ $html=str_replace(['\\/','\\u002F','\\u002f','\\u003F','\\u003f','\\u0026'],['/','/','/','?','?','&'],$html);
+ $pattern='~https?://(?:shop|tshop)\\.r10s\\.jp/[^"<>\\s\\\\]*'.preg_quote($isbn,'~').'[^"<>\\s\\\\]*\\.(?:jpe?g|png|webp)(?:\\?[^"<>\\s\\\\]*)?~i';
+ preg_match_all($pattern,$html,$matches);$candidates=[];
+ foreach($matches[0]??[] as $raw){
+  $raw=html_entity_decode($raw,ENT_QUOTES|ENT_HTML5,'UTF-8');$p=parse_url($raw);
+  $host=strtolower((string)($p['host']??''));$path=(string)($p['path']??'');
+  if(!in_array($host,['shop.r10s.jp','tshop.r10s.jp'],true)||!str_contains($path,$isbn)||!preg_match('~\\.(?:jpe?g|png|webp)$~iD',$path))continue;
+  $base=basename($path);$rank=3;
+  if(preg_match('/'.preg_quote($isbn,'/').'_1_2\\.(?:jpe?g|png|webp)$/iD',$base))$rank=0;
+  elseif(preg_match('/'.preg_quote($isbn,'/').'(?:_1)?\\.(?:jpe?g|png|webp)$/iD',$base))$rank=1;
+  elseif(preg_match('/'.preg_quote($isbn,'/').'_1_[0-9]+\\.(?:jpe?g|png|webp)$/iD',$base))$rank=2;
+  $candidate='https://'.$host.$path;
+  if(!isset($candidates[$candidate])||$rank<$candidates[$candidate])$candidates[$candidate]=$rank;
+ }
+ if(!$candidates)return '';
+ asort($candidates,SORT_NUMERIC);return (string)array_key_first($candidates);
+}
+function pf_rakuten_books_cover(string $productUrl,string $isbn):string{
+ $isbn=strtoupper(preg_replace('/[^0-9X]/i','',$isbn));$p=parse_url($productUrl);
+ if(!preg_match('/^[0-9]{13}$/D',$isbn)||($p['scheme']??'')!=='https'||strtolower((string)($p['host']??''))!=='books.rakuten.co.jp'||!preg_match('~^/rb/[0-9]+/?$~D',$p['path']??'')||isset($p['user'])||isset($p['pass'])||isset($p['port']))return '';
+ $key='rakuten-book-cover-'.hash('sha256',$isbn.'|'.$p['path']);$cached=pf_read($key);
+ if(($cached['at']??0)>time()-86400)return (string)($cached['url']??'');
+ $body='';$c=curl_init('https://books.rakuten.co.jp'.$p['path']);
+ curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>4,CURLOPT_TIMEOUT=>8,CURLOPT_ENCODING=>'',CURLOPT_HTTPHEADER=>['Accept: text/html,application/xhtml+xml','Accept-Language: ja,en;q=0.5'],CURLOPT_USERAGENT=>'Mozilla/5.0 (compatible; SanrioPostHelper/1.0)',CURLOPT_WRITEFUNCTION=>static function($c,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>2000000)return 0;$body.=$bytes;return strlen($bytes);}]);
+ $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);$cover='';
+ if($ok!==false&&$status===200)$cover=pf_rakuten_book_cover_from_html($body,$isbn);
+ pf_write($key,['at'=>time(),'url'=>$cover]);return $cover;
+}
 function pf_google_books_cover(string $isbn):string{
  $isbn=strtoupper(preg_replace('/[^0-9X]/i','',$isbn));
  if(!preg_match('/^(?:[0-9]{13}|[0-9]{9}[0-9X])$/D',$isbn))return '';
@@ -301,8 +332,8 @@ function pf_tick(array &$state,bool $manual=false):array{
 }
 
 if(defined('SPH_FLOW_TEST'))return;
-function pf_image_out(string $source,string $isbn=''):void{
- $url=pf_image_url($source);if($isbn!==''){$cover=pf_google_books_cover($isbn);if($cover)$url=$cover;}if(!$url)pf_out(['ok'=>false,'error'=>'写真URLを確認できません。'],400);
+function pf_image_out(string $source,string $isbn='',string $productUrl=''):void{
+ $url=pf_image_url($source);if($isbn!==''){$cover=pf_rakuten_books_cover($productUrl,$isbn);if(!$cover)$cover=pf_google_books_cover($isbn);if($cover)$url=$cover;}if(!$url)pf_out(['ok'=>false,'error'=>'写真URLを確認できません。'],400);
  $bytes='';$c=curl_init($url);curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$bytes){if(strlen($bytes)+strlen($chunk)>4000000)return 0;$bytes.=$chunk;return strlen($chunk);}]);
  $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);$type=strtolower((string)curl_getinfo($c,CURLINFO_CONTENT_TYPE));curl_close($c);
  if($ok===false||$status!==200||!preg_match('~^image/(?:jpeg|png|webp)(?:;|$)~',$type)||!$bytes)pf_out(['ok'=>false,'error'=>'楽天の商品写真を取得できませんでした。'],502);
@@ -325,7 +356,7 @@ try{
  $lock=fopen(pf_dir().'/prepare.lock','c+');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))pf_out(['ok'=>false,'error'=>'新商品の準備中です。少し待ってください。'],409);
  chmod(pf_dir().'/prepare.lock',0600);$state=pf_read('state');@set_time_limit(220);$result=[];
  try{
-  if($action==='image'){pf_image_out((string)($input['url']??''),(string)($input['isbn']??''));}
+  if($action==='image'){pf_image_out((string)($input['url']??''),(string)($input['isbn']??''),(string)($input['productUrl']??''));}
   elseif($action==='prepare-stock'){
    $code=$input['code']??'';$product=null;foreach($state['sources']??[] as $candidate)if(($candidate['code']??'')===$code)$product=$candidate;
    if(!$product)throw new RuntimeException('一覧を更新して商品を選び直してください。');$result=['entry'=>pf_prepare_stock($product,$state)];
