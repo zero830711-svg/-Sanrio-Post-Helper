@@ -112,7 +112,7 @@ function updateFinal(){
  el('flowLink').value=link;
  const body=current.body.replace(/(?:\s*#pr)+\s*$/iu,'').trim();
  el('flowFinal').value=body+(link?'\n\n🛍️ 楽天でチェック\n'+link+'\n\n#pr':'');
- const count=current.selected.length;el('flowPhotoStatus').textContent=count+'枚選択 ・ '+files.filter(Boolean).length+'枚準備済み';
+ const count=current.selected.length;el('flowPhotoStatus').textContent=count+'枚選択 ・ '+files.filter(Boolean).length+'枚準備済み'+(preparingPhotos?' ・ 写真を取得中…':'');
  el('flowShare').disabled=busy||saving||preparingPhotos||dirty||!body||!count||!el('flowConfirm').checked;
  el('flowSavePhotos').disabled=busy||!count||current.selected.some(i=>!files[i]);
  el('flowCopy').disabled=busy||!body;
