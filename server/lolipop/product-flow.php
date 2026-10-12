@@ -136,7 +136,7 @@ function pf_stock_rows(array $data,array $settings,array $state):array{
 }
 function pf_stock_discover(array &$state):array{
  $settings=lw_settings();if(empty($settings['accessKey']))throw new RuntimeException('楽天API設定を保存してください。');
- $existing=array_values(array_filter($state['sources']??[],static fn($r)=>is_array($r)&&!empty($r['code'])&&!pf_stock_used($state,(string)$r['code'])));
+ $existing=array_values(array_filter($state['sources']??[],fn($r)=>is_array($r)&&!empty($r['code'])&&!pf_stock_used($state,(string)$r['code'])));
  if($existing)return $existing;
  $qi=(int)($state['stockQueryIndex']??0);$page=(int)($state['stockPage']??1);$data=pf_search('サンリオ',$settings,$page);
  $state['stockQueryIndex']=0;$state['stockPage']=$page+1;
@@ -162,7 +162,7 @@ function pf_prepare_stock(array $product,array &$state):array{
 function pf_settings():array{return array_replace(['enabled'=>true,'dailyLimit'=>20],pf_read('settings'));}
 function pf_public(array $state):array{
  $rows=array_values($state['entries']??[]);usort($rows,static fn($a,$b)=>($b['createdAt']??0)<=>($a['createdAt']??0));
- return ['entries'=>$rows,'enabled'=>pf_settings()['enabled'],'dailyLimit'=>20,'lastRun'=>$state['lastRun']??null,'lastError'=>$state['lastError']??'','rakutenConfigured'=>!empty(lw_settings()['accessKey']),'aiConfigured'=>!empty(news_groq_settings()['apiKey'])];
+ return ['entries'=>$rows,'sources'=>$state['sources']??[],'enabled'=>pf_settings()['enabled'],'dailyLimit'=>20,'lastRun'=>$state['lastRun']??null,'lastError'=>$state['lastError']??'','rakutenConfigured'=>!empty(lw_settings()['accessKey']),'aiConfigured'=>!empty(news_groq_settings()['apiKey'])];
 }
 function pf_prepare(string $url,array &$state,string $keyword=''):array{
  $u=news_url($url);if(!$u)throw new RuntimeException('対応する公式記事・取得済みInstagramのURLを指定してください。');
@@ -203,14 +203,15 @@ function pf_tick(array &$state):array{
  $day=gmdate('Y-m-d',time()+9*3600);if(($state['day']??'')!==$day){$state['day']=$day;$state['count']=0;}
  if(($state['count']??0)>=20)return ['message'=>'本日の自動準備は20件までです。'];
  $state['lastRun']=time();$state['lastError']='';
- $sources=pf_sources();$state['sources']=$sources;
- foreach($sources as $item){
-  $id=hash('sha256',$item['url']);if(isset($state['entries'][$id])||isset($state['attempted'][$id]))continue;
+ try{$sources=pf_stock_discover($state);}catch(Throwable $e){$state['lastError']=$e->getMessage();return ['message'=>'楽天の在庫商品を取得できませんでした：'.$e->getMessage()];}
+ foreach($sources as $product){
+  $id='rakuten-'.$product['code'];if(pf_stock_used($state,(string)$product['code']))continue;
   $state['count']=($state['count']??0)+1;$state['attempted'][$id]=time();
-  try{return ['entry'=>pf_prepare($item['url'],$state),'message'=>'1件の下書きを準備しました。'];}catch(Throwable $e){$state['lastError']=$e->getMessage();return ['message'=>'準備を保留しました：'.$e->getMessage()];}
+  try{return ['entry'=>pf_prepare_stock($product,$state),'message'=>'楽天の在庫商品から下書きを1件準備しました。'];}catch(Throwable $e){$state['lastError']=$e->getMessage();return ['message'=>'準備を保留しました：'.$e->getMessage()];}
  }
- return ['message'=>'新しい対象商品はありません。'];
+ return ['message'=>'この検索ページに未準備の商品はありません。次回は次の商品ページを探します。'];
 }
+
 if(defined('SPH_FLOW_TEST'))return;
 function pf_out(array $data,int $status=200):void{http_response_code($status);header('Content-Type: application/json; charset=utf-8');echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);exit;}
 $config=require __DIR__.'/config.php';$origin=$_SERVER['HTTP_ORIGIN']??'';
@@ -229,8 +230,12 @@ try{
  $lock=fopen(pf_dir().'/prepare.lock','c+');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))pf_out(['ok'=>false,'error'=>'新商品の準備中です。少し待ってください。'],409);
  chmod(pf_dir().'/prepare.lock',0600);$state=pf_read('state');@set_time_limit(220);$result=[];
  try{
-  if($action==='settings'){if(!is_bool($input['enabled']??null))throw new RuntimeException('自動準備の設定を確認してください。');pf_write('settings',['enabled'=>$input['enabled']]);}
-  elseif($action==='sources'){$state['sources']=pf_sources();}
+  if($action==='prepare-stock'){
+   $code=$input['code']??'';$product=null;foreach($state['sources']??[] as $candidate)if(($candidate['code']??'')===$code)$product=$candidate;
+   if(!$product)throw new RuntimeException('一覧を更新して商品を選び直してください。');$result=['entry'=>pf_prepare_stock($product,$state)];
+  }
+  elseif($action==='settings'){if(!is_bool($input['enabled']??null))throw new RuntimeException('自動準備の設定を確認してください。');pf_write('settings',['enabled'=>$input['enabled']]);}
+  elseif($action==='sources'){$state['sources']=pf_stock_discover($state);$result=['message'=>count($state['sources']).'件の楽天在庫商品が見つかりました。'];}
   elseif($action==='tick'){$result=pf_tick($state);}
   elseif($action==='prepare'){
    if(!is_string($input['url']??null))throw new RuntimeException('記事URLを確認してください。');
