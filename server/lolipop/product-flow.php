@@ -256,14 +256,15 @@ function pf_stock_rows(array $data,array $settings,array $state):array{
 function pf_stock_discover(array &$state):array{
  $settings=lw_settings();if(empty($settings['accessKey']))throw new RuntimeException('楽天API設定を保存してください。');
  $existing=array_values(array_filter($state['sources']??[],fn($r)=>is_array($r)&&!empty($r['code'])&&($r['sourceAt']??0)>time()-1800&&!pf_stock_used($state,(string)$r['code'])));
- $queries=pf_stock_queries();$qi=(int)($state['stockQueryIndex']??0);$page=(int)($state['stockPage']??1);
- if($qi>=count($queries)){$qi=0;$page=1;}
+ $queries=pf_stock_queries();
+ if(($state['stockSearchMode']??'')!=='character-round-robin-v1'){$state['stockQueryIndex']=0;$state['stockPage']=1;$state['stockSearchMode']='character-round-robin-v1';}
+ $qi=(int)($state['stockQueryIndex']??0);$page=max(1,(int)($state['stockPage']??1));
  $rows=[];$errors=[];
  for($scan=0;$scan<3;$scan++){
-  if($qi>=count($queries)){$qi=0;$page=1;}
+  if($qi>=count($queries)){$qi=0;$page=$page>=100?1:$page+1;}
   if($scan>0)usleep(1100000);
-  try{$data=pf_search($queries[$qi],$settings,$page);$rows=array_merge($rows,pf_stock_rows($data,$settings,$state));if($page*30>=max(0,(int)($data['count']??0))){$qi++;$page=1;}else $page++;}
-  catch(Throwable $e){$errors[]='楽天市場：'.$e->getMessage();break;}
+  try{$data=pf_search($queries[$qi],$settings,$page);$rows=array_merge($rows,pf_stock_rows($data,$settings,$state));$qi++;}
+  catch(Throwable $e){$errors[]='楽天市場：'.$e->getMessage();$qi++;if(strpos($e->getMessage(),'HTTP 404')!==false)continue;break;}
  }
  $state['stockQueryIndex']=$qi;$state['stockPage']=$page;
  try{$data=pf_external_search('books','サンリオ',$settings);$rows=array_merge($rows,pf_books_rows($data,$state));}catch(Throwable $e){$errors[]='楽天ブックス：'.$e->getMessage();}
