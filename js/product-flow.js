@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let entries=[],sources=[],sourceErrors=[],sourcePoolCount=0,sourceServiceCounts={market:0,books:0,travel:0},sourceUniqueCount=0,sourceDuplicateCount=0,sourceHasMore=false,sourceLoading=false,sourceDisplayLimit=60,current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[],preparingPhotos=false,photoPreparationSeq=0;
+let entries=[],sources=[],sourceErrors=[],sourcePoolCount=0,sourceServiceCounts={market:0,books:0,travel:0},sourceSearchProgress=null,sourceUniqueCount=0,sourceDuplicateCount=0,sourceHasMore=false,sourceLoading=false,sourceDisplayLimit=60,current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[],preparingPhotos=false,photoPreparationSeq=0;
 function endpoint(action,params={}){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/product-flow.php'));u.searchParams.set('action',action);if(params.offset!==undefined)u.searchParams.set('offset',String(params.offset));return u.href;}
 async function api(action,data,params){
  const {key}=cloudSettings();if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -44,7 +44,7 @@ function saveFlowShort(value){
 }
 function ready(row){return !!row.body&&!!row.match.link&&row.item.images?.length>0;}
 function apply(d,sourceMode='preserve'){
- entries=d.entries||entries;if(Array.isArray(d.sources)){if(sourceMode==='replace')sources=d.sources;else if(sourceMode==='append'){const seen=new Set(sources.map(r=>r.dedupeKey||r.code));sources=[...sources,...d.sources.filter(r=>!seen.has(r.dedupeKey||r.code))];}}if(typeof d.sourceHasMore==='boolean')sourceHasMore=d.sourceHasMore;if(Array.isArray(d.sourceErrors))sourceErrors=d.sourceErrors;if(Number.isFinite(Number(d.sourcePoolCount)))sourcePoolCount=Number(d.sourcePoolCount);if(d.sourceServiceCounts&&typeof d.sourceServiceCounts==='object')sourceServiceCounts={market:Number(d.sourceServiceCounts.market)||0,books:Number(d.sourceServiceCounts.books)||0,travel:Number(d.sourceServiceCounts.travel)||0};if(Number.isFinite(Number(d.sourceUniqueCount)))sourceUniqueCount=Number(d.sourceUniqueCount);if(Number.isFinite(Number(d.sourceDuplicateCount)))sourceDuplicateCount=Number(d.sourceDuplicateCount);if(d.sourceUpdatedAt)sourceUpdatedAt=Number(d.sourceUpdatedAt)*1000;
+ entries=d.entries||entries;if(Array.isArray(d.sources)){if(sourceMode==='replace')sources=d.sources;else if(sourceMode==='append'){const seen=new Set(sources.map(r=>r.dedupeKey||r.code));sources=[...sources,...d.sources.filter(r=>!seen.has(r.dedupeKey||r.code))];}}if(typeof d.sourceHasMore==='boolean')sourceHasMore=d.sourceHasMore;if(Array.isArray(d.sourceErrors))sourceErrors=d.sourceErrors;if(d.sourceScanProgress&&typeof d.sourceScanProgress==='object')sourceSearchProgress=d.sourceScanProgress;if(Number.isFinite(Number(d.sourcePoolCount)))sourcePoolCount=Number(d.sourcePoolCount);if(d.sourceServiceCounts&&typeof d.sourceServiceCounts==='object')sourceServiceCounts={market:Number(d.sourceServiceCounts.market)||0,books:Number(d.sourceServiceCounts.books)||0,travel:Number(d.sourceServiceCounts.travel)||0};if(Number.isFinite(Number(d.sourceUniqueCount)))sourceUniqueCount=Number(d.sourceUniqueCount);if(Number.isFinite(Number(d.sourceDuplicateCount)))sourceDuplicateCount=Number(d.sourceDuplicateCount);if(d.sourceUpdatedAt)sourceUpdatedAt=Number(d.sourceUpdatedAt)*1000;
  if(typeof d.enabled==='boolean')el('flowAuto').checked=d.enabled;
  el('flowSettingsHint').textContent=[d.rakutenConfigured===false?'「楽天API設定」を保存してください。':'',d.aiConfigured===false?'新作ニュースの「AI設定」でGroqを設定してください。':''].filter(Boolean).join(' ');
  if(d.lastRun)el('flowLastRun').textContent='最終確認：'+new Date(d.lastRun*1000).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'});
@@ -76,6 +76,7 @@ function renderSources(){
  const counts=sourceServiceCounts||{market:0,books:0,travel:0};
  const unique=sourceUniqueCount||rows.length;
  el('flowSourcesCount').textContent='未準備 '+unique.toLocaleString('ja-JP')+'商品（取得候補 '+(sourcePoolCount||rows.length).toLocaleString('ja-JP')+'件、重複 '+sourceDuplicateCount.toLocaleString('ja-JP')+'件を整理） ・ 市場 '+(counts.market||0)+'件／ブックス '+(counts.books||0)+'件／トラベル '+(counts.travel||0)+'件';
+ const progress=el('flowSourceProgress');if(progress&&sourceSearchProgress){const q=sourceSearchProgress;progress.textContent='次回の巡回位置：市場 '+(q.marketTermIndex||1)+'/'+(q.marketTermCount||0)+'語 p'+(q.marketPage||1)+' ／ ブックス '+(q.booksTermIndex||1)+'/'+(q.booksTermCount||0)+'語 p'+(q.booksPage||1)+' ／ トラベル p'+(q.travelPage||1);}
  if(sourceUpdatedAt)el('flowSourcesCount').textContent+=' ・ 更新 '+new Date(sourceUpdatedAt).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'});
  if(sourceErrors.length){const warning=document.createElement('p');warning.className='backup-note';warning.textContent='取得できないサービス：'+sourceErrors.join(' / ');host.append(warning);}
  const serviceFilter=el('flowSourceService')?.value||'all',categoryFilter=el('flowSourceCategory')?.value||'all';
