@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0;
+let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false;
 function endpoint(action){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/product-flow.php'));u.searchParams.set('action',action);return u.href;}
 async function api(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -10,6 +10,22 @@ async function api(action,data){
  if(!r.ok||d.ok===false)throw new Error(d.error||'下書きの準備を完了できませんでした。');return d;
 }
 function status(s){el('flowStatus').textContent=s;}
+function queueAutoSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{saveDraft(false);},1000);}
+async function saveDraft(showMessage=true){
+ if(!current||!dirty)return true;
+ if(busy||saving){queueAutoSave();return false;}
+ clearTimeout(saveTimer);saving=true;
+ const id=current.id,body=el('flowBody').value,selected=[...current.selected],linkMode=el('flowLinkMode').value;
+ try{
+  const d=await api('save',{id,body,selected,linkMode});apply(d);
+  const unchanged=current?.id===id&&el('flowBody').value===body&&el('flowLinkMode').value===linkMode&&JSON.stringify(current.selected)===JSON.stringify(selected);
+  dirty=!unchanged;
+  if(showMessage)status(d.message||'下書きを保存しました。');
+  return !dirty;
+ }catch(e){status('自動保存できませんでした。'+e.message);return false;}
+ finally{saving=false;if(dirty)queueAutoSave();}
+}
+function closeEditor(){clearTimeout(saveTimer);++requestSeq;current=null;files=[];el('flowEditor').hidden=true;el('flowBrowse').hidden=false;render();}
 function button(text,fn){const b=document.createElement('button');b.type='button';b.className='small-btn';b.textContent=text;b.onclick=fn;return b;}
 function anchor(text,url){const a=document.createElement('a');a.textContent=text;a.className='small-btn link-btn';a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;}
 function safeURL(s,roots){try{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&roots.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false;}}
@@ -24,7 +40,7 @@ function saveFlowShort(value){
  const map=flowShortMap();map[flowShortKey(current)]=url;
  try{localStorage.setItem(FLOW_SHORT_KEY,JSON.stringify(map));}catch{throw new Error('短縮URLを端末に保存できませんでした。空き容量を確認してください。');}
  if([...el('flowLinkMode').options].some(o=>o.value==='item'&&!o.disabled))el('flowLinkMode').value='item';
- dirty=true;updateFinal();el('flowShortUrlStatus').textContent='短縮URLを保存して投稿本文に反映しました。';
+ dirty=true;updateFinal();el('flowShortUrlStatus').textContent='短縮URLを保存して投稿本文に反映しました。';queueAutoSave();
 }
 function ready(row){return !!row.body&&!!row.match.link&&row.item.images?.length>0;}
 function apply(d){
@@ -46,7 +62,7 @@ function renderSources(){
   const title=document.createElement('h3');title.textContent=item.title||'商品名を確認できません';card.append(title);
   const meta=document.createElement('p');meta.className='backup-note';meta.textContent=(item.sourceLabel||'楽天')+(item.shop?' ・ '+item.shop:'')+(item.price>0?' ・ '+(item.service==='travel'?'最安料金目安：':'価格：')+Number(item.price).toLocaleString('ja-JP')+'円'+(item.service==='travel'?'／泊':''):'');card.append(meta);
   if(item.url&&safeURL(item.url,['item.rakuten.co.jp','books.rakuten.co.jp','travel.rakuten.co.jp','hb.afl.rakuten.co.jp']))card.append(anchor('掲載ページを見る',item.url));
-  card.append(button('下書きに追加',()=>run('prepare-stock',{code:item.code},true)));
+  card.append(button('投稿準備',()=>run('prepare-stock',{code:item.code},true)));
   host.append(card);
  }
 }
@@ -95,7 +111,7 @@ function updateFinal(){
  const body=current.body.replace(/(?:\s*#pr)+\s*$/iu,'').trim();
  el('flowFinal').value=body+(link?'\n\n🛍️ 楽天でチェック\n'+link+'\n\n#pr':'');
  const count=current.selected.length;el('flowPhotoStatus').textContent=count+'枚選択 ・ '+files.filter(Boolean).length+'枚準備済み';
- el('flowShare').disabled=busy||!body||!count||current.selected.some(i=>!files[i]);
+ el('flowShare').disabled=busy||!body||!count||current.selected.some(i=>!files[i])||!el('flowConfirm').checked;
  el('flowSavePhotos').disabled=busy||!count||current.selected.some(i=>!files[i]);
  el('flowCopy').disabled=busy||!body;
 }
@@ -105,6 +121,7 @@ async function open(id){
  current=structuredClone(row);dirty=false;files=[];const seq=++requestSeq;
  el('flowBrowse').hidden=true;el('flowEditor').hidden=false;el('flowTitle').textContent=row.item.title;
  el('flowBody').value=row.body;
+ el('flowConfirm').checked=false;
  el('flowOriginal').textContent=(row.item.paragraphs||[]).join('\n\n');
  el('flowItemUrl').value=row.item.url||'';
  el('flowShortUrlStatus').textContent=flowShort(row)?'この候補に保存済みの短縮URLがあります。':'';
@@ -130,7 +147,7 @@ function renderPhotos(){
   checkbox.onchange=async()=>{
    if(checkbox.checked&&current.selected.length>=4){checkbox.checked=false;status('写真は4枚まで選択できます。');return;}
    if(checkbox.checked)current.selected.push(i);else current.selected=current.selected.filter(n=>n!==i);
-   dirty=true;updateFinal();const seq=requestSeq;
+   dirty=true;updateFinal();queueAutoSave();const seq=requestSeq;
    if(checkbox.checked&&!files[i])try{const f=await getProductPhoto(current,i);if(seq===requestSeq){files[i]=f;updateFinal();}}catch{status('写真を準備できませんでした。');}
   };
   label.append(img,checkbox,document.createTextNode('写真'+(i+1)));el('flowPhotos').append(label);
@@ -157,27 +174,44 @@ el('flowRefresh').onclick=load;
 
 el('flowAuto').onchange=()=>run('settings',{enabled:el('flowAuto').checked});
 el('flowFilter').onchange=render;
-el('flowBody').oninput=()=>{dirty=true;updateFinal();};
-el('flowLinkMode').onchange=()=>{dirty=true;updateFinal();};
-el('flowSave').onclick=async()=>{
- if(!current)return;const d=await run('save',{id:current.id,body:el('flowBody').value,selected:current.selected,linkMode:el('flowLinkMode').value});
- if(d){dirty=false;status('下書きを保存しました。');}
-};
+el('flowBody').oninput=()=>{dirty=true;updateFinal();queueAutoSave();};
+el('flowLinkMode').onchange=()=>{dirty=true;updateFinal();queueAutoSave();};
+el('flowConfirm').onchange=updateFinal;
+el('flowSave').onclick=()=>saveDraft(true);
 el('flowRetry').onclick=async()=>{if(dirty){status('編集内容を先に保存してください。');return;}await run('retry',{id:current.id},true);};
 el('flowPhotoRetry').onclick=async()=>{
  const seq=requestSeq;await Promise.allSettled(current.selected.map(async i=>{try{const f=await getProductPhoto(current,i);if(seq===requestSeq)files[i]=f;}catch{status('写真'+(i+1)+'を取得できませんでした。');}}));updateFinal();
 };
-el('flowBack').onclick=()=>{if(dirty){status('変更を先に「下書きを保存」で保存してください。');return;}++requestSeq;current=null;files=[];el('flowEditor').hidden=true;el('flowBrowse').hidden=false;render();};
+el('flowBack').onclick=async()=>{if(dirty&&!await saveDraft(true))return;closeEditor();};
 el('flowCopy').onclick=()=>copyTextFromClick(el('flowFinal').value,el('flowCopy'),'リンク付き本文をコピーしました');
 el('flowShare').onclick=async()=>{
+ if(!el('flowConfirm').checked){status('商品・掲載内容・在庫・リンク・写真を確認してください。');return;}
+ if(dirty&&!await saveDraft(true))return;
  const text=el('flowFinal').value,data={text,files:current.selected.map(i=>files[i]).filter(Boolean)};
- try{if(navigator.canShare?.(data))await navigator.share(data);else if(navigator.share)await navigator.share({text});else copyTextFromClick(text,el('flowCopy'),'本文をコピーしました');}
- catch(e){if(e.name!=='AbortError')status('共有できませんでした。本文コピー・写真保存を利用してください。');}
+ try{
+  if(navigator.canShare?.(data)){await navigator.share(data);status('共有画面を閉じました。Xで投稿後、「投稿済みにして次へ」を押してください。');}
+  else if(navigator.share){await navigator.share({text});status('本文を共有しました。写真は別に保存してください。');}
+  else copyTextFromClick(text,el('flowCopy'),'本文をコピーしました');
+ }catch(e){if(e.name!=='AbortError')status('共有できませんでした。本文コピー・写真保存を利用してください。');}
 };
 el('flowSavePhotos').onclick=()=>{for(const i of current.selected){const f=files[i];if(!f)continue;const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(u),60000);}};
-for(const [id,mark] of [['flowDone','done'],['flowSkip','skip']])el(id).onclick=async()=>{
- if(dirty){status('編集内容を先に保存してください。');return;}const d=await run('mark',{id:current.id,mark});if(d)el('flowBack').click();
-};
+async function markCurrent(mark){
+ if(!current)return;
+ if(dirty&&!await saveDraft(true))return;
+ const id=current.id,code=current.item?.code;
+ const d=await run('mark',{id,mark});if(!d)return;
+ if(mark==='done'){
+  const nextDraft=entries.find(row=>row.id!==id&&!row.mark);
+  if(nextDraft){await open(nextDraft.id);status('次の準備済み候補を開きました。');return;}
+  const prepared=new Set(entries.map(row=>row.item?.code).filter(Boolean));
+  const nextSource=sources.find(item=>item?.code&&item.code!==code&&!prepared.has(item.code));
+  if(nextSource){await run('prepare-stock',{code:nextSource.code},true);return;}
+ }
+ closeEditor();
+ if(mark==='done')status('投稿済みにしました。次に準備できる候補はありません。');
+}
+el('flowDone').onclick=()=>markCurrent('done');
+el('flowSkip').onclick=()=>markCurrent('skip');
 document.addEventListener('sph-product-flow-tab',load);
 setInterval(()=>{if(!document.hidden&&!el('productFlowPanel').hidden)load();},5*60*1000);
 if(location.hash==='#new-product')setHomeView('flow');
