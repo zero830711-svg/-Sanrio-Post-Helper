@@ -83,7 +83,7 @@ function renderPhotos(){
   const img=document.createElement('img');img.src=newsApiUrl('image',current.item.url,i);
   // The protected image endpoint needs a Bearer header. Use a source preview;
   // downloadable files are fetched separately with newsRequest.
-  if(safeURL(url,['sanrio.co.jp','prtimes.jp','cdninstagram.com','fbcdn.net','bandai.co.jp','akamaihd.net','takaratomy-arts.co.jp','re-ment.co.jp','shopify.com']))img.src=url;
+  if(safeURL(url,['sanrio.co.jp','prtimes.jp','prcdn.freetls.fastly.net','cdninstagram.com','fbcdn.net','bandai.co.jp','akamaihd.net','takaratomy-arts.co.jp','re-ment.co.jp','gashapon.jp','makeshop-multi-images.akamaized.net','shopify.com']))img.src=url;
   else img.removeAttribute('src');
   img.alt='写真'+(i+1);img.loading='lazy';img.referrerPolicy='no-referrer';
   const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=current.selected.includes(i);

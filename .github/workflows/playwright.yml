@@ -12,6 +12,9 @@ on:
       - "app.js"
       - "news.js"
       - "news-collage.js"
+      - "product-flow.js"
+      - "product-flow.css"
+      - "server/lolipop/product-flow.php"
       - "lovely-watch.js"
       - "new-product-ranking.js"
       - "server/lolipop/lovely-watch.php"
@@ -40,6 +43,9 @@ on:
       - "app.js"
       - "news.js"
       - "news-collage.js"
+      - "product-flow.js"
+      - "product-flow.css"
+      - "server/lolipop/product-flow.php"
       - "lovely-watch.js"
       - "new-product-ranking.js"
       - "server/lolipop/lovely-watch.php"
@@ -78,6 +84,8 @@ jobs:
 
       - name: Check product PHP API and parsers
         run: |
+          php -l server/lolipop/product-flow.php
+          php tests/product-flow.php
           php -l server/lolipop/lovely-watch.php
           php tests/lovely-parser.php
           php tests/hatakeyama-parser.php
