@@ -9,6 +9,7 @@ pf_check(in_array('サンリオ',pf_stock_queries(),true)&&in_array('クロミ �
 pf_check(pf_stock_related(['itemName'=>'クロミ ぬいぐるみ'])&&!pf_stock_related(['itemName'=>'別キャラクター 商品']),'Sanrio stock item filtering failed');
 pf_check(pf_stock_used(['attempted'=>['rakuten-shop:item'=>time()]],'shop:item'),'Prepared stock item was not deduplicated');
 pf_check(pf_jan($jan)&&!pf_jan('4901234567890'),'JAN check digit validation failed');
+pf_check(pf_google_books_cover('not-an-isbn')==='','Invalid ISBN reached the Google Books lookup');
 $identity=pf_identity(['title'=>'キティ マスコット','paragraphs'=>['JAN：'.$jan]]);
 pf_check($identity['jan']===$jan&&$identity['keyword']===$jan,'Source JAN not selected');
 $ambiguous=pf_identity(['title'=>'商品まとめ','paragraphs'=>[$jan.' '.$other]]);
