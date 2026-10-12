@@ -58,12 +58,13 @@ function renderSources(){
  if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='自動検索中です。候補が見つかるとここに表示されます。';host.append(p);return;}
  for(const item of rows){
   const card=document.createElement('article');card.className='flow-card flow-source-card';
-  if(item.image&&safeURL(item.image,['r10s.jp','rakuten.co.jp','img.travel.rakuten.co.jp'])){const img=document.createElement('img');img.src=item.image;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';card.append(img);}
+  if(item.image&&safeURL(item.image,['r10s.jp','rakuten.co.jp','img.travel.rakuten.co.jp'])){const img=document.createElement('img');img.src=item.image;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';card.classList.add('has-image');card.append(img);}
   const title=document.createElement('h3');title.textContent=item.title||'商品名を確認できません';card.append(title);
   const meta=document.createElement('p');meta.className='backup-note';meta.textContent=(item.sourceLabel||'楽天')+(item.shop?' ・ '+item.shop:'')+(item.price>0?' ・ '+(item.service==='travel'?'最安料金目安：':'価格：')+Number(item.price).toLocaleString('ja-JP')+'円'+(item.service==='travel'?'／泊':''):'');card.append(meta);
-  if(item.url&&safeURL(item.url,['item.rakuten.co.jp','books.rakuten.co.jp','travel.rakuten.co.jp','hb.afl.rakuten.co.jp']))card.append(anchor('掲載ページを見る',item.url));
-  card.append(button('投稿準備',()=>run('prepare-stock',{code:item.code},true)));
-  host.append(card);
+  const actions=document.createElement('div');actions.className='flow-source-actions';
+  if(item.url&&safeURL(item.url,['item.rakuten.co.jp','books.rakuten.co.jp','travel.rakuten.co.jp','hb.afl.rakuten.co.jp']))actions.append(anchor('掲載ページを見る',item.url));
+  actions.append(button('投稿準備',()=>run('prepare-stock',{code:item.code},true)));
+  card.append(actions);host.append(card);
  }
 }
 
