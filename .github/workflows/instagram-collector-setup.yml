@@ -118,7 +118,7 @@ jobs:
           ' "$ig_tmp/config.php"
 
 
-          if [ "${{ github.event.head_commit.message == 'Read Instagram photo text for Japanese AI posts' || github.event.head_commit.message == 'Bound Instagram photo OCR to Groq limits' }}" = "true" ]; then
+          if [ "${{ github.event.head_commit.message == 'Read Instagram photo text for Japanese AI posts' || github.event.head_commit.message == 'Bound Instagram photo OCR to Groq limits' || github.event.head_commit.message == 'Keep photo-informed drafts within source facts' }}" = "true" ]; then
           php -r '
           $config=require $argv[1];$base="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/news.php";
           $headers=["Authorization: Bearer ".$config["sync_key"],"Content-Type: application/json","Origin: https://zero830711-svg.github.io"];
