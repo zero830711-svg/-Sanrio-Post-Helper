@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let entries=[],sources=[],sourceErrors=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[],preparingPhotos=false,photoPreparationSeq=0;
+let entries=[],sources=[],sourceErrors=[],sourcePoolCount=0,sourceDisplayLimit=60,current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[],preparingPhotos=false,photoPreparationSeq=0;
 function endpoint(action){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/product-flow.php'));u.searchParams.set('action',action);return u.href;}
 async function api(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -44,7 +44,7 @@ function saveFlowShort(value){
 }
 function ready(row){return !!row.body&&!!row.match.link&&row.item.images?.length>0;}
 function apply(d){
- entries=d.entries||entries;if(d.sources)sources=d.sources;if(Array.isArray(d.sourceErrors))sourceErrors=d.sourceErrors;if(d.sourceUpdatedAt)sourceUpdatedAt=Number(d.sourceUpdatedAt)*1000;
+ entries=d.entries||entries;if(d.sources)sources=d.sources;if(Array.isArray(d.sourceErrors))sourceErrors=d.sourceErrors;if(Number.isFinite(Number(d.sourcePoolCount)))sourcePoolCount=Number(d.sourcePoolCount);if(d.sourceUpdatedAt)sourceUpdatedAt=Number(d.sourceUpdatedAt)*1000;
  if(typeof d.enabled==='boolean')el('flowAuto').checked=d.enabled;
  el('flowSettingsHint').textContent=[d.rakutenConfigured===false?'「楽天API設定」を保存してください。':'',d.aiConfigured===false?'新作ニュースの「AI設定」でGroqを設定してください。':''].filter(Boolean).join(' ');
  if(d.lastRun)el('flowLastRun').textContent='最終確認：'+new Date(d.lastRun*1000).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'});
@@ -55,10 +55,10 @@ function renderSources(){
  const host=el('flowSources');if(!host)return;host.replaceChildren();
  const rows=sources.filter(r=>r&&r.code);
  const counts={market:0,books:0,travel:0};for(const row of rows)if(Object.prototype.hasOwnProperty.call(counts,row.service))counts[row.service]++;
- el('flowSourcesCount').textContent=rows.length+'件（楽天市場 '+counts.market+'・ブックス '+counts.books+'・トラベル '+counts.travel+'）';
+ el('flowSourcesCount').textContent=(sourcePoolCount||rows.length)+'件を保管中（表示 '+rows.length+'件／楽天市場 '+counts.market+'・ブックス '+counts.books+'・トラベル '+counts.travel+'）';
  if(sourceErrors.length){const warning=document.createElement('p');warning.className='backup-note';warning.textContent='取得できないサービス：'+sourceErrors.join(' / ');host.append(warning);}
  if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='自動検索中です。候補が見つかるとここに表示されます。';host.append(p);return;}
- for(const item of rows){
+ for(const item of rows.slice(0,sourceDisplayLimit)){
   const card=document.createElement('article');card.className='flow-card flow-source-card';
   if(item.image&&safeURL(item.image,['r10s.jp','rakuten.co.jp','img.travel.rakuten.co.jp'])){const img=document.createElement('img');img.src=item.image;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';card.classList.add('has-image');card.append(img);}
   const title=document.createElement('h3');title.textContent=item.title||'商品名を確認できません';card.append(title);
@@ -68,6 +68,7 @@ function renderSources(){
   actions.append(button('投稿準備',()=>run('prepare-stock',{code:item.code},true)));
   card.append(actions);host.append(card);
  }
+ if(rows.length>sourceDisplayLimit){host.append(button('さらに60件表示',()=>{sourceDisplayLimit+=60;renderSources();}));}
 }
 
 function render(){
