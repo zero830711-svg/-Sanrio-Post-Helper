@@ -66,17 +66,17 @@ function pf_search_url(string $keyword):string{return 'https://search.rakuten.co
 function pf_safe_affiliate(string $url):bool{
  $p=parse_url($url);return ($p['scheme']??'')==='https'&&($p['host']??'')==='hb.afl.rakuten.co.jp'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&preg_match('~^/hgc/[a-zA-Z0-9._-]{8,128}/?$~D',$p['path']??'');
 }
-function pf_search(string $keyword,array $settings):array{
+function pf_search(string $keyword,array $settings,int $page=1):array{
  if(mb_strlen($keyword)<2||mb_strlen($keyword)>80)throw new RuntimeException('楽天の検索語を2〜80文字で指定してください。');
  $settings=lw_validate_settings($settings);
- $cache='search-'.hash('sha256',$keyword.json_encode($settings));$saved=pf_read($cache);
+ $cache='search-'.hash('sha256',$keyword.'|'.$page.json_encode($settings));$saved=pf_read($cache);
  if(($saved['at']??0)>time()-1800)return $saved['data'];
  $lock=fopen(pf_dir().'/rakuten.lock','c+');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('楽天APIを利用中です。少し待ってください。');
  try{
   chmod(pf_dir().'/rakuten.lock',0600);$last=(float)stream_get_contents($lock);
   if(microtime(true)-$last<1)throw new RuntimeException('楽天の検索間隔をあけてください。');
   rewind($lock);ftruncate($lock,0);fwrite($lock,(string)microtime(true));fflush($lock);
-  $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'keyword'=>$keyword,'availability'=>1,'hits'=>30,'formatVersion'=>2,'elements'=>'count,itemCode,itemName,itemUrl,itemCaption,mediumImageUrls,affiliateUrl,shopCode,shopName']);
+  $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'keyword'=>$keyword,'availability'=>1,'hits'=>30,'page'=>$page,'formatVersion'=>2,'elements'=>'count,itemCode,itemName,itemUrl,itemCaption,mediumImageUrls,affiliateUrl,shopCode,shopName']);
   $c=curl_init($url);$body='';
   curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>static function($c,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>1000000)return 0;$body.=$bytes;return strlen($bytes);}]);
   $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
