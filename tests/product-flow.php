@@ -4,6 +4,7 @@ define('SPH_FLOW_TEST',true);
 require __DIR__.'/../server/lolipop/product-flow.php';
 function pf_check(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);}
 $jan='4901234567894';$other='4901234567887';$aid='12345678.12345678.12345678.12345678';
+pf_check(pf_settings()['dailyLimit']===20,'Daily draft limit was not raised to 20');
 pf_check(pf_jan($jan)&&!pf_jan('4901234567890'),'JAN check digit validation failed');
 $identity=pf_identity(['title'=>'キティ マスコット','paragraphs'=>['JAN：'.$jan]]);
 pf_check($identity['jan']===$jan&&$identity['keyword']===$jan,'Source JAN not selected');
