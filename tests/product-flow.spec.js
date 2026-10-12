@@ -56,7 +56,7 @@ test('選択した写真4枚とリンク付き本文を共有する',async({page
  await page.route('https://scontent.cdninstagram.com/**',r=>r.fulfill({contentType:'image/png',body:png}));
  await setup(page,row);await page.getByRole('button',{name:'確認・共有',exact:true}).click();
  await expect(page.locator('#flowShare')).toBeEnabled();
- await page.locator('#flowPhotos input').nth(4).check();await expect(page.locator('#flowPhotos input').nth(4)).not.toBeChecked();
+ await page.locator('#flowPhotos input').nth(4).click();await expect(page.locator('#flowPhotos input').nth(4)).not.toBeChecked();
  await page.locator('#flowShare').click();expect(await page.evaluate(()=>window.__shared.count)).toBe(4);
  expect(await page.evaluate(()=>window.__shared.text)).toContain('#pr');
 });
