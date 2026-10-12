@@ -118,10 +118,10 @@ function pf_sources():array{
  usort($items,static fn($a,$b)=>strcmp((string)$b['date'],(string)$a['date']));
  return array_slice(array_values($items),0,60);
 }
-function pf_settings():array{return array_replace(['enabled'=>true,'dailyLimit'=>12],pf_read('settings'));}
+function pf_settings():array{return array_replace(['enabled'=>true,'dailyLimit'=>20],pf_read('settings'));}
 function pf_public(array $state):array{
  $rows=array_values($state['entries']??[]);usort($rows,static fn($a,$b)=>($b['createdAt']??0)<=>($a['createdAt']??0));
- return ['entries'=>$rows,'enabled'=>pf_settings()['enabled'],'dailyLimit'=>12,'lastRun'=>$state['lastRun']??null,'lastError'=>$state['lastError']??'','rakutenConfigured'=>!empty(lw_settings()['accessKey']),'aiConfigured'=>!empty(news_groq_settings()['apiKey'])];
+ return ['entries'=>$rows,'enabled'=>pf_settings()['enabled'],'dailyLimit'=>20,'lastRun'=>$state['lastRun']??null,'lastError'=>$state['lastError']??'','rakutenConfigured'=>!empty(lw_settings()['accessKey']),'aiConfigured'=>!empty(news_groq_settings()['apiKey'])];
 }
 function pf_prepare(string $url,array &$state,string $keyword=''):array{
  $u=news_url($url);if(!$u)throw new RuntimeException('対応する公式記事・取得済みInstagramのURLを指定してください。');
@@ -160,7 +160,7 @@ function pf_tick(array &$state):array{
  if(empty(lw_settings()['accessKey'])||empty(news_groq_settings()['apiKey']))return ['message'=>'楽天API・AI設定を保存すると自動準備が始まります。'];
  if(($state['lastRun']??0)>time()-1500)return ['message'=>'次の自動準備を待っています。'];
  $day=gmdate('Y-m-d',time()+9*3600);if(($state['day']??'')!==$day){$state['day']=$day;$state['count']=0;}
- if(($state['count']??0)>=12)return ['message'=>'本日の自動準備は12件までです。'];
+ if(($state['count']??0)>=20)return ['message'=>'本日の自動準備は20件までです。'];
  $state['lastRun']=time();$state['lastError']='';
  $sources=pf_sources();$state['sources']=$sources;
  foreach($sources as $item){
