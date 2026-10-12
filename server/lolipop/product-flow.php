@@ -71,10 +71,10 @@ function pf_search(string $keyword,array $settings,int $page=1):array{
  $settings=lw_validate_settings($settings);
  $cache='search-broad-v1-'.hash('sha256',$keyword.'|'.$page.json_encode($settings));$saved=pf_read($cache);
  if(($saved['at']??0)>time()-1800)return $saved['data'];
- $lock=fopen(pf_dir().'/rakuten.lock','c+');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('楽天APIを利用中です。少し待ってください。');
+ $lock=fopen(pf_dir().'/rakuten-api.lock','c+');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('楽天APIを利用中です。少し待ってください。');
  try{
-  chmod(pf_dir().'/rakuten.lock',0600);$last=(float)stream_get_contents($lock);
-  if(microtime(true)-$last<1)throw new RuntimeException('楽天の検索間隔をあけてください。');
+  chmod(pf_dir().'/rakuten-api.lock',0600);$last=(float)stream_get_contents($lock);
+  if(microtime(true)-$last<1.1)throw new RuntimeException('楽天の検索間隔をあけてください。');
   rewind($lock);ftruncate($lock,0);fwrite($lock,(string)microtime(true));fflush($lock);
   $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'keyword'=>$keyword,'availability'=>1,'field'=>0,'hits'=>30,'page'=>$page,'formatVersion'=>2,'elements'=>'count,itemCode,itemName,itemUrl,itemCaption,itemPrice,mediumImageUrls,affiliateUrl,shopCode,shopName']);
   $c=curl_init($url);$body='';
@@ -96,11 +96,11 @@ function pf_external_search(string $service,string $keyword,array $settings,int 
   $params=['applicationId'=>$settings['applicationId'],'title'=>$keyword,'availability'=>1,'outOfStockFlag'=>0,'hits'=>30,'page'=>$page,'formatVersion'=>2,'affiliateId'=>$settings['affiliateId'],'elements'=>'title,itemCaption,itemPrice,itemUrl,affiliateUrl,mediumImageUrl,largeImageUrl,isbn,availability'];
  }else{
   $base='https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20260731?';
-  $params=['applicationId'=>$settings['applicationId'],'keyword'=>$keyword,'hits'=>30,'page'=>1,'format'=>'json','formatVersion'=>2,'responseType'=>'middle','affiliateId'=>$settings['affiliateId']];
+  $params=['applicationId'=>$settings['applicationId'],'keyword'=>$keyword,'hits'=>30,'page'=>$page,'format'=>'json','formatVersion'=>2,'responseType'=>'middle','affiliateId'=>$settings['affiliateId']];
  }
- $lock=fopen(pf_dir().'/rakuten-external.lock','c+');if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('楽天APIを利用中です。少し待ってください。');
+ $lock=fopen(pf_dir().'/rakuten-api.lock','c+');if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('楽天APIを利用中です。少し待ってください。');
  try{
-  chmod(pf_dir().'/rakuten-external.lock',0600);rewind($lock);$last=(float)stream_get_contents($lock);$wait=1.1-(microtime(true)-$last);if($wait>0)usleep((int)($wait*1000000));
+  chmod(pf_dir().'/rakuten-api.lock',0600);rewind($lock);$last=(float)stream_get_contents($lock);$wait=1.1-(microtime(true)-$last);if($wait>0)usleep((int)($wait*1000000));
   rewind($lock);ftruncate($lock,0);fwrite($lock,(string)microtime(true));fflush($lock);
   $url=$base.http_build_query($params,'','&',PHP_QUERY_RFC3986);$body='';$c=curl_init($url);
   curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>static function($c,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>1000000)return 0;$body.=$bytes;return strlen($bytes);}]);
@@ -229,8 +229,24 @@ function pf_resolve(array $item,string $body,array &$identity,array $settings):a
  }
  return pf_match($data,$identity,$item['title'],$settings);
 }
+function pf_stock_characters():array{
+ return ['ハローキティ','マイメロディ','クロミ','シナモロール','ポムポムプリン','ポチャッコ','ハンギョドン','リトルツインスターズ','キキララ','けろけろけろっぴ','タキシードサム','バッドばつ丸','あひるのペックル','ぐでたま','こぎみゅん','ウィッシュミーメル','ぼんぼんりぼん','チョコキャット','チャーミーキティ','マロンクリーム','ミュークルドリーミー','まるもふびより','みんなのたあ坊','おさるのもんきち','ウサハナ','はなまるおばけ','がおぱわるぅ','シュガーバニーズ','ジュエルペット'];
+}
+function pf_stock_kinds():array{
+ return ['ぬいぐるみ','マスコット','キーホルダー','フィギュア','シール','文房具','ポーチ','バッグ','タオル','食器','スマホケース','ガチャ','一番くじ','カードケース','ぬい服','ランチ','靴下','パジャマ'];
+}
 function pf_stock_queries():array{
- return ['サンリオ','ハローキティ','マイメロディ','クロミ','シナモロール','ポムポムプリン','ポチャッコ','ハンギョドン','リトルツインスターズ','キキララ','けろけろけろっぴ','タキシードサム','バッドばつ丸','あひるのペックル','ぐでたま','こぎみゅん','ウィッシュミーメル','ぼんぼんりぼん','チョコキャット','チャーミーキティ','マロンクリーム','ミュークルドリーミー','まるもふびより','みんなのたあ坊','おさるのもんきち','ウサハナ','はなまるおばけ','がおぱわるぅ','シュガーバニーズ','ジュエルペット'];
+ $characters=pf_stock_characters();$kinds=pf_stock_kinds();$queries=['サンリオ'];
+ foreach($kinds as $kind)$queries[]='サンリオ '.$kind;
+ foreach($characters as $character){$queries[]=$character;foreach($kinds as $kind)$queries[]=$character.' '.$kind;}
+ return array_values(array_unique($queries));
+}
+function pf_stock_book_queries():array{
+ $characters=pf_stock_characters();$kinds=['絵本','児童書','図鑑','シールブック','ぬりえ','手帳','カレンダー','知育','パズル','折り紙','迷路','ドリル'];
+ $queries=['サンリオ'];
+ foreach($kinds as $kind)$queries[]='サンリオ '.$kind;
+ foreach($characters as $character){$queries[]=$character;foreach($kinds as $kind)$queries[]=$character.' '.$kind;}
+ return array_values(array_unique($queries));
 }
 function pf_product_dedupe_key(array $row):string{
  $isbn=strtoupper(preg_replace('/[^0-9X]/i','',(string)($row['isbn']??'')));
@@ -251,7 +267,7 @@ function pf_stock_used(array $state,string $code,string $dedupeKey=''):bool{
  return false;
 }
 function pf_stock_related(array $r):bool{
- return (bool)preg_match('/サンリオ|Sanrio|ハローキティ|マイメロディ|クロミ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|リトルツインスターズ|キキララ|けろけろけろっぴ|タキシードサム|バッドばつ丸|あひるのペックル|ぐでたま|こぎみゅん|ウィッシュミーメル|ぼんぼんりぼん|チョコキャット|チャーミーキティ|マロンクリーム|ミュークルドリーミー|まるもふびより|みんなのたあ坊|おさるのもんきち|ウサハナ/iu',(string)($r['itemName']??'')."\n".strip_tags((string)($r['itemCaption']??'')));
+ return (bool)preg_match('/サンリオ|Sanrio|'.implode('|',array_map(static fn($name)=>preg_quote($name,'/'),pf_stock_characters())).'/iu',(string)($r['itemName']??'')."\n".strip_tags((string)($r['itemCaption']??'')));
 }
 function pf_stock_rows(array $data,array $settings,array $state):array{
  $rows=[];
@@ -270,23 +286,48 @@ function pf_stock_discover(array &$state):array{
  $settings=lw_settings();if(empty($settings['accessKey']))throw new RuntimeException('楽天API設定を保存してください。');
  $pool=$state['sourcePool']??$state['sources']??[];
  $existing=array_values(array_filter($pool,fn($r)=>is_array($r)&&!empty($r['code'])&&($r['sourceAt']??0)>time()-14*86400&&!pf_stock_used($state,(string)$r['code'],(string)($r['dedupeKey']??''))));
- $queries=pf_stock_queries();
- if(($state['stockSearchMode']??'')!=='character-round-robin-v2'){$state['stockQueryIndex']=0;$state['stockPage']=1;$state['stockSearchMode']='character-round-robin-v2';}
- $qi=(int)($state['stockQueryIndex']??0);$page=max(1,min(100,(int)($state['stockPage']??1)));
+ $queries=pf_stock_queries();$bookQueries=pf_stock_book_queries();
+ if(($state['stockSearchMode']??'')!=='catalog-round-robin-v3'){
+  $state['stockQueryIndex']=0;$state['stockQueryPages']=[];$state['booksQueryIndex']=0;$state['booksQueryPages']=[];
+  $state['stockSearchMode']='catalog-round-robin-v3';
+ }
+ $qi=max(0,(int)($state['stockQueryIndex']??0))%count($queries);$queryPages=$state['stockQueryPages']??[];
+ $bqi=max(0,(int)($state['booksQueryIndex']??0))%count($bookQueries);$bookPages=$state['booksQueryPages']??[];
+ $travelPage=max(1,min(100,(int)($state['travelPage']??1)));
  $rows=[];$errors=[];
  for($scan=0;$scan<8;$scan++){
-  if($qi>=count($queries)){$qi=0;$page=$page>=100?1:$page+1;}
-  if($scan>0)usleep(1100000);
-  try{$data=pf_search($queries[$qi],$settings,$page);$rows=array_merge($rows,pf_stock_rows($data,$settings,$state));$qi++;}
-  catch(Throwable $e){$errors[]='楽天市場：'.$e->getMessage();$qi++;if(strpos($e->getMessage(),'HTTP 404')!==false)continue;break;}
+  $query=$queries[$qi];$page=max(1,min(100,(int)($queryPages[$query]??1)));
+  try{
+   $data=pf_search($query,$settings,$page);
+   $rows=array_merge($rows,pf_stock_rows($data,$settings,$state));
+   $pageCount=max(1,min(100,(int)($data['pageCount']??100)));
+   $queryPages[$query]=$page>=$pageCount?1:$page+1;
+   $qi=($qi+1)%count($queries);
+  }catch(Throwable $e){
+   $errors[]='楽天市場（'.$query.'）：'.$e->getMessage();$qi=($qi+1)%count($queries);
+   if(strpos($e->getMessage(),'HTTP 404')===false)break;
+  }
  }
- $state['stockQueryIndex']=$qi;$state['stockPage']=$page;
- $bookPage=max(1,min(100,(int)($state['booksPage']??1)));
- try{$data=pf_external_search('books','サンリオ',$settings,$bookPage);$rows=array_merge($rows,pf_books_rows($data,$state));$bookPageCount=max(1,min(100,(int)($data['pageCount']??100)));$state['booksPage']=$bookPage>=$bookPageCount?1:$bookPage+1;}catch(Throwable $e){$errors[]='楽天ブックス：'.$e->getMessage();$state['booksPage']=$bookPage>=100?1:$bookPage+1;}
- try{$data=pf_external_search('travel','サンリオ',$settings);$rows=array_merge($rows,pf_travel_rows($data,$state));}catch(Throwable $e){$errors[]='楽天トラベル：'.$e->getMessage();}
+ $state['stockQueryIndex']=$qi;$state['stockQueryPages']=$queryPages;
+ $bookQuery=$bookQueries[$bqi];$bookPage=max(1,min(100,(int)($bookPages[$bookQuery]??1)));
+ try{
+  $data=pf_external_search('books',$bookQuery,$settings,$bookPage);
+  $rows=array_merge($rows,pf_books_rows($data,$state));
+  $bookPageCount=max(1,min(100,(int)($data['pageCount']??100)));
+  $bookPages[$bookQuery]=$bookPage>=$bookPageCount?1:$bookPage+1;
+  $bqi=($bqi+1)%count($bookQueries);
+ }catch(Throwable $e){$errors[]='楽天ブックス（'.$bookQuery.'）：'.$e->getMessage();$bqi=($bqi+1)%count($bookQueries);}
+ $state['booksQueryIndex']=$bqi;$state['booksQueryPages']=$bookPages;
+ try{
+  $data=pf_external_search('travel','サンリオ',$settings,$travelPage);
+  $rows=array_merge($rows,pf_travel_rows($data,$state));
+  $travelPageCount=max(1,min(100,(int)($data['pageCount']??100)));
+  $travelPage=$travelPage>=$travelPageCount?1:$travelPage+1;
+ }catch(Throwable $e){$errors[]='楽天トラベル：'.$e->getMessage();$travelPage=$travelPage>=100?1:$travelPage+1;}
+ $state['travelPage']=$travelPage;
  $unique=[];foreach(array_merge($existing,$rows) as $r)$unique[$r['code']]=$r;
  $poolRows=array_values($unique);usort($poolRows,static fn($a,$b)=>(int)($b['sourceAt']??0)<=>(int)($a['sourceAt']??0));
- $state['sourcePool']=array_slice($poolRows,0,3000);$state['sources']=$state['sourcePool'];$state['sourcesAt']=time();
+ $state['sourcePool']=array_slice($poolRows,0,10000);$state['sources']=$state['sourcePool'];$state['sourcesAt']=time();
  if(!$state['sources']&&count($errors)===3)throw new RuntimeException(implode(' / ',$errors));
  $state['sourceErrors']=$errors;return $state['sources'];
 }
@@ -308,6 +349,13 @@ function pf_prepare_stock(array $product,array &$state):array{
  $state['entries'][$id]=$row;return $row;
 }
 function pf_settings():array{return array_replace(['enabled'=>true,'dailyLimit'=>20],pf_read('settings'));}
+function pf_source_progress(array $state):array{
+ $marketQueries=pf_stock_queries();$bookQueries=pf_stock_book_queries();
+ $marketIndex=max(0,(int)($state['stockQueryIndex']??0))%count($marketQueries);
+ $bookIndex=max(0,(int)($state['booksQueryIndex']??0))%count($bookQueries);
+ $marketQuery=$marketQueries[$marketIndex];$bookQuery=$bookQueries[$bookIndex];
+ return ['marketTermIndex'=>$marketIndex+1,'marketTermCount'=>count($marketQueries),'marketPage'=>max(1,(int)(($state['stockQueryPages']??[])[$marketQuery]??1)),'booksTermIndex'=>$bookIndex+1,'booksTermCount'=>count($bookQueries),'booksPage'=>max(1,(int)(($state['booksQueryPages']??[])[$bookQuery]??1)),'travelPage'=>max(1,(int)($state['travelPage']??1))];
+}
 function pf_public(array $state,int $offset=0,int $limit=500):array{
  $rows=array_values($state['entries']??[]);usort($rows,static fn($a,$b)=>($b['createdAt']??0)<=>($a['createdAt']??0));
  $pool=$state['sourcePool']??$state['sources']??[];
@@ -328,7 +376,7 @@ function pf_public(array $state,int $offset=0,int $limit=500):array{
  $uniqueProducts=array_values($groups);$uniqueCount=count($uniqueProducts);$duplicateCount=max(0,$sourceCount-$uniqueCount);
  $offset=max(0,min($uniqueCount,(int)$offset));$limit=max(1,min(500,(int)$limit));$page=array_slice($uniqueProducts,$offset,$limit);$publicSources=[];
  foreach($page as $r){$item=[];foreach(['code','dedupeKey','service','services','offerCount','shops','sourceLabel','title','url','image','shop','price','sourceAt'] as $key)if(array_key_exists($key,$r))$item[$key]=$r[$key];$publicSources[]=$item;}
- return ['entries'=>$rows,'sourceUpdatedAt'=>$state['sourcesAt']??null,'sourceErrors'=>$state['sourceErrors']??[],'sources'=>$publicSources,'sourcePoolCount'=>$sourceCount,'sourceServiceCounts'=>$serviceCounts,'sourceUniqueCount'=>$uniqueCount,'sourceDuplicateCount'=>$duplicateCount,'sourceOffset'=>$offset,'sourcePageSize'=>$limit,'sourceHasMore'=>$offset+count($page)<$uniqueCount,'enabled'=>pf_settings()['enabled'],'dailyLimit'=>20,'lastRun'=>$state['lastRun']??null,'lastError'=>$state['lastError']??'','rakutenConfigured'=>!empty(lw_settings()['accessKey']),'aiConfigured'=>!empty(news_groq_settings()['apiKey'])];
+ return ['entries'=>$rows,'sourceUpdatedAt'=>$state['sourcesAt']??null,'sourceErrors'=>$state['sourceErrors']??[],'sourceScanProgress'=>pf_source_progress($state),'sources'=>$publicSources,'sourcePoolCount'=>$sourceCount,'sourceServiceCounts'=>$serviceCounts,'sourceUniqueCount'=>$uniqueCount,'sourceDuplicateCount'=>$duplicateCount,'sourceOffset'=>$offset,'sourcePageSize'=>$limit,'sourceHasMore'=>$offset+count($page)<$uniqueCount,'enabled'=>pf_settings()['enabled'],'dailyLimit'=>20,'lastRun'=>$state['lastRun']??null,'lastError'=>$state['lastError']??'','rakutenConfigured'=>!empty(lw_settings()['accessKey']),'aiConfigured'=>!empty(news_groq_settings()['apiKey'])];
 }
 function pf_prepare(string $url,array &$state,string $keyword=''):array{
  $u=news_url($url);if(!$u)throw new RuntimeException('対応する公式記事・取得済みInstagramのURLを指定してください。');
