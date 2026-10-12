@@ -51,7 +51,7 @@ test('選択した写真4枚とリンク付き本文を共有する',async({page
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
   Object.defineProperty(navigator,'share',{value:async d=>{window.__shared={text:d.text,count:d.files.length};},configurable:true});
  });
- const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF3sAAAAASUVORK5CYII=','base64');
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
  await page.route('**/news.php?action=image**',r=>r.fulfill({contentType:'image/png',body:png}));
  await page.route('https://scontent.cdninstagram.com/**',r=>r.fulfill({contentType:'image/png',body:png}));
  await setup(page,row);await page.getByRole('button',{name:'確認・共有',exact:true}).click();
