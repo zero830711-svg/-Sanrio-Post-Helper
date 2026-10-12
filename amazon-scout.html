@@ -11,10 +11,10 @@
 </head>
 <body>
 <main class="wrap">
-<nav class="top"><a href="./index.html?v=20260927-3354">← Sanrio Post Helper</a><span class="tag">APIなし版</span></nav>
+<nav class="top"><a href="./index.html?v=20260927-3354">← Sanrio Post Helper</a><a href="./amazon-creators.html" class="tag">Amazon API接続</a></nav>
 <header class="card">
 <h1>Amazon商品候補づくり</h1>
-<p class="muted">サンリオの新商品情報とAmazon検索を使い、紹介候補・アフィリエイトリンク・X投稿文をまとめます。APIを使わず、商品情報は選んだものだけ手入力します。</p>
+<p class="muted">サンリオの新商品情報とAmazon検索を使い、紹介候補・アフィリエイトリンク・X投稿文をまとめます。手入力のほか、「Amazon API接続」から商品情報を取り込めます。</p>
 </header>
 
 <section class="card">
@@ -110,6 +110,8 @@ $("copyAffiliate").onclick=()=>{const title=clean($("productTitle").value),url=m
 $("copyDraft").onclick=()=>{setDraft();copy(clean($("postDraft").value))};
 $("openX").onclick=()=>{setDraft();const text=clean($("postDraft").value);if(!text){$("formStatus").textContent="商品名を入力してください。";return}window.open("https://twitter.com/intent/tweet?text="+encodeURIComponent(text),"_blank","noopener")};
 $("saveCandidate").onclick=()=>{const title=clean($("productTitle").value);if(!title){$("formStatus").textContent="商品名を入力してください。";return}const affiliateUrl=makeAffiliateUrl($("productUrl").value,title);if(!affiliateUrl){$("formStatus").textContent="Amazon.co.jpの商品URLかSiteStripeリンクを確認してください。";return}setDraft();const draft=clean($("postDraft").value);const rows=getList();rows.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),title,affiliateUrl,draft,sourceUrl:clean($("sourceUrl").value),createdAt:new Date().toISOString(),status:"未投稿"});setList(rows);render();$("formStatus").textContent="候補をこのブラウザーに保存しました。"};
+const imported=new URLSearchParams(location.search),importedUrl=imported.get('url')||'',importedTitle=imported.get('title')||'';
+try{const p=new URL(importedUrl);if(importedTitle&&p.protocol==='https:'&&p.hostname==='www.amazon.co.jp'&&!p.username&&!p.password&&!p.port){$('productTitle').value=importedTitle.slice(0,500);$('productUrl').value=importedUrl;const tag=imported.get('tag');if(tag&&/^[a-zA-Z0-9_-]{1,80}-22$/.test(tag))$('associateTag').value=tag;$('formStatus').textContent='Amazon APIからの商品情報です。商品ページを確認して候補に保存してください。';}}catch{}
 render();
 })();
 </script>

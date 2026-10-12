@@ -1,0 +1,59 @@
+name: Deploy Amazon Creators connection
+on:
+  push:
+    branches: [main]
+    paths:
+      - server/lolipop/amazon-creators.php
+      - tests/amazon-creators.php
+      - .github/workflows/amazon-creators-deploy.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: amazon-creators-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify authentication and private storage
+        run: |
+          php -l server/lolipop/amazon-creators.php
+          php tests/amazon-creators.php
+      - name: Install FTPS client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp
+      - name: Deploy and verify protected settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          am_tmp=$(mktemp -d)
+          trap 'rm -rf "$am_tmp"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          put server/lolipop/amazon-creators.php
+          get config.php -o "$am_tmp/config.php"
+          bye
+          LFTP
+          php -r '
+          $config=require $argv[1];$url="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/amazon-creators.php?action=settings";
+          $c=curl_init($url);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20]);curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);if($status!==401)throw new RuntimeException("Unauthenticated settings were not rejected");
+          $c=curl_init($url);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"],"Origin: https://zero830711-svg.github.io"]]);$body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);$d=json_decode((string)$body,true);
+          if($status!==200||empty($d["ok"])||!array_key_exists("configured",$d)||isset($d["secret"])||isset($d["credentialId"])||isset($d["access_token"]))throw new RuntimeException("Private settings endpoint verification failed");
+          echo "Protected Amazon settings endpoint verified; credentials withheld\n";
+          ' "$am_tmp/config.php"
