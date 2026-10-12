@@ -118,8 +118,8 @@ function pf_image_url(string $url):string{
 }
 function pf_image_fetch_candidates(string $url):array{
  $p=parse_url($url);$host=strtolower((string)($p['host']??''));$path=(string)($p['path']??'');$query=rawurldecode((string)($p['query']??''));
- if(($p['scheme']??'')==='https'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&$host==='image.rakuten.co.jp'&&preg_match('~^/(?:[a-zA-Z0-9_-]+)/cabinet/[a-zA-Z0-9_/-]+\\.(?:jpe?g|png|webp)$~iD',$path)&&preg_match('/^_ex=[0-9]{1,4}x[0-9]{1,4}$/D',$query))return ['https://'.$host.$path,$url];
- if(($p['scheme']??'')==='https'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&$host==='tshop.r10s.jp'&&preg_match('~^/[a-zA-Z0-9_-]+/cabinet/[a-zA-Z0-9_/-]+\\.(?:jpe?g|png|webp)$~iD',$path)&&preg_match('/^(?:fitin|downsize)=[0-9]{1,4}:(?:[0-9]{1,4}|\\*)$/D',$query))return ['https://'.$host.$path,$url];
+ if(($p['scheme']??'')==='https'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&$host==='image.rakuten.co.jp'&&preg_match('~^/(?:[a-zA-Z0-9_-]+)/cabinet/[a-zA-Z0-9_/-]+\\.(?:jpe?g|png|webp)$~iD',$path)&&preg_match('/^_ex=[0-9]{1,4}x[0-9]{1,4}$/D',$query))return ['https://'.$host.$path];
+ if(($p['scheme']??'')==='https'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&$host==='tshop.r10s.jp'&&preg_match('~^/[a-zA-Z0-9_-]+/cabinet/[a-zA-Z0-9_/-]+\\.(?:jpe?g|png|webp)$~iD',$path)&&preg_match('/^(?:fitin|downsize)=[0-9]{1,4}:(?:[0-9]{1,4}|\\*)$/D',$query))return ['https://'.$host.$path];
  return [$url];
 }
 function pf_rakuten_book_images_from_html(string $html,string $isbn):array{
