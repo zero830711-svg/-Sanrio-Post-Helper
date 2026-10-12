@@ -17,6 +17,9 @@ photo_reject(fn()=>news_photo_validate('{"readings":[]}',[1]));
 $path=news_photo_cache($item,[1]);file_put_contents($path,json_encode(['configured'=>true,'readings'=>$rows]));
 try{
  $merged=news_photo_material($item,[1]);photo_check(str_contains($merged['paragraphs'][0],'HK$1,000')&&end($merged['paragraphs'])===$item['paragraphs'][0],'Photo/caption material lost');
+ $safe=news_photo_supported_sentences("🎀 ハローキティのお買い物ニュースです✨\n3日間限定のセールです。\n10月16日に香港ドル1,000のお買い物で特典。",$merged);
+ photo_check(!str_contains($safe,'3日間')&&str_contains($safe,'10月16日')&&str_contains($safe,'1,000'),'Unsupported claim not omitted conservatively');
+ photo_check(news_photo_supported_sentences('3日間限定です。',['paragraphs'=>[]])==='3日間限定です。','Caption-only drafting changed');
  $changed=$item;$changed['images'][1].='?new=1';photo_check(news_photo_cached($changed,[1])===[],'Changed photo reused stale OCR');
  photo_check(news_photo_cached($item,[0])===[],'Changed selection reused stale OCR');
  touch($path,time()-86401);clearstatcache();photo_check(news_photo_cached($item,[1])===[],'Expired OCR reused');

@@ -437,13 +437,34 @@ function news_groq_prompt(array $item):string{
  .'資料にない事実、人気、限定、販売中、体験談を作らないでください。素材情報・送料・主題と無関係な参加費は不要。予定・税込税抜・適用条件は省略しない。参照注記だけを書かない。写真は見ていないので外観を推測しない。'
  .'元の記事タイトルに☆★♡♥✦などがあってもその記号はコピーせず、✨💖などに置き換える。URL・ハッシュタグはサーバーが追加するので書かない。説明やコードブロックなし。bodyは文字列にする。JSON形式 {"body":"投稿本文"} のみを返してください。';
 }
+
+function news_photo_supported_sentences(string $body,array $item):string{
+ if(empty($item['photoReadings']))return $body;
+ // Photo numbering is metadata, not evidence for product counts.
+ $source=$item['title']."\n".implode("\n",array_slice($item['paragraphs']??[],1));
+ foreach($item['photoReadings'] as $row)$source.="\n".$row['original']."\n".$row['japanese'];
+ $normalize=static fn($n)=>str_replace([',','，'],'',mb_convert_kana($n,'n','UTF-8'));
+ preg_match_all('/[0-9０-９]+(?:[,，.．][0-9０-９]+)*/u',$source,$matches);$allowed=array_map($normalize,$matches[0]);
+ $sentences=preg_split('/(?<=[。！？\n])/u',$body);$kept=[];
+ foreach($sentences as $sentence){
+  // Ordered-list markers have no factual meaning.
+  $sentence=preg_replace('/^[ \t]*[0-9０-９]+[.．、][ \t]+/u','',$sentence);
+  preg_match_all('/[0-9０-９]+(?:[,，.．][0-9０-９]+)*/u',$sentence,$numbers);$supported=true;
+  foreach($numbers[0] as $number)if(!in_array($normalize($number),$allowed,true)){$supported=false;break;}
+  if($supported)$kept[]=$sentence;
+ }
+ $out=trim(implode('',$kept));
+ if(mb_strlen($out)<30)throw new RuntimeException('写真と原文で確認できる情報が少ないため、本文を変更していません。');
+ return $out;
+}
+
 function news_groq_validate(string $json,array $item):string{
  // Accept only a JSON body string; an optional outer Markdown fence is cosmetic.
  $json=trim($json);
  if(preg_match('~^```(?:json)?\s*([\s\S]*?)\s*```$~iD',$json,$fence))$json=trim($fence[1]);
  $d=json_decode($json,true);
  if(!is_array($d)||!isset($d['body'])||!is_string($d['body'])||!trim($d['body']))throw new RuntimeException('AIの本文を読み取れませんでした。もう一度お試しください。本文は変更していません。');
- $body=trim($d['body']);
+ $body=news_photo_supported_sentences(trim($d['body']),$item);
  if(!empty($item['instagram'])&&in_array($item['instagramAccount']??'',['sanrio_kr','sanriogiftgatehk','sanrio_tw','sanrio.hk','hk_zip','khtoyy','childtoys.hk','7eleventw','7elevenhk','jy_enc','spaofriends','kiiwio.tw','7elevenkorea','roychefriends','hellokitty.india','miniso.official','toptoy.international','minilike_official','razer'],true)){
   $body=strtr($body,['一田會員購物日'=>'一田の会員向けお買い物セール','一田會員'=>'一田の会員','會員購物日'=>'会員向けお買い物セール','限定優惠'=>'期間限定の特典','購物日'=>'お買い物セール','購物'=>'お買い物','會員'=>'会員','優惠'=>'特典']);
   if(preg_match('/[\x{AC00}-\x{D7AF}\x{1100}-\x{11FF}\x{3130}-\x{318F}]/u',$body)||!preg_match('/[ぁ-ゖァ-ヺ]/u',$body)||preg_match('/即將|優惠|購物|會員|帶返|屋企|心水/u',$body,$foreignTerm))throw new RuntimeException('韓国語・中国語が残っているため保存しませんでした。'.(isset($foreignTerm[0])?'検出語：'.$foreignTerm[0]:'').'もう一度AI生成してください。本文は変更していません。');
