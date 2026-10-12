@@ -247,7 +247,7 @@ function pf_stock_rows(array $data,array $settings,array $state):array{
   if(!$p||$p['store']!=='楽天'||($r['itemCode']??'')!==substr($p['id'],8))continue;
   $code=(string)$r['itemCode'];if(pf_stock_used($state,$code))continue;
   $affiliate='';try{$affiliate=lw_affiliate_result(['items'=>[$r]],$code,$settings['affiliateId'])['url'];}catch(Throwable $e){}
-  $images=[];foreach(array_slice($r['mediumImageUrls']??[],0,8) as $im){$u=pf_image_url((string)($im['imageUrl']??''));if($u&&!in_array($u,$images,true))$images[]=$u;}
+  $images=[];foreach(array_slice($r['mediumImageUrls']??[],0,8) as $im){$raw=is_array($im)?(string)($im['imageUrl']??$im['url']??''):(is_string($im)?$im:'');$u=pf_image_url($raw);if($u&&!in_array($u,$images,true))$images[]=$u;}
   if(!$images||!pf_safe_affiliate($affiliate))continue;
   $rows[]=['code'=>$code,'service'=>'market','sourceLabel'=>'楽天市場・在庫あり','title'=>mb_substr((string)($r['itemName']??''),0,300),'url'=>$p['url'],'affiliate'=>$affiliate,'image'=>$images[0],'images'=>$images,'shop'=>(string)($r['shopName']??explode(':',$code)[0]),'price'=>(int)($r['itemPrice']??0),'caption'=>mb_substr(strip_tags((string)($r['itemCaption']??'')),0,1200),'sourceAt'=>time()];
  }
@@ -256,14 +256,13 @@ function pf_stock_rows(array $data,array $settings,array $state):array{
 function pf_stock_discover(array &$state):array{
  $settings=lw_settings();if(empty($settings['accessKey']))throw new RuntimeException('楽天API設定を保存してください。');
  $existing=array_values(array_filter($state['sources']??[],fn($r)=>is_array($r)&&!empty($r['code'])&&($r['sourceAt']??0)>time()-1800&&!pf_stock_used($state,(string)$r['code'])));
- if($existing)return $existing;
  $queries=pf_stock_queries();$qi=(int)($state['stockQueryIndex']??0);$page=(int)($state['stockPage']??1);
  if($qi>=count($queries)){$qi=0;$page=1;}
  $rows=[];$errors=[];
  try{$data=pf_search($queries[$qi],$settings,$page);$rows=array_merge($rows,pf_stock_rows($data,$settings,$state));$state['stockQueryIndex']=$qi;if($page*30>=max(0,(int)($data['count']??0))){$state['stockQueryIndex']=$qi+1;$state['stockPage']=1;}else $state['stockPage']=$page+1;}catch(Throwable $e){$errors[]='楽天市場：'.$e->getMessage();}
  try{$data=pf_external_search('books','サンリオ',$settings);$rows=array_merge($rows,pf_books_rows($data,$state));}catch(Throwable $e){$errors[]='楽天ブックス：'.$e->getMessage();}
  try{$data=pf_external_search('travel','サンリオ',$settings);$rows=array_merge($rows,pf_travel_rows($data,$state));}catch(Throwable $e){$errors[]='楽天トラベル：'.$e->getMessage();}
- $unique=[];foreach($rows as $r)$unique[$r['code']]=$r;
+ $unique=[];foreach(array_merge($existing,$rows) as $r)$unique[$r['code']]=$r;
  $state['sources']=array_values($unique);$state['sourcesAt']=time();
  if(!$state['sources']&&count($errors)===3)throw new RuntimeException(implode(' / ',$errors));
  $state['sourceErrors']=$errors;return $state['sources'];
