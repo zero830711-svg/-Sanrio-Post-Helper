@@ -23,7 +23,7 @@ function apply(d){
 }
 function render(){
  const filter=el('flowFilter').value,rows=entries.filter(r=>filter==='done'?r.mark==='done':filter==='skip'?r.mark==='skip':!r.mark&&(filter!=='ready'||ready(r)));
- el('flowList').replaceChildren();el('flowCount').textContent=rows.length+'件';
+ el('flowList').replaceChildren();el('flowCount').textContent=rows.length+'件の下書き ・ '+sources.filter(x=>x.code).length+'件の楽天在庫候補';
  for(const row of rows){
   const card=document.createElement('article');card.className='flow-card';
   const title=document.createElement('h3');title.textContent=row.item.title;
@@ -31,7 +31,7 @@ function render(){
   const actions=document.createElement('div');actions.className='cloud-sync-actions';actions.append(button('確認・共有',()=>open(row.id)));
   card.append(title,info,actions);el('flowList').append(card);
  }
- if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='自動準備した下書きがここに並びます。「次の1件を自動準備」から始められます。';el('flowList').append(p);}
+ if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='準備済みの下書きがここに並びます。楽天在庫候補から商品を選ぶか、「次の1件を今すぐ準備」を押してください。';el('flowList').append(p);}
  el('flowSources').replaceChildren();
  for(const item of sources.slice(0,30)){
   if(entries.some(r=>r.item.rakutenCode===item.code))continue;
