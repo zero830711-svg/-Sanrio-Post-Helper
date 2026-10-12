@@ -200,10 +200,10 @@ function pf_prepare(string $url,array &$state,string $keyword=''):array{
  $row=['id'=>$id,'item'=>$item,'body'=>trim($text),'selected'=>array_slice(array_keys($item['images']),0,4),'identity'=>$identity,'match'=>$match,'warnings'=>$warnings,'createdAt'=>time(),'updatedAt'=>time(),'mark'=>'','edited'=>false];
  $state['entries'][$id]=$row;return $row;
 }
-function pf_tick(array &$state):array{
+function pf_tick(array &$state,bool $manual=false):array{
  if(!pf_settings()['enabled'])return ['message'=>'自動準備は停止中です。'];
  if(empty(lw_settings()['accessKey'])||empty(news_groq_settings()['apiKey']))return ['message'=>'楽天API・AI設定を保存すると自動準備が始まります。'];
- if(($state['lastRun']??0)>time()-1500)return ['message'=>'次の自動準備を待っています。'];
+ if(!$manual&&($state['lastRun']??0)>time()-1500)return ['message'=>'次の自動準備を待っています。'];
  $day=gmdate('Y-m-d',time()+9*3600);if(($state['day']??'')!==$day){$state['day']=$day;$state['count']=0;}
  if(($state['count']??0)>=20)return ['message'=>'本日の自動準備は20件までです。'];
  $state['lastRun']=time();$state['lastError']='';
@@ -248,7 +248,7 @@ try{
   }
   elseif($action==='settings'){if(!is_bool($input['enabled']??null))throw new RuntimeException('自動準備の設定を確認してください。');pf_write('settings',['enabled'=>$input['enabled']]);}
   elseif($action==='sources'){$state['sources']=pf_stock_discover($state);$result=['message'=>count($state['sources']).'件の楽天在庫商品が見つかりました。'];}
-  elseif($action==='tick'){$result=pf_tick($state);}
+  elseif($action==='tick'){$result=pf_tick($state,!empty($input['manual']));}
   elseif($action==='prepare'){
    if(!is_string($input['url']??null))throw new RuntimeException('記事URLを確認してください。');
    $result=['entry'=>pf_prepare($input['url'],$state)];
