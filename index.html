@@ -104,11 +104,11 @@
 <details><summary>原文を確認</summary><p id="flowOriginal"></p></details>
 <p class="backup-note">使う写真を4枚まで選択できます。楽天の候補画像は商品照合用です。</p>
 <div id="flowPhotos" class="flow-photos"></div><p id="flowPhotoStatus" class="backup-note"></p><button id="flowPhotoRetry" type="button" class="small-btn">写真を再取得</button>
-<div class="cloud-sync-actions"><button id="flowSave" type="button" class="small-btn">下書きを保存</button><button id="flowRetry" type="button" class="small-btn">保留した処理を再確認</button></div>
+<div class="cloud-sync-actions"><button id="flowSave" type="button" class="small-btn">今すぐ保存</button><button id="flowRetry" type="button" class="small-btn">保留した処理を再確認</button></div>
 <label>共有する本文（リンク・PR表記込み）<textarea id="flowFinal" rows="8" readonly></textarea></label>
-<button id="flowShare" type="button" class="small-btn">本文＋写真を共有</button>
+<label style="display:block;margin:14px 0"><input id="flowConfirm" type="checkbox"> 商品・掲載内容・在庫・リンク・写真を確認しました（宿泊施設は空室を別途確認）</label><button id="flowShare" type="button" class="small-btn">本文＋写真を共有</button>
 <div class="cloud-sync-actions"><button id="flowCopy" type="button" class="small-btn">本文をコピー</button><button id="flowSavePhotos" type="button" class="small-btn">写真を保存</button></div>
-<div class="cloud-sync-actions"><button id="flowDone" type="button" class="small-btn">投稿済みにする</button><button id="flowSkip" type="button" class="small-btn">見送る</button></div>
+<div class="cloud-sync-actions"><button id="flowDone" type="button" class="small-btn">投稿済みにして次へ</button><button id="flowSkip" type="button" class="small-btn">見送る</button></div>
 </div>
 <p class="backup-note"><a href="https://developers.rakuten.com/" target="_blank" rel="noopener noreferrer">Supported by Rakuten Developers</a></p>
 </section>
@@ -551,7 +551,7 @@ window.addEventListener("load",()=>{
   },2500);
 });
 </script>
-<script src="./product-flow.js?v=20261012-3502"></script>
+<script src="./product-flow.js?v=20261012-3503"></script>
 </body>
 </html>
 
