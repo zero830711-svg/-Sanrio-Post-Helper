@@ -118,8 +118,13 @@ function updateFinal(){
  el('flowCopy').disabled=busy||!body;
 }
 async function open(id){
- const row=entries.find(r=>r.id===id);if(!row)return;
+ let row=entries.find(r=>r.id===id);if(!row)return;
  if(dirty&&current&&current.id!==id){status('編集中の本文を「下書きを保存」で保存してから切り替えてください。');return;}
+ if(row.item.rakutenService==='books'&&Date.now()-Number(row.item.galleryCheckedAt||0)>24*60*60*1000){
+  status('楽天ブックスの商品ページから写真候補を確認しています…');
+  try{const data=await api('gallery',{id});apply(data);row=entries.find(r=>r.id===id)||row;}
+  catch(e){status('追加写真を確認できませんでした：'+e.message);}
+ }
  resetPhotoPreviews();preparingPhotos=false;photoPreparationSeq++;current=structuredClone(row);dirty=false;files=[];const seq=++requestSeq;
  el('flowBrowse').hidden=true;el('flowEditor').hidden=false;el('flowTitle').textContent=row.item.title;
  el('flowBody').value=row.body;
