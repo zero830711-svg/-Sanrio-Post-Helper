@@ -15,6 +15,7 @@ pf_check(!pf_exact(['itemName'=>'中古キティ '.$jan],$identity,'キティ �
 pf_check(!pf_exact(['itemName'=>'キティ '.$jan.'1'],$identity,'キティ マスコット'),'Partial JAN matched');
 pf_check(!pf_exact(['itemName'=>'キティ マスコット'],['jan'=>'','model'=>'','ambiguous'=>false],'キティ マスコット'),'Name-only match auto approved');
 $model=pf_identity(['title'=>'キティポーチ','paragraphs'=>['型番：KT-123']]);
+pf_check(pf_fallback_keyword(['title'=>'キティの新作','paragraphs'=>[]],'ハローキティのマスコット')==='ハローキティ マスコット','Fallback product keywords missing');
 pf_check($model['model']==='kt-123'&&pf_exact(['itemName'=>'キティ KT-123'],$model,'キティポーチ'),'Model match failed');
 $make=static fn($shop)=>['itemCode'=>$shop.':kitty','itemName'=>'キティ マスコット '.$jan,'itemUrl'=>'https://item.rakuten.co.jp/'.$shop.'/kitty/','itemCaption'=>'','affiliateUrl'=>'https://hb.afl.rakuten.co.jp/hgc/'.$aid.'/?pc='.rawurlencode('https://item.rakuten.co.jp/'.$shop.'/kitty/'),'shopName'=>$shop,'mediumImageUrls'=>[]];
 $one=pf_match(['items'=>[$make('shop1')]],$identity,'キティ マスコット',['affiliateId'=>$aid]);

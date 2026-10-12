@@ -45,3 +45,18 @@ test('自動準備の停止設定と投稿済み記録を保存する',async({pa
  await expect(page.locator('#flowCount')).toHaveText('0件');
  await page.locator('#flowFilter').selectOption('done');await expect(page.locator('#flowCount')).toHaveText('1件');
 });
+test('選択した写真4枚とリンク付き本文を共有する',async({page})=>{
+ const row=entry();row.item.images=Array.from({length:5},(_,i)=>'https://scontent.cdninstagram.com/test-'+i+'.png');row.selected=[0,1,2,3];
+ await page.addInitScript(()=>{
+  Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
+  Object.defineProperty(navigator,'share',{value:async d=>{window.__shared={text:d.text,count:d.files.length};},configurable:true});
+ });
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF3sAAAAASUVORK5CYII=','base64');
+ await page.route('**/news.php?action=image**',r=>r.fulfill({contentType:'image/png',body:png}));
+ await page.route('https://scontent.cdninstagram.com/**',r=>r.fulfill({contentType:'image/png',body:png}));
+ await setup(page,row);await page.getByRole('button',{name:'確認・共有',exact:true}).click();
+ await expect(page.locator('#flowShare')).toBeEnabled();
+ await page.locator('#flowPhotos input').nth(4).check();await expect(page.locator('#flowPhotos input').nth(4)).not.toBeChecked();
+ await page.locator('#flowShare').click();expect(await page.evaluate(()=>window.__shared.count)).toBe(4);
+ expect(await page.evaluate(()=>window.__shared.text)).toContain('#pr');
+});

@@ -142,4 +142,5 @@ for(const [id,mark] of [['flowDone','done'],['flowSkip','skip']])el(id).onclick=
  if(dirty){status('編集内容を先に保存してください。');return;}const d=await run('mark',{id:current.id,mark});if(d)el('flowBack').click();
 };
 document.addEventListener('sph-product-flow-tab',load);
+if(location.hash==='#new-product')setHomeView('flow');
 })();

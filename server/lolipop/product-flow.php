@@ -41,6 +41,13 @@ function pf_identity(array $item,string $body=''):array{
 function pf_contains_code(string $text,string $code):bool{
  return (bool)preg_match('/(?<![a-z0-9])'.preg_quote(pf_normal($code),'/').'(?![a-z0-9])/u',pf_normal($text));
 }
+function pf_fallback_keyword(array $item,string $body):string{
+ $text=$body."\n".$item['title']."\n".implode("\n",$item['paragraphs']??[]);
+ $character='';$kind='';
+ if(preg_match('/ハローキティ|マイメロディ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|バッドばつ丸|あひるのペックル|クロミ|キティ|けろけろけろっぴ/u',$text,$m))$character=$m[0];
+ if(preg_match('/ぬいぐるみ|マスコット|キーホルダー|コレクトブック|フィギュア|ペンケース|ポーチ|バッグ|ケース|タオル|ステッカー|チャーム|ボールペン|食器|カップ/u',$text,$m))$kind=$m[0];
+ return $character&&$kind?$character.' '.$kind:'';
+}
 function pf_exact(array $row,array $identity,string $sourceTitle):bool{
  $code=$identity['jan']?:$identity['model'];if(!$code||!empty($identity['ambiguous']))return false;
  $title=(string)($row['itemName']??'');
@@ -99,6 +106,13 @@ function pf_eligible(array $item,int $now):bool{
  if(!empty($item['prize'])||!empty($item['tipsOnly']))return false;
  return (bool)preg_match('/商品|グッズ|ぬいぐるみ|マスコット|ポーチ|バッグ|ケース|キーホルダー|フィギュア|コレクション|タオル|ステッカー|文具|発売|新作|collection|plush|goods|키링|인형|新品|公仔/iu',(string)$item['title']);
 }
+function pf_resolve(array $item,string $body,array &$identity,array $settings):array{
+ $data=pf_search($identity['keyword'],$settings);$fallback=pf_fallback_keyword($item,$body);
+ if(empty($data['items'])&&!$identity['jan']&&!$identity['model']&&$fallback&&$fallback!==$identity['keyword']){
+  usleep(1100000);$identity['keyword']=$fallback;$data=pf_search($fallback,$settings);
+ }
+ return pf_match($data,$identity,$item['title'],$settings);
+}
 function pf_sources():array{
  $data=news_instagram_list(news_list());$items=array_filter($data['items'],static fn($i)=>pf_eligible($i,time()));
  usort($items,static fn($a,$b)=>strcmp((string)$b['date'],(string)$a['date']));
@@ -134,7 +148,10 @@ function pf_prepare(string $url,array &$state,string $keyword=''):array{
  $identity=pf_identity($item,$text);
  if($keyword!==''){$identity['keyword']=$keyword;$identity['jan']='';$identity['model']='';}
  $match=['candidates'=>[],'link'=>'','linkMode'=>'none','searchAffiliate'=>'','itemAffiliate'=>'','matchStatus'=>'楽天の照合待ち','shopCount'=>0,'searchUrl'=>pf_search_url($identity['keyword'])];
- try{$settings=lw_settings();if(!$settings)throw new RuntimeException('新着商品の楽天API設定を保存してください。');$match=pf_match(pf_search($identity['keyword'],$settings),$identity,$item['title'],$settings);}catch(Throwable $e){$warnings[]='楽天照合は保留：'.$e->getMessage();}
+ try{
+  $settings=lw_settings();if(!$settings)throw new RuntimeException('新着商品の楽天API設定を保存してください。');
+  $match=pf_resolve($item,$text,$identity,$settings);
+ }catch(Throwable $e){$warnings[]='楽天照合は保留：'.$e->getMessage();}
  $row=['id'=>$id,'item'=>$item,'body'=>trim($text),'selected'=>array_slice(array_keys($item['images']),0,4),'identity'=>$identity,'match'=>$match,'warnings'=>$warnings,'createdAt'=>time(),'updatedAt'=>time(),'mark'=>'','edited'=>false];
  $state['entries'][$id]=$row;return $row;
 }
@@ -199,7 +216,7 @@ try{
     $row['match']['link']=$found['affiliate'];$row['match']['linkMode']='item';$row['match']['matchStatus']='商品一致を手動確認済み';
    }elseif($action==='retry'){
     if(!$row['body']){try{$draft=news_groq_draft($row['item']);$row['body']=$draft['text']??'';}catch(Throwable $e){throw new RuntimeException('本文生成は保留：'.$e->getMessage());}}
-    $identity=pf_identity($row['item'],$row['body']);$settings=lw_settings();$row['match']=pf_match(pf_search($identity['keyword'],$settings),$identity,$row['item']['title'],$settings);$row['identity']=$identity;
+    $identity=pf_identity($row['item'],$row['body']);$settings=lw_settings();$row['match']=pf_resolve($row['item'],$row['body'],$identity,$settings);$row['identity']=$identity;
    }else throw new RuntimeException('操作を確認してください。');
    $row['updatedAt']=time();$result=['entry'=>$row];
   }
