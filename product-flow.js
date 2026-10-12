@@ -110,20 +110,28 @@ function updateFinal(){
  if(!current)return;current.body=el('flowBody').value;const mode=el('flowLinkMode').value;
  const link=mode==='none'?'':(mode==='item'?(flowShort(current)||current.match.itemAffiliate||''):current.match.searchAffiliate||'');
  el('flowLink').value=link;
- const source=current.body.replace(/\r\n?/g,'\n').replace(/(?:\s*#pr)+\s*$/iu,'');
- const lines=source.split('\n'),clean=[];
+ const source=current.body.replace(/\r\n?/g,'\n');
+ const tags=[],seenTags=new Set();let hasPr=/#pr\b/iu.test(source);
+ for(const match of source.matchAll(/#[\p{L}\p{N}_]+/gu)){
+  const tag=match[0],key=tag.toLocaleLowerCase();
+  if(key==='#pr'||seenTags.has(key))continue;
+  seenTags.add(key);tags.push(tag);
+ }
+ const withoutTags=source.replace(/#[\p{L}\p{N}_]+/gu,'').replace(/[ \t]+$/gm,'');
+ const lines=withoutTags.split('\n'),clean=[];
  for(let i=0;i<lines.length;i++){
   const line=lines[i].trimEnd();
   if(/^\s*🔎\s*詳細[：:]?\s*$/u.test(line)){
    const next=lines.slice(i+1).find(x=>x.trim());
-   if(!next||/^\s*(?:#|🛍️)/u.test(next))continue;
+   if(!next||/^\s*🛍️/u.test(next))continue;
   }
   if(!line.trim()&&!clean.length)continue;
   if(!line.trim()&&!clean.at(-1)?.trim())continue;
   clean.push(line);
  }
  const body=clean.join('\n').trim();
- el('flowFinal').value=[body,...(link?['🛍️ 楽天でチェック\n'+link,'#pr']:[])].filter(Boolean).join('\n\n');
+ const finalTags=[...tags,...(link||hasPr?['#pr']:[])].join(' ');
+ el('flowFinal').value=[body,...(link?['🛍️ 楽天でチェック\n'+link]:[]),finalTags].filter(Boolean).join('\n\n');
  const count=current.selected.length;el('flowPhotoStatus').textContent=count+'枚選択 ・ '+files.filter(Boolean).length+'枚準備済み'+(preparingPhotos?' ・ 写真を取得中…':'');
  el('flowShare').disabled=busy||saving||preparingPhotos||dirty||!body||!count||!el('flowConfirm').checked;
  el('flowSavePhotos').disabled=busy||!count||current.selected.some(i=>!files[i]);
