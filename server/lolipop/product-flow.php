@@ -86,6 +86,64 @@ function pf_search(string $keyword,array $settings,int $page=1):array{
   $data=lw_rakuten_search_data($data);pf_write($cache,['at'=>time(),'data'=>$data]);return $data;
  }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
+
+function pf_external_search(string $service,string $keyword,array $settings):array{
+ $settings=lw_validate_settings($settings);$cache='external-'.hash('sha256',$service.'|'.$keyword.'|'.$settings['affiliateId']);$saved=pf_read($cache);
+ if(($saved['at']??0)>time()-1800)return $saved['data'];
+ if(!in_array($service,['books','travel'],true))throw new RuntimeException('楽天サービスを確認できません。');
+ if($service==='books'){
+  $base='https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?';
+  $params=['applicationId'=>$settings['applicationId'],'title'=>$keyword,'availability'=>1,'outOfStockFlag'=>0,'hits'=>30,'page'=>1,'formatVersion'=>2,'affiliateId'=>$settings['affiliateId'],'elements'=>'title,itemCaption,itemPrice,itemUrl,affiliateUrl,mediumImageUrl,largeImageUrl,isbn,availability'];
+ }else{
+  $base='https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20260731?';
+  $params=['applicationId'=>$settings['applicationId'],'keyword'=>$keyword,'hits'=>30,'page'=>1,'format'=>'json','formatVersion'=>2,'responseType'=>'middle','affiliateId'=>$settings['affiliateId']];
+ }
+ $lock=fopen(pf_dir().'/rakuten-external.lock','c+');if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('楽天APIを利用中です。少し待ってください。');
+ try{
+  chmod(pf_dir().'/rakuten-external.lock',0600);rewind($lock);$last=(float)stream_get_contents($lock);$wait=1.1-(microtime(true)-$last);if($wait>0)usleep((int)($wait*1000000));
+  rewind($lock);ftruncate($lock,0);fwrite($lock,(string)microtime(true));fflush($lock);
+  $url=$base.http_build_query($params,'','&',PHP_QUERY_RFC3986);$body='';$c=curl_init($url);
+  curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>static function($c,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>1000000)return 0;$body.=$bytes;return strlen($bytes);}]);
+  $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
+  if($ok===false)throw new RuntimeException('楽天APIの通信が完了しませんでした。');
+  if($status!==200)throw new RuntimeException(lw_rakuten_error($status,$body));
+  $data=json_decode($body,true);if(!is_array($data))throw new RuntimeException('楽天APIの応答を確認できませんでした。');
+  pf_write($cache,['at'=>time(),'data'=>$data]);return $data;
+ }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+function pf_image_url(string $url):string{
+ $safe=lw_image_url($url);if($safe)return $safe;
+ $p=parse_url($url);$host=strtolower((string)($p['host']??''));$path=(string)($p['path']??'');
+ if(($p['scheme']??'')==='https'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&$host==='img.travel.rakuten.co.jp'&&preg_match('~\\.(?:jpe?g|png|webp)$~iD',$path))return $url;
+ return '';
+}
+function pf_books_rows(array $data,array $state):array{
+ $rows=[];foreach(array_slice($data['Items']??$data['items']??[],0,30) as $entry){
+  $r=$entry['Item']??$entry['item']??$entry;if(!is_array($r))continue;
+  $title=(string)($r['title']??'');$caption=(string)($r['itemCaption']??'');if(!pf_stock_related(['itemName'=>$title,'itemCaption'=>$caption]))continue;
+  $url=(string)($r['itemUrl']??'');$p=parse_url($url);if(($p['scheme']??'')!=='https'||($p['host']??'')!=='books.rakuten.co.jp')continue;
+  $affiliate=(string)($r['affiliateUrl']??'');if(!pf_safe_affiliate($affiliate))continue;
+  $image=pf_image_url((string)($r['largeImageUrl']??$r['mediumImageUrl']??''));if(!$image)continue;
+  $isbn=preg_replace('/[^0-9Xx]/','',(string)($r['isbn']??''));$code='books:'.($isbn?:hash('sha256',$url));
+  if(pf_stock_used($state,$code))continue;
+  $rows[]=['code'=>$code,'service'=>'books','sourceLabel'=>'楽天ブックス・在庫あり','title'=>mb_substr($title,0,300),'url'=>$url,'affiliate'=>$affiliate,'image'=>$image,'images'=>[$image],'shop'=>'楽天ブックス','price'=>(int)($r['itemPrice']??0),'caption'=>mb_substr(strip_tags($caption),0,1200),'sourceAt'=>time()];
+ }return $rows;
+}
+function pf_travel_rows(array $data,array $state):array{
+ $rows=[];$hotels=$data['hotels']??[];if(isset($hotels['hotel']))$hotels=[$hotels];
+ foreach(array_slice($hotels,0,30) as $group){
+  $hotel=$group['hotel']??[];if(isset($hotel['hotelBasicInfo']))$hotel=[$hotel];
+  foreach($hotel as $detail){$b=$detail['hotelBasicInfo']??$detail;if(!is_array($b))continue;
+   $title=(string)($b['hotelName']??'');$caption=(string)($b['hotelSpecial']??'');if(!pf_stock_related(['itemName'=>$title,'itemCaption'=>$caption]))continue;
+   $no=preg_replace('/\\D/','',(string)($b['hotelNo']??''));if($no==='')continue;$code='travel:'.$no;if(pf_stock_used($state,$code))continue;
+   $affiliate=(string)($b['hotelInformationUrl']??'');if(!pf_safe_affiliate($affiliate))continue;
+   $image=pf_image_url((string)($b['hotelThumbnailUrl']??$b['hotelImageUrl']??''));if(!$image)continue;$images=[$image];
+   $url='https://travel.rakuten.co.jp/HOTEL/'.$no.'/'.$no.'.html';
+   $rows[]=['code'=>$code,'service'=>'travel','sourceLabel'=>'楽天トラベル・宿泊施設（空室未確認）','title'=>mb_substr($title,0,300),'url'=>$url,'affiliate'=>$affiliate,'image'=>$image,'images'=>$images,'shop'=>'楽天トラベル','price'=>(int)($b['hotelMinCharge']??0),'caption'=>mb_substr(strip_tags($caption),0,1200),'sourceAt'=>time()];
+  }
+ }return $rows;
+}
+
 function pf_match(array $data,array $identity,string $sourceTitle,array $settings):array{
  $rows=[];$exact=[];
  foreach(array_slice($data['items']??[],0,30) as $r){
@@ -131,9 +189,9 @@ function pf_stock_rows(array $data,array $settings,array $state):array{
   if(!$p||$p['store']!=='楽天'||($r['itemCode']??'')!==substr($p['id'],8))continue;
   $code=(string)$r['itemCode'];if(pf_stock_used($state,$code))continue;
   $affiliate='';try{$affiliate=lw_affiliate_result(['items'=>[$r]],$code,$settings['affiliateId'])['url'];}catch(Throwable $e){}
-  $images=[];foreach(array_slice($r['mediumImageUrls']??[],0,8) as $im){$u=lw_image_url((string)($im['imageUrl']??''));if($u&&!in_array($u,$images,true))$images[]=$u;}
+  $images=[];foreach(array_slice($r['mediumImageUrls']??[],0,8) as $im){$u=pf_image_url((string)($im['imageUrl']??''));if($u&&!in_array($u,$images,true))$images[]=$u;}
   if(!$images||!pf_safe_affiliate($affiliate))continue;
-  $rows[]=['code'=>$code,'title'=>mb_substr((string)($r['itemName']??''),0,300),'url'=>$p['url'],'affiliate'=>$affiliate,'image'=>$images[0],'images'=>$images,'shop'=>(string)($r['shopName']??explode(':',$code)[0]),'price'=>(int)($r['itemPrice']??0),'caption'=>mb_substr(strip_tags((string)($r['itemCaption']??'')),0,1200),'sourceAt'=>time()];
+  $rows[]=['code'=>$code,'service'=>'market','sourceLabel'=>'楽天市場・在庫あり','title'=>mb_substr((string)($r['itemName']??''),0,300),'url'=>$p['url'],'affiliate'=>$affiliate,'image'=>$images[0],'images'=>$images,'shop'=>(string)($r['shopName']??explode(':',$code)[0]),'price'=>(int)($r['itemPrice']??0),'caption'=>mb_substr(strip_tags((string)($r['itemCaption']??'')),0,1200),'sourceAt'=>time()];
  }
  return $rows;
 }
@@ -143,18 +201,23 @@ function pf_stock_discover(array &$state):array{
  if($existing)return $existing;
  $queries=pf_stock_queries();$qi=(int)($state['stockQueryIndex']??0);$page=(int)($state['stockPage']??1);
  if($qi>=count($queries)){$qi=0;$page=1;}
- $data=pf_search($queries[$qi],$settings,$page);$state['stockQueryIndex']=$qi;
- if($page*30>=max(0,(int)($data['count']??0))){$state['stockQueryIndex']=$qi+1;$state['stockPage']=1;}else $state['stockPage']=$page+1;
- $state['sources']=pf_stock_rows($data,$settings,$state);return $state['sources'];
+ $rows=[];$errors=[];
+ try{$data=pf_search($queries[$qi],$settings,$page);$rows=array_merge($rows,pf_stock_rows($data,$settings,$state));$state['stockQueryIndex']=$qi;if($page*30>=max(0,(int)($data['count']??0))){$state['stockQueryIndex']=$qi+1;$state['stockPage']=1;}else $state['stockPage']=$page+1;}catch(Throwable $e){$errors[]='楽天市場：'.$e->getMessage();}
+ try{$data=pf_external_search('books','サンリオ',$settings);$rows=array_merge($rows,pf_books_rows($data,$state));}catch(Throwable $e){$errors[]='楽天ブックス：'.$e->getMessage();}
+ try{$data=pf_external_search('travel','サンリオ',$settings);$rows=array_merge($rows,pf_travel_rows($data,$state));}catch(Throwable $e){$errors[]='楽天トラベル：'.$e->getMessage();}
+ $unique=[];foreach($rows as $r)$unique[$r['code']]=$r;
+ $state['sources']=array_values($unique);$state['sourcesAt']=time();
+ if(!$state['sources']&&count($errors)===3)throw new RuntimeException(implode(' / ',$errors));
+ $state['sourceErrors']=$errors;return $state['sources'];
 }
 function pf_prepare_stock(array $product,array &$state):array{
  $code=(string)($product['code']??'');if($code===''||empty($product['affiliate'])||!pf_safe_affiliate((string)$product['affiliate']))throw new RuntimeException('楽天の在庫商品を確認できません。');
  foreach($state['entries']??[] as $old)if(($old['item']['rakutenCode']??'')===$code)return $old;
- $images=array_values(array_filter(array_map('lw_image_url',$product['images']??[])));if(!$images&&$product['image'])$images=[lw_image_url((string)$product['image'])];$images=array_values(array_filter($images));
+ $images=array_values(array_filter(array_map('pf_image_url',$product['images']??[])));if(!$images&&!empty($product['image']))$images=[pf_image_url((string)$product['image'])];$images=array_values(array_filter($images));
  if(!$images)throw new RuntimeException('この商品は写真を確認できません。');
- $id=hash('sha256','rakuten:'.$code);$title=(string)$product['title'];$shop=(string)$product['shop'];$price=(int)$product['price'];
- $paragraphs=[$title,'楽天市場の在庫あり検索で確認した商品です。','販売店：'.$shop];if($price>0)$paragraphs[]='掲載価格：'.number_format($price).'円（取得時点）';if(!empty($product['caption']))$paragraphs[]=(string)$product['caption'];
- $item=['url'=>(string)$product['url'],'source'=>'楽天市場・在庫あり商品','rakuten'=>true,'rakutenCode'=>$code,'sourceAt'=>(int)($product['sourceAt']??time()),'title'=>$title,'date'=>gmdate('Y-m-d'),'paragraphs'=>$paragraphs,'facts'=>$price>0?[['kind'=>'price','text'=>'掲載価格：'.number_format($price).'円（取得時点）']]:[],'images'=>$images,'links'=>[]];
+ $id=hash('sha256','rakuten:'.$code);$title=(string)$product['title'];$shop=(string)$product['shop'];$price=(int)$product['price'];$sourceLabel=(string)($product['sourceLabel']??'楽天市場・在庫あり');
+ $fact=$product['service']==='travel'?'楽天トラベルのサンリオ関連施設候補です。空室は未確認です。':$sourceLabel.'で確認した商品です。';$paragraphs=[$title,$fact,'販売店：'.$shop];if($price>0)$paragraphs[]='掲載価格：'.number_format($price).'円（取得時点）';if(!empty($product['caption']))$paragraphs[]=(string)$product['caption'];
+ $item=['url'=>(string)$product['url'],'source'=>$sourceLabel,'rakuten'=>true,'rakutenService'=>(string)($product['service']??'market'),'rakutenCode'=>$code,'sourceAt'=>(int)($product['sourceAt']??time()),'title'=>$title,'date'=>gmdate('Y-m-d'),'paragraphs'=>$paragraphs,'facts'=>$price>0?[['kind'=>'price','text'=>'掲載価格：'.number_format($price).'円（取得時点）']]:[],'images'=>$images,'links'=>[]];
  $warnings=['在庫・価格は検索時点の情報です。投稿前に楽天の商品ページで確認してください。'];$body='';
  try{$draft=news_groq_draft($item);$body=(string)($draft['text']??'');}catch(Throwable $e){$warnings[]='本文生成は保留：'.$e->getMessage();}
  $body=preg_replace('~https?://\\S+~u','',$body);$identity=pf_identity($item,$body);$affiliate=(string)$product['affiliate'];
@@ -166,7 +229,7 @@ function pf_prepare_stock(array $product,array &$state):array{
 function pf_settings():array{return array_replace(['enabled'=>true,'dailyLimit'=>20],pf_read('settings'));}
 function pf_public(array $state):array{
  $rows=array_values($state['entries']??[]);usort($rows,static fn($a,$b)=>($b['createdAt']??0)<=>($a['createdAt']??0));
- return ['entries'=>$rows,'sources'=>array_values(array_filter($state['sources']??[],fn($r)=>is_array($r)&&($r['sourceAt']??0)>time()-1800&&!pf_stock_used($state,(string)($r['code']??'')))),'enabled'=>pf_settings()['enabled'],'dailyLimit'=>20,'lastRun'=>$state['lastRun']??null,'lastError'=>$state['lastError']??'','rakutenConfigured'=>!empty(lw_settings()['accessKey']),'aiConfigured'=>!empty(news_groq_settings()['apiKey'])];
+ return ['entries'=>$rows,'sourceUpdatedAt'=>$state['sourcesAt']??null,'sourceErrors'=>$state['sourceErrors']??[],'sources'=>array_values(array_filter($state['sources']??[],fn($r)=>is_array($r)&&($r['sourceAt']??0)>time()-1800&&!pf_stock_used($state,(string)($r['code']??'')))),'enabled'=>pf_settings()['enabled'],'dailyLimit'=>20,'lastRun'=>$state['lastRun']??null,'lastError'=>$state['lastError']??'','rakutenConfigured'=>!empty(lw_settings()['accessKey']),'aiConfigured'=>!empty(news_groq_settings()['apiKey'])];
 }
 function pf_prepare(string $url,array &$state,string $keyword=''):array{
  $u=news_url($url);if(!$u)throw new RuntimeException('対応する公式記事・取得済みInstagramのURLを指定してください。');
@@ -218,7 +281,7 @@ function pf_tick(array &$state,bool $manual=false):array{
 
 if(defined('SPH_FLOW_TEST'))return;
 function pf_image_out(string $source):void{
- $url=lw_image_url($source);if(!$url)pf_out(['ok'=>false,'error'=>'写真URLを確認できません。'],400);
+ $url=pf_image_url($source);if(!$url)pf_out(['ok'=>false,'error'=>'写真URLを確認できません。'],400);
  $bytes='';$c=curl_init($url);curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$bytes){if(strlen($bytes)+strlen($chunk)>4000000)return 0;$bytes.=$chunk;return strlen($chunk);}]);
  $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);$type=strtolower((string)curl_getinfo($c,CURLINFO_CONTENT_TYPE));curl_close($c);
  if($ok===false||$status!==200||!preg_match('~^image/(?:jpeg|png|webp)(?:;|$)~',$type)||!$bytes)pf_out(['ok'=>false,'error'=>'楽天の商品写真を取得できませんでした。'],502);
@@ -247,7 +310,7 @@ try{
    if(!$product)throw new RuntimeException('一覧を更新して商品を選び直してください。');$result=['entry'=>pf_prepare_stock($product,$state)];
   }
   elseif($action==='settings'){if(!is_bool($input['enabled']??null))throw new RuntimeException('自動準備の設定を確認してください。');pf_write('settings',['enabled'=>$input['enabled']]);}
-  elseif($action==='sources'){$state['sources']=pf_stock_discover($state);$result=['message'=>count($state['sources']).'件の楽天在庫商品が見つかりました。'];}
+  elseif($action==='sources'){$state['sources']=pf_stock_discover($state);$result=['message'=>count($state['sources']).'件の楽天候補を自動検索しました。'];}
   elseif($action==='tick'){$result=pf_tick($state,!empty($input['manual']));}
   elseif($action==='prepare'){
    if(!is_string($input['url']??null))throw new RuntimeException('記事URLを確認してください。');
