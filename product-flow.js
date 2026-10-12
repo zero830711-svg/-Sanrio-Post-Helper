@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[],preparingPhotos=false;
+let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[],preparingPhotos=false,photoPreparationSeq=0;
 function endpoint(action){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/product-flow.php'));u.searchParams.set('action',action);return u.href;}
 async function api(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -120,7 +120,7 @@ function updateFinal(){
 async function open(id){
  const row=entries.find(r=>r.id===id);if(!row)return;
  if(dirty&&current&&current.id!==id){status('編集中の本文を「下書きを保存」で保存してから切り替えてください。');return;}
- resetPhotoPreviews();current=structuredClone(row);dirty=false;files=[];const seq=++requestSeq;
+ resetPhotoPreviews();preparingPhotos=false;photoPreparationSeq++;current=structuredClone(row);dirty=false;files=[];const seq=++requestSeq;
  el('flowBrowse').hidden=true;el('flowEditor').hidden=false;el('flowTitle').textContent=row.item.title;
  el('flowBody').value=row.body;
  el('flowConfirm').checked=false;
@@ -138,9 +138,9 @@ async function open(id){
 async function prepareSelectedPhotos(){
  if(!current)return false;
  const missing=current.selected.filter(i=>!files[i]);if(!missing.length)return true;
- const row=current,seq=requestSeq;preparingPhotos=true;updateFinal();status('写真を準備しています。完了後、もう一度「本文＋写真を共有」を押してください。');
+ const row=current,seq=requestSeq,job=++photoPreparationSeq;preparingPhotos=true;updateFinal();status('写真を準備しています。完了後、もう一度「本文＋写真を共有」を押してください。');
  const results=await Promise.all(missing.map(async i=>{try{return {i,file:await getProductPhoto(row,i)};}catch(error){return {i,error};}}));
- if(seq!==requestSeq)return false;
+ if(seq!==requestSeq||job!==photoPreparationSeq)return false;
  for(const result of results)if(result.file)showPhotoFile(result.i,result.file);
  preparingPhotos=false;updateFinal();
  const failed=results.filter(result=>result.error);
@@ -193,7 +193,7 @@ el('flowLinkMode').onchange=()=>{dirty=true;updateFinal();queueAutoSave();};
 el('flowConfirm').onchange=updateFinal;
 el('flowSave').onclick=()=>saveDraft(true);
 el('flowRetry').onclick=async()=>{if(dirty){status('編集内容を先に保存してください。');return;}await run('retry',{id:current.id},true);};
-el('flowPhotoRetry').onclick=async()=>{if(preparingPhotos)return;files=current?files:[];await prepareSelectedPhotos();};
+el('flowPhotoRetry').onclick=async()=>{if(!current||preparingPhotos)return;for(const i of current.selected)files[i]=undefined;await prepareSelectedPhotos();};
 el('flowBack').onclick=async()=>{if(dirty&&!await saveDraft(true))return;closeEditor();};
 el('flowCopy').onclick=()=>copyTextFromClick(el('flowFinal').value,el('flowCopy'),'リンク付き本文をコピーしました');
 el('flowShare').onclick=async()=>{
