@@ -34,6 +34,13 @@ pf_check($no['link']===''&&count($no['candidates'])===1,'Unconfirmed candidate g
 pf_check(!pf_eligible(['title'=>'キティ発売','date'=>'2001-01-01'],time()),'Old announcement auto selected');
 pf_check(pf_eligible(['title'=>'キティ マスコット発売','date'=>date('Y-m-d',time()-20*86400)],time()),'Recent product post was excluded');
 pf_check(!pf_eligible(['title'=>'キティ発売','date'=>gmdate('Y-m-d'),'prize'=>true],time()),'Prize auto selected');
+
+$bookRows=pf_books_rows(['Items'=>[['Item'=>['title'=>'ハローキティ ぬいぐるみ絵本','itemCaption'=>'サンリオキャラクターの絵本','itemUrl'=>'https://books.rakuten.co.jp/rb/12345/','affiliateUrl'=>'https://hb.afl.rakuten.co.jp/hgc/'.$aid.'/?pc=book','largeImageUrl'=>'https://shop.r10s.jp/books/cabinet/kitty.jpg','isbn'=>'9781234567890','itemPrice'=>1320]]]],[]);
+pf_check(count($bookRows)===1&&$bookRows[0]['service']==='books'&&$bookRows[0]['price']===1320,'Rakuten Books candidates were not normalized');
+$hotel=['hotelNo'=>'123456','hotelName'=>'サンリオキャラクターホテル','hotelSpecial'=>'サンリオキャラクターの客室あり','hotelInformationUrl'=>'https://hb.afl.rakuten.co.jp/hgc/'.$aid.'/?pc=hotel','hotelThumbnailUrl'=>'https://img.travel.rakuten.co.jp/images/hotel/kitty.jpg','hotelMinCharge'=>12000];
+$travelRows=pf_travel_rows(['hotels'=>[['hotel'=>[['hotelBasicInfo'=>$hotel]]]]],[]);
+pf_check(count($travelRows)===1&&$travelRows[0]['service']==='travel'&&str_contains($travelRows[0]['sourceLabel'],'空室未確認'),'Rakuten Travel candidates were not normalized');
+
 $file='unit-'.bin2hex(random_bytes(6));
 try{pf_write($file,['body'=>'編集済み本文','mark'=>'done']);pf_check(pf_read($file)['body']==='編集済み本文','Saved draft damaged');pf_check((fileperms(pf_dir().'/'.$file.'.json')&0777)===0600,'Draft not private');}finally{unlink(pf_dir().'/'.$file.'.json');}
-echo "Product identity, wrong-item/bundle rejection, multi-shop search links and private draft storage verified\n";
+echo "Product identity, Rakuten Ichiba/Books/Travel candidates, wrong-item/bundle rejection, multi-shop links and private storage verified\n";
