@@ -22,10 +22,14 @@ function am_http(string $url,array $payload,array $headers=[]):array{
  if($ok===false)throw new RuntimeException('Amazonへの接続が時間切れ、または通信エラーになりました。自動再試行はしません。');
  return ['status'=>$status,'data'=>json_decode($body,true)?:[]];
 }
+final class AmConnectionException extends RuntimeException{
+ public string $stage;public int $upstreamStatus;
+ public function __construct(int $status,bool $token){parent::__construct(am_error($status,$token));$this->stage=$token?'authentication':'product-search';$this->upstreamStatus=$status;}
+}
 function am_error(int $status,bool $token):string{
  if($status===429)return 'Amazonの利用上限に達しました。時間をおいて接続確認してください。';
  if($status===401||($token&&$status===400))return '認証情報ID・シークレット・バージョンを確認してください。';
- if($status===403)return 'Amazonの商品APIの利用権限をまだ確認できません。作成直後は反映まで最大48時間かかる場合があります。';
+ if($status===403)return $token?'Amazonの認証段階でアクセスを拒否されました。認証情報・バージョンとAmazon側の利用資格を確認してください。':'Amazonの認証は通りましたが、商品APIの利用権限をまだ確認できません。作成直後の反映待ちの可能性がありますが、このエラーだけでは断定できません。';
  return 'Amazonから商品情報を取得できませんでした（HTTP '.$status.'）。';
 }
 function am_results(array $data):array{
@@ -42,11 +46,11 @@ function am_search(array $s,string $keywords,?callable $transport=null):array{
  if(($cache['fingerprint']??'')===$fingerprint&&($cache['expires']??0)>time()+60)$token=$cache['token'];
  else{
   $r=$call(am_endpoint($s['version']),['grant_type'=>'client_credentials','client_id'=>$s['credentialId'],'client_secret'=>$s['secret'],'scope'=>'creatorsapi::default'],[]);
-  $token=$r['data']['access_token']??'';if($r['status']!==200||!is_string($token)||!preg_match('/^[\x21-\x7E]{10,10000}$/D',$token))throw new RuntimeException(am_error($r['status'],true));
+  $token=$r['data']['access_token']??'';if($r['status']!==200||!is_string($token)||!preg_match('/^[\x21-\x7E]{10,10000}$/D',$token))throw new AmConnectionException($r['status'],true);
   if(!$transport)am_write($tokenPath,['fingerprint'=>$fingerprint,'token'=>$token,'expires'=>time()+min(3600,max(0,(int)($r['data']['expires_in']??0)))]);
  }
  $r=$call('https://creatorsapi.amazon/catalog/v1/searchItems',['keywords'=>$keywords,'searchIndex'=>'All','itemCount'=>5,'marketplace'=>'www.amazon.co.jp','partnerTag'=>$s['partnerTag'],'resources'=>['itemInfo.title','images.primary.medium']],['Authorization: Bearer '.$token,'x-marketplace: www.amazon.co.jp']);
- if($r['status']!==200){if(!$transport&&$r['status']===401&&is_file($tokenPath))unlink($tokenPath);throw new RuntimeException(am_error($r['status'],false));}
+ if($r['status']!==200){if(!$transport&&$r['status']===401&&is_file($tokenPath))unlink($tokenPath);throw new AmConnectionException($r['status'],false);}
  if(!isset($r['data']['searchResult'])||!is_array($r['data']['searchResult']))throw new RuntimeException('Amazonの商品検索結果を確認できませんでした。');
  return ['connected'=>true,'items'=>am_results($r['data']),'partnerTag'=>$s['partnerTag']];
 }
@@ -71,4 +75,5 @@ try{
  try{$last=(int)stream_get_contents($lock);if(time()-$last<5)throw new RuntimeException('5秒以上間隔をあけてください。');rewind($lock);ftruncate($lock,0);fwrite($lock,(string)time());fflush($lock);$result=am_search($s,(string)($d['keywords']??'サンリオ'));}
  finally{flock($lock,LOCK_UN);fclose($lock);}
  am_out(['ok'=>true]+$result);
+}catch(AmConnectionException $e){am_out(['ok'=>false,'error'=>$e->getMessage(),'stage'=>$e->stage,'upstreamStatus'=>$e->upstreamStatus],502);
 }catch(Throwable $e){am_out(['ok'=>false,'error'=>$e->getMessage()],502);}

@@ -4,7 +4,7 @@ async function prepare(page,fail=false){
  const calls=[];await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
  await page.route('**/amazon-creators.php?**',r=>{
   const action=new URL(r.request().url()).searchParams.get('action'),data=r.request().postDataJSON();calls.push({action,data});
-  if(action==='search')return r.fulfill(fail?{status:403,json:{ok:false,error:'Amazonの商品APIの利用権限をまだ確認できません。'}}:{json:{ok:true,connected:true,partnerTag:'test-22',items:[{title:'ハローキティのテスト商品',url:'https://www.amazon.co.jp/dp/B000000001?tag=test-22',image:''}]}});
+  if(action==='search')return r.fulfill(fail?{status:403,json:{ok:false,error:'Amazonの商品APIの利用権限をまだ確認できません。',stage:'product-search',upstreamStatus:403}}:{json:{ok:true,connected:true,partnerTag:'test-22',items:[{title:'ハローキティのテスト商品',url:'https://www.amazon.co.jp/dp/B000000001?tag=test-22',image:''}]}});
   return r.fulfill({json:{ok:true,configured:r.request().method()==='POST',version:'3.3',partnerTag:'test-22'}});
  });
  await page.goto('/amazon-creators.html');await expect(page.locator('#connectionStatus')).toContainText('認証情報ID');return calls;
@@ -22,5 +22,5 @@ test('認証CSVは読み込みだけで送信せず、シークレットを保�
 });
 test('商品APIの利用権限エラーを接続成功として表示せず、自動再試行しない',async({page})=>{
  const calls=await prepare(page,true);await page.locator('#credentialId').fill(id);await page.locator('#credentialSecret').fill(secret);await page.locator('#saveConnection').click();
- await expect(page.locator('#connectionStatus')).toContainText('認証情報は保存済み');await expect(page.locator('#connectionStatus')).toContainText('利用権限');await expect(page.locator('#connectionStatus')).not.toContainText('接続できました');await expect(page.locator('#credentialSecret')).toHaveValue('');expect(calls.filter(c=>c.action==='search')).toHaveLength(1);
+ await expect(page.locator('#connectionStatus')).toContainText('認証情報は保存済み');await expect(page.locator('#connectionStatus')).toContainText('利用権限');await expect(page.locator('#connectionStatus')).toContainText('商品検索／HTTP 403');await expect(page.locator('#connectionStatus')).not.toContainText('接続できました');await expect(page.locator('#credentialSecret')).toHaveValue('');expect(calls.filter(c=>c.action==='search')).toHaveLength(1);
 });

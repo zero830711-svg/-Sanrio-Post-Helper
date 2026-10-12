@@ -22,3 +22,16 @@ check_am(!str_contains(json_encode($result),$settings['secret'])&&!str_contains(
 check_am(str_contains(am_error(403,false),'利用権限')&&str_contains(am_error(401,true),'認証情報'),'Authentication and API access not distinguished');
 $file=am_dir().'/unit-test.json';try{am_write($file,$settings);check_am((fileperms($file)&0777)===0600,'Private file permissions incorrect');check_am(am_read($file)===$settings,'Saved credentials damaged');}finally{if(is_file($file))unlink($file);}
 echo "Amazon JP auth, secret redaction, search payload, URL safety and private storage verified\n";
+
+foreach([true,false] as $tokenFailure){
+ $count=0;
+ try{
+  am_search($settings,'サンリオ',static function()use(&$count,$tokenFailure){$count++;return (!$tokenFailure&&$count===1)?['status'=>200,'data'=>['access_token'=>'FAKE_TOKEN_NOT_REAL_123456','expires_in'=>3600]]:['status'=>403,'data'=>['message'=>'PRIVATE_PROVIDER_RESPONSE']];});
+  throw new RuntimeException('403 accepted');
+ }catch(AmConnectionException $e){
+  check_am($e->stage===($tokenFailure?'authentication':'product-search')&&$e->upstreamStatus===403,'Failed stage not identified');
+  check_am(!str_contains($e->getMessage(),'PRIVATE_PROVIDER_RESPONSE')&&!str_contains($e->getMessage(),'48時間'),'Unsafe or misleading error');
+  check_am($count===($tokenFailure?1:2),'Unexpected automatic retry');
+ }
+}
+echo "Authentication and product permission failures distinguished without exposing provider responses\n";

@@ -8,7 +8,7 @@ function setBusy(value){busy=value;for(const id of ['saveConnection','testConnec
 async function request(action,data){
  const key=syncKey();if(!key){$('syncField').hidden=false;throw new Error('アプリの同期キーを入力してください。');}
  const response=await fetch(endpoint+'?action='+action,{method:data===undefined?'GET':'POST',headers:{Authorization:'Bearer '+key,...(data===undefined?{}:{'Content-Type':'application/json'})},...(data===undefined?{}:{body:JSON.stringify(data)}),cache:'no-store',signal:AbortSignal.timeout(60000)});
- let d;try{d=await response.json();}catch{throw new Error('接続先から応答を確認できませんでした。');}if(!response.ok||!d.ok)throw new Error(d.error||'Amazonに接続できませんでした。');return d;
+ let d;try{d=await response.json();}catch{throw new Error('接続先から応答を確認できませんでした。');}if(!response.ok||!d.ok){const diagnostic=['authentication','product-search'].includes(d.stage)&&Number.isInteger(d.upstreamStatus)?'（'+(d.stage==='authentication'?'認証':'商品検索')+'／HTTP '+d.upstreamStatus+'）':'';throw new Error((d.error||'Amazonに接続できませんでした。')+diagnostic);}return d;
 }
 function validProductUrl(url){try{const p=new URL(url);return p.protocol==='https:'&&p.hostname==='www.amazon.co.jp'&&!p.username&&!p.password&&!p.port;}catch{return false;}}
 function render(data){
