@@ -13,9 +13,9 @@ pf_check(pf_google_books_cover('not-an-isbn')==='','Invalid ISBN reached the Goo
 $thumbnail='https://thumbnail.image.rakuten.co.jp/@0_mall/shop/cabinet/kitty.jpg?_ex=128x128';
 $marketImage=pf_image_url($thumbnail);
 pf_check($marketImage==='https://image.rakuten.co.jp/shop/cabinet/kitty.jpg?_ex=128x128','Rakuten market thumbnail was not normalized');
-pf_check(pf_image_fetch_candidates($marketImage)===['https://image.rakuten.co.jp/shop/cabinet/kitty.jpg','https://image.rakuten.co.jp/shop/cabinet/kitty.jpg?_ex=128x128'],'Post photo did not prefer the original Rakuten image');
+pf_check(pf_image_fetch_candidates($marketImage)===['https://image.rakuten.co.jp/shop/cabinet/kitty.jpg'],'Post photo did not prefer the original Rakuten image');
 $tshop='https://tshop.r10s.jp/shop/cabinet/kitty.jpg?fitin=128%3A128';
-pf_check(pf_image_fetch_candidates(pf_image_url($tshop))===['https://tshop.r10s.jp/shop/cabinet/kitty.jpg',$tshop],'tshop thumbnail did not prefer the original image');
+pf_check(pf_image_fetch_candidates(pf_image_url($tshop))===['https://tshop.r10s.jp/shop/cabinet/kitty.jpg'],'tshop thumbnail did not prefer the original image');
 $highResBook=pf_rakuten_book_cover_from_html('<img src="https://shop.r10s.jp/book/cabinet/9555/9784065439555_1_2.jpg?composite-to=%2A%2C%2A%7C560%3A400&amp;fitin=560%3A400">','9784065439555');
 pf_check($highResBook==='https://shop.r10s.jp/book/cabinet/9555/9784065439555_1_2.jpg','Rakuten Books original cover URL was not selected');
 $gallery=pf_rakuten_book_images_from_html('https://shop.r10s.jp/book/cabinet/9555/9784065439555_1_2.jpg?fitin=560%3A400 https://shop.r10s.jp/book/cabinet/9555/9784065439555_2_2.jpg?fitin=560%3A400 https://shop.r10s.jp/book/cabinet/9555/9784065439556_1_2.jpg','9784065439555');
