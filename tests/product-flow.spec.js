@@ -5,13 +5,14 @@ const affiliate='https://hb.afl.rakuten.co.jp/hgc/12345678.12345678.12345678.123
 const search='https://hb.afl.rakuten.co.jp/hgc/12345678.12345678.12345678.12345678/?pc='+encodeURIComponent('https://search.rakuten.co.jp/search/mall/4901234567894/');
 function entry(link=true){return {id:'test-id',item:{url:source,title:'ハローキティの新作マスコット',source:'Instagram（テスト）',images:[],paragraphs:['JAN：4901234567894']},body:'🎀 ハローキティのマスコットが登場',selected:[],identity:{jan:'4901234567894',model:'',keyword:'4901234567894'},match:{link:link?search:'',linkMode:link?'search':'none',searchAffiliate:link?search:'',itemAffiliate:link?affiliate:'',searchUrl:'https://search.rakuten.co.jp/search/mall/4901234567894/',shopCount:link?2:0,matchStatus:link?'JAN・型番で照合済み':'商品一致の確認待ち',candidates:link?[]:[{code:'shop1:kitty',title:'ハローキティのマスコット',shop:'テスト店',url:product,affiliate,image:''}]},warnings:[],createdAt:1,updatedAt:1,mark:''};}
 async function setup(page,row){
- const calls=[];await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ const calls=[];let enabled=true;await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
  await page.route('**/product-flow.php?**',r=>{
   const action=new URL(r.request().url()).searchParams.get('action'),data=r.request().postDataJSON();calls.push({action,data});
   if(action==='save'){row.body=data.body;row.selected=data.selected;row.match.linkMode=data.linkMode;}
   if(action==='confirm'){row.match.itemAffiliate=affiliate;row.match.searchAffiliate=search;row.match.link=affiliate;row.match.linkMode='item';row.match.matchStatus='商品一致を手動確認済み';}
   if(action==='mark')row.mark=data.mark;
-  return r.fulfill({json:{ok:true,entries:[row],entry:row,enabled:true,rakutenConfigured:true,aiConfigured:true}});
+  if(action==='settings')enabled=data.enabled;
+  return r.fulfill({json:{ok:true,entries:[row],entry:row,enabled,rakutenConfigured:true,aiConfigured:true}});
  });
  await page.goto('/');await page.locator('#homeProductFlowTab').click();await expect(page.locator('#flowCount')).toHaveText('1件');return calls;
 }
@@ -40,7 +41,7 @@ test('商品未確認の候補に自動リンクを付けず、明示確認で�
 });
 test('自動準備の停止設定と投稿済み記録を保存する',async({page})=>{
  const calls=await setup(page,entry());await page.locator('#flowAuto').uncheck();
- expect(calls.find(c=>c.action==='settings').data.enabled).toBe(false);
+ await expect(page.locator('#flowAuto')).not.toBeChecked();expect(calls.find(c=>c.action==='settings').data.enabled).toBe(false);
  await page.getByRole('button',{name:'確認・共有',exact:true}).click();await page.locator('#flowDone').click();
  await expect(page.locator('#flowCount')).toHaveText('0件');
  await page.locator('#flowFilter').selectOption('done');await expect(page.locator('#flowCount')).toHaveText('1件');
