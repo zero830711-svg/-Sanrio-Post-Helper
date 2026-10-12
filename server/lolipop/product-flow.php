@@ -166,7 +166,7 @@ function pf_prepare_stock(array $product,array &$state):array{
 function pf_settings():array{return array_replace(['enabled'=>true,'dailyLimit'=>20],pf_read('settings'));}
 function pf_public(array $state):array{
  $rows=array_values($state['entries']??[]);usort($rows,static fn($a,$b)=>($b['createdAt']??0)<=>($a['createdAt']??0));
- return ['entries'=>$rows,'sources'=>$state['sources']??[],'enabled'=>pf_settings()['enabled'],'dailyLimit'=>20,'lastRun'=>$state['lastRun']??null,'lastError'=>$state['lastError']??'','rakutenConfigured'=>!empty(lw_settings()['accessKey']),'aiConfigured'=>!empty(news_groq_settings()['apiKey'])];
+ return ['entries'=>$rows,'sources'=>array_values(array_filter($state['sources']??[],fn($r)=>is_array($r)&&($r['sourceAt']??0)>time()-1800&&!pf_stock_used($state,(string)($r['code']??'')))),'enabled'=>pf_settings()['enabled'],'dailyLimit'=>20,'lastRun'=>$state['lastRun']??null,'lastError'=>$state['lastError']??'','rakutenConfigured'=>!empty(lw_settings()['accessKey']),'aiConfigured'=>!empty(news_groq_settings()['apiKey'])];
 }
 function pf_prepare(string $url,array &$state,string $keyword=''):array{
  $u=news_url($url);if(!$u)throw new RuntimeException('対応する公式記事・取得済みInstagramのURLを指定してください。');
@@ -274,7 +274,8 @@ try{
     $row['match']['link']=$found['affiliate'];$row['match']['linkMode']='item';$row['match']['matchStatus']='商品一致を手動確認済み';
    }elseif($action==='retry'){
     if(!$row['body']){try{$draft=news_groq_draft($row['item']);$row['body']=$draft['text']??'';}catch(Throwable $e){throw new RuntimeException('本文生成は保留：'.$e->getMessage());}}
-    $identity=pf_identity($row['item'],$row['body']);$settings=lw_settings();$row['match']=pf_resolve($row['item'],$row['body'],$identity,$settings);$row['identity']=$identity;
+    $identity=pf_identity($row['item'],$row['body']);$row['identity']=$identity;
+    if(empty($row['item']['rakuten'])){$settings=lw_settings();$row['match']=pf_resolve($row['item'],$row['body'],$identity,$settings);}
    }else throw new RuntimeException('操作を確認してください。');
    $row['updatedAt']=time();$result=['entry'=>$row];
   }
