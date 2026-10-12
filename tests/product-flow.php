@@ -12,6 +12,8 @@ pf_check(pf_jan($jan)&&!pf_jan('4901234567890'),'JAN check digit validation fail
 pf_check(pf_google_books_cover('not-an-isbn')==='','Invalid ISBN reached the Google Books lookup');
 $highResBook=pf_rakuten_book_cover_from_html('<img src="https://shop.r10s.jp/book/cabinet/9555/9784065439555_1_2.jpg?composite-to=%2A%2C%2A%7C560%3A400&amp;fitin=560%3A400">','9784065439555');
 pf_check($highResBook==='https://shop.r10s.jp/book/cabinet/9555/9784065439555_1_2.jpg','Rakuten Books original cover URL was not selected');
+$gallery=pf_rakuten_book_images_from_html('https://shop.r10s.jp/book/cabinet/9555/9784065439555_1_2.jpg?fitin=560%3A400 https://shop.r10s.jp/book/cabinet/9555/9784065439555_2_2.jpg?fitin=560%3A400 https://shop.r10s.jp/book/cabinet/9555/9784065439556_1_2.jpg','9784065439555');
+pf_check(count($gallery)===2&&$gallery[0]==='https://shop.r10s.jp/book/cabinet/9555/9784065439555_1_2.jpg'&&$gallery[1]==='https://shop.r10s.jp/book/cabinet/9555/9784065439555_2_2.jpg','Rakuten Books gallery images were not extracted as unresized original URLs');
 pf_check(pf_rakuten_book_cover_from_html('https://shop.r10s.jp/book/cabinet/9555/9784065439556_1_2.jpg','9784065439555')==='','A different ISBN image was accepted');
 $identity=pf_identity(['title'=>'キティ マスコット','paragraphs'=>['JAN：'.$jan]]);
 pf_check($identity['jan']===$jan&&$identity['keyword']===$jan,'Source JAN not selected');
