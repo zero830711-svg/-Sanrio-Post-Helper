@@ -213,6 +213,13 @@ function pf_tick(array &$state):array{
 }
 
 if(defined('SPH_FLOW_TEST'))return;
+function pf_image_out(string $source):void{
+ $url=lw_image_url($source);if(!$url)pf_out(['ok'=>false,'error'=>'写真URLを確認できません。'],400);
+ $bytes='';$c=curl_init($url);curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$bytes){if(strlen($bytes)+strlen($chunk)>4000000)return 0;$bytes.=$chunk;return strlen($chunk);}]);
+ $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);$type=strtolower((string)curl_getinfo($c,CURLINFO_CONTENT_TYPE));curl_close($c);
+ if($ok===false||$status!==200||!preg_match('~^image/(?:jpeg|png|webp)(?:;|$)~',$type)||!$bytes)pf_out(['ok'=>false,'error'=>'楽天の商品写真を取得できませんでした。'],502);
+ header('Content-Type: '.strtok($type,';'));header('Content-Length: '.strlen($bytes));header('Cache-Control: private, max-age=300');echo $bytes;exit;
+}
 function pf_out(array $data,int $status=200):void{http_response_code($status);header('Content-Type: application/json; charset=utf-8');echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);exit;}
 $config=require __DIR__.'/config.php';$origin=$_SERVER['HTTP_ORIGIN']??'';
 header('Cache-Control: no-store');header('X-Content-Type-Options: nosniff');
@@ -230,7 +237,8 @@ try{
  $lock=fopen(pf_dir().'/prepare.lock','c+');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))pf_out(['ok'=>false,'error'=>'新商品の準備中です。少し待ってください。'],409);
  chmod(pf_dir().'/prepare.lock',0600);$state=pf_read('state');@set_time_limit(220);$result=[];
  try{
-  if($action==='prepare-stock'){
+  if($action==='image'){pf_image_out((string)($input['url']??''));}
+  elseif($action==='prepare-stock'){
    $code=$input['code']??'';$product=null;foreach($state['sources']??[] as $candidate)if(($candidate['code']??'')===$code)$product=$candidate;
    if(!$product)throw new RuntimeException('一覧を更新して商品を選び直してください。');$result=['entry'=>pf_prepare_stock($product,$state)];
   }
