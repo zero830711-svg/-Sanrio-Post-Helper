@@ -71,10 +71,9 @@ function pf_search(string $keyword,array $settings,int $page=1):array{
  $settings=lw_validate_settings($settings);
  $cache='search-broad-v1-'.hash('sha256',$keyword.'|'.$page.json_encode($settings));$saved=pf_read($cache);
  if(($saved['at']??0)>time()-1800)return $saved['data'];
- $lock=fopen(pf_dir().'/rakuten-api.lock','c+');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('楽天APIを利用中です。少し待ってください。');
+ $lock=fopen(pf_dir().'/rakuten-api.lock','c+');if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('楽天APIを利用中です。少し待ってください。');
  try{
-  chmod(pf_dir().'/rakuten-api.lock',0600);$last=(float)stream_get_contents($lock);
-  if(microtime(true)-$last<1.1)throw new RuntimeException('楽天の検索間隔をあけてください。');
+  chmod(pf_dir().'/rakuten-api.lock',0600);rewind($lock);$last=(float)stream_get_contents($lock);$wait=1.1-(microtime(true)-$last);if($wait>0)usleep((int)($wait*1000000));
   rewind($lock);ftruncate($lock,0);fwrite($lock,(string)microtime(true));fflush($lock);
   $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'keyword'=>$keyword,'availability'=>1,'field'=>0,'hits'=>30,'page'=>$page,'formatVersion'=>2,'elements'=>'count,itemCode,itemName,itemUrl,itemCaption,itemPrice,mediumImageUrls,affiliateUrl,shopCode,shopName']);
   $c=curl_init($url);$body='';
