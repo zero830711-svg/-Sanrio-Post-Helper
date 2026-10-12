@@ -18,7 +18,7 @@ function news_instagram_items():array {
   if(!$title)$title=$account.'の投稿';
   $date=substr((string)($row['published']??''),0,10);
   if(!preg_match('/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/D',$date))$date='';
-  $items[]=['title'=>$title,'url'=>'https://www.instagram.com/p/'.$code.'/','source'=>'Instagram（'.$account.'）','instagramAccount'=>$account,'date'=>$date,'image'=>$images[0],'images'=>array_slice($images,0,8),'paragraphs'=>[$caption],'facts'=>[],'instagram'=>true,'collectedAt'=>(int)($row['collectedAt']??$feed['checkedAt']??0)];
+  $items[]=['title'=>$title,'url'=>'https://www.instagram.com/p/'.$code.'/','source'=>'Instagram（'.$account.'）','instagramAccount'=>$account,'date'=>$date,'image'=>$images[0],'images'=>array_slice($images,0,20),'paragraphs'=>[$caption],'facts'=>[],'instagram'=>true,'collectedAt'=>(int)($row['collectedAt']??$feed['checkedAt']??0)];
  }
  return $items;
 }

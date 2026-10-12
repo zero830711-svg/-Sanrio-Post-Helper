@@ -8,6 +8,7 @@ on:
       - server/lolipop/instagram-mobile-worker.py
       - tests/test_instagram_mobile.py
       - scripts/verify-instagram-photo.php
+      - scripts/verify-instagram-gallery.php
       - server/lolipop/instagram-setup.php
       - .github/workflows/instagram-collector-setup.yml
   workflow_dispatch:
@@ -46,6 +47,7 @@ jobs:
           python -m unittest discover -s tests -p test_instagram_filter.py
           php -l server/lolipop/news.php
           php scripts/verify-instagram-photo.php
+          php scripts/verify-instagram-gallery.php
           php -l server/lolipop/share.php
           php -l server/lolipop/news-instagram.php
           php scripts/verify-instagram-settings.php
@@ -130,6 +132,24 @@ jobs:
           echo "Live saved Instagram photo OCR verified: ".mb_strlen($read["readings"][0]["original"])." source characters\n";
           $draft=$request("ai-draft",$input);if(empty($draft["configured"])||!preg_match("/[ぁ-ゖァ-ヺ]/u",$draft["text"]??""))throw new RuntimeException("Photo-informed Japanese draft unavailable");
           echo "Photo-informed Japanese generation verified: ".mb_strlen($draft["text"])." characters\n";
+          ' "$ig_tmp/config.php"
+          fi
+
+
+          if [ "${{ github.event.head_commit.message == 'Support selectable multiple collages and 20 Instagram photos' }}" = "true" ]; then
+          php -r '
+          $config=require $argv[1];$base="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/news.php";$headers=["Authorization: Bearer ".$config["sync_key"]];
+          $c=curl_init($base."?action=list");curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>35,CURLOPT_HTTPHEADER=>$headers]);$list=json_decode((string)curl_exec($c),true);curl_close($c);
+          if(empty($list["ok"]))throw new RuntimeException("Gallery list unavailable");
+          $row=null;foreach($list["items"]??[] as $item)if(!empty($item["instagram"])&&count($item["images"]??[])>8){$row=$item;break;}
+          if($row){
+           $c=curl_init($base."?action=detail&url=".rawurlencode($row["url"]));curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>$headers]);$detail=json_decode((string)curl_exec($c),true);curl_close($c);
+           if(empty($detail["ok"])||count($detail["item"]["images"]??[])<9)throw new RuntimeException("Instagram photo nine was truncated");
+           echo "Live Instagram gallery beyond eight verified: ".count($detail["item"]["images"])." photos\n";
+           $c=curl_init($base."?action=image&index=8&url=".rawurlencode($row["url"]));curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>30,CURLOPT_HTTPHEADER=>$headers]);$bytes=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
+           if($status!==200||!is_string($bytes)||!getimagesizefromstring($bytes))throw new RuntimeException("Photo nine download unavailable");
+           echo "Instagram photo nine download verified\n";
+          }else echo "No saved gallery beyond eight; 20-photo fixture verified before deployment\n";
           ' "$ig_tmp/config.php"
           fi
 

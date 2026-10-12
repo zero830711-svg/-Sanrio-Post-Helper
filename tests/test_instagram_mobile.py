@@ -99,4 +99,12 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(FakeClient.logins, 1)
 
 
+class GalleryTests(unittest.TestCase):
+    def test_all_twenty_carousel_photos_keep_their_order(self):
+        resources=[types.SimpleNamespace(media_type=1,thumbnail_url=f'https://example.com/{i}.jpg') for i in range(20)]
+        resources.insert(8,types.SimpleNamespace(media_type=2,thumbnail_url='https://example.com/video.jpg'))
+        post=types.SimpleNamespace(media_type=8,resources=resources)
+        self.assertEqual(worker.post_photo_urls(post),[f'https://example.com/{i}.jpg' for i in range(20)])
+        self.assertEqual(worker.post_photo_urls(types.SimpleNamespace(media_type=1,thumbnail_url=None)),[])
+
 if __name__ == '__main__': unittest.main()

@@ -47,6 +47,15 @@ def managed_batch(rows, cursor, favorite_cursor):
     rest = [regular[(cursor+i) % len(regular)] for i in range(min(5-len(preferred), len(regular)))] if regular else []
     return preferred + rest
 
+
+def post_photo_urls(post):
+    if post.media_type == 1:
+        return [str(post.thumbnail_url)] if post.thumbnail_url else []
+    if post.media_type == 8:
+        return [str(resource.thumbnail_url) for resource in post.resources
+                if resource.media_type == 1 and resource.thumbnail_url][:20]
+    return []
+
 def selected_posts(account, posts, previous):
     eligible = [p for p in sorted(posts, key=lambda p: p.taken_at, reverse=True)
                 if p.media_type in (1, 8) and p.caption_text and is_sanrio_post(account, p.caption_text)]
@@ -210,12 +219,7 @@ def run(data):
             account_results = []
             new_count = 0
             for post in chosen:
-                images = []
-                if post.media_type == 1 and post.thumbnail_url:
-                    images = [str(post.thumbnail_url)]
-                elif post.media_type == 8:
-                    images = [str(resource.thumbnail_url) for resource in post.resources
-                              if resource.media_type == 1 and resource.thumbnail_url][:10]
+                images = post_photo_urls(post)
                 caption = post.caption_text or ''
                 if not images or not caption:
                     continue

@@ -69,7 +69,7 @@ def run(data):
     post = next(profile.get_posts())
     images = []
     if post.typename == 'GraphSidecar':
-        images = [node.display_url for node in post.get_sidecar_nodes() if not node.is_video][:10]
+        images = [node.display_url for node in post.get_sidecar_nodes() if not node.is_video][:20]
     elif not post.is_video:
         images = [post.url]
     item = {'shortcode': post.shortcode, 'url': 'https://www.instagram.com/p/' + post.shortcode + '/',
