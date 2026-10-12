@@ -58,7 +58,15 @@ test('8枚を二つのまとめ画像に振り分け、9枚目以降とグルー
 test('古い8枚の下書きから全20枚を取り直し、編集した本文を保つ',async({page})=>{
  const source={...item,instagram:true,instagramAccount:'perihapi_official',url:'https://www.instagram.com/p/SavedEight/',images:Array.from({length:20},(_,i)=>'https://example.invalid/'+i+'.png')};
  await setup(page,source);await page.locator('#newsText').fill('手動編集した投稿文');
- await page.evaluate(()=>{const key=Object.keys(localStorage).find(k=>k.startsWith('sanrioNewsDrafts:'));const data=JSON.parse(localStorage.getItem(key));data.entries[0].item.images=data.entries[0].item.images.slice(0,8);localStorage.setItem(key,JSON.stringify(data));});
+ await page.addInitScript(()=>{const key=Object.keys(localStorage).find(k=>k.startsWith('sanrioNewsDrafts:'));if(!key)return;const data=JSON.parse(localStorage.getItem(key));data.entries[0].item.images=data.entries[0].item.images.slice(0,8);localStorage.setItem(key,JSON.stringify(data));});
  await page.reload();await page.getByRole('tab',{name:'Instagram',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  await expect(page.locator('#newsImages .news-photo')).toHaveCount(20);await expect(page.locator('#newsText')).toHaveValue('手動編集した投稿文');await expect(page.locator('#newsCollageMode')).not.toBeChecked();
+});
+
+test('写真一覧の更新が失敗しても保存済み本文と写真を開く',async({page})=>{
+ const source={...item,instagram:true,instagramAccount:'perihapi_official',url:'https://www.instagram.com/p/OfflineSaved/'};
+ await setup(page,source);await page.locator('#newsText').fill('通信失敗でも残す投稿文');
+ await page.route('**/news.php?**',r=>new URL(r.request().url()).searchParams.get('action')==='detail'?r.fulfill({status:502,json:{ok:false,error:'一時的な通信失敗'}}):r.fallback());
+ await page.reload();await page.getByRole('tab',{name:'Instagram',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
+ await expect(page.locator('#newsText')).toHaveValue('通信失敗でも残す投稿文');await expect(page.locator('#newsPhotoHint')).toContainText('保存済みの写真');await expect(page.locator('#newsImages .news-photo')).toHaveCount(8);
 });

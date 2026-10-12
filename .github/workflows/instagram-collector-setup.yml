@@ -110,7 +110,7 @@ jobs:
           $config=require $argv[1];$base="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/news.php";
           $c=curl_init($base."?action=list");curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>35,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"]]]);$list=json_decode((string)curl_exec($c),true);curl_close($c);
           if(!is_array($list["instagramCollection"]??null))throw new RuntimeException("Collection summary unavailable");echo "Collection summary endpoint verified\n";
-          foreach(["sanrio_kr","sanriogiftgatehk"] as $account){
+          if ("${{ github.event.head_commit.message == 'Support selectable multiple collages and 20 Instagram photos' || github.event.head_commit.message == 'Preserve saved drafts while refreshing Instagram photo galleries' }}" !== "true") foreach(["sanrio_kr","sanriogiftgatehk"] as $account){
           $row=null;foreach($list["items"]??[] as $item)if(($item["instagramAccount"]??"")===$account){$row=$item;break;}
           if(!$row)throw new RuntimeException("Saved overseas post unavailable");
           $c=curl_init($base."?action=ai-draft");curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode(["url"=>$row["url"]]),CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>75,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"],"Content-Type: application/json","Origin: https://zero830711-svg.github.io"]]);$d=json_decode((string)curl_exec($c),true);curl_close($c);
@@ -136,7 +136,7 @@ jobs:
           fi
 
 
-          if [ "${{ github.event.head_commit.message == 'Support selectable multiple collages and 20 Instagram photos' }}" = "true" ]; then
+          if [ "${{ github.event.head_commit.message == 'Support selectable multiple collages and 20 Instagram photos' || github.event.head_commit.message == 'Preserve saved drafts while refreshing Instagram photo galleries' }}" = "true" ]; then
           php -r '
           $config=require $argv[1];$base="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/news.php";$headers=["Authorization: Bearer ".$config["sync_key"]];
           $c=curl_init($base."?action=list");curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>35,CURLOPT_HTTPHEADER=>$headers]);$list=json_decode((string)curl_exec($c),true);curl_close($c);

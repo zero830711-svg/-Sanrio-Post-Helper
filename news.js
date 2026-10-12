@@ -381,15 +381,17 @@ async function newsPrepare(url){
    newsState.drafts.set(url,entry);newsState.drafts.set(item.url,entry);
   }else if(entry.item.instagram){
    // Refresh the saved post's photo list without replacing edited text or selection.
-   const d=await newsRequest('detail',url);if(seq!==newsState.seq)return;
-   const images=d.item.images||[],previous=entry.item.images,files=entry.files;
-   entry.item={...d.item,images};entry.files=images.map(u=>{const old=previous.indexOf(u);return old>=0?files[old]:null;});
-   entry.selected=entry.selected.filter(i=>i<images.length);entry.loading=[];entry.errors=[];
+   try{
+    const d=await newsRequest('detail',url);if(seq!==newsState.seq)return;
+    const images=d.item.images||[],previous=entry.item.images,files=entry.files;
+    entry.item={...d.item,images};entry.files=images.map(u=>{const old=previous.indexOf(u);return old>=0?files[old]:null;});
+    entry.selected=entry.selected.filter(i=>i<images.length);entry.loading=[];entry.errors=[];entry.photoRefreshWarning='';
+   }catch{entry.photoRefreshWarning='写真一覧は更新待ちです。保存済みの写真を表示しています。';}
   }
   if(seq!==newsState.seq)return;
   newsState.item=entry.item;newsState.files=entry.files;newsState.selected=entry.selected.slice();
   $('newsCollageMode').checked=!!entry.collageMode;$('newsCollageControls').hidden=entry.item.images.length<4;
-  $('newsPhotoHint').textContent=entry.collageMode?'写真ごとに「まとめ画像1〜4」か「個別写真」を選択。まとめ画像は4枚ずつ、完成画像は合計4枚まで。':'4枚まで選択・「前へ／後へ」で並べ替え';
+  $('newsPhotoHint').textContent=(entry.photoRefreshWarning||'')+(entry.collageMode?'写真ごとに「まとめ画像1〜4」か「個別写真」を選択。まとめ画像は4枚ずつ、完成画像は合計4枚まで。':'4枚まで選択・「前へ／後へ」で並べ替え');
   const listedItem=newsState.items.find(i=>i.url===url||i.url===entry.item.url);if(listedItem)listedItem.facts=entry.item.facts||[];
   newsSourceLinks(url);
   $('newsDone').disabled=false;$('newsSkip').disabled=false;
