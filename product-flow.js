@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[];
+let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[],preparingPhotos=false;
 function endpoint(action){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/product-flow.php'));u.searchParams.set('action',action);return u.href;}
 async function api(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -113,7 +113,7 @@ function updateFinal(){
  const body=current.body.replace(/(?:\s*#pr)+\s*$/iu,'').trim();
  el('flowFinal').value=body+(link?'\n\n🛍️ 楽天でチェック\n'+link+'\n\n#pr':'');
  const count=current.selected.length;el('flowPhotoStatus').textContent=count+'枚選択 ・ '+files.filter(Boolean).length+'枚準備済み';
- el('flowShare').disabled=busy||saving||dirty||!body||!count||current.selected.some(i=>!files[i])||!el('flowConfirm').checked;
+ el('flowShare').disabled=busy||saving||preparingPhotos||dirty||!body||!count||!el('flowConfirm').checked;
  el('flowSavePhotos').disabled=busy||!count||current.selected.some(i=>!files[i]);
  el('flowCopy').disabled=busy||!body;
 }
@@ -133,7 +133,19 @@ async function open(id){
  el('flowSourceLink').href=row.item.url;
  el('flowLinkMode').value=row.match.linkMode;for(const o of el('flowLinkMode').options)o.disabled=o.value!=='none'&&!row.match[o.value==='search'?'searchAffiliate':'itemAffiliate'];
  renderPhotos();updateFinal();el('flowEditor').scrollIntoView({block:'start',behavior:'instant'});
- await Promise.allSettled(current.selected.map(async i=>{try{const f=await getProductPhoto(row,i);if(seq!==requestSeq)return;showPhotoFile(i,f);updateFinal();}catch(e){if(seq===requestSeq)status('写真'+(i+1)+'を準備できませんでした。「写真を再取得」を押してください。');}}));
+ await prepareSelectedPhotos();
+}
+async function prepareSelectedPhotos(){
+ if(!current)return false;
+ const missing=current.selected.filter(i=>!files[i]);if(!missing.length)return true;
+ const row=current,seq=requestSeq;preparingPhotos=true;updateFinal();status('写真を準備しています。完了後、もう一度「本文＋写真を共有」を押してください。');
+ const results=await Promise.all(missing.map(async i=>{try{return {i,file:await getProductPhoto(row,i)};}catch(error){return {i,error};}}));
+ if(seq!==requestSeq)return false;
+ for(const result of results)if(result.file)showPhotoFile(result.i,result.file);
+ preparingPhotos=false;updateFinal();
+ const failed=results.filter(result=>result.error);
+ if(failed.length){status('写真'+failed.map(result=>result.i+1).join('・')+'を取得できませんでした：'+(failed[0].error?.message||'通信を確認してください。')+' 「写真を再取得」をお試しください。');return false;}
+ status('写真を準備しました。もう一度「本文＋写真を共有」を押してください。');return true;
 }
 function renderPhotos(){
  el('flowPhotos').replaceChildren();
@@ -181,15 +193,14 @@ el('flowLinkMode').onchange=()=>{dirty=true;updateFinal();queueAutoSave();};
 el('flowConfirm').onchange=updateFinal;
 el('flowSave').onclick=()=>saveDraft(true);
 el('flowRetry').onclick=async()=>{if(dirty){status('編集内容を先に保存してください。');return;}await run('retry',{id:current.id},true);};
-el('flowPhotoRetry').onclick=async()=>{
- const seq=requestSeq;await Promise.allSettled(current.selected.map(async i=>{try{const f=await getProductPhoto(current,i);if(seq===requestSeq)showPhotoFile(i,f);}catch{status('写真'+(i+1)+'を取得できませんでした。');}}));updateFinal();
-};
+el('flowPhotoRetry').onclick=async()=>{if(preparingPhotos)return;files=current?files:[];await prepareSelectedPhotos();};
 el('flowBack').onclick=async()=>{if(dirty&&!await saveDraft(true))return;closeEditor();};
 el('flowCopy').onclick=()=>copyTextFromClick(el('flowFinal').value,el('flowCopy'),'リンク付き本文をコピーしました');
 el('flowShare').onclick=async()=>{
  if(!el('flowConfirm').checked){status('商品・掲載内容・在庫・リンク・写真を確認してください。');return;}
  if(dirty||saving){status('編集内容を保存中です。自動保存後に共有できます。');queueAutoSave();return;}
- const text=el('flowFinal').value,data={text,files:current.selected.map(i=>files[i]).filter(Boolean)};
+ if(current.selected.some(i=>!files[i])){await prepareSelectedPhotos();return;}
+ const text=el('flowFinal').value,data={text,files:current.selected.map(i=>files[i])};
  try{
   if(navigator.canShare?.(data)){await navigator.share(data);status('共有画面を閉じました。Xで投稿後、「投稿済みにして次へ」を押してください。');}
   else if(navigator.share){await navigator.share({text});status('本文を共有しました。写真は別に保存してください。');}
