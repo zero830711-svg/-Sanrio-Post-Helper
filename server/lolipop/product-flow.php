@@ -76,7 +76,7 @@ function pf_search(string $keyword,array $settings,int $page=1):array{
   chmod(pf_dir().'/rakuten.lock',0600);$last=(float)stream_get_contents($lock);
   if(microtime(true)-$last<1)throw new RuntimeException('楽天の検索間隔をあけてください。');
   rewind($lock);ftruncate($lock,0);fwrite($lock,(string)microtime(true));fflush($lock);
-  $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'keyword'=>$keyword,'availability'=>1,'hits'=>30,'page'=>$page,'formatVersion'=>2,'elements'=>'count,itemCode,itemName,itemUrl,itemCaption,mediumImageUrls,affiliateUrl,shopCode,shopName']);
+  $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'keyword'=>$keyword,'availability'=>1,'hits'=>30,'page'=>$page,'formatVersion'=>2,'elements'=>'count,itemCode,itemName,itemUrl,itemCaption,itemPrice,mediumImageUrls,affiliateUrl,shopCode,shopName']);
   $c=curl_init($url);$body='';
   curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>static function($c,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>1000000)return 0;$body.=$bytes;return strlen($bytes);}]);
   $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
@@ -139,7 +139,7 @@ function pf_stock_rows(array $data,array $settings,array $state):array{
 }
 function pf_stock_discover(array &$state):array{
  $settings=lw_settings();if(empty($settings['accessKey']))throw new RuntimeException('楽天API設定を保存してください。');
- $existing=array_values(array_filter($state['sources']??[],fn($r)=>is_array($r)&&!empty($r['code'])&&!pf_stock_used($state,(string)$r['code'])));
+ $existing=array_values(array_filter($state['sources']??[],fn($r)=>is_array($r)&&!empty($r['code'])&&($r['sourceAt']??0)>time()-1800&&!pf_stock_used($state,(string)$r['code'])));
  if($existing)return $existing;
  $queries=pf_stock_queries();$qi=(int)($state['stockQueryIndex']??0);$page=(int)($state['stockPage']??1);
  if($qi>=count($queries)){$qi=0;$page=1;}
