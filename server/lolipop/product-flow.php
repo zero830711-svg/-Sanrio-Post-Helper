@@ -113,6 +113,9 @@ function pf_resolve(array $item,string $body,array &$identity,array $settings):a
  }
  return pf_match($data,$identity,$item['title'],$settings);
 }
+function pf_stock_queries():array{
+ return ['サンリオ','ハローキティ グッズ','マイメロディ グッズ','クロミ グッズ','シナモロール グッズ','ポムポムプリン グッズ','ポチャッコ グッズ','ハンギョドン グッズ','リトルツインスターズ グッズ','けろけろけろっぴ グッズ','タキシードサム グッズ','バッドばつ丸 グッズ','あひるのペックル グッズ','ぐでたま グッズ','こぎみゅん グッズ','ウィッシュミーメル グッズ','ぼんぼんりぼん グッズ','チョコキャット グッズ','チャーミーキティ グッズ','マロンクリーム グッズ','ミュークルドリーミー グッズ','まるもふびより グッズ','みんなのたあ坊 グッズ','おさるのもんきち グッズ','ウサハナ グッズ'];
+}
 function pf_stock_used(array $state,string $code):bool{
  if(isset($state['attempted']['rakuten-'.$code]))return true;
  foreach($state['entries']??[] as $e)if(($e['item']['rakutenCode']??'')===$code)return true;
@@ -138,9 +141,10 @@ function pf_stock_discover(array &$state):array{
  $settings=lw_settings();if(empty($settings['accessKey']))throw new RuntimeException('楽天API設定を保存してください。');
  $existing=array_values(array_filter($state['sources']??[],fn($r)=>is_array($r)&&!empty($r['code'])&&!pf_stock_used($state,(string)$r['code'])));
  if($existing)return $existing;
- $qi=(int)($state['stockQueryIndex']??0);$page=(int)($state['stockPage']??1);$data=pf_search('サンリオ',$settings,$page);
- $state['stockQueryIndex']=0;$state['stockPage']=$page+1;
- if($page*30>=max(0,(int)($data['count']??0)))$state['stockPage']=1;
+ $queries=pf_stock_queries();$qi=(int)($state['stockQueryIndex']??0);$page=(int)($state['stockPage']??1);
+ if($qi>=count($queries)){$qi=0;$page=1;}
+ $data=pf_search($queries[$qi],$settings,$page);$state['stockQueryIndex']=$qi;
+ if($page*30>=max(0,(int)($data['count']??0))){$state['stockQueryIndex']=$qi+1;$state['stockPage']=1;}else $state['stockPage']=$page+1;
  $state['sources']=pf_stock_rows($data,$settings,$state);return $state['sources'];
 }
 function pf_prepare_stock(array $product,array &$state):array{
