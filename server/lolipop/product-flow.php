@@ -271,12 +271,12 @@ function pf_stock_discover(array &$state):array{
 function pf_prepare_stock(array $product,array &$state):array{
  $code=(string)($product['code']??'');if($code===''||empty($product['affiliate'])||!pf_safe_affiliate((string)$product['affiliate']))throw new RuntimeException('楽天の在庫商品を確認できません。');
  foreach($state['entries']??[] as $old)if(($old['item']['rakutenCode']??'')===$code)return $old;
- $images=array_values(array_filter(array_map('pf_image_url',$product['images']??[])));if(!$images&&!empty($product['image']))$images=[pf_image_url((string)$product['image'])];$images=array_values(array_filter($images));
- if(($product['service']??'')==='books'&&str_starts_with($code,'books:')){$gallery=pf_rakuten_books_images((string)$product['url'],substr($code,6));if($gallery)$images=array_values(array_unique(array_merge($gallery,$images)));}
+ $images=array_values(array_filter(array_map('pf_image_url',$product['images']??[])));if(!$images&&!empty($product['image']))$images=[pf_image_url((string)$product['image'])];$images=array_values(array_filter($images));$galleryCheckedAt=0;
+ if(($product['service']??'')==='books'&&str_starts_with($code,'books:')){$gallery=pf_rakuten_books_images((string)$product['url'],substr($code,6));if($gallery)$images=array_values(array_unique(array_merge($gallery,$images)));$galleryCheckedAt=time();}
  if(!$images)throw new RuntimeException('この商品は写真を確認できません。');
  $id=hash('sha256','rakuten:'.$code);$title=(string)$product['title'];$shop=(string)$product['shop'];$price=(int)$product['price'];$sourceLabel=(string)($product['sourceLabel']??'楽天市場・在庫あり');
  $fact=$product['service']==='travel'?'楽天トラベルのサンリオ関連施設候補です。空室は未確認です。':$sourceLabel.'で確認した商品です。';$paragraphs=[$title,$fact,'販売店：'.$shop];if($price>0)$paragraphs[]='掲載価格：'.number_format($price).'円（取得時点）';if(!empty($product['caption']))$paragraphs[]=(string)$product['caption'];
- $item=['url'=>(string)$product['url'],'source'=>$sourceLabel,'rakuten'=>true,'rakutenService'=>(string)($product['service']??'market'),'rakutenCode'=>$code,'sourceAt'=>(int)($product['sourceAt']??time()),'title'=>$title,'date'=>gmdate('Y-m-d'),'paragraphs'=>$paragraphs,'facts'=>$price>0?[['kind'=>'price','text'=>'掲載価格：'.number_format($price).'円（取得時点）']]:[],'images'=>$images,'links'=>[]];
+ $item=['url'=>(string)$product['url'],'source'=>$sourceLabel,'rakuten'=>true,'rakutenService'=>(string)($product['service']??'market'),'rakutenCode'=>$code,'sourceAt'=>(int)($product['sourceAt']??time()),'galleryCheckedAt'=>$galleryCheckedAt,'title'=>$title,'date'=>gmdate('Y-m-d'),'paragraphs'=>$paragraphs,'facts'=>$price>0?[['kind'=>'price','text'=>'掲載価格：'.number_format($price).'円（取得時点）']]:[],'images'=>$images,'links'=>[]];
  $warnings=['在庫・価格は検索時点の情報です。投稿前に楽天の商品ページで確認してください。'];$body='';
  try{$draft=news_groq_draft($item);$body=(string)($draft['text']??'');}catch(Throwable $e){$warnings[]='本文生成は保留：'.$e->getMessage();}
  $body=preg_replace('~https?://\\S+~u','',$body);$identity=pf_identity($item,$body);$affiliate=(string)$product['affiliate'];
@@ -376,7 +376,14 @@ try{
    $result=['entry'=>pf_prepare($input['url'],$state)];
   }else{
    $id=$input['id']??'';if(!is_string($id)||!isset($state['entries'][$id]))throw new RuntimeException('下書きを選択してください。');$row=&$state['entries'][$id];
-   if($action==='save'){
+   if($action==='gallery'){
+    if(($row['item']['rakutenService']??'')!=='books'||!str_starts_with((string)($row['item']['rakutenCode']??''),'books:'))throw new RuntimeException('楽天ブックスの商品写真ではありません。');
+    $images=pf_rakuten_books_images((string)$row['item']['url'],substr((string)$row['item']['rakutenCode'],6));$previous=$row['item']['images']??[];
+    if($images)$row['item']['images']=array_values(array_unique(array_merge($images,$previous)));
+    $row['item']['galleryCheckedAt']=time();
+    if(empty($row['edited'])&&count($previous)<=1)$row['selected']=array_slice(array_keys($row['item']['images']),0,4);
+    $row['updatedAt']=time();$result=['entry'=>$row,'message'=>'楽天ブックスの商品ページの写真候補を更新しました。'];
+   }elseif($action==='save'){
     if(!is_string($input['body']??null)||mb_strlen($input['body'])>10000||!is_array($input['selected']??null)||count($input['selected'])>4)throw new RuntimeException('本文・写真を確認してください。');
     foreach($input['selected'] as $i)if(!is_int($i)||$i<0||!isset($row['item']['images'][$i]))throw new RuntimeException('写真の選択を確認してください。');
     $mode=$input['linkMode']??'none';if(!in_array($mode,['item','search','none'],true))throw new RuntimeException('リンクの選択を確認してください。');
