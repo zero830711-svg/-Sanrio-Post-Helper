@@ -117,6 +117,27 @@ function pf_image_url(string $url):string{
  if(($p['scheme']??'')==='https'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&$host==='img.travel.rakuten.co.jp'&&preg_match('~\\.(?:jpe?g|png|webp)$~iD',$path))return $url;
  return '';
 }
+function pf_google_books_cover(string $isbn):string{
+ $isbn=strtoupper(preg_replace('/[^0-9X]/i','',$isbn));
+ if(!preg_match('/^(?:[0-9]{13}|[0-9]{9}[0-9X])$/D',$isbn))return '';
+ $key='google-cover-'.hash('sha256',$isbn);$cached=pf_read($key);
+ if(($cached['at']??0)>time()-86400)return (string)($cached['url']??'');
+ $url='https://www.googleapis.com/books/v1/volumes?'.http_build_query(['q'=>'isbn:'.$isbn,'maxResults'=>3,'fields'=>'items(volumeInfo(title,industryIdentifiers,imageLinks))'],'','&',PHP_QUERY_RFC3986);
+ $body='';$c=curl_init($url);curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>3,CURLOPT_TIMEOUT=>6,CURLOPT_WRITEFUNCTION=>static function($c,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>500000)return 0;$body.=$bytes;return strlen($bytes);}]);
+ $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);$cover='';
+ if($ok!==false&&$status===200){$data=json_decode($body,true);foreach($data['items']??[] as $book){
+  $identifiers=$book['volumeInfo']['industryIdentifiers']??[];$match=false;
+  foreach($identifiers as $identifier)if(strtoupper(preg_replace('/[^0-9X]/i','',(string)($identifier['identifier']??'')))===$isbn){$match=true;break;}
+  if(!$match)continue;
+  $images=$book['volumeInfo']['imageLinks']??[];
+  foreach(['extraLarge','large','medium'] as $size){$candidate=(string)($images[$size]??'');if($candidate==='')continue;
+   if(str_starts_with($candidate,'http://'))$candidate='https://'.substr($candidate,7);
+   $p=parse_url($candidate);$host=strtolower((string)($p['host']??''));
+   if(($p['scheme']??'')==='https'&&in_array($host,['books.google.com','books.googleusercontent.com'],true)&&str_starts_with((string)($p['path']??''),'/books/content')){$cover=$candidate;break 2;}
+  }
+ }}
+ pf_write($key,['at'=>time(),'url'=>$cover]);return $cover;
+}
 function pf_books_rows(array $data,array $state):array{
  $rows=[];foreach(array_slice($data['Items']??$data['items']??[],0,30) as $entry){
   $r=$entry['Item']??$entry['item']??$entry;if(!is_array($r))continue;
@@ -280,8 +301,8 @@ function pf_tick(array &$state,bool $manual=false):array{
 }
 
 if(defined('SPH_FLOW_TEST'))return;
-function pf_image_out(string $source):void{
- $url=pf_image_url($source);if(!$url)pf_out(['ok'=>false,'error'=>'写真URLを確認できません。'],400);
+function pf_image_out(string $source,string $isbn=''):void{
+ $url=pf_image_url($source);if($isbn!==''){$cover=pf_google_books_cover($isbn);if($cover)$url=$cover;}if(!$url)pf_out(['ok'=>false,'error'=>'写真URLを確認できません。'],400);
  $bytes='';$c=curl_init($url);curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$bytes){if(strlen($bytes)+strlen($chunk)>4000000)return 0;$bytes.=$chunk;return strlen($chunk);}]);
  $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);$type=strtolower((string)curl_getinfo($c,CURLINFO_CONTENT_TYPE));curl_close($c);
  if($ok===false||$status!==200||!preg_match('~^image/(?:jpeg|png|webp)(?:;|$)~',$type)||!$bytes)pf_out(['ok'=>false,'error'=>'楽天の商品写真を取得できませんでした。'],502);
@@ -304,7 +325,7 @@ try{
  $lock=fopen(pf_dir().'/prepare.lock','c+');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))pf_out(['ok'=>false,'error'=>'新商品の準備中です。少し待ってください。'],409);
  chmod(pf_dir().'/prepare.lock',0600);$state=pf_read('state');@set_time_limit(220);$result=[];
  try{
-  if($action==='image'){pf_image_out((string)($input['url']??''));}
+  if($action==='image'){pf_image_out((string)($input['url']??''),(string)($input['isbn']??''));}
   elseif($action==='prepare-stock'){
    $code=$input['code']??'';$product=null;foreach($state['sources']??[] as $candidate)if(($candidate['code']??'')===$code)$product=$candidate;
    if(!$product)throw new RuntimeException('一覧を更新して商品を選び直してください。');$result=['entry'=>pf_prepare_stock($product,$state)];
