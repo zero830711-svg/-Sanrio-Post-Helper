@@ -22,8 +22,8 @@ function apply(d){
  render();if(d.lastError)status(d.lastError);
 }
 function render(){
- const filter=el('flowFilter').value,rows=entries.filter(r=>filter==='done'?r.mark==='done':filter==='skip'?r.mark==='skip':!r.mark&&(filter!=='ready'||ready(r)));
- el('flowList').replaceChildren();el('flowCount').textContent=rows.length+'件の下書き ・ '+sources.filter(x=>x.code).length+'件の楽天在庫候補';
+ const filter=el('flowFilter').value,stockEntries=entries.filter(r=>r.item?.rakuten===true),rows=stockEntries.filter(r=>filter==='done'?r.mark==='done':filter==='skip'?r.mark==='skip':!r.mark&&(filter!=='ready'||ready(r)));
+ el('flowList').replaceChildren();el('flowCount').textContent=rows.length+'件の楽天在庫下書き';
  for(const row of rows){
   const card=document.createElement('article');card.className='flow-card';
   const title=document.createElement('h3');title.textContent=row.item.title;
@@ -31,13 +31,8 @@ function render(){
   const actions=document.createElement('div');actions.className='cloud-sync-actions';actions.append(button('確認・共有',()=>open(row.id)));
   card.append(title,info,actions);el('flowList').append(card);
  }
- if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='準備済みの下書きがここに並びます。楽天在庫候補から商品を選ぶか、「次の1件を今すぐ準備」を押してください。';el('flowList').append(p);}
- el('flowSources').replaceChildren();
- for(const item of sources.slice(0,30)){
-  if(entries.some(r=>r.item.rakutenCode===item.code))continue;
-  const row=document.createElement('div');row.className='flow-source';const title=document.createElement('span');title.textContent=item.title+' ・ '+item.shop+(item.price?' ・ '+Number(item.price).toLocaleString('ja-JP')+'円':'');
-  row.append(title,button('この商品で下書き',()=>run('prepare-stock',{code:item.code},true)));el('flowSources').append(row);
- }
+ if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='楽天在庫の確認後、自動準備された下書きがここに追加されます。';el('flowList').append(p);}
+
 }
 async function run(action,data,show=false){
  if(busy)return;busy=true;for(const b of el('productFlowPanel').querySelectorAll('button,input,select,textarea'))b.disabled=true;
@@ -55,11 +50,8 @@ async function rakutenImageRequest(url){
 async function getProductPhoto(row,index){return row.item.rakuten?rakutenImageRequest(row.item.images[index]):newsRequest('image',row.item.url,index);}
 async function load(){
  if(busy)return;
- try{
-  apply(await api('list'));
-  if(!sources.length){const d=await api('sources',{});apply(d);status(d.message||'楽天の在庫商品を読み込みました。');}
-  else status('保存済み下書きと楽天候補を読み込みました。');
- }catch(e){status(e.message);}
+ try{apply(await api('list'));status('楽天在庫の下書きを読み込みました。');}
+ catch(e){status(e.message);}
 }
 function updateFinal(){
  if(!current)return;current.body=el('flowBody').value;const mode=el('flowLinkMode').value;
@@ -121,9 +113,9 @@ function renderCandidates(){
  }
 }
 el('flowRefresh').onclick=load;
-el('flowNext').onclick=()=>run('tick',{manual:true},true);
-el('flowDiscover').onclick=()=>run('sources',{});
-el('flowPrepareUrl').onclick=()=>run('prepare',{url:el('flowUrl').value.trim()},true);
+
+
+
 el('flowAuto').onchange=()=>run('settings',{enabled:el('flowAuto').checked});
 el('flowFilter').onchange=render;
 el('flowBody').oninput=()=>{dirty=true;updateFinal();};
