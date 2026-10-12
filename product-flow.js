@@ -9,7 +9,7 @@ async function api(action,data){
  let d;try{d=await r.json();}catch{throw new Error('準備結果を確認できませんでした。「一覧を更新」で保存済み下書きを確認してください。');}
  if(!r.ok||d.ok===false)throw new Error(d.error||'下書きの準備を完了できませんでした。');return d;
 }
-function status(s){el('flowStatus').textContent=s;}
+function status(s){el('flowStatus').textContent=s;const editor=el('flowEditorStatus');if(editor)editor.textContent=s;}
 function queueAutoSave(){clearTimeout(saveTimer);status('編集内容を自動保存します…');saveTimer=setTimeout(()=>{saveDraft(false);},1000);}
 async function saveDraft(showMessage=true){
  if(!current||!dirty)return true;
@@ -110,8 +110,20 @@ function updateFinal(){
  if(!current)return;current.body=el('flowBody').value;const mode=el('flowLinkMode').value;
  const link=mode==='none'?'':(mode==='item'?(flowShort(current)||current.match.itemAffiliate||''):current.match.searchAffiliate||'');
  el('flowLink').value=link;
- const body=current.body.replace(/(?:\s*#pr)+\s*$/iu,'').trim();
- el('flowFinal').value=body+(link?'\n\n🛍️ 楽天でチェック\n'+link+'\n\n#pr':'');
+ const source=current.body.replace(/\r\n?/g,'\n').replace(/(?:\s*#pr)+\s*$/iu,'');
+ const lines=source.split('\n'),clean=[];
+ for(let i=0;i<lines.length;i++){
+  const line=lines[i].trimEnd();
+  if(/^\s*🔎\s*詳細[：:]?\s*$/u.test(line)){
+   const next=lines.slice(i+1).find(x=>x.trim());
+   if(!next||/^\s*(?:#|🛍️)/u.test(next))continue;
+  }
+  if(!line.trim()&&!clean.length)continue;
+  if(!line.trim()&&!clean.at(-1)?.trim())continue;
+  clean.push(line);
+ }
+ const body=clean.join('\n').trim();
+ el('flowFinal').value=[body,...(link?['🛍️ 楽天でチェック\n'+link,'#pr']:[])].filter(Boolean).join('\n\n');
  const count=current.selected.length;el('flowPhotoStatus').textContent=count+'枚選択 ・ '+files.filter(Boolean).length+'枚準備済み'+(preparingPhotos?' ・ 写真を取得中…':'');
  el('flowShare').disabled=busy||saving||preparingPhotos||dirty||!body||!count||!el('flowConfirm').checked;
  el('flowSavePhotos').disabled=busy||!count||current.selected.some(i=>!files[i]);
@@ -167,7 +179,7 @@ function renderPhotos(){
    if(checkbox.checked&&current.selected.length>=4){checkbox.checked=false;status('写真は4枚まで選択できます。');return;}
    if(checkbox.checked)current.selected.push(i);else current.selected=current.selected.filter(n=>n!==i);
    dirty=true;updateFinal();queueAutoSave();const seq=requestSeq;
-   if(checkbox.checked&&!files[i])try{const f=await getProductPhoto(current,i);if(seq===requestSeq){showPhotoFile(i,f);updateFinal();}}catch{status('写真を準備できませんでした。');}
+   if(checkbox.checked&&!files[i])try{const f=await getProductPhoto(current,i);if(seq===requestSeq){showPhotoFile(i,f);updateFinal();status('写真'+(i+1)+'を準備しました。');}}catch(error){status('写真'+(i+1)+'を準備できませんでした：'+(error?.message||'通信を確認してください。'));}
   };
   label.append(img,checkbox,document.createTextNode('写真'+(i+1)));el('flowPhotos').append(label);
  }
