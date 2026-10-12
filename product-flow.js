@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0;
+let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0;
 function endpoint(action){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/product-flow.php'));u.searchParams.set('action',action);return u.href;}
 async function api(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -15,12 +15,29 @@ function anchor(text,url){const a=document.createElement('a');a.textContent=text
 function safeURL(s,roots){try{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&roots.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false;}}
 function ready(row){return !!row.body&&!!row.match.link&&row.item.images?.length>0;}
 function apply(d){
- entries=d.entries||entries;if(d.sources)sources=d.sources;
+ entries=d.entries||entries;if(d.sources)sources=d.sources;if(d.sourceUpdatedAt)sourceUpdatedAt=Number(d.sourceUpdatedAt)*1000;
  if(typeof d.enabled==='boolean')el('flowAuto').checked=d.enabled;
  el('flowSettingsHint').textContent=[d.rakutenConfigured===false?'「楽天API設定」を保存してください。':'',d.aiConfigured===false?'新作ニュースの「AI設定」でGroqを設定してください。':''].filter(Boolean).join(' ');
  if(d.lastRun)el('flowLastRun').textContent='最終確認：'+new Date(d.lastRun*1000).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'});
  render();if(d.lastError)status(d.lastError);
 }
+
+function renderSources(){
+ const host=el('flowSources');if(!host)return;host.replaceChildren();
+ const rows=sources.filter(r=>r&&r.code);
+ el('flowSourcesCount').textContent=rows.length+'件の候補商品・施設';
+ if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='自動検索中です。候補が見つかるとここに表示されます。';host.append(p);return;}
+ for(const item of rows){
+  const card=document.createElement('article');card.className='flow-card flow-source-card';
+  if(item.image&&safeURL(item.image,['r10s.jp','rakuten.co.jp','img.travel.rakuten.co.jp'])){const img=document.createElement('img');img.src=item.image;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';card.append(img);}
+  const title=document.createElement('h3');title.textContent=item.title||'商品名を確認できません';card.append(title);
+  const meta=document.createElement('p');meta.className='backup-note';meta.textContent=(item.sourceLabel||'楽天')+(item.shop?' ・ '+item.shop:'')+(item.price>0?' ・ '+(item.service==='travel'?'最安料金目安：':'価格：')+Number(item.price).toLocaleString('ja-JP')+'円'+(item.service==='travel'?'／泊':''):'');card.append(meta);
+  if(item.url&&safeURL(item.url,['item.rakuten.co.jp','books.rakuten.co.jp','travel.rakuten.co.jp','hb.afl.rakuten.co.jp']))card.append(anchor('掲載ページを見る',item.url));
+  card.append(button('下書きに追加',()=>run('prepare-stock',{code:item.code},true)));
+  host.append(card);
+ }
+}
+
 function render(){
  const filter=el('flowFilter').value,stockEntries=entries.filter(r=>r.item?.rakuten===true),rows=stockEntries.filter(r=>filter==='done'?r.mark==='done':filter==='skip'?r.mark==='skip':!r.mark&&(filter!=='ready'||ready(r)));
  el('flowList').replaceChildren();el('flowCount').textContent=rows.length+'件の楽天在庫下書き';
@@ -31,8 +48,8 @@ function render(){
   const actions=document.createElement('div');actions.className='cloud-sync-actions';actions.append(button('確認・共有',()=>open(row.id)));
   card.append(title,info,actions);el('flowList').append(card);
  }
- if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='楽天在庫の確認後、自動準備された下書きがここに追加されます。';el('flowList').append(p);}
-
+ if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='自動検索した候補から下書きを追加すると、ここに表示されます。';el('flowList').append(p);}
+ renderSources();
 }
 async function run(action,data,show=false){
  if(busy)return;busy=true;for(const b of el('productFlowPanel').querySelectorAll('button,input,select,textarea'))b.disabled=true;
@@ -50,8 +67,13 @@ async function rakutenImageRequest(url){
 async function getProductPhoto(row,index){return row.item.rakuten?rakutenImageRequest(row.item.images[index]):newsRequest('image',row.item.url,index);}
 async function load(){
  if(busy)return;
- try{apply(await api('list'));status('楽天在庫の下書きを読み込みました。');}
- catch(e){status(e.message);}
+ try{
+  const d=await api('list');apply(d);
+  if(d.rakutenConfigured===false){status('楽天API設定を確認してください。');return;}
+  const fresh=Number(d.sourceUpdatedAt||0)*1000>Date.now()-30*60*1000;
+  if(!fresh){const next=await api('sources',{});apply(next);status(next.message||((next.sources||[]).length+'件の候補を自動取得しました。'));if(next.sourceErrors?.length)status((next.message||'候補を取得しました。')+' 一部サービス：'+next.sourceErrors.join(' / '));}
+  else status('自動取得した候補を表示しています。');
+ }catch(e){status(e.message);}
 }
 function updateFinal(){
  if(!current)return;current.body=el('flowBody').value;const mode=el('flowLinkMode').value;
@@ -69,13 +91,12 @@ async function open(id){
  if(dirty&&current&&current.id!==id){status('編集中の本文を「下書きを保存」で保存してから切り替えてください。');return;}
  current=structuredClone(row);dirty=false;files=[];const seq=++requestSeq;
  el('flowBrowse').hidden=true;el('flowEditor').hidden=false;el('flowTitle').textContent=row.item.title;
- el('flowBody').value=row.body;el('flowKeyword').value=row.identity.keyword;
+ el('flowBody').value=row.body;
  el('flowOriginal').textContent=(row.item.paragraphs||[]).join('\n\n');
  el('flowEvidence').textContent=[row.identity.jan?'JAN：'+row.identity.jan:'',row.identity.model?'型番：'+row.identity.model:'',row.match.matchStatus,row.match.shopCount?'一致したショップ：'+row.match.shopCount+'店':'',...(row.warnings||[])].filter(Boolean).join('\n');
  el('flowSourceLink').href=row.item.url;
  el('flowLinkMode').value=row.match.linkMode;for(const o of el('flowLinkMode').options)o.disabled=o.value!=='none'&&!row.match[o.value==='search'?'searchAffiliate':'itemAffiliate'];
- el('flowSearchLink').href=row.match.searchUrl||'https://search.rakuten.co.jp/';
- renderPhotos();renderCandidates();updateFinal();el('flowEditor').scrollIntoView({block:'start',behavior:'instant'});
+ renderPhotos();updateFinal();el('flowEditor').scrollIntoView({block:'start',behavior:'instant'});
  await Promise.allSettled(current.selected.map(async i=>{try{const f=await getProductPhoto(row,i);if(seq!==requestSeq)return;files[i]=f;updateFinal();}catch(e){if(seq===requestSeq)status('写真'+(i+1)+'を準備できませんでした。「写真を再取得」を押してください。');}}));
 }
 function renderPhotos(){
@@ -85,7 +106,7 @@ function renderPhotos(){
   const img=document.createElement('img');img.src=newsApiUrl('image',current.item.url,i);
   // The protected image endpoint needs a Bearer header. Use a source preview;
   // downloadable files are fetched separately with newsRequest.
-  if(row.item.rakuten&&safeURL(url,['rakuten.co.jp','r10s.jp']))img.src=url;else if(safeURL(url,['sanrio.co.jp','prtimes.jp','prcdn.freetls.fastly.net','cdninstagram.com','fbcdn.net','bandai.co.jp','akamaihd.net','takaratomy-arts.co.jp','re-ment.co.jp','gashapon.jp','makeshop-multi-images.akamaized.net','shopify.com']))img.src=url;
+  if(current.item.rakuten&&safeURL(url,['rakuten.co.jp','r10s.jp','img.travel.rakuten.co.jp']))img.src=url;else if(safeURL(url,['sanrio.co.jp','prtimes.jp','prcdn.freetls.fastly.net','cdninstagram.com','fbcdn.net','bandai.co.jp','akamaihd.net','takaratomy-arts.co.jp','re-ment.co.jp','gashapon.jp','makeshop-multi-images.akamaized.net','shopify.com']))img.src=url;
   else img.removeAttribute('src');
   img.alt='写真'+(i+1);img.loading='lazy';img.referrerPolicy='no-referrer';
   const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=current.selected.includes(i);
@@ -96,20 +117,6 @@ function renderPhotos(){
    if(checkbox.checked&&!files[i])try{const f=await getProductPhoto(current,i);if(seq===requestSeq){files[i]=f;updateFinal();}}catch{status('写真を準備できませんでした。');}
   };
   label.append(img,checkbox,document.createTextNode('写真'+(i+1)));el('flowPhotos').append(label);
- }
-}
-function renderCandidates(){
- el('flowCandidates').replaceChildren();
- for(const c of current.match.candidates.slice(0,10)){
-  const row=document.createElement('article');row.className='flow-candidate';
-  if(c.image&&safeURL(c.image,['rakuten.co.jp','r10s.jp'])){const img=document.createElement('img');img.src=c.image;img.alt='';img.loading='lazy';row.append(img);}
-  const p=document.createElement('p');p.textContent=c.title+'（'+c.shop+'）';
-  row.append(p);if(safeURL(c.url,['item.rakuten.co.jp']))row.append(anchor('商品ページで確認',c.url));
-  if(c.affiliate)row.append(button('写真・商品が一致するので採用',async()=>{
-   if(dirty){status('本文・写真の変更を先に「下書きを保存」で保存してください。');return;}
-   await run('confirm',{id:current.id,code:c.code},true);
-  }));
-  el('flowCandidates').append(row);
  }
 }
 el('flowRefresh').onclick=load;
@@ -124,13 +131,9 @@ el('flowSave').onclick=async()=>{
  if(!current)return;const d=await run('save',{id:current.id,body:el('flowBody').value,selected:current.selected,linkMode:el('flowLinkMode').value});
  if(d){dirty=false;status('下書きを保存しました。');}
 };
-el('flowMatch').onclick=async()=>{
- if(dirty){status('編集内容を先に保存してください。');return;}
- await run('match',{id:current.id,keyword:el('flowKeyword').value.trim()},true);
-};
 el('flowRetry').onclick=async()=>{if(dirty){status('編集内容を先に保存してください。');return;}await run('retry',{id:current.id},true);};
 el('flowPhotoRetry').onclick=async()=>{
- const seq=requestSeq;await Promise.allSettled(current.selected.map(async i=>{try{const f=await newsRequest('image',current.item.url,i);if(seq===requestSeq)files[i]=f;}catch{status('写真'+(i+1)+'を取得できませんでした。');}}));updateFinal();
+ const seq=requestSeq;await Promise.allSettled(current.selected.map(async i=>{try{const f=await getProductPhoto(current,i);if(seq===requestSeq)files[i]=f;}catch{status('写真'+(i+1)+'を取得できませんでした。');}}));updateFinal();
 };
 el('flowBack').onclick=()=>{if(dirty){status('変更を先に「下書きを保存」で保存してください。');return;}++requestSeq;current=null;files=[];el('flowEditor').hidden=true;el('flowBrowse').hidden=false;render();};
 el('flowCopy').onclick=()=>copyTextFromClick(el('flowFinal').value,el('flowCopy'),'リンク付き本文をコピーしました');
@@ -144,5 +147,6 @@ for(const [id,mark] of [['flowDone','done'],['flowSkip','skip']])el(id).onclick=
  if(dirty){status('編集内容を先に保存してください。');return;}const d=await run('mark',{id:current.id,mark});if(d)el('flowBack').click();
 };
 document.addEventListener('sph-product-flow-tab',load);
+setInterval(()=>{if(!document.hidden&&!el('productFlowPanel').hidden)load();},5*60*1000);
 if(location.hash==='#new-product')setHomeView('flow');
 })();
