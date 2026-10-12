@@ -55,8 +55,11 @@ async function rakutenImageRequest(url){
 async function getProductPhoto(row,index){return row.item.rakuten?rakutenImageRequest(row.item.images[index]):newsRequest('image',row.item.url,index);}
 async function load(){
  if(busy)return;
- try{apply(await api('list'));status('保存済み下書きを読み込みました。');}
- catch(e){status(e.message);}
+ try{
+  apply(await api('list'));
+  if(!sources.length){const d=await api('sources',{});apply(d);status(d.message||'楽天の在庫商品を読み込みました。');}
+  else status('保存済み下書きと楽天候補を読み込みました。');
+ }catch(e){status(e.message);}
 }
 function updateFinal(){
  if(!current)return;current.body=el('flowBody').value;const mode=el('flowLinkMode').value;
@@ -118,7 +121,7 @@ function renderCandidates(){
  }
 }
 el('flowRefresh').onclick=load;
-el('flowNext').onclick=()=>run('tick',{},true);
+el('flowNext').onclick=()=>run('tick',{manual:true},true);
 el('flowDiscover').onclick=()=>run('sources',{});
 el('flowPrepareUrl').onclick=()=>run('prepare',{url:el('flowUrl').value.trim()},true);
 el('flowAuto').onchange=()=>run('settings',{enabled:el('flowAuto').checked});
