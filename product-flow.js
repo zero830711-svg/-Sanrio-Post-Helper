@@ -13,6 +13,19 @@ function status(s){el('flowStatus').textContent=s;}
 function button(text,fn){const b=document.createElement('button');b.type='button';b.className='small-btn';b.textContent=text;b.onclick=fn;return b;}
 function anchor(text,url){const a=document.createElement('a');a.textContent=text;a.className='small-btn link-btn';a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;}
 function safeURL(s,roots){try{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&roots.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false;}}
+const FLOW_SHORT_KEY='sphRakutenFlowShortLinksV1';
+function flowShortMap(){try{return JSON.parse(localStorage.getItem(FLOW_SHORT_KEY)||'{}')||{};}catch{return {};}}
+function flowShortKey(row){return String(row?.item?.code||row?.item?.url||'').slice(0,2048);}
+function flowShort(row){return flowShortMap()[flowShortKey(row)]||'';}
+function validFlowShort(value){try{const u=new URL(value.trim());return u.protocol==='https:'&&u.hostname==='a.r10.to'&&u.pathname!=='/'&&!u.username&&!u.password&&!u.port;}catch{return false;}}
+function saveFlowShort(value){
+ if(!current)throw new Error('候補を開いてから操作してください。');
+ const url=String(value||'').trim();if(!validFlowShort(url))throw new Error('楽天アフィリエイトで作成したa.r10.toの短縮URLを貼り付けてください。');
+ const map=flowShortMap();map[flowShortKey(current)]=url;
+ try{localStorage.setItem(FLOW_SHORT_KEY,JSON.stringify(map));}catch{throw new Error('短縮URLを端末に保存できませんでした。空き容量を確認してください。');}
+ if([...el('flowLinkMode').options].some(o=>o.value==='item'&&!o.disabled))el('flowLinkMode').value='item';
+ dirty=true;updateFinal();el('flowShortUrlStatus').textContent='短縮URLを保存して投稿本文に反映しました。';
+}
 function ready(row){return !!row.body&&!!row.match.link&&row.item.images?.length>0;}
 function apply(d){
  entries=d.entries||entries;if(d.sources)sources=d.sources;if(d.sourceUpdatedAt)sourceUpdatedAt=Number(d.sourceUpdatedAt)*1000;
@@ -77,7 +90,7 @@ async function load(){
 }
 function updateFinal(){
  if(!current)return;current.body=el('flowBody').value;const mode=el('flowLinkMode').value;
- const link=mode==='none'?'':current.match[mode==='search'?'searchAffiliate':'itemAffiliate']||'';
+ const link=mode==='none'?'':(mode==='item'?(flowShort(current)||current.match.itemAffiliate||''):current.match.searchAffiliate||'');
  el('flowLink').value=link;
  const body=current.body.replace(/(?:\s*#pr)+\s*$/iu,'').trim();
  el('flowFinal').value=body+(link?'\n\n🛍️ 楽天でチェック\n'+link+'\n\n#pr':'');
@@ -93,6 +106,10 @@ async function open(id){
  el('flowBrowse').hidden=true;el('flowEditor').hidden=false;el('flowTitle').textContent=row.item.title;
  el('flowBody').value=row.body;
  el('flowOriginal').textContent=(row.item.paragraphs||[]).join('\n\n');
+ el('flowItemUrl').value=row.item.url||'';
+ el('flowShortUrlStatus').textContent=flowShort(row)?'この候補に保存済みの短縮URLがあります。':'';
+ const affiliateOpen=el('flowRakutenAffiliateOpen');
+ if(/iPad|iPhone|iPod/.test(navigator.userAgent||'')){affiliateOpen.href='googlechromes://affiliate.rakuten.co.jp/';affiliateOpen.removeAttribute('target');affiliateOpen.textContent='楽天アフィリエイトをChromeで開く';}
  el('flowEvidence').textContent=[row.identity.jan?'JAN：'+row.identity.jan:'',row.identity.model?'型番：'+row.identity.model:'',row.match.matchStatus,row.match.shopCount?'一致したショップ：'+row.match.shopCount+'店':'',...(row.warnings||[])].filter(Boolean).join('\n');
  el('flowSourceLink').href=row.item.url;
  el('flowLinkMode').value=row.match.linkMode;for(const o of el('flowLinkMode').options)o.disabled=o.value!=='none'&&!row.match[o.value==='search'?'searchAffiliate':'itemAffiliate'];
@@ -119,6 +136,21 @@ function renderPhotos(){
   label.append(img,checkbox,document.createTextNode('写真'+(i+1)));el('flowPhotos').append(label);
  }
 }
+el('flowItemUrlCopy').onclick=async()=>{
+ const input=el('flowItemUrl'),message=el('flowShortUrlStatus');if(!input.value)return;
+ try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(input.value);else{input.focus();input.select();if(!document.execCommand('copy'))throw new Error('copy');}message.textContent='商品URLをコピーしました。楽天アフィリエイトで短縮URLを作成してください。';}
+ catch{input.focus();input.select();input.setSelectionRange(0,input.value.length);message.textContent='コピーできませんでした。選択された商品URLを長押ししてコピーしてください。';}
+};
+el('flowShortUrlPaste').onclick=async()=>{
+ const button=el('flowShortUrlPaste'),input=el('flowLink'),message=el('flowShortUrlStatus');button.disabled=true;
+ try{if(!navigator.clipboard?.readText)throw new Error('clipboard');const text=await navigator.clipboard.readText();saveFlowShort(text);}
+ catch(error){if(error.message==='clipboard'||error.name==='NotAllowedError'||error.name==='NotReadableError'){input.focus();input.select();message.textContent='クリップボードを読めません。楽天アフィリエイトで短縮URLをコピーし、このリンク欄に貼り付けてください。';}else message.textContent=error.message;}
+ finally{button.disabled=false;}
+};
+el('flowLink').addEventListener('change',event=>{
+ const value=event.currentTarget.value.trim();if(!value)return;
+ try{saveFlowShort(value);}catch(error){el('flowShortUrlStatus').textContent=error.message;updateFinal();}
+});
 el('flowRefresh').onclick=load;
 
 
