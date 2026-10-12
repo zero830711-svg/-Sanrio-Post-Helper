@@ -1,0 +1,18 @@
+#productFlowPanel[hidden],#flowBrowse[hidden],#flowEditor[hidden]{display:none!important}
+.home-tabs{display:flex!important;overflow-x:auto;gap:6px;padding-bottom:4px;scrollbar-width:thin}
+.home-tabs button{flex:1 0 90px;min-height:48px}
+.flow-card,.flow-candidate{border-bottom:1px solid var(--line);padding:14px 0}
+.flow-card h3{font-size:16px;line-height:1.5;margin:0 0 8px;overflow-wrap:anywhere}
+.flow-source{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.flow-source span{flex:1;min-width:0;overflow-wrap:anywhere}
+#productFlowPanel textarea,#productFlowPanel input[type=url],#productFlowPanel input[type=text],#productFlowPanel select{width:100%;box-sizing:border-box}
+#productFlowPanel textarea{font-size:16px;line-height:1.7;margin:8px 0;padding:12px;border:1px solid var(--line);border-radius:12px}
+#productFlowPanel label{display:block;margin:12px 0}
+#productFlowPanel input[type=checkbox]{width:22px;height:22px;vertical-align:middle}
+.flow-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.flow-photo{border:1px solid var(--line);border-radius:12px;padding:8px}
+.flow-photo img{width:100%;height:150px;object-fit:contain;background:white;display:block}
+.flow-candidate img{width:90px;height:90px;object-fit:contain}
+#flowEvidence,#flowOriginal{white-space:pre-wrap;overflow-wrap:anywhere}
+#flowEditor h3{overflow-wrap:anywhere}
+#flowStatus{position:relative;white-space:pre-wrap}

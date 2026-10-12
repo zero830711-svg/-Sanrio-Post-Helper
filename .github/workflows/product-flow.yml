@@ -1,0 +1,77 @@
+name: Prepare new products and deploy flow
+on:
+  push:
+    branches: [main]
+    paths:
+      - server/lolipop/product-flow.php
+      - tests/product-flow.php
+      - .github/workflows/product-flow.yml
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-product-flow
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify product matching and private storage
+        run: |
+          php -l server/lolipop/product-flow.php
+          php tests/product-flow.php
+      - name: Install FTPS client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp
+      - name: Deploy and prepare at most one draft
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          flow_tmp=$(mktemp -d)
+          trap 'rm -rf "$flow_tmp"' EXIT
+          if [ "$GITHUB_EVENT_NAME" != schedule ]; then
+            lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          put server/lolipop/product-flow.php
+          bye
+          LFTP
+          fi
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get config.php -o "$flow_tmp/config.php"
+          bye
+          LFTP
+          php -r '
+          $config=require $argv[1];$base="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/product-flow.php";
+          $c=curl_init($base);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20]);curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);if($status!==401)throw new RuntimeException("Unprotected drafts endpoint");
+          $c=curl_init($base."?action=tick");curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>240,CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>"{}",CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"],"Origin: https://zero830711-svg.github.io","Content-Type: application/json"]]);$body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);$d=json_decode((string)$body,true);
+          if($status===409){echo "Another product preparation is running; no retry\n";exit;}
+          if($status!==200||empty($d["ok"]))throw new RuntimeException("Product flow response failed: ".($d["error"]??"invalid response"));
+          echo "Private product flow endpoint verified\n";
+          echo "Rakuten configured: ".(!empty($d["rakutenConfigured"])?"yes":"no")."; AI configured: ".(!empty($d["aiConfigured"])?"yes":"no")."\n";
+          echo ($d["message"]??"")."\n";
+          if(isset($d["entry"])){echo "Draft created; photos: ".count($d["entry"]["item"]["images"]??[])."; body characters: ".mb_strlen($d["entry"]["body"]??"")."; link mode: ".($d["entry"]["match"]["linkMode"]??"none")."; candidates: ".count($d["entry"]["match"]["candidates"]??[])."\n";foreach($d["entry"]["warnings"]??[] as $warning)echo $warning."\n";}
+          ' "$flow_tmp/config.php"

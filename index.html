@@ -22,7 +22,8 @@
 #instagramTools label{display:block;margin:10px 0}
 #instagramSearch,#instagramAddUrl{width:100%;box-sizing:border-box;padding:10px;border:1px solid #eadde5;border-radius:12px;font:inherit}
 @media(max-width:520px){#newsPhotoDialog .news-photo img{height:210px}.news-photo-dialog-head{align-items:flex-start}#newsPhotoDialog .small-btn{padding:10px}}
-</style></head>
+</style><link rel="stylesheet" href="./product-flow.css?v=20261012-3481">
+</head>
 <body>
 <main class="app">
 <header class="home-header">
@@ -41,6 +42,7 @@
 <button id="homeTodayTab" type="button" role="tab" aria-controls="todayHomePanel" aria-selected="true">今日の候補</button>
 <button id="homeNewsTab" type="button" role="tab" aria-controls="newsPanel" aria-selected="false" tabindex="-1">新作ニュース</button>
 <button id="homeInstagramTab" type="button" role="tab" aria-controls="newsPanel" aria-selected="false" tabindex="-1">Instagram</button>
+<button id="homeProductFlowTab" type="button" role="tab" aria-controls="productFlowPanel" aria-selected="false" tabindex="-1">新商品→投稿</button>
 <button id="homeNewTab" type="button" role="tab" aria-controls="lovelyPanel" aria-selected="false" tabindex="-1">新着商品</button>
 </div>
 
@@ -64,6 +66,42 @@
 <button id="todayMore" class="small-btn" type="button" hidden>もっと見る</button><p id="todayMoreStatus" class="backup-note" aria-live="polite"></p>
 <details class="today-selection-help"><summary id="todayCountsSummary">件数の内訳</summary><div id="todayCounts" class="backup-note"></div></details>
 <details class="today-selection-help"><summary>候補の選び方</summary><p class="backup-note">過去投稿から「過去最強 / クリック / 保存」の3枠はAmazon・楽天リンク付き優先、「久しぶり / 別テーマ」の2枠は反応とテーマの変化を重視して自動選定。クリック枠は商品IDが完全一致する報酬実績を優先します（Amazonはアカウントごとの最新商品レポート、楽天は直近3か月の保存済みレポートの確定報酬。投稿経由は不明）。「別テーマ」は季節に合う商品テーマを優先します。単独キャラクターは原則2件まで。複数キャラクターは別扱いとし、候補不足時は制限を緩めます。リンク付き候補が不足する場合は通常候補で補います。「もっと見る」の追加候補はAmazon・楽天リンクあり→写真あり→反応などの順で並べます。残り件数は、条件で絞り込み同じ投稿・商品をまとめた後の数です。似た内容の連投を避け、同じ商品は基本30日空けます。十分なX比較実績がありクリック率が低下した場合は60日・90日に自動延長します（再入荷・発売日変更などの新情報は同商品制限の対象外）。</p></details>
+</section>
+
+<section id="productFlowPanel" class="card" role="tabpanel" aria-labelledby="homeProductFlowTab" hidden>
+<h2 class="section-title">新商品→投稿</h2>
+<p class="backup-note">Instagram・公式ニュースから楽天照合とX下書きを自動準備。約30分ごとに1件、1日12件まで。投稿前に本文・写真・商品一致を確認してください。</p>
+<label><input id="flowAuto" type="checkbox" checked> 自動で下書きを準備する</label>
+<p id="flowSettingsHint" class="backup-note"></p><p id="flowLastRun" class="backup-note"></p>
+<p id="flowStatus" class="backup-note" aria-live="polite"></p>
+<div id="flowBrowse">
+<div class="cloud-sync-actions"><button id="flowNext" type="button" class="small-btn">次の1件を自動準備</button><button id="flowRefresh" type="button" class="small-btn">一覧を更新</button></div>
+<label>表示<select id="flowFilter"><option value="all">未投稿すべて</option value="ready">リンク付き下書き</option><option value="done">投稿済み</option><option value="skip">見送り</option></select></label>
+<p id="flowCount" class="backup-note"></p><div id="flowList"></div>
+<details><summary>情報源から選んで準備</summary><button id="flowDiscover" type="button" class="small-btn">新しい商品を探す</button><div id="flowSources"></div></details>
+<details><summary>記事URLから準備</summary><p class="backup-note">取得済みInstagram・対応する公式記事を指定できます。</p><label>記事URL<input id="flowUrl" type="url" inputmode="url"></label><button id="flowPrepareUrl" type="button" class="small-btn">この商品を自動準備</button></details>
+<p class="backup-note">一致が不明な商品にリンクは付けません。X・スクショからの取込みは後続対応です。</p>
+</div>
+<div id="flowEditor" hidden>
+<button id="flowBack" type="button" class="small-btn">一覧へ戻る</button><h3 id="flowTitle"></h3>
+<a id="flowSourceLink" target="_blank" rel="noopener noreferrer">情報元を確認</a>
+<p id="flowEvidence" class="backup-note"></p>
+<label>投稿本文（編集できます）<textarea id="flowBody" rows="8"></textarea></label>
+<label>楽天リンク<select id="flowLinkMode"><option value="search">検索ページ</option><option value="item">単品の商品ページ</option><option value="none">リンクなし</option></select></label>
+<input id="flowLink" type="url" readonly aria-label="投稿に付ける楽天アフィリエイトリンク">
+<details><summary>楽天の商品一致を確認・変更</summary>
+<label>検索語<input id="flowKeyword" type="text" maxlength="80"></label><div class="cloud-sync-actions"><button id="flowMatch" class="small-btn" type="button">楽天で再検索</button><a id="flowSearchLink" target="_blank" rel="noopener noreferrer">検索結果を確認</a></div><div id="flowCandidates"></div>
+</details>
+<details><summary>原文を確認</summary><p id="flowOriginal"></p></details>
+<p class="backup-note">使う写真を4枚まで選択できます。楽天の候補画像は商品照合用です。</p>
+<div id="flowPhotos" class="flow-photos"></div><p id="flowPhotoStatus" class="backup-note"></p><button id="flowPhotoRetry" type="button" class="small-btn">写真を再取得</button>
+<div class="cloud-sync-actions"><button id="flowSave" type="button" class="small-btn">下書きを保存</button><button id="flowRetry" type="button" class="small-btn">保留した処理を再確認</button></div>
+<label>共有する本文（リンク・PR表記込み）<textarea id="flowFinal" rows="8" readonly></textarea></label>
+<button id="flowShare" type="button" class="small-btn">本文＋写真を共有</button>
+<div class="cloud-sync-actions"><button id="flowCopy" type="button" class="small-btn">本文をコピー</button><button id="flowSavePhotos" type="button" class="small-btn">写真を保存</button></div>
+<div class="cloud-sync-actions"><button id="flowDone" type="button" class="small-btn">投稿済みにする</button><button id="flowSkip" type="button" class="small-btn">見送る</button></div>
+</div>
+<p class="backup-note"><a href="https://developers.rakuten.com/" target="_blank" rel="noopener noreferrer">Supported by Rakuten Developers</a></p>
 </section>
 
 <section id="newsPanel" class="card" role="tabpanel" aria-labelledby="homeNewsTab" hidden>
@@ -480,7 +518,7 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261011-3460"></script>
+<script src="./app.js?v=20261012-3481"></script>
 <script src="./candidate-edit.js?v=20261010-3457"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
@@ -504,6 +542,7 @@ window.addEventListener("load",()=>{
   },2500);
 });
 </script>
+<script src="./product-flow.js?v=20261012-3481"></script>
 </body>
 </html>
 
