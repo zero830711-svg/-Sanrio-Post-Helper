@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[],preparingPhotos=false,photoPreparationSeq=0;
+let entries=[],sources=[],sourceErrors=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[],preparingPhotos=false,photoPreparationSeq=0;
 function endpoint(action){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/product-flow.php'));u.searchParams.set('action',action);return u.href;}
 async function api(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -44,7 +44,7 @@ function saveFlowShort(value){
 }
 function ready(row){return !!row.body&&!!row.match.link&&row.item.images?.length>0;}
 function apply(d){
- entries=d.entries||entries;if(d.sources)sources=d.sources;if(d.sourceUpdatedAt)sourceUpdatedAt=Number(d.sourceUpdatedAt)*1000;
+ entries=d.entries||entries;if(d.sources)sources=d.sources;if(Array.isArray(d.sourceErrors))sourceErrors=d.sourceErrors;if(d.sourceUpdatedAt)sourceUpdatedAt=Number(d.sourceUpdatedAt)*1000;
  if(typeof d.enabled==='boolean')el('flowAuto').checked=d.enabled;
  el('flowSettingsHint').textContent=[d.rakutenConfigured===false?'「楽天API設定」を保存してください。':'',d.aiConfigured===false?'新作ニュースの「AI設定」でGroqを設定してください。':''].filter(Boolean).join(' ');
  if(d.lastRun)el('flowLastRun').textContent='最終確認：'+new Date(d.lastRun*1000).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'});
@@ -54,7 +54,9 @@ function apply(d){
 function renderSources(){
  const host=el('flowSources');if(!host)return;host.replaceChildren();
  const rows=sources.filter(r=>r&&r.code);
- el('flowSourcesCount').textContent=rows.length+'件の候補商品・施設';
+ const counts={market:0,books:0,travel:0};for(const row of rows)if(Object.prototype.hasOwnProperty.call(counts,row.service))counts[row.service]++;
+ el('flowSourcesCount').textContent=rows.length+'件（楽天市場 '+counts.market+'・ブックス '+counts.books+'・トラベル '+counts.travel+'）';
+ if(sourceErrors.length){const warning=document.createElement('p');warning.className='backup-note';warning.textContent='取得できないサービス：'+sourceErrors.join(' / ');host.append(warning);}
  if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='自動検索中です。候補が見つかるとここに表示されます。';host.append(p);return;}
  for(const item of rows){
   const card=document.createElement('article');card.className='flow-card flow-source-card';
@@ -97,13 +99,13 @@ async function rakutenImageRequest(url,isbn='',productUrl=''){
 async function getProductPhoto(row,index){const code=String(row.item.rakutenCode||'');const isbn=row.item.rakutenService==='books'&&code.startsWith('books:')?code.slice(6):'';return row.item.rakuten?rakutenImageRequest(row.item.images[index],isbn,row.item.url):newsRequest('image',row.item.url,index);}
 function resetPhotoPreviews(){photoPreviewUrls.forEach(url=>{try{URL.revokeObjectURL(url);}catch{}});photoPreviewUrls=[];photoPreviewEls=[];}
 function showPhotoFile(index,file){files[index]=file;const img=photoPreviewEls[index];if(!img)return;if(photoPreviewUrls[index])URL.revokeObjectURL(photoPreviewUrls[index]);const url=URL.createObjectURL(file);photoPreviewUrls[index]=url;img.src=url;}
-async function load(){
+async function load(forceSources=false){
  if(busy)return;
  try{
   const d=await api('list');apply(d);
   if(d.rakutenConfigured===false){status('楽天API設定を確認してください。');return;}
   const fresh=Number(d.sourceUpdatedAt||0)*1000>Date.now()-30*60*1000;
-  if(!fresh){const next=await api('sources',{});apply(next);status(next.message||((next.sources||[]).length+'件の候補を自動取得しました。'));if(next.sourceErrors?.length)status((next.message||'候補を取得しました。')+' 一部サービス：'+next.sourceErrors.join(' / '));}
+  if(forceSources||!fresh){const next=await api('sources',{});apply(next);status(next.message||((next.sources||[]).length+'件の候補を自動取得しました。'));if(next.sourceErrors?.length)status((next.message||'候補を取得しました。')+' 一部サービス：'+next.sourceErrors.join(' / '));}
   else status('自動取得した候補を表示しています。');
  }catch(e){status(e.message);}
 }
@@ -208,7 +210,7 @@ el('flowLink').addEventListener('change',event=>{
  const value=event.currentTarget.value.trim();if(!value)return;
  try{saveFlowShort(value);}catch(error){el('flowShortUrlStatus').textContent=error.message;updateFinal();}
 });
-el('flowRefresh').onclick=load;
+el('flowRefresh').onclick=()=>load(true);
 
 
 
