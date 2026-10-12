@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false;
+let entries=[],sources=[],current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[];
 function endpoint(action){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/product-flow.php'));u.searchParams.set('action',action);return u.href;}
 async function api(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -25,7 +25,7 @@ async function saveDraft(showMessage=true){
  }catch(e){status('自動保存できませんでした。'+e.message);return false;}
  finally{saving=false;if(dirty)queueAutoSave();if(current?.id===id)updateFinal();}
 }
-function closeEditor(){clearTimeout(saveTimer);++requestSeq;current=null;files=[];el('flowEditor').hidden=true;el('flowBrowse').hidden=false;render();}
+function closeEditor(){clearTimeout(saveTimer);++requestSeq;current=null;files=[];resetPhotoPreviews();el('flowEditor').hidden=true;el('flowBrowse').hidden=false;render();}
 function button(text,fn){const b=document.createElement('button');b.type='button';b.className='small-btn';b.textContent=text;b.onclick=fn;return b;}
 function anchor(text,url){const a=document.createElement('a');a.textContent=text;a.className='small-btn link-btn';a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;}
 function safeURL(s,roots){try{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&roots.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false;}}
@@ -87,13 +87,15 @@ async function run(action,data,show=false){
  catch(e){status(e.message);}
  finally{busy=false;for(const b of el('productFlowPanel').querySelectorAll('button,input,select,textarea'))b.disabled=false;updateFinal();}
 }
-async function rakutenImageRequest(url){
+async function rakutenImageRequest(url,isbn=''){
  const {key}=cloudSettings();if(!key)throw new Error('同期キーを設定してください。');
- const r=await fetch(endpoint('image'),{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({url}),cache:'no-store',signal:AbortSignal.timeout(30000)});
+ const r=await fetch(endpoint('image'),{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({url,isbn}),cache:'no-store',signal:AbortSignal.timeout(30000)});
  if(!r.ok){let d={};try{d=await r.json();}catch{}throw new Error(d.error||'楽天の商品写真を取得できませんでした。');}
  const blob=await r.blob();return new File([blob],'rakuten-product.'+({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[blob.type]||'jpg'),{type:blob.type});
 }
-async function getProductPhoto(row,index){return row.item.rakuten?rakutenImageRequest(row.item.images[index]):newsRequest('image',row.item.url,index);}
+async function getProductPhoto(row,index){const code=String(row.item.rakutenCode||'');const isbn=row.item.rakutenService==='books'&&code.startsWith('books:')?code.slice(6):'';return row.item.rakuten?rakutenImageRequest(row.item.images[index],isbn):newsRequest('image',row.item.url,index);}
+function resetPhotoPreviews(){photoPreviewUrls.forEach(url=>{try{URL.revokeObjectURL(url);}catch{}});photoPreviewUrls=[];photoPreviewEls=[];}
+function showPhotoFile(index,file){files[index]=file;const img=photoPreviewEls[index];if(!img)return;if(photoPreviewUrls[index])URL.revokeObjectURL(photoPreviewUrls[index]);const url=URL.createObjectURL(file);photoPreviewUrls[index]=url;img.src=url;}
 async function load(){
  if(busy)return;
  try{
@@ -118,7 +120,7 @@ function updateFinal(){
 async function open(id){
  const row=entries.find(r=>r.id===id);if(!row)return;
  if(dirty&&current&&current.id!==id){status('編集中の本文を「下書きを保存」で保存してから切り替えてください。');return;}
- current=structuredClone(row);dirty=false;files=[];const seq=++requestSeq;
+ resetPhotoPreviews();current=structuredClone(row);dirty=false;files=[];const seq=++requestSeq;
  el('flowBrowse').hidden=true;el('flowEditor').hidden=false;el('flowTitle').textContent=row.item.title;
  el('flowBody').value=row.body;
  el('flowConfirm').checked=false;
@@ -131,13 +133,13 @@ async function open(id){
  el('flowSourceLink').href=row.item.url;
  el('flowLinkMode').value=row.match.linkMode;for(const o of el('flowLinkMode').options)o.disabled=o.value!=='none'&&!row.match[o.value==='search'?'searchAffiliate':'itemAffiliate'];
  renderPhotos();updateFinal();el('flowEditor').scrollIntoView({block:'start',behavior:'instant'});
- await Promise.allSettled(current.selected.map(async i=>{try{const f=await getProductPhoto(row,i);if(seq!==requestSeq)return;files[i]=f;updateFinal();}catch(e){if(seq===requestSeq)status('写真'+(i+1)+'を準備できませんでした。「写真を再取得」を押してください。');}}));
+ await Promise.allSettled(current.selected.map(async i=>{try{const f=await getProductPhoto(row,i);if(seq!==requestSeq)return;showPhotoFile(i,f);updateFinal();}catch(e){if(seq===requestSeq)status('写真'+(i+1)+'を準備できませんでした。「写真を再取得」を押してください。');}}));
 }
 function renderPhotos(){
  el('flowPhotos').replaceChildren();
  for(const [i,url] of current.item.images.entries()){
   const label=document.createElement('label');label.className='flow-photo';
-  const img=document.createElement('img');img.src=newsApiUrl('image',current.item.url,i);
+  const img=document.createElement('img');photoPreviewEls[i]=img;img.src=newsApiUrl('image',current.item.url,i);
   // The protected image endpoint needs a Bearer header. Use a source preview;
   // downloadable files are fetched separately with newsRequest.
   if(current.item.rakuten&&safeURL(url,['rakuten.co.jp','r10s.jp','img.travel.rakuten.co.jp']))img.src=url;else if(safeURL(url,['sanrio.co.jp','prtimes.jp','prcdn.freetls.fastly.net','cdninstagram.com','fbcdn.net','bandai.co.jp','akamaihd.net','takaratomy-arts.co.jp','re-ment.co.jp','gashapon.jp','makeshop-multi-images.akamaized.net','shopify.com']))img.src=url;
@@ -148,7 +150,7 @@ function renderPhotos(){
    if(checkbox.checked&&current.selected.length>=4){checkbox.checked=false;status('写真は4枚まで選択できます。');return;}
    if(checkbox.checked)current.selected.push(i);else current.selected=current.selected.filter(n=>n!==i);
    dirty=true;updateFinal();queueAutoSave();const seq=requestSeq;
-   if(checkbox.checked&&!files[i])try{const f=await getProductPhoto(current,i);if(seq===requestSeq){files[i]=f;updateFinal();}}catch{status('写真を準備できませんでした。');}
+   if(checkbox.checked&&!files[i])try{const f=await getProductPhoto(current,i);if(seq===requestSeq){showPhotoFile(i,f);updateFinal();}}catch{status('写真を準備できませんでした。');}
   };
   label.append(img,checkbox,document.createTextNode('写真'+(i+1)));el('flowPhotos').append(label);
  }
@@ -180,7 +182,7 @@ el('flowConfirm').onchange=updateFinal;
 el('flowSave').onclick=()=>saveDraft(true);
 el('flowRetry').onclick=async()=>{if(dirty){status('編集内容を先に保存してください。');return;}await run('retry',{id:current.id},true);};
 el('flowPhotoRetry').onclick=async()=>{
- const seq=requestSeq;await Promise.allSettled(current.selected.map(async i=>{try{const f=await getProductPhoto(current,i);if(seq===requestSeq)files[i]=f;}catch{status('写真'+(i+1)+'を取得できませんでした。');}}));updateFinal();
+ const seq=requestSeq;await Promise.allSettled(current.selected.map(async i=>{try{const f=await getProductPhoto(current,i);if(seq===requestSeq)showPhotoFile(i,f);}catch{status('写真'+(i+1)+'を取得できませんでした。');}}));updateFinal();
 };
 el('flowBack').onclick=async()=>{if(dirty&&!await saveDraft(true))return;closeEditor();};
 el('flowCopy').onclick=()=>copyTextFromClick(el('flowFinal').value,el('flowCopy'),'リンク付き本文をコピーしました');
