@@ -102,7 +102,7 @@ function pf_match(array $data,array $identity,string $sourceTitle,array $setting
  return ['candidates'=>$rows,'shopCount'=>count($shops),'searchUrl'=>$destination,'searchAffiliate'=>$search,'itemAffiliate'=>$exact[0]['affiliate']??'','link'=>$link,'linkMode'=>count($shops)>=2?'search':($link?'item':'none'),'matchStatus'=>$link?'JAN・型番で照合済み':'商品一致の確認待ち','checkedAt'=>gmdate('c')];
 }
 function pf_eligible(array $item,int $now):bool{
- $date=strtotime((string)($item['date']??''));if(!$date||$date<$now-14*86400||$date>$now+86400)return false;
+ $date=strtotime((string)($item['date']??''));if(!$date||$date<$now-30*86400||$date>$now+86400)return false;
  if(!empty($item['prize'])||!empty($item['tipsOnly']))return false;
  return (bool)preg_match('/商品|グッズ|ぬいぐるみ|マスコット|ポーチ|バッグ|ケース|キーホルダー|フィギュア|コレクション|タオル|ステッカー|文具|発売|新作|collection|plush|goods|키링|인형|新品|公仔/iu',(string)$item['title']);
 }
