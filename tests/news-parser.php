@@ -209,13 +209,30 @@ echo "Manufacturer identities, date precision, recent products and image scopes 
 $eikohList='<a href="/shopdetail/000000002622/ct200/page1/recommend/"><img src="https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg">サンリオキャラクターズ ラブレターフォーユーマスコット1</a>';
 $eikohRows=news_eikoh_rows($eikohList);check(count($eikohRows)===1);check($eikohRows[0]['source']==='エイコープライズ');check($eikohRows[0]['date']==='');check($eikohRows[0]['tipsOnly']===true);
 $eikohUrl='https://www.eikoh-prize.jp/shopdetail/000000002622/ct200/page1/recommend/';
-$eikohDetail='<meta property="og:url" content="https://www.eikoh-prize.jp/shopdetail/000000002622/"><h1>サンリオキャラクターズ ラブレターフォーユーマスコット1</h1><p>9月1週より順次登場</p><img src="https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg">';
+$eikohDetail='<meta property="og:url" content="https://www.eikoh-prize.jp/shopdetail/000000002622/"><div id="r_detailWrap"><div id="itemInfo"><h2>サンリオキャラクターズ ラブレターフォーユーマスコット1</h2><div class="detailTxt">9月1週より順次登場</div></div><div id="itemImg"><img src="https://makeshop-multi-images.akamaized.net/eikohprize/itemimages/000000002622_main.jpg"></div></div>';
 $eikohItem=news_parse($eikohDetail,$eikohUrl);check($eikohItem['schedule']==='登場時期：9月1週より順次登場');check($eikohItem['date']==='');check($eikohItem['tipsOnly']===true);
 check(news_url('https://www.eikoh-prize.jp.evil.example/shopdetail/000000002622/ct200/page1/recommend/')==='');check(news_eikoh_identity_matches($eikohUrl,'https://www.eikoh-prize.jp/shopdetail/000000002622/'));check(!news_eikoh_identity_matches($eikohUrl,'https://www.eikoh-prize.jp/shopdetail/000000002657/'));check(news_image_url('https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg?cmsp_timestamp=1')==='https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg');
-check(news_image_url('https://makeshop-multi-images.akamaized.net.eikoh/shopimages/01/00/main_2622.jpg')==='');check(news_url('https://www.eikoh-prize.jp/shopdetail/000000002657/ct200/page1/recommend/')==='https://www.eikoh-prize.jp/shopdetail/000000002657/ct200/page1/recommend/');check($eikohItem['image']==='https://makeshop-multi-images.akamaized.net/eikoh/shopimages/01/00/main_2622.jpg');
+check(news_image_url('https://makeshop-multi-images.akamaized.net.eikoh/shopimages/01/00/main_2622.jpg')==='');check(news_url('https://www.eikoh-prize.jp/shopdetail/000000002657/ct200/page1/recommend/')==='https://www.eikoh-prize.jp/shopdetail/000000002657/ct200/page1/recommend/');check($eikohItem['image']==='https://makeshop-multi-images.akamaized.net/eikohprize/itemimages/000000002622_main.jpg');
 check(news_feed_source(['kind'=>'html','url'=>'https://prtimes.jp/topics/keywords/test'])==='PR TIMES');
 check(news_feed_source(['kind'=>'html','url'=>'https://www.sanrio.co.jp/news/'])==='サンリオ公式');check(news_feed_source(['kind'=>'eikoh','url'=>'https://www.eikoh-prize.jp/shopbrand/ct200/'])==='エイコープライズ');
 $status=news_source_statuses(['サンリオ公式'=>['ok'=>2,'failed'=>1],'サンキューマート'=>['ok'=>0,'failed'=>1],'フリュー'=>['ok'=>1,'failed'=>0],'エイコープライズ'=>['ok'=>1,'failed'=>0]],[['source'=>'サンリオ公式']]);
 check($status['サンリオ公式']['state']==='partial');check($status['サンリオ公式']['count']===1);check($status['サンキューマート']['state']==='failed');check($status['フリュー']['state']==='ok');check($status['エイコープライズ']['state']==='ok');
 check(news_source_statuses(['リーメント'=>['ok'=>1,'failed'=>2]],[])['リーメント']['state']==='failed');
 echo "Per-source partial, failed and empty successful feed states passed\n";
+
+// Captured MakeShop structure, replayed in the actual EUC-JP wire encoding.
+$eikohFixture=mb_convert_encoding(file_get_contents(__DIR__.'/eikoh-news-detail.html'),'EUC-JP','UTF-8');
+$liveUrl='https://www.eikoh-prize.jp/shopdetail/000000002621/ct200/page1/recommend/';
+$live=news_parse($eikohFixture,$liveUrl);
+check($live['title']==='サンリオキャラクターズ ラブレターフォーユーフェイスマスコット');
+check($live['schedule']==='登場時期：9月2週より順次登場');
+check($live['images']===['https://makeshop-multi-images.akamaized.net/eikohprize/itemimages/0000000026212_DKVHku0.jpg']);
+$encodedList=mb_convert_encoding('<meta charset="EUC-JP">'.$eikohList,'EUC-JP','UTF-8');
+check(count(news_eikoh_rows($encodedList))===1);
+foreach([
+ str_replace('000000002621/','000000002622/',$eikohFixture),
+ str_replace('0000000026212_DKVHku0','000000009999_wrong',$eikohFixture),
+ str_replace(mb_convert_encoding($live['title'],'EUC-JP','UTF-8'),'unrelated product',$eikohFixture),
+ str_replace('detailTxt','unrelated',$eikohFixture),
+] as $invalid){$rejected=false;try{news_parse($invalid,$liveUrl);}catch(RuntimeException $ex){$rejected=true;}check($rejected);}
+echo "Eikoh EUC-JP product identity and scoped images passed\n";

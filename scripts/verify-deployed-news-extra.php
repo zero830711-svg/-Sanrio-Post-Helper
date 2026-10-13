@@ -26,10 +26,17 @@ try{
   if($state!=='ok')echo '::warning title=External source::'.$source.'の一覧取得は'.$state.'です。公開APIの動作確認を続けます。'."\n";
   if($source==='エイコープライズ'){
    $current=array_values(array_filter($list['items']??[],static fn($row)=>($row['source']??'')==='エイコープライズ'&&is_string($row['url']??null)&&str_starts_with($row['url'],'https://www.eikoh-prize.jp/shopdetail/')));
-   if($current)$url=$current[0]['url'];
+   if(!$current)throw new RuntimeException('エイコープライズの商品を公開一覧から確認できません。');
+   $url=$current[0]['url'];
   }
   $item=deployed_news_extra_request($key,'detail',$url)['item']??[];
   if(($item['source']??'')!==$source||empty($item['tipsOnly'])||empty($item['images'])||empty($item['title']))throw new RuntimeException($source.'の商品詳細を公開APIから確認できません。');
+  if(($item['url']??'')!==$url)throw new RuntimeException($source.'の商品URLが一致しません。');
+  if($source==='エイコープライズ'){
+   if(($item['title']??'')!==($current[0]['title']??'')||!preg_match('/サンリオ/u',$item['title'])||empty($item['schedule']))throw new RuntimeException('エイコープライズの一覧と詳細の商品名・登場時期を確認できません。');
+   preg_match('~/shopdetail/([0-9]{12})/~',$url,$productId);
+   foreach($item['images'] as $image){$p=parse_url($image);if(($p['scheme']??'')!=='https'||($p['host']??'')!=='makeshop-multi-images.akamaized.net'||!str_starts_with($p['path']??'','/eikohprize/itemimages/'.$productId[1]))throw new RuntimeException('エイコープライズの商品写真が一致しません。');}
+  }
   echo $source.' published detail verified; source state: '.$state."\n";
  }
 }catch(Throwable $e){fwrite(STDERR,'Manufacturer deployment verification failed: '.$e->getMessage()."\n");exit(1);}
