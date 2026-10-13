@@ -531,6 +531,7 @@ function news_out(array $a,int $s=200):void{http_response_code($s);header('Conte
 $token='';if(preg_match('/^Bearer\s+(.+)$/i',$_SERVER['HTTP_AUTHORIZATION']??'',$m))$token=trim($m[1]);$key=(string)($config['sync_key']??'');if(!$key||!hash_equals($key,$token))news_out(['ok'=>false,'error'=>'同期キーを設定してください。'],401);
 try{
  $action=$_GET['action']??'list';
+ if(in_array($action,['instagram-fetch','instagram-accounts','instagram-photo-read'],true))news_out(['ok'=>false,'error'=>'Instagram機能は停止しました。'],410);
  if($action==='instagram-fetch'){
   if(($_SERVER['REQUEST_METHOD']??'')!=='POST')news_out(['ok'=>false,'error'=>'POST required'],405);
   if(!in_array($origin,$config['allowed_origins']??[],true))news_out(['ok'=>false,'error'=>'許可されたアプリから実行してください。'],403);
