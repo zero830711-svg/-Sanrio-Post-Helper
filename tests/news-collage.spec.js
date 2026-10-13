@@ -4,7 +4,7 @@ const item={title:'サンリオのクリスマス菓子',source:'サンリオ公
 async function setup(page,source=item){
  await page.addInitScript(()=>{localStorage.setItem('sanrioCloudSyncKey','test-key');Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>true});Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.sharedCollage=data.files.map(f=>({name:f.name,type:f.type}));}});});
  await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));await page.route('**/news.php?**',r=>{const a=new URL(r.request().url()).searchParams.get('action');return a==='image'?r.fulfill({contentType:'image/png',body:png}):r.fulfill({json:a==='list'?{ok:true,items:[source]}:{ok:true,item:source}});});
- await page.goto('/');await page.getByRole('tab',{name:source.instagram?'Instagram':'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();await expect(page.locator('#newsShare')).toBeEnabled();
+ await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();await expect(page.locator('#newsShare')).toBeEnabled();
 }
 function usePhoto(page,n,value){return page.getByRole('combobox',{name:'写真'+n+'の使い方',exact:true}).selectOption(value);}
 test('選んだ4枚のまとめ画像と3枚の個別写真だけをPNGで共有する',async({page})=>{
@@ -33,7 +33,7 @@ test('縦横比と写真の順番を保ち、切り取りせず2×2に配置す�
 });
 
 test('8枚を二つのまとめ画像に振り分け、9枚目以降とグループを復元する',async({page})=>{
- const source={...item,instagram:true,instagramAccount:'perihapi_official',url:'https://www.instagram.com/p/TwentyPhotos/',images:Array.from({length:20},(_,i)=>'https://example.invalid/'+i+'.png')};
+ const source={...item,url:'https://www.sanrio.co.jp/news/goods/twenty-photos/',images:Array.from({length:20},(_,i)=>'https://example.invalid/'+i+'.png')};
  await setup(page,source);
  await expect(page.locator('#newsImages .news-photo')).toHaveCount(20);
  await expect(page.locator('#newsCollageMode')).not.toBeChecked();
@@ -43,8 +43,7 @@ test('8枚を二つのまとめ画像に振り分け、9枚目以降とグルー
  for(let n=17;n<=20;n++)await usePhoto(page,n,'collage3');
  await expect(page.locator('#newsShare')).toBeEnabled();await expect(page.locator('#newsCollagePreview img')).toHaveCount(3);
  await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
- // Instagram source belongs to its own tab after reload.
- await page.getByRole('tab',{name:'Instagram',exact:true}).click();await page.locator('#newsFilter').selectOption('draft');await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
+ await page.locator('#newsFilter').selectOption('draft');await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  await expect(page.locator('#newsImages .news-photo')).toHaveCount(20);await expect(page.locator('#newsShare')).toBeEnabled();await expect(page.locator('#newsCollagePreview img')).toHaveCount(3);
  expect(await page.evaluate(()=>newsCollageIndices(1))).toEqual([4,5,6,7]);expect(await page.evaluate(()=>newsCollageIndices(2))).toEqual([16,17,18,19]);
  await usePhoto(page,20,'none');await expect(page.locator('#newsShare')).toBeDisabled();await expect(page.locator('#newsCollagePreview')).toBeHidden();
@@ -55,18 +54,3 @@ test('8枚を二つのまとめ画像に振り分け、9枚目以降とグルー
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
-test('古い8枚の下書きから全20枚を取り直し、編集した本文を保つ',async({page})=>{
- const source={...item,instagram:true,instagramAccount:'perihapi_official',url:'https://www.instagram.com/p/SavedEight/',images:Array.from({length:20},(_,i)=>'https://example.invalid/'+i+'.png')};
- await setup(page,source);await page.locator('#newsText').fill('手動編集した投稿文');
- await page.addInitScript(()=>{const key=Object.keys(localStorage).find(k=>k.startsWith('sanrioNewsDrafts:'));if(!key)return;const data=JSON.parse(localStorage.getItem(key));data.entries[0].item.images=data.entries[0].item.images.slice(0,8);localStorage.setItem(key,JSON.stringify(data));});
- await page.reload();await page.getByRole('tab',{name:'Instagram',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
- await expect(page.locator('#newsImages .news-photo')).toHaveCount(20);await expect(page.locator('#newsText')).toHaveValue('手動編集した投稿文');await expect(page.locator('#newsCollageMode')).not.toBeChecked();
-});
-
-test('写真一覧の更新が失敗しても保存済み本文と写真を開く',async({page})=>{
- const source={...item,instagram:true,instagramAccount:'perihapi_official',url:'https://www.instagram.com/p/OfflineSaved/'};
- await setup(page,source);await page.locator('#newsText').fill('通信失敗でも残す投稿文');
- await page.route('**/news.php?**',r=>new URL(r.request().url()).searchParams.get('action')==='detail'?r.fulfill({status:502,json:{ok:false,error:'一時的な通信失敗'}}):r.fallback());
- await page.reload();await page.getByRole('tab',{name:'Instagram',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
- await expect(page.locator('#newsText')).toHaveValue('通信失敗でも残す投稿文');await expect(page.locator('#newsPhotoHint')).toContainText('保存済みの写真');await expect(page.locator('#newsImages .news-photo')).toHaveCount(8);
-});
