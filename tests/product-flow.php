@@ -14,6 +14,8 @@ $thumbnail='https://thumbnail.image.rakuten.co.jp/@0_mall/shop/cabinet/kitty.jpg
 $marketImage=pf_image_url($thumbnail);
 pf_check($marketImage==='https://image.rakuten.co.jp/shop/cabinet/kitty.jpg?_ex=128x128','Rakuten market thumbnail was not normalized');
 pf_check(pf_image_fetch_candidates($marketImage)===['https://image.rakuten.co.jp/shop/cabinet/kitty.jpg'],'Post photo did not prefer the original Rakuten image');
+pf_check(!pf_image_large_enough([128,128])&&!pf_image_large_enough([599,1500])&&!pf_image_large_enough([800,899]),'Low resolution photo was accepted');
+pf_check(pf_image_large_enough([600,900])&&pf_image_large_enough([1200,800]),'Usable photo was rejected');
 $tshop='https://tshop.r10s.jp/shop/cabinet/kitty.jpg?fitin=128%3A128';
 pf_check(pf_image_fetch_candidates(pf_image_url($tshop))===['https://tshop.r10s.jp/shop/cabinet/kitty.jpg'],'tshop thumbnail did not prefer the original image');
 $highResBook=pf_rakuten_book_cover_from_html('<img src="https://shop.r10s.jp/book/cabinet/9555/9784065439555_1_2.jpg?composite-to=%2A%2C%2A%7C560%3A400&amp;fitin=560%3A400">','9784065439555');
