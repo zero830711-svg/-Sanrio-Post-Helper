@@ -72,11 +72,13 @@
 <h2 class="section-title">商品検索→投稿</h2>
 <p class="backup-note">検索先</p><div class="product-provider-buttons" role="group" aria-label="検索先"><button id="flowProviderRakuten" type="button" aria-pressed="true">楽天</button><button id="flowProviderAmazon" type="button" aria-pressed="false">Amazon</button></div><input id="flowProvider" type="hidden" value="rakuten">
 <section id="amazonSearchArea" hidden>
-<p class="backup-note">Amazonの商品名・写真・紹介リンクを検索します。価格・在庫は商品ページで確認してください。</p>
+<p class="backup-note">キャラクター名と商品カテゴリからAmazon候補を自動で集めます。価格・在庫は商品ページで確認してください。</p>
+<h3>自動検索したAmazon候補</h3><button id="amazonAutoRefresh" class="small-btn" type="button">候補一覧を更新</button><p id="amazonAutoStatus" class="backup-note" aria-live="polite"></p><p id="amazonAutoProgress" class="backup-note"></p><div id="amazonAutoResults"></div>
+<details><summary>特定の商品を検索</summary>
 <label>商品・キャラクター名<input id="amazonFlowQuery" value="サンリオ" maxlength="120" type="search"></label>
 <button id="amazonFlowSearch" class="small-btn" type="button">Amazonの商品を検索</button>
 <p id="amazonFlowStatus" class="backup-note" aria-live="polite"></p>
-<div id="amazonFlowResults"></div>
+<div id="amazonFlowResults"></div></details>
 <h3>保存したAmazon下書き</h3><label>表示<select id="amazonFlowFilter"><option value="未投稿">未投稿</option><option value="投稿済み">投稿済み</option><option value="見送り">見送り</option></select></label>
 <p class="backup-note">Amazon下書きはこのブラウザーに保存されます。既存の「商品候補づくり」と共通です。</p><div id="amazonFlowDrafts"></div>
 <div id="amazonFlowEditor" hidden>
@@ -573,7 +575,7 @@ window.addEventListener("load",()=>{
 });
 </script>
 <script src="./product-flow.js?v=20261014-3526"></script>
-<script src="./amazon-product-search.js?v=20261014-3527"></script>
+<script src="./amazon-product-search.js?v=20261014-3528"></script>
 </body>
 </html>
 

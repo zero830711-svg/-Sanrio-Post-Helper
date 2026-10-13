@@ -6,6 +6,9 @@ on:
       - server/lolipop/amazon-creators.php
       - tests/amazon-creators.php
       - .github/workflows/amazon-creators-deploy.yml
+      - scripts/verify-amazon-discovery.php
+  schedule:
+    - cron: '11,41 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -46,7 +49,7 @@ jobs:
           set ftp:ssl-protect-data true
           set ssl:verify-certificate yes
           cd "$LOLIPOP_TREND_DIR"
-          put server/lolipop/amazon-creators.php
+          $(if [ "$GITHUB_EVENT_NAME" != schedule ]; then echo "put server/lolipop/amazon-creators.php"; fi)
           get config.php -o "$am_tmp/config.php"
           bye
           LFTP
@@ -57,3 +60,4 @@ jobs:
           if($status!==200||empty($d["ok"])||!array_key_exists("configured",$d)||isset($d["secret"])||isset($d["credentialId"])||isset($d["access_token"]))throw new RuntimeException("Private settings endpoint verification failed");
           echo "Protected Amazon settings endpoint verified; credentials withheld\n";
           ' "$am_tmp/config.php"
+          php scripts/verify-amazon-discovery.php "$am_tmp/config.php"

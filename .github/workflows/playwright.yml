@@ -14,6 +14,8 @@ on:
       - "news-collage.js"
       - "product-flow.js"
       - "amazon-product-search.js"
+      - "server/lolipop/amazon-creators.php"
+      - "scripts/verify-amazon-discovery.php"
       - "product-flow.css"
       - "server/lolipop/product-flow.php"
       - "lovely-watch.js"
@@ -47,6 +49,8 @@ on:
       - "news-collage.js"
       - "product-flow.js"
       - "amazon-product-search.js"
+      - "server/lolipop/amazon-creators.php"
+      - "scripts/verify-amazon-discovery.php"
       - "product-flow.css"
       - "server/lolipop/product-flow.php"
       - "lovely-watch.js"
@@ -88,6 +92,9 @@ jobs:
 
       - name: Check product PHP API and parsers
         run: |
+          php -l server/lolipop/amazon-creators.php
+          php tests/amazon-creators.php
+          php -l scripts/verify-amazon-discovery.php
           php -l server/lolipop/product-flow.php
           php tests/product-flow.php
           php -l server/lolipop/lovely-watch.php

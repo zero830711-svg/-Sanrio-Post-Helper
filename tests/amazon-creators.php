@@ -35,3 +35,25 @@ foreach([true,false] as $tokenFailure){
  }
 }
 echo "Authentication and product permission failures distinguished without exposing provider responses\n";
+
+$now=1800000000;$requests=[];
+$fixture=static function($s,$query)use(&$requests){$requests[]=$query;return ['partnerTag'=>'test-22','items'=>[
+ ['title'=>'サンリオ キティのバッグ','url'=>'https://www.amazon.co.jp/dp/B000000001?tag=test-22&ref_=original','image'=>'https://m.media-amazon.com/images/I/test.jpg'],
+ ['title'=>'サンリオ 同じ商品','url'=>'https://www.amazon.co.jp/dp/B000000001?tag=test-22&ref_=duplicate','image'=>''],
+ ['title'=>' unrelated product','url'=>'https://www.amazon.co.jp/dp/B000000002?tag=test-22','image'=>''],
+ ['title'=>'サンリオ 不正ホスト','url'=>'https://www.amazon.co.jp.evil.test/dp/B000000003','image'=>'']
+ ]];};
+$state=am_auto_tick([],$settings,$now,$fixture);
+check_am(count(am_auto_public($state,$now)['items'])===1,'ASIN dedupe or Sanrio filtering failed');
+check_am($requests===['サンリオ'],'First query is not broad discovery');
+$cached=am_auto_tick($state,$settings,$now+1799,$fixture);check_am($cached===$state&&count($requests)===1,'Cache cooldown made extra API calls');
+$next=am_auto_tick($state,$settings,$now+1800,$fixture);check_am($requests[1]==='ハローキティ ぬいぐるみ','Search rotation failed');
+check_am(count(am_auto_public($next,$now+1800)['items'])===1,'Duplicate product accumulated');
+check_am(am_auto_public($next,$now+1800+86400)['items']===[],'Expired product content displayed');
+$failed=am_auto_tick($next,$settings,$now+3600,static function(){throw new AmConnectionException(429,false);});
+check_am(count(am_auto_public($failed,$now+3600)['items'])===1&&$failed['queryIndex']===$next['queryIndex'],'Failure lost candidates or advanced query');
+check_am($failed['nextAt']===$now+3600+21600&&$failed['autoState']==='error','Rate-limit backoff missing');
+$unexpected=am_auto_tick([],$settings,$now,static function(){throw new RuntimeException('PRIVATE_TOKEN_RESPONSE');});
+check_am(!str_contains(json_encode(am_auto_public($unexpected,$now)),'PRIVATE_TOKEN'),'Discovery error leaked provider content');
+check_am(count(am_auto_queries())===41,'Discovery rotation changed');
+echo "Amazon discovery ASIN dedupe, query rotation, cache TTL, retained candidates and backoff verified\n";
