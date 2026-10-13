@@ -62,6 +62,7 @@ jobs:
           php tests/gourmandise-parser.php
           php tests/skater-parser.php
           php -l server/lolipop/overseas.php
+          php -l scripts/verify-deployed-news-extra.php
 
       - name: Deploy PHP endpoints over FTPS
         shell: bash
@@ -146,7 +147,7 @@ jobs:
           bye
           LFTP
           failed=()
-          for script in verify-furyu-news.php verify-news-extra.php verify-bandai-news.php verify-gashapon-news.php verify-thankyou-news.php; do
+          for script in verify-furyu-news.php verify-deployed-news-extra.php verify-bandai-news.php verify-gashapon-news.php verify-thankyou-news.php; do
             source="${script#verify-}"
             source="${source%.php}"
             echo "::group::Verify ${source}"
