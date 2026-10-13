@@ -102,7 +102,7 @@ async function getProductPhoto(row,index){const code=String(row.item.rakutenCode
 function resetPhotoPreviews(){photoPreviewUrls.forEach(url=>{try{URL.revokeObjectURL(url);}catch{}});photoPreviewUrls=[];photoPreviewEls=[];photoLabelEls=[];}
 function showPhotoFile(index,file){files[index]=file;const label=photoLabelEls[index];if(label&&/^\d+x\d+$/.test(file.imageDimensions||''))label.textContent='写真'+(index+1)+'（'+file.imageDimensions.replace('x','×')+'px・解像度確認済み）';const img=photoPreviewEls[index];if(!img)return;if(photoPreviewUrls[index])URL.revokeObjectURL(photoPreviewUrls[index]);const url=URL.createObjectURL(file);photoPreviewUrls[index]=url;img.src=url;}
 async function load(forceSources=false){
- if(busy)return;
+ if(busy||el('flowProvider')?.value==='amazon')return;
  try{
   const d=await api('list');apply(d);
   if(d.rakutenConfigured===false){status('楽天API設定を確認してください。');return;}

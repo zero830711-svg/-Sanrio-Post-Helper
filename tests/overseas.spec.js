@@ -18,7 +18,7 @@ async function setup(page){
 }
 test('ホームは4タブで、停止したInstagramと旧海外情報を取得しない',async({page})=>{
  const calls=await setup(page);
- await expect(page.locator('.home-tabs [role="tab"]')).toHaveText(['今日の候補','新作ニュース','楽天候補','新着商品']);
+ await expect(page.locator('.home-tabs [role="tab"]')).toHaveText(['今日の候補','新作ニュース','商品検索','新着商品']);
  await expect(page.locator('#homeOverseasTab, #overseasPanel, #homeInstagramTab')).toHaveCount(0);
  await page.reload();await page.getByRole('tab',{name:'新着商品',exact:true}).click();
  await expect(page.locator('#lovelyRefresh')).toBeEnabled();

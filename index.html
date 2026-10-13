@@ -22,7 +22,7 @@
 #instagramTools label{display:block;margin:10px 0}
 #instagramSearch,#instagramAddUrl{width:100%;box-sizing:border-box;padding:10px;border:1px solid #eadde5;border-radius:12px;font:inherit}
 @media(max-width:520px){#newsPhotoDialog .news-photo img{height:210px}.news-photo-dialog-head{align-items:flex-start}#newsPhotoDialog .small-btn{padding:10px}}
-</style><link rel="stylesheet" href="./product-flow.css?v=20261012-3503">
+</style><link rel="stylesheet" href="./product-flow.css?v=20261014-3526">
 
 </head>
 <body>
@@ -42,7 +42,7 @@
 <div class="home-tabs" role="tablist" aria-label="投稿候補の切り替え">
 <button id="homeTodayTab" type="button" role="tab" aria-controls="todayHomePanel" aria-selected="true">今日の候補</button>
 <button id="homeNewsTab" type="button" role="tab" aria-controls="newsPanel" aria-selected="false" tabindex="-1">新作ニュース</button>
-<button id="homeProductFlowTab" type="button" role="tab" aria-controls="productFlowPanel" aria-selected="false" tabindex="-1">楽天候補</button>
+<button id="homeProductFlowTab" type="button" role="tab" aria-controls="productFlowPanel" aria-selected="false" tabindex="-1">商品検索</button>
 <button id="homeNewTab" type="button" role="tab" aria-controls="lovelyPanel" aria-selected="false" tabindex="-1">新着商品</button>
 </div>
 
@@ -69,7 +69,29 @@
 </section>
 
 <section id="productFlowPanel" class="card" role="tabpanel" aria-labelledby="homeProductFlowTab" hidden>
-<h2 class="section-title">楽天候補→投稿</h2>
+<h2 class="section-title">商品検索→投稿</h2>
+<label>検索先<select id="flowProvider"><option value="rakuten">楽天</option><option value="amazon">Amazon</option></select></label>
+<section id="amazonSearchArea" hidden>
+<p class="backup-note">Amazonの商品名・写真・紹介リンクを検索します。価格・在庫は商品ページで確認してください。</p>
+<label>商品・キャラクター名<input id="amazonFlowQuery" value="サンリオ" maxlength="120" type="search"></label>
+<button id="amazonFlowSearch" class="small-btn" type="button">Amazonの商品を検索</button>
+<p id="amazonFlowStatus" class="backup-note" aria-live="polite"></p>
+<div id="amazonFlowResults"></div>
+<h3>保存したAmazon下書き</h3><label>表示<select id="amazonFlowFilter"><option value="未投稿">未投稿</option><option value="投稿済み">投稿済み</option><option value="見送り">見送り</option></select></label>
+<p class="backup-note">Amazon下書きはこのブラウザーに保存されます。既存の「商品候補づくり」と共通です。</p><div id="amazonFlowDrafts"></div>
+<div id="amazonFlowEditor" hidden>
+<h3 id="amazonFlowTitle"></h3><a id="amazonFlowSource" target="_blank" rel="noopener noreferrer">Amazonの商品ページを確認</a>
+<label>投稿本文（編集できます）<textarea id="amazonFlowBody" rows="5"></textarea></label>
+<label>Amazonリンク<select id="amazonFlowMode"><option value="item">単品の商品ページ</option><option value="search">検索ページ</option><option value="none">リンクなし</option></select></label>
+<label>紹介リンク<input id="amazonFlowLink" type="url" readonly></label>
+<p class="backup-note">検索リンクは商品名による検索結果です。写真は商品照合用プレビューです。投稿用の画像は、ご自身で用意した画像や利用許可のある画像を使ってください。</p>
+<label>共有する本文（リンク・PR表記込み）<textarea id="amazonFlowFinal" rows="7" readonly></textarea></label>
+<div class="cloud-sync-actions"><button id="amazonFlowSave" class="small-btn" type="button">下書きを保存</button><button id="amazonFlowCopyLink" class="small-btn" type="button">リンクをコピー</button><button id="amazonFlowCopy" class="small-btn" type="button">本文をコピー</button><button id="amazonFlowShare" class="small-btn" type="button">本文を共有</button></div>
+<button id="amazonFlowToNews" class="small-btn" type="button" hidden>元のニュースにAmazonリンクを追加</button>
+<div class="cloud-sync-actions"><button id="amazonFlowDone" class="small-btn" type="button">投稿済みにする</button><button id="amazonFlowSkip" class="small-btn" type="button">見送る</button></div>
+<p id="amazonFlowEditorStatus" class="backup-note" aria-live="polite"></p>
+</div></section>
+<div id="flowRakutenArea">
 <p class="backup-note">楽天市場・楽天ブックスの在庫あり商品と、楽天トラベルのサンリオ関連施設を自動検索して一覧に表示します。候補から下書きを追加できます。宿泊施設の空室は未確認です。</p>
 <label><input id="flowAuto" type="checkbox" checked> 自動で下書きを準備する</label>
 <p id="flowSettingsHint" class="backup-note"></p><p id="flowLastRun" class="backup-note"></p>
@@ -110,7 +132,7 @@
 <div class="cloud-sync-actions"><button id="flowDone" type="button" class="small-btn">投稿済みにして次へ</button><button id="flowSkip" type="button" class="small-btn">見送る</button></div>
 </div>
 <p class="backup-note"><a href="https://developers.rakuten.com/" target="_blank" rel="noopener noreferrer">Supported by Rakuten Developers</a></p>
-</section>
+</div></section>
 
 <section id="newsPanel" class="card" role="tabpanel" aria-labelledby="homeNewsTab" hidden>
 <div id="newsBrowse"><div class="today-head"><h2 id="newsBrowseTitle" class="section-title">新作ニュース</h2><button id="newsRefresh" class="small-btn" type="button">更新</button></div>
@@ -136,7 +158,7 @@
 <p id="newsStatus" class="backup-note" aria-live="polite"></p><div id="newsList"></div><button id="newsMore" class="small-btn" type="button" hidden>もっと見る</button>
 </div><section id="newsEditor" hidden><button id="newsBack" class="small-btn" type="button">一覧へ戻る</button><h3 id="newsTitle"></h3><a id="newsSource" target="_blank" rel="noopener noreferrer"></a><p id="newsDate" class="backup-note"></p><div id="newsRelatedSources" class="news-related-sources" hidden aria-label="同じニュースの掲載元"></div>
 <label id="newsAiChoiceLabel" hidden>投稿案<select id="newsAiChoice" aria-label="使うニュース投稿案"><option value="0">1. シンプル情報系（200文字以内）</option><option value="1">2. 華やかな紹介系</option><option value="2">3. 目を引く可愛い系</option></select></label>
-<label>投稿文（編集できます）<textarea id="newsText" rows="6"></textarea></label><label id="newsIncludeLinkLabel"><input id="newsIncludeLink" type="checkbox"> 本文にリンクを含める</label><div id="newsReplyBox"><label>返信用コメント（投稿後に返信してください）<textarea id="newsReplyText" rows="3"></textarea></label><button id="newsReplyCopy" class="small-btn" type="button">返信用コメントをコピー</button></div><details><summary>楽天・Amazonリンクを追加</summary><p class="backup-note">ご自身のアフィリエイトリンクを入力。検索結果リンクもそのまま保存します。</p><label>楽天リンク<input id="newsAffiliateRakuten" type="url" inputmode="url" placeholder="https://"></label><label>Amazonリンク<input id="newsAffiliateAmazon" type="url" inputmode="url" placeholder="https://"></label><label>リンクの掲載先<select id="newsAffiliatePlacement"><option value="reply">返信コメント</option><option value="body">投稿本文</option></select></label><button id="newsAffiliateSave" type="button" class="small-btn">リンクを保存・反映</button><p id="newsAffiliateStatus" class="backup-note" aria-live="polite"></p></details><details id="newsConfirmedRegionBox" hidden><summary>海外の販売・開催地域を確認</summary><p id="newsRegionSource" class="backup-note"></p><label>原文で確認した地域<select id="newsConfirmedRegion"><option value="">未確認・本文に入れない</option><option>韓国</option><option>香港</option><option>台湾</option><option>中国</option><option>インド</option><option>日本</option></select></label></details><p id="newsDraftStatus" class="backup-note" aria-live="polite"></p>
+<label>投稿文（編集できます）<textarea id="newsText" rows="6"></textarea></label><label id="newsIncludeLinkLabel"><input id="newsIncludeLink" type="checkbox"> 本文にリンクを含める</label><div id="newsReplyBox"><label>返信用コメント（投稿後に返信してください）<textarea id="newsReplyText" rows="3"></textarea></label><button id="newsReplyCopy" class="small-btn" type="button">返信用コメントをコピー</button></div><details><summary>楽天・Amazonリンクを追加</summary><p class="backup-note">ご自身のアフィリエイトリンクを入力。検索結果リンクもそのまま保存します。</p><label>楽天リンク<input id="newsAffiliateRakuten" type="url" inputmode="url" placeholder="https://"></label><button id="newsAmazonSearch" type="button" class="small-btn">この商品をAmazonで検索</button><label>Amazonリンク<input id="newsAffiliateAmazon" type="url" inputmode="url" placeholder="https://"></label><label>リンクの掲載先<select id="newsAffiliatePlacement"><option value="reply">返信コメント</option><option value="body">投稿本文</option></select></label><button id="newsAffiliateSave" type="button" class="small-btn">リンクを保存・反映</button><p id="newsAffiliateStatus" class="backup-note" aria-live="polite"></p></details><details id="newsConfirmedRegionBox" hidden><summary>海外の販売・開催地域を確認</summary><p id="newsRegionSource" class="backup-note"></p><label>原文で確認した地域<select id="newsConfirmedRegion"><option value="">未確認・本文に入れない</option><option>韓国</option><option>香港</option><option>台湾</option><option>中国</option><option>インド</option><option>日本</option></select></label></details><p id="newsDraftStatus" class="backup-note" aria-live="polite"></p>
 <label id="newsPhotoUseLabel" hidden><input id="newsPhotoUse" type="checkbox" checked> 写真の文字も使って生成（選択写真の先頭3枚まで）</label><details id="newsPhotoReadingsBox" hidden><summary>写真から読み取った情報（AI・要確認）</summary><p class="backup-note">読み違いがないか写真と照合してください。失敗した場合は「写真の文字も使って生成」を外して原文のみで生成できます。</p><div id="newsPhotoReadings"></div></details><p id="newsAiStatus" class="backup-note" aria-live="polite"></p><button id="newsAiRetry" class="small-btn" type="button" disabled>🎀 AIで投稿文を作る</button>
 <details id="newsGroqSettings"><summary>AI設定（Groq・初回のみ）</summary><p class="backup-note">Groqの無料APIキーをサーバーに保存します。</p><a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">GroqのAPIキーを作成</a><label>Groq APIキー<input id="newsGroqKey" type="password" autocomplete="off" placeholder="gsk_..."></label><button id="newsGroqSave" class="small-btn" type="button">設定を保存</button><p id="newsGroqStatus" class="backup-note" aria-live="polite"></p></details><details><summary>記事の情報を確認</summary><p id="newsFacts" class="backup-note"></p></details>
 <button id="newsComparePhotos" type="button" class="small-btn">写真を大きく比較・選択</button>
@@ -534,7 +556,7 @@
 <script src="./lovely-watch.js?v=20261005-3451"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
 <script src="./news-collage.js?v=20261010-3452"></script>
-<script src="./news.js?v=20261012-3478"></script>
+<script src="./news.js?v=20261014-3526"></script>
 <script src="./post-ai.js?v=20261005-3451"></script>
 <script>
 window.addEventListener("load",()=>{
@@ -550,7 +572,8 @@ window.addEventListener("load",()=>{
   },2500);
 });
 </script>
-<script src="./product-flow.js?v=20261013-3525"></script>
+<script src="./product-flow.js?v=20261014-3526"></script>
+<script src="./amazon-product-search.js?v=20261014-3526"></script>
 </body>
 </html>
 
