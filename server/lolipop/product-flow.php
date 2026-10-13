@@ -431,23 +431,31 @@ function pf_tick(array &$state,bool $manual=false):array{
  return ['message'=>'この検索ページに未準備の商品はありません。次回は次の商品ページを探します。'];
 }
 
+function pf_image_large_enough(array $info):bool{
+ $width=(int)($info[0]??0);$height=(int)($info[1]??0);
+ return min($width,$height)>=600&&max($width,$height)>=900;
+}
 if(defined('SPH_FLOW_TEST'))return;
 function pf_image_out(string $source,string $isbn='',string $productUrl=''):void{
  $url=pf_image_url($source);if($isbn!==''){$gallery=pf_rakuten_books_images($productUrl,$isbn);$selected='';foreach($gallery as $image)if($image===$source){$selected=$image;break;}$cover=$selected?:($gallery[0]??'');if(!$cover)$cover=pf_google_books_cover($isbn);if($cover)$url=$cover;}if(!$url)pf_out(['ok'=>false,'error'=>'写真URLを確認できません。'],400);
+ $rejectedSize='';
  foreach(pf_image_fetch_candidates($url) as $candidate){
   $bytes='';$c=curl_init($candidate);curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>true,CURLOPT_MAXREDIRS=>4,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_REDIR_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>12,CURLOPT_USERAGENT=>'Mozilla/5.0 (compatible; SanrioPostHelper/1.0)',CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$bytes){if(strlen($bytes)+strlen($chunk)>4000000)return 0;$bytes.=$chunk;return strlen($chunk);}]);
   $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
   $imageInfo=$bytes?@getimagesizefromstring($bytes):false;$type=strtolower((string)($imageInfo['mime']??''));
   if($ok===false||$status!==200||!in_array($type,['image/jpeg','image/png','image/webp'],true)||!$bytes)continue;
+  if(!pf_image_large_enough($imageInfo)){$rejectedSize=(int)$imageInfo[0].'×'.(int)$imageInfo[1];continue;}
+  header('X-Image-Dimensions: '.(int)$imageInfo[0].'x'.(int)$imageInfo[1]);
   header('Content-Type: '.$type);header('Content-Length: '.strlen($bytes));header('Cache-Control: private, max-age=300');echo $bytes;exit;
  }
+ if($rejectedSize!=='')pf_out(['ok'=>false,'error'=>'楽天の写真は'.$rejectedSize.'pxで投稿用には小さすぎます（目安：短辺600px・長辺900px以上）。商品ページで大きい写真を確認してください。'],422);
  pf_out(['ok'=>false,'error'=>'楽天の商品写真を取得できませんでした。楽天の高画質画像が利用できない場合は、商品ページから写真を保存してください。'],502);
 }
 function pf_out(array $data,int $status=200):void{http_response_code($status);header('Content-Type: application/json; charset=utf-8');echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);exit;}
 $config=require __DIR__.'/config.php';$origin=$_SERVER['HTTP_ORIGIN']??'';
 header('Cache-Control: no-store');header('X-Content-Type-Options: nosniff');
 if(in_array($origin,$config['allowed_origins']??[],true)){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}
-header('Access-Control-Allow-Headers: Authorization, Content-Type');header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Authorization, Content-Type');header('Access-Control-Expose-Headers: X-Image-Dimensions');header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 if(($_SERVER['REQUEST_METHOD']??'')==='OPTIONS')exit;
 $token=preg_match('/^Bearer (.+)$/D',$_SERVER['HTTP_AUTHORIZATION']??'',$m)?$m[1]:'';
 if(empty($config['sync_key'])||!hash_equals((string)$config['sync_key'],$token))pf_out(['ok'=>false,'error'=>'同期キーを設定してください。'],401);
