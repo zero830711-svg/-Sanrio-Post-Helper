@@ -29,3 +29,8 @@
 #amazonSearchArea input,#amazonSearchArea textarea,#amazonSearchArea select,#flowProvider{max-width:100%;box-sizing:border-box}
 #amazonSearchArea textarea,#amazonFlowQuery,#amazonFlowLink{width:100%;display:block;margin:8px 0;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
 #amazonSearchArea label{display:block;margin:12px 0}#amazonFlowSource{overflow-wrap:anywhere}#amazonFlowResults img{max-width:64px;max-height:80px;object-fit:contain}
+
+.product-provider-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 16px}
+.product-provider-buttons button{min-width:0;min-height:44px;border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff;color:inherit;font:inherit;font-weight:700;cursor:pointer}
+.product-provider-buttons button[aria-pressed="true"]{background:#f6dbe6;border:2px solid #e58caf;color:#66374b}
+.product-provider-buttons button:focus-visible{outline:3px solid #79bdf8;outline-offset:2px}
