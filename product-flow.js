@@ -100,7 +100,7 @@ async function rakutenImageRequest(url,isbn='',productUrl=''){
 }
 async function getProductPhoto(row,index){const code=String(row.item.rakutenCode||'');const isbn=row.item.rakutenService==='books'&&code.startsWith('books:')?code.slice(6):'';return row.item.rakuten?rakutenImageRequest(row.item.images[index],isbn,row.item.url):newsRequest('image',row.item.url,index);}
 function resetPhotoPreviews(){photoPreviewUrls.forEach(url=>{try{URL.revokeObjectURL(url);}catch{}});photoPreviewUrls=[];photoPreviewEls=[];photoLabelEls=[];}
-function showPhotoFile(index,file){files[index]=file;const label=photoLabelEls[index];if(label&&/^\d+x\d+$/.test(file.imageDimensions||''))label.textContent='写真'+(index+1)+'（'+file.imageDimensions.replace('x','×')+'px・画質確認済み）';const img=photoPreviewEls[index];if(!img)return;if(photoPreviewUrls[index])URL.revokeObjectURL(photoPreviewUrls[index]);const url=URL.createObjectURL(file);photoPreviewUrls[index]=url;img.src=url;}
+function showPhotoFile(index,file){files[index]=file;const label=photoLabelEls[index];if(label&&/^\d+x\d+$/.test(file.imageDimensions||''))label.textContent='写真'+(index+1)+'（'+file.imageDimensions.replace('x','×')+'px・解像度確認済み）';const img=photoPreviewEls[index];if(!img)return;if(photoPreviewUrls[index])URL.revokeObjectURL(photoPreviewUrls[index]);const url=URL.createObjectURL(file);photoPreviewUrls[index]=url;img.src=url;}
 async function load(forceSources=false){
  if(busy)return;
  try{
