@@ -38,9 +38,15 @@ test('Amazonの商品権限エラーは表示し、保存済み下書きを保�
  const calls=await setup(page,{legacy:true,error:true});await page.locator('#amazonFlowSearch').click();await expect(page.locator('#amazonFlowStatus')).toContainText('商品検索／HTTP 403');
  expect(calls).toHaveLength(1);await expect(page.locator('#amazonFlowDrafts')).toContainText('保存済みのクロミ');await expect(page.locator('#amazonFlowSearch')).toBeEnabled();
 });
-test('ニュースの商品名を引き継ぎ、元ニュースへリンクを戻す',async({page})=>{
- await setup(page);let payload;
- await page.evaluate(()=>{document.addEventListener('sph-amazon-news-link',e=>{window.testAmazonNews=e.detail;});document.dispatchEvent(new CustomEvent('sph-amazon-product-search',{detail:{title:'ニュースのキティ',sourceUrl:'https://www.sanrio.co.jp/news/goods/test-20261001/'}}));});
- await expect(page.locator('#amazonFlowQuery')).toHaveValue('ニュースのキティ');await page.locator('#amazonFlowSearch').click();await page.locator('#amazonFlowResults').getByRole('button',{name:'投稿準備'}).click();
- await page.locator('#amazonFlowToNews').click();payload=await page.evaluate(()=>window.testAmazonNews);expect(payload).toEqual({sourceUrl:'https://www.sanrio.co.jp/news/goods/test-20261001/',link:url});
+test('ニュースの商品名を引き継ぎ、楽天リンクと編集本文を保持してAmazonリンクを戻す',async({page})=>{
+ await setup(page);
+ const source={url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',title:'ニュースのキティ',source:'PR TIMES',paragraphs:['商品の紹介です。'],images:[]};
+ await page.route('**/news.php?**',r=>r.fulfill({json:new URL(r.request().url()).searchParams.get('action')==='list'?{ok:true,items:[source]}:{ok:true,item:source}}));
+ await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
+ await page.locator('#newsText').fill('編集済みニュース本文');await page.getByText('楽天・Amazonリンクを追加',{exact:true}).click();
+ await page.locator('#newsAffiliateRakuten').fill('https://a.r10.to/test');await page.locator('#newsAffiliateSave').click();await page.locator('#newsAmazonSearch').click();
+ await expect(page.locator('#amazonFlowQuery')).toHaveValue(source.title);await page.locator('#amazonFlowSearch').click();await page.locator('#amazonFlowResults').getByRole('button',{name:'投稿準備'}).click();
+ await page.locator('#amazonFlowToNews').click();
+ await expect(page.locator('#newsPanel')).toBeVisible();await expect(page.locator('#newsAffiliateAmazon')).toHaveValue(url);await expect(page.locator('#newsAffiliateRakuten')).toHaveValue('https://a.r10.to/test');
+ await expect(page.locator('#newsText')).toHaveValue('編集済みニュース本文');await expect(page.locator('#newsReplyText')).toHaveValue(/ref_=api/);
 });
