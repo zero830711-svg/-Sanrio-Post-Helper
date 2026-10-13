@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths:
       - "server/lolipop/overseas.php"
+      - "scripts/verify-deployed-news-extra.php"
+      - "scripts/verify-furyu-news.php"
+      - "scripts/verify-bandai-news.php"
+      - "scripts/verify-gashapon-news.php"
+      - "scripts/verify-thankyou-news.php"
       - "server/lolipop/news.php"
       - "server/lolipop/news-instagram.php"
       - "server/lolipop/news-extra.php"
