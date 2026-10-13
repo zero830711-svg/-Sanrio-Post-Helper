@@ -24,6 +24,10 @@ try{
   $state=$list['sourceStatuses'][$source]['state']??'';
   if(!in_array($state,['ok','partial','failed'],true))throw new RuntimeException($source.'の情報源状態が公開APIにありません。');
   if($state!=='ok')echo '::warning title=External source::'.$source.'の一覧取得は'.$state.'です。公開APIの動作確認を続けます。'."\n";
+  if($source==='エイコープライズ'){
+   $current=array_values(array_filter($list['items']??[],static fn($row)=>($row['source']??'')==='エイコープライズ'&&is_string($row['url']??null)&&str_starts_with($row['url'],'https://www.eikoh-prize.jp/shopdetail/')));
+   if($current)$url=$current[0]['url'];
+  }
   $item=deployed_news_extra_request($key,'detail',$url)['item']??[];
   if(($item['source']??'')!==$source||empty($item['tipsOnly'])||empty($item['images'])||empty($item['title']))throw new RuntimeException($source.'の商品詳細を公開APIから確認できません。');
   echo $source.' published detail verified; source state: '.$state."\n";
