@@ -146,9 +146,11 @@ jobs:
           bye
           LFTP
           failed=()
-          for source in furyu news-extra bandai gashapon thankyou; do
+          for script in verify-furyu-news.php verify-news-extra.php verify-bandai-news.php verify-gashapon-news.php verify-thankyou-news.php; do
+            source="${script#verify-}"
+            source="${source%.php}"
             echo "::group::Verify ${source}"
-            if php "scripts/verify-${source}-news.php" "$furyu_tmp/config.php"; then
+            if php "scripts/$script" "$furyu_tmp/config.php"; then
               echo "::notice title=News verification::${source} passed"
             else
               echo "::error title=News verification::${source} failed after deployment"
