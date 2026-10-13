@@ -61,8 +61,8 @@ async function search(){
  }catch(e){$('amazonFlowStatus').textContent=e.name==='TimeoutError'?'Amazonへの接続が時間切れになりました。もう一度検索してください。':e.message;}
  finally{busy=false;$('amazonFlowSearch').disabled=false;}
 }
-function provider(){const amazon=$('flowProvider').value==='amazon';$('amazonSearchArea').hidden=!amazon;$('flowRakutenArea').hidden=amazon;try{localStorage.setItem(PROVIDER,amazon?'amazon':'rakuten');}catch{}if(amazon)renderDrafts();else document.dispatchEvent(new Event('sph-product-flow-tab'));}
-$('flowProvider').onchange=provider;
+function provider(){const amazon=$('flowProvider').value==='amazon';$('flowProviderRakuten').setAttribute('aria-pressed',String(!amazon));$('flowProviderAmazon').setAttribute('aria-pressed',String(amazon));$('amazonSearchArea').hidden=!amazon;$('flowRakutenArea').hidden=amazon;try{localStorage.setItem(PROVIDER,amazon?'amazon':'rakuten');}catch{}if(amazon)renderDrafts();else document.dispatchEvent(new Event('sph-product-flow-tab'));}
+for(const [id,value] of [['flowProviderRakuten','rakuten'],['flowProviderAmazon','amazon']])$(id).onclick=()=>{$('flowProvider').value=value;provider();};
 $('amazonFlowSearch').onclick=search;$('amazonFlowQuery').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();search();}};
 $('amazonFlowFilter').onchange=renderDrafts;
 $('amazonFlowBody').oninput=()=>{update();save();};$('amazonFlowMode').onchange=()=>{update();save();};$('amazonFlowSave').onclick=()=>save();

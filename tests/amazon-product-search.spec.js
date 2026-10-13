@@ -9,7 +9,7 @@ async function setup(page,{legacy=false,error=false}={}){
  },{legacy,url});
  await page.route('**/product-flow.php?**',r=>r.fulfill({json:{ok:true,entries:[],sources:[],sourceUpdatedAt:Math.floor(Date.now()/1000),rakutenConfigured:true}}));
  await page.route('**/amazon-creators.php?**',r=>{calls.push(r.request().postDataJSON());return error?r.fulfill({status:502,json:{ok:false,error:'商品APIの利用権限を確認できません。',stage:'product-search',upstreamStatus:403}}):r.fulfill({json:{ok:true,partnerTag:'test-22',items:[item,{title:'不正リンク',url:'https://www.amazon.co.jp.evil.test/dp/B000000002',image:''}]}});});
- await page.goto('/');await page.getByRole('tab',{name:'商品検索',exact:true}).click();await page.locator('#flowProvider').selectOption('amazon');
+ await page.goto('/');await page.getByRole('tab',{name:'商品検索',exact:true}).click();await page.getByRole('button',{name:'Amazon',exact:true}).click();await expect(page.locator('#flowProviderAmazon')).toHaveAttribute('aria-pressed','true');await expect(page.locator('#flowProviderRakuten')).toHaveAttribute('aria-pressed','false');
  return calls;
 }
 test('Amazon検索から編集・検索リンク・下書き復元・投稿済みまで',async({page})=>{
@@ -32,7 +32,7 @@ test('Amazon検索から編集・検索リンク・下書き復元・投稿済�
 test('既存Amazon候補の本文と紹介リンクを引き継ぎ、楽天へ切り替えられる',async({page})=>{
  const calls=await setup(page,{legacy:true});await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();
  await expect(page.locator('#amazonFlowBody')).toHaveValue('💜 前に編集した本文');await expect(page.locator('#amazonFlowLink')).toHaveValue(url);
- await page.locator('#flowProvider').selectOption('rakuten');await expect(page.locator('#flowRakutenArea')).toBeVisible();await expect(page.locator('#amazonSearchArea')).toBeHidden();expect(calls).toHaveLength(0);
+ await page.getByRole('button',{name:'楽天',exact:true}).click();await expect(page.locator('#flowProviderRakuten')).toHaveAttribute('aria-pressed','true');await expect(page.locator('#flowRakutenArea')).toBeVisible();await expect(page.locator('#amazonSearchArea')).toBeHidden();expect(calls).toHaveLength(0);
 });
 test('Amazonの商品権限エラーは表示し、保存済み下書きを保持する',async({page})=>{
  const calls=await setup(page,{legacy:true,error:true});await page.locator('#amazonFlowSearch').click();await expect(page.locator('#amazonFlowStatus')).toContainText('商品検索／HTTP 403');
