@@ -129,7 +129,7 @@ jobs:
           LFTP
           php scripts/verify-skater-match.php "$match_tmp/settings.php" "$match_tmp/config.php"
 
-      - name: Verify deployed FURYU news
+      - name: Verify each deployed news source
         shell: bash
         run: |
           set -euo pipefail
@@ -145,9 +145,18 @@ jobs:
           get config.php -o "$furyu_tmp/config.php"
           bye
           LFTP
-          php scripts/verify-instagram-news.php "$furyu_tmp/config.php"
-          php scripts/verify-furyu-news.php "$furyu_tmp/config.php"
-          php scripts/verify-news-extra.php "$furyu_tmp/config.php"
-          php scripts/verify-bandai-news.php "$furyu_tmp/config.php"
-          php scripts/verify-gashapon-news.php "$furyu_tmp/config.php"
-          php scripts/verify-thankyou-news.php "$furyu_tmp/config.php"
+          failed=()
+          for source in furyu news-extra bandai gashapon thankyou; do
+            echo "::group::Verify ${source}"
+            if php "scripts/verify-${source}-news.php" "$furyu_tmp/config.php"; then
+              echo "::notice title=News verification::${source} passed"
+            else
+              echo "::error title=News verification::${source} failed after deployment"
+              failed+=("$source")
+            fi
+            echo "::endgroup::"
+          done
+          if ((${#failed[@]})); then
+            printf 'Deployment checks failed for: %s\n' "${failed[*]}" >&2
+            exit 1
+          fi
