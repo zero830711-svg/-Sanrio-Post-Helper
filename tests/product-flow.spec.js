@@ -33,7 +33,7 @@ test('楽天在庫の下書きで検索アフィリエイト付き本文を編�
  expect(calls.filter(c=>c.action==='save')[0].data.body).toBe('🎀 編集した本文');
  await page.locator('#flowBack').click();await page.getByRole('button',{name:'確認・共有',exact:true}).click();
  await expect(page.locator('#flowBody')).toHaveValue('🎀 編集した本文');
- await page.locator('#flowLinkMode').selectOption('none');await expect(page.locator('#flowFinal')).not.toHaveValue(/hb\\.afl/);
+ await page.locator('#flowLinkMode').selectOption('none');await expect(page.locator('#flowFinal')).not.toHaveValue(/hb\.afl/);
  await expect(page.locator('#flowFinal')).not.toHaveValue(/#pr/);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
