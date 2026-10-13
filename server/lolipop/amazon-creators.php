@@ -54,6 +54,47 @@ function am_search(array $s,string $keywords,?callable $transport=null):array{
  if(!isset($r['data']['searchResult'])||!is_array($r['data']['searchResult']))throw new RuntimeException('Amazonの商品検索結果を確認できませんでした。');
  return ['connected'=>true,'items'=>am_results($r['data']),'partnerTag'=>$s['partnerTag']];
 }
+// Shared server-side discovery cache: URLs/text expire within 24 hours; no image bytes.
+function am_asin(string $url):string{
+ $p=parse_url($url);if(($p['scheme']??'')!=='https'||($p['host']??'')!=='www.amazon.co.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port']))return '';
+ return preg_match('~/(?:dp|gp/product)/([A-Z0-9]{10})(?:/|$)~i',$p['path']??'',$m)?strtoupper($m[1]):'';
+}
+function am_auto_queries():array{
+ $queries=['サンリオ'];
+ foreach(['ハローキティ','マイメロディ','クロミ','シナモロール','ポムポムプリン','ポチャッコ','ハンギョドン','リトルツインスターズ','こぎみゅん','ウサハナ'] as $character){
+  foreach(['ぬいぐるみ','ポーチ','文房具','キーホルダー'] as $category)$queries[]=$character.' '.$category;
+ }
+ return $queries;
+}
+function am_auto_items(array $state,int $now):array{
+ return array_values(array_filter($state['items']??[],static fn($item)=>is_array($item)&&($item['fetchedAt']??0)>$now-86400&&($item['fetchedAt']??0)<=$now&&am_asin((string)($item['url']??''))!==''));
+}
+function am_auto_public(array $state,int $now):array{
+ $queries=am_auto_queries();$next=max(0,(int)($state['queryIndex']??0))%count($queries);
+ return ['items'=>am_auto_items($state,$now),'partnerTag'=>$state['partnerTag']??'','updatedAt'=>$state['updatedAt']??0,'lastAttemptAt'=>$state['lastAttemptAt']??0,'nextAt'=>$state['nextAt']??0,'lastQuery'=>$state['lastQuery']??'','nextQuery'=>$queries[$next],'queryCount'=>count($queries),'autoState'=>$state['autoState']??'empty','autoError'=>$state['autoError']??''];
+}
+function am_auto_tick(array $state,array $settings,int $now,?callable $search=null):array{
+ // A browser opening, cron run and manual refresh all share this cooldown.
+ if(($state['nextAt']??0)>$now)return $state;
+ $queries=am_auto_queries();$index=max(0,(int)($state['queryIndex']??0))%count($queries);$query=$queries[$index];
+ $state['lastAttemptAt']=$now;$state['nextAt']=$now+1800;$state['lastQuery']=$query;
+ try{
+  $result=($search??'am_search')($settings,$query);$pool=[];
+  foreach(am_auto_items($state,$now) as $item)$pool[am_asin($item['url'])]=$item;
+  foreach($result['items']??[] as $item){
+   $asin=am_asin((string)($item['url']??''));$title=(string)($item['title']??'');
+   if(!$asin||!preg_match('/サンリオ|ハローキティ|マイメロディ|クロミ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|リトルツインスターズ|キキララ|こぎみゅん|ウサハナ/u',$title))continue;
+   $pool[$asin]=['asin'=>$asin,'title'=>mb_substr($title,0,500),'url'=>$item['url'],'image'=>$item['image']??'','fetchedAt'=>$now,'query'=>$query];
+  }
+  uasort($pool,static fn($a,$b)=>$b['fetchedAt']<=>$a['fetchedAt']);$state['items']=array_slice($pool,0,300,true);
+  $state['updatedAt']=$now;$state['partnerTag']=$result['partnerTag']??$settings['partnerTag'];$state['queryIndex']=($index+1)%count($queries);$state['autoState']='ok';$state['autoError']='';unset($state['failureStage'],$state['upstreamStatus']);
+ }catch(Throwable $e){
+  $state['items']=am_auto_items($state,$now);$state['autoState']='error';
+  $state['autoError']=$e instanceof AmConnectionException?$e->getMessage():'Amazon候補の取得に失敗しました。取得済み候補は保持しています。';
+  if($e instanceof AmConnectionException){$state['failureStage']=$e->stage;$state['upstreamStatus']=$e->upstreamStatus;if(in_array($e->upstreamStatus,[401,403,429],true))$state['nextAt']=$now+21600;}
+ }
+ return $state;
+}
 if(defined('SPH_AMAZON_TEST'))return;
 function am_out(array $d,int $status=200):void{http_response_code($status);header('Content-Type: application/json; charset=utf-8');echo json_encode($d,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
 $config=require __DIR__.'/config.php';$origin=$_SERVER['HTTP_ORIGIN']??'';header('Cache-Control: no-store');header('X-Content-Type-Options: nosniff');
@@ -65,15 +106,26 @@ if(!$key||!hash_equals($key,$token))am_out(['ok'=>false,'error'=>'アプリの�
 try{
  $action=$_GET['action']??'settings';$method=$_SERVER['REQUEST_METHOD']??'GET';$path=am_dir().'/settings.json';
  if($action==='settings'&&$method==='GET')am_out(['ok'=>true]+am_public(am_read($path)));
+ if($action==='candidates'&&$method==='GET')am_out(['ok'=>true]+am_auto_public(am_read(am_dir().'/auto.json'),time())+am_public(am_read($path)));
  if($method!=='POST')am_out(['ok'=>false,'error'=>'POSTで実行してください。'],405);
  if(!in_array($origin,$config['allowed_origins']??[],true))am_out(['ok'=>false,'error'=>'許可されたアプリから実行してください。'],403);
  $raw=(string)file_get_contents('php://input',false,null,0,8193);$d=json_decode($raw,true);if(strlen($raw)>8192||!is_array($d))am_out(['ok'=>false,'error'=>'入力内容を確認してください。'],400);
- if($action==='settings'){$s=am_validate($d);am_write($path,$s);$tokenPath=am_dir().'/token.json';if(is_file($tokenPath))unlink($tokenPath);am_out(['ok'=>true]+am_public($s));}
- if($action!=='search')am_out(['ok'=>false,'error'=>'操作を確認してください。'],400);
+ if($action==='settings'){$s=am_validate($d);am_write($path,$s);am_write(am_dir().'/auto.json',[]);$tokenPath=am_dir().'/token.json';if(is_file($tokenPath))unlink($tokenPath);am_out(['ok'=>true]+am_public($s));}
+ if(!in_array($action,['search','discover'],true))am_out(['ok'=>false,'error'=>'操作を確認してください。'],400);
  $s=am_read($path);if(!am_public($s)['configured'])am_out(['ok'=>false,'error'=>'先に認証情報を保存してください。'],400);
  $lock=fopen(am_dir().'/search.lock','c+');chmod(am_dir().'/search.lock',0600);if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('Amazonを確認中です。少し待ってください。');
- try{$last=(int)stream_get_contents($lock);if(time()-$last<5)throw new RuntimeException('5秒以上間隔をあけてください。');rewind($lock);ftruncate($lock,0);fwrite($lock,(string)time());fflush($lock);$result=am_search($s,(string)($d['keywords']??'サンリオ'));}
+ try{
+  if($action==='discover'){
+   $state=am_read(am_dir().'/auto.json');
+   if(($state['nextAt']??0)>time())$result=['ok'=>true,'cached'=>true]+am_auto_public($state,time());
+   else{
+    $last=(int)stream_get_contents($lock);if(time()-$last<5)throw new RuntimeException('5秒以上間隔をあけてください。');rewind($lock);ftruncate($lock,0);fwrite($lock,(string)time());fflush($lock);
+    $state=am_auto_tick($state,$s,time());am_write(am_dir().'/auto.json',$state);$result=['ok'=>($state['autoState']??'')!=='error']+am_auto_public($state,time());
+    if(!$result['ok'])$result+=['error'=>$state['autoError'],'stage'=>$state['failureStage']??'unknown','upstreamStatus'=>$state['upstreamStatus']??0];
+   }
+  }else{$last=(int)stream_get_contents($lock);if(time()-$last<5)throw new RuntimeException('5秒以上間隔をあけてください。');rewind($lock);ftruncate($lock,0);fwrite($lock,(string)time());fflush($lock);$result=am_search($s,(string)($d['keywords']??'サンリオ'));}
+ }
  finally{flock($lock,LOCK_UN);fclose($lock);}
- am_out(['ok'=>true]+$result);
+ am_out($result+['ok'=>true],empty($result['ok'])&&isset($result['ok'])?502:200);
 }catch(AmConnectionException $e){am_out(['ok'=>false,'error'=>$e->getMessage(),'stage'=>$e->stage,'upstreamStatus'=>$e->upstreamStatus],502);
 }catch(Throwable $e){am_out(['ok'=>false,'error'=>$e->getMessage()],502);}
