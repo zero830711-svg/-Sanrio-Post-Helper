@@ -25,3 +25,7 @@
 #flowEvidence,#flowOriginal{white-space:pre-wrap;overflow-wrap:anywhere}
 #flowEditor h3{overflow-wrap:anywhere}
 #flowStatus{position:relative;white-space:pre-wrap}
+#amazonSearchArea[hidden],#flowRakutenArea[hidden],#amazonFlowEditor[hidden],#amazonFlowToNews[hidden]{display:none!important}
+#amazonSearchArea input,#amazonSearchArea textarea,#amazonSearchArea select,#flowProvider{max-width:100%;box-sizing:border-box}
+#amazonSearchArea textarea,#amazonFlowQuery,#amazonFlowLink{width:100%;display:block;margin:8px 0;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
+#amazonSearchArea label{display:block;margin:12px 0}#amazonFlowSource{overflow-wrap:anywhere}#amazonFlowResults img{max-width:64px;max-height:80px;object-fit:contain}

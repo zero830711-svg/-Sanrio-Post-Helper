@@ -657,3 +657,12 @@ function newsPhotoReadingsRender(entry){
  if(!Array.isArray(rows))return;
  for(const row of rows){const p=document.createElement('p');p.style.whiteSpace='pre-wrap';p.textContent='写真'+(row.index+1)+'\n'+(row.japanese||'読める文字はありませんでした。')+(row.original?'\n原語：'+row.original:'');box.append(p);}
 }
+
+$('newsAmazonSearch').onclick=()=>{
+ const entry=newsCollageEntry();if(!entry)return;
+ newsKeepDraft();document.dispatchEvent(new CustomEvent('sph-amazon-product-search',{detail:{title:entry.item.title,sourceUrl:entry.item.url}}));
+};
+document.addEventListener('sph-amazon-news-link',event=>{
+ const entry=newsCollageEntry(),detail=event.detail;if(!entry||entry.item.url!==detail?.sourceUrl||!newsValidAffiliate(detail.link,'amazon'))return;
+ $('newsAffiliateAmazon').value=detail.link;$('newsAffiliateSave').click();setHomeView('news');
+});
