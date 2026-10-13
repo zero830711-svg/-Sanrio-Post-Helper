@@ -24,6 +24,7 @@ on:
       - "server/lolipop/news-bandai.php"
       - "server/lolipop/news-gashapon.php"
       - "server/lolipop/news-thankyou.php"
+      - "scripts/verify-deployed-news-extra.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
       - "styles.css"
@@ -55,6 +56,7 @@ on:
       - "server/lolipop/news-bandai.php"
       - "server/lolipop/news-gashapon.php"
       - "server/lolipop/news-thankyou.php"
+      - "scripts/verify-deployed-news-extra.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
       - "styles.css"
@@ -101,6 +103,7 @@ jobs:
           php tests/news-parser.php
           php tests/bandai-parser.php
           php tests/gashapon-parser.php
+          php -l scripts/verify-deployed-news-extra.php
 
       - name: Check news identity and saved progress
         run: node tests/news-progress.test.cjs
