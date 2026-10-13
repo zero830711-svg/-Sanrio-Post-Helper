@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let entries=[],sources=[],sourceErrors=[],sourcePoolCount=0,sourceDisplayLimit=60,current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoPreviewUrls=[],preparingPhotos=false,photoPreparationSeq=0;
+let entries=[],sources=[],sourceErrors=[],sourcePoolCount=0,sourceDisplayLimit=60,current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoLabelEls=[],photoPreviewUrls=[],preparingPhotos=false,photoPreparationSeq=0;
 function endpoint(action){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/product-flow.php'));u.searchParams.set('action',action);return u.href;}
 async function api(action,data){
  const {key}=cloudSettings();if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -95,11 +95,12 @@ async function rakutenImageRequest(url,isbn='',productUrl=''){
  const {key}=cloudSettings();if(!key)throw new Error('同期キーを設定してください。');
  const r=await fetch(endpoint('image'),{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({url,isbn,productUrl}),cache:'no-store',signal:AbortSignal.timeout(30000)});
  if(!r.ok){let d={};try{d=await r.json();}catch{}throw new Error(d.error||'楽天の商品写真を取得できませんでした。');}
- const blob=await r.blob();return new File([blob],'rakuten-product.'+({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[blob.type]||'jpg'),{type:blob.type});
+ const blob=await r.blob(),file=new File([blob],'rakuten-product.'+({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'}[blob.type]||'jpg'),{type:blob.type});
+ file.imageDimensions=r.headers.get('X-Image-Dimensions')||'';return file;
 }
 async function getProductPhoto(row,index){const code=String(row.item.rakutenCode||'');const isbn=row.item.rakutenService==='books'&&code.startsWith('books:')?code.slice(6):'';return row.item.rakuten?rakutenImageRequest(row.item.images[index],isbn,row.item.url):newsRequest('image',row.item.url,index);}
-function resetPhotoPreviews(){photoPreviewUrls.forEach(url=>{try{URL.revokeObjectURL(url);}catch{}});photoPreviewUrls=[];photoPreviewEls=[];}
-function showPhotoFile(index,file){files[index]=file;const img=photoPreviewEls[index];if(!img)return;if(photoPreviewUrls[index])URL.revokeObjectURL(photoPreviewUrls[index]);const url=URL.createObjectURL(file);photoPreviewUrls[index]=url;img.src=url;}
+function resetPhotoPreviews(){photoPreviewUrls.forEach(url=>{try{URL.revokeObjectURL(url);}catch{}});photoPreviewUrls=[];photoPreviewEls=[];photoLabelEls=[];}
+function showPhotoFile(index,file){files[index]=file;const label=photoLabelEls[index];if(label&&/^\d+x\d+$/.test(file.imageDimensions||''))label.textContent='写真'+(index+1)+'（'+file.imageDimensions.replace('x','×')+'px・解像度確認済み）';const img=photoPreviewEls[index];if(!img)return;if(photoPreviewUrls[index])URL.revokeObjectURL(photoPreviewUrls[index]);const url=URL.createObjectURL(file);photoPreviewUrls[index]=url;img.src=url;}
 async function load(forceSources=false){
  if(busy)return;
  try{
@@ -193,7 +194,8 @@ function renderPhotos(){
    dirty=true;updateFinal();queueAutoSave();const seq=requestSeq;
    if(checkbox.checked&&!files[i])try{const f=await getProductPhoto(current,i);if(seq===requestSeq){showPhotoFile(i,f);updateFinal();status('写真'+(i+1)+'を準備しました。');}}catch(error){status('写真'+(i+1)+'を準備できませんでした：'+(error?.message||'通信を確認してください。'));}
   };
-  label.append(img,checkbox,document.createTextNode('写真'+(i+1)));el('flowPhotos').append(label);
+  const photoLabel=document.createElement('span');photoLabel.textContent='写真'+(i+1);photoLabelEls[i]=photoLabel;
+  label.append(img,checkbox,photoLabel);el('flowPhotos').append(label);
  }
 }
 el('flowItemUrlCopy').onclick=async()=>{
