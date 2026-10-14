@@ -33,7 +33,7 @@
 <details class="home-info"><summary>データ・更新情報</summary>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.10.13-3530</span>
+<span id="appVersionStatus">アプリ版 2026.10.14-3531</span>
 <button id="forceLatest" type="button" >最新版を読み込む</button>
 </div>
 <p class="backup-note app-update-help">更新後もホーム画面のアイコンはそのまま使えます。作り直しは不要です。この端末に保存した投稿データと同期設定は、同じURLを使う限り引き継がれます。</p>
@@ -44,6 +44,7 @@
 <button id="homeNewsTab" type="button" role="tab" aria-controls="newsPanel" aria-selected="false" tabindex="-1">新作ニュース</button>
 <button id="homeProductFlowTab" type="button" role="tab" aria-controls="productFlowPanel" aria-selected="false" tabindex="-1">商品検索</button>
 <button id="homeNewTab" type="button" role="tab" aria-controls="lovelyPanel" aria-selected="false" tabindex="-1">新着商品</button>
+<button id="homeCompetitorTab" type="button" role="tab" aria-controls="competitorPanel" aria-selected="false" tabindex="-1">競合分析</button>
 </div>
 
 <section id="archive">
@@ -62,6 +63,7 @@
 <div id="todayProgress" class="today-progress"></div>
 </div>
 </div>
+<details class="today-selection-help" open><summary>発売・予約・更新に合わせた再紹介</summary><p id="domesticReuseStatus" class="backup-note"></p><div id="domesticReuseList"></div></details>
 <div id="todayList" class="today-list"></div>
 <button id="todayMore" class="small-btn" type="button" hidden>もっと見る</button><p id="todayMoreStatus" class="backup-note" aria-live="polite"></p>
 <details class="today-selection-help"><summary id="todayCountsSummary">件数の内訳</summary><div id="todayCounts" class="backup-note"></div></details>
@@ -158,7 +160,7 @@
 
 <label class="news-filter">表示<select id="newsFilter"><option value="new">未投稿</option><option value="draft">準備中</option><option value="hidden">投稿済み・見送り</option><option value="all">すべて</option></select></label>
 <p id="newsStatus" class="backup-note" aria-live="polite"></p><div id="newsList"></div><button id="newsMore" class="small-btn" type="button" hidden>もっと見る</button>
-</div><section id="newsEditor" hidden><button id="newsBack" class="small-btn" type="button">一覧へ戻る</button><h3 id="newsTitle"></h3><a id="newsSource" target="_blank" rel="noopener noreferrer"></a><p id="newsDate" class="backup-note"></p><div id="newsRelatedSources" class="news-related-sources" hidden aria-label="同じニュースの掲載元"></div>
+</div><section id="newsEditor" hidden><button id="newsBack" class="small-btn" type="button">一覧へ戻る</button><h3 id="newsTitle"></h3><div id="newsEvidenceEditor"></div><a id="newsSource" target="_blank" rel="noopener noreferrer"></a><p id="newsDate" class="backup-note"></p><div id="newsRelatedSources" class="news-related-sources" hidden aria-label="同じニュースの掲載元"></div>
 <label id="newsAiChoiceLabel" hidden>投稿案<select id="newsAiChoice" aria-label="使うニュース投稿案"><option value="0">1. シンプル情報系（200文字以内）</option><option value="1">2. 華やかな紹介系</option><option value="2">3. 目を引く可愛い系</option></select></label>
 <label>投稿文（編集できます）<textarea id="newsText" rows="6"></textarea></label><label id="newsIncludeLinkLabel"><input id="newsIncludeLink" type="checkbox"> 本文にリンクを含める</label><div id="newsReplyBox"><label>返信用コメント（投稿後に返信してください）<textarea id="newsReplyText" rows="3"></textarea></label><button id="newsReplyCopy" class="small-btn" type="button">返信用コメントをコピー</button></div><details><summary>楽天・Amazonリンクを追加</summary><p class="backup-note">ご自身のアフィリエイトリンクを入力。検索結果リンクもそのまま保存します。</p><label>楽天リンク<input id="newsAffiliateRakuten" type="url" inputmode="url" placeholder="https://"></label><button id="newsAmazonSearch" type="button" class="small-btn">この商品をAmazonで検索</button><label>Amazonリンク<input id="newsAffiliateAmazon" type="url" inputmode="url" placeholder="https://"></label><label>リンクの掲載先<select id="newsAffiliatePlacement"><option value="reply">返信コメント</option><option value="body">投稿本文</option></select></label><button id="newsAffiliateSave" type="button" class="small-btn">リンクを保存・反映</button><p id="newsAffiliateStatus" class="backup-note" aria-live="polite"></p></details><details id="newsConfirmedRegionBox" hidden><summary>海外の販売・開催地域を確認</summary><p id="newsRegionSource" class="backup-note"></p><label>原文で確認した地域<select id="newsConfirmedRegion"><option value="">未確認・本文に入れない</option><option>韓国</option><option>香港</option><option>台湾</option><option>中国</option><option>インド</option><option>日本</option></select></label></details><p id="newsDraftStatus" class="backup-note" aria-live="polite"></p>
 <label id="newsPhotoUseLabel" hidden><input id="newsPhotoUse" type="checkbox" checked> 写真の文字も使って生成（選択写真の先頭3枚まで）</label><details id="newsPhotoReadingsBox" hidden><summary>写真から読み取った情報（AI・要確認）</summary><p class="backup-note">読み違いがないか写真と照合してください。失敗した場合は「写真の文字も使って生成」を外して原文のみで生成できます。</p><div id="newsPhotoReadings"></div></details><p id="newsAiStatus" class="backup-note" aria-live="polite"></p><button id="newsAiRetry" class="small-btn" type="button" disabled>🎀 AIで投稿文を作る</button>
@@ -172,6 +174,16 @@
 <p id="newsEditorStatus" class="backup-note" aria-live="polite"></p></section>
 </section>
 
+
+<section id="competitorPanel" class="card" role="tabpanel" aria-labelledby="homeCompetitorTab" hidden>
+<h2>競合分析</h2><p class="backup-note">対象：@sanrio_oshikatu。公開投稿の観測資料を分析します。取得できない値は「取得不可」と表示します。非公式スクレイピングは行いません。</p>
+<p id="competitorSummary" class="backup-note"></p><p class="backup-note">時間帯・テーマ・頻度は取得した標本内の集計です。全投稿の頻度や最適な投稿時間を断定しません。反応率＝（いいね＋リポスト）÷閲覧数。投稿後の経過時間や観測時点が異なるため、単純比較には限界があります。</p>
+<p id="competitorFrequency" class="backup-note"></p><p id="competitorHours" class="backup-note"></p><div id="competitorThemes" class="competitor-table"></div><p id="competitorPatterns" class="backup-note"></p>
+<details><summary>公開投稿を手動で記録</summary><label>投稿URL<input id="competitorUrl" type="url" placeholder="https://x.com/sanrio_oshikatu/status/…"></label><label>投稿日時（日本時間・不明なら空欄）<input id="competitorDate" type="datetime-local" step="60"></label><label>本文<textarea id="competitorText" rows="4"></textarea></label><div class="competitor-metrics"><label>閲覧数<input id="competitorImpressions" type="number" min="0" step="1"></label><label>いいね数<input id="competitorLikes" type="number" min="0" step="1"></label><label>リポスト数<input id="competitorReposts" type="number" min="0" step="1"></label></div><p class="backup-note">確認できた公開数値だけ入力してください。不明は空欄にします。</p><button id="competitorManualSave" type="button" class="small-btn">観測資料を保存</button></details>
+<details><summary>CSV取込</summary><p class="backup-note">これは競合用の入力資料です。自分のXアナリティクスCSVとは別です。日時は例「2026-10-14T12:00:00+09:00」。数値の空欄は取得不可です。</p><button id="competitorTemplate" type="button" class="small-btn">CSVひな形をダウンロード</button><label>競合の観測CSV<input id="competitorCsv" type="file" accept=".csv,text/csv"></label></details>
+<details><summary>X公式API（任意・有料）</summary><p class="backup-note">公式の従量課金APIです。設定だけでは取得しません。定期実行もありません。既存の開発者アカウントとBearer Tokenが必要です。トークンはロリポップの非公開領域に保存し、ブラウザーには保存しません。</p><button id="competitorApiSettings" type="button" class="small-btn">API設定状況を確認</button><label>Bearer Token（空欄は既存設定を維持）<input id="competitorBearer" type="password" autocomplete="off"></label><label>月間取得上限（100〜10,000件）<input id="competitorMonthlyLimit" type="number" value="1000" min="100" max="10000" step="100"></label><p class="backup-note">投稿取得の公式掲載単価（2026年10月確認）は1件$0.005。1,000件なら投稿取得分の目安$5です。ユーザー取得など別料金があり、この件数上限は請求額の厳密な上限ではありません。<a href="https://docs.x.com/x-api/getting-started/pricing" target="_blank" rel="noopener noreferrer">最新の公式料金を確認</a>。失敗した取得も安全側に取得枠を消費します。</p><label><input id="competitorClearToken" type="checkbox">APIトークンを解除する</label><button id="competitorApiSave" type="button" class="small-btn">API設定を保存</button><p id="competitorApiStatus" class="backup-note" aria-live="polite">未確認・自動取得は停止中</p><label><input id="competitorPaidConsent" type="checkbox">有料APIの取得と月間件数上限を確認しました</label><button id="competitorApiFetch" type="button" class="small-btn" disabled>公式APIで直近投稿を取得</button></details>
+<p id="competitorStatus" class="backup-note" aria-live="polite"></p><p class="backup-note">観測資料はこのブラウザーに保存します。再取込しても投稿アーカイブや紹介リンクは変更しません。一覧は直近100件を表示します。</p><div id="competitorPosts"></div>
+</section>
 
 <details id="lovelyPanel" class="card trend-card" role="tabpanel" aria-labelledby="homeNewTab" hidden>
 <summary id="lovelySectionTitle">新着商品</summary>
@@ -193,18 +205,19 @@
 <p id="lovelyStatus" class="backup-note" aria-live="polite"></p>
 <p id="lovelyCount" class="backup-note"></p>
 <div class="lovely-filters">
-<label>情報元<select id="lovelySourceFilter"><option value="all">すべて</option><option value="lovely">ブログ</option><option value="hatakeyama">畑山商事</option><option value="gourmandise">グルマンディーズ</option><option value="skater">スケーター</option></select></label>
+<label>情報元<select id="lovelySourceFilter"><option value="all">すべて</option><option value="lovely">ブログ</option><option value="hatakeyama">畑山商事</option><option value="gourmandise">グルマンディーズ</option><option value="skater">スケーター</option><option value="news">公式ニュース</option></select></label>
 <label>表示する商品<select id="lovelyFilter"><option value="new">未紹介・更新候補</option><option value="recent">前回確認後に追加</option><option value="used">紹介済み</option><option value="all">すべて</option></select></label>
 <label>並び順<select id="lovelySort"><option value="recommended">おすすめ順</option><option value="date">新着順</option></select></label>
 </div>
 <p id="lovelyRankingHelp" class="backup-note"></p>
 <p id="lovelyRecentHelp" class="backup-note" aria-live="polite" hidden></p>
+<div id="domesticKindButtons" class="evidence-buttons" role="group" aria-label="商品の時期"><button type="button" data-kind="all" aria-pressed="true">すべて</button><button type="button" data-kind="new" aria-pressed="false">新着発表</button><button type="button" data-kind="reservation" aria-pressed="false">予約開始</button><button type="button" data-kind="soon" aria-pressed="false">発売間近</button><button type="button" data-kind="lottery" aria-pressed="false">くじ・カプセル</button><button type="button" data-kind="update" aria-pressed="false">再入荷・セール</button><button type="button" data-kind="review" aria-pressed="false">要確認</button></div><button id="domesticNewsLoad" type="button" class="small-btn">公式ニュースも一覧に追加</button><p id="domesticNewsStatus" class="backup-note" aria-live="polite"></p>
 <div id="lovelyList"></div>
 <button id="lovelyMore" class="small-btn" type="button" hidden>もっと見る</button>
 </div>
 <section id="lovelyEditor" aria-label="商品の投稿準備" hidden>
 <button id="lovelyBack" class="small-btn" type="button">一覧へ戻る</button>
-<h3 id="lovelyTitle"></h3>
+<h3 id="lovelyTitle"></h3><div id="lovelyEvidenceEditor"></div>
 <div class="lovely-source-links"><a id="lovelySource" target="_blank" rel="noopener noreferrer">元記事を確認</a><div id="lovelyProducts" class="cloud-sync-actions"></div></div>
 <div class="lovely-retailer-row"><p id="lovelyReview" class="backup-note"></p><button id="lovelyRetailerRetry" type="button" class="small-btn" hidden>楽天の商品を再照合</button></div><div id="lovelyRelatedArticles"></div>
 <div id="lovelyProductInfo" aria-live="polite"></div>
@@ -550,15 +563,17 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./app.js?v=20261013-3530"></script>
+<script src="./domestic-candidates.js?v=20261014-3531"></script>
+<script src="./app.js?v=20261014-3531"></script>
+<script src="./competitor-analysis.js?v=20261014-3531"></script>
 <script src="./candidate-edit.js?v=20261010-3457"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
 <script src="./new-product-ranking.js?v=20261005-3451"></script>
-<script src="./lovely-watch.js?v=20261005-3451"></script>
+<script src="./lovely-watch.js?v=20261014-3531"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
 <script src="./news-collage.js?v=20261010-3452"></script>
-<script src="./news.js?v=20261014-3526"></script>
+<script src="./news.js?v=20261014-3531"></script>
 <script src="./post-ai.js?v=20261005-3451"></script>
 <script>
 window.addEventListener("load",()=>{

@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.09-3450";
+const APP_VERSION="2026.10.14-3531";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -4080,7 +4080,7 @@ $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
 
-const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["flow","homeProductFlowTab","productFlowPanel"],["new","homeNewTab","lovelyPanel"]];
+const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["flow","homeProductFlowTab","productFlowPanel"],["new","homeNewTab","lovelyPanel"],["competitor","homeCompetitorTab","competitorPanel"]];
 function setHomeView(view){
  const active=homeTabViews.find(tab=>tab[0]===view)||homeTabViews[0];
  if(view==="news"&&typeof newsSetHomeView==="function")newsSetHomeView(view);
