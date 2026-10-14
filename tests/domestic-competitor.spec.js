@@ -7,6 +7,8 @@ test('掲載日を発売日にせず、月・旬の精度と公式の根拠を�
  expect(domestic.dates('2026年2月31日発売')).toEqual([]);
  const release=domestic.extract({url:'https://www.sanrio.co.jp/news/a/',title:'2026年10月15日発売 ポチャッコ'},now);expect(domestic.classify(release,now).kind).toBe('soon');expect(domestic.today(Date.parse('2026-10-14T16:00:00Z'))).toBe('2026-10-15');
  expect(domestic.trusted('https://sanrio.co.jp.evil.test/')).toBe(false);expect(domestic.trusted('https://sanrio.co.jp@evil.test/')).toBe(false);
+ const reservation=domestic.extract({url:'https://www.sanrio.co.jp/news/a/',title:'予約開始：2026年10月15日（発売日は未定）'},now);expect(reservation.release).toBeNull();expect(reservation.reservation.value).toBe('2026-10-15');
+ const week=domestic.extract({url:'https://www.furyu.jp/a/',schedule:'登場時期：2026年10月第3週'},now);expect(week.release.precision).toBe('第3週');expect(domestic.classify(week,now).kind).not.toBe('soon');
 });
 test('古い再入荷告知を現在の更新にせず、手動照合でも元検索リンクと見送りを保持する',()=>{
  const e={...domestic.extract({url:'https://www.sanrio.co.jp/news/a/',title:'再入荷',date:'2026-01-01',jan:'4900000000000'},now),manual:false};expect(domestic.classify(e,now).kind).not.toBe('update');

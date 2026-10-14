@@ -7,15 +7,16 @@ const domesticCandidates=(()=>{
  function read(){try{const raw=localStorage.getItem(KEY)||'{}';if(raw!==cachedRaw){const v=JSON.parse(raw);cachedValue=v&&typeof v==='object'&&!Array.isArray(v)?v:{};cachedRaw=raw;}return cachedValue;}catch(_){return {};}}
  function day(v){if(!/^\d{4}-\d{2}-\d{2}$/.test(v||''))return '';const t=Date.parse(v+'T00:00:00Z');return Number.isFinite(t)&&new Date(t).toISOString().slice(0,10)===v?v:'';}
  function today(now=Date.now()){return new Date(now+9*3600000).toISOString().slice(0,10);}
- function dates(text){const out=[];for(const m of String(text).matchAll(/(20\d{2})年\s*(\d{1,2})月\s*(?:(\d{1,2})日|(上旬|中旬|下旬))?/g)){const value=m[1]+'-'+m[2].padStart(2,'0')+(m[3]?'-'+m[3].padStart(2,'0'):'');if(m[3]&&!day(value)||+m[2]<1||+m[2]>12)continue;out.push({value,precision:m[3]?'day':m[4]||'month',text:m[0]});}return out;}
+ function dates(text){const out=[];for(const m of String(text).matchAll(/(20\d{2})年\s*(\d{1,2})月\s*(?:(\d{1,2})日|(上旬|中旬|下旬|第[1-5]週))?/g)){const value=m[1]+'-'+m[2].padStart(2,'0')+(m[3]?'-'+m[3].padStart(2,'0'):'');if(m[3]&&!day(value)||+m[2]<1||+m[2]>12)continue;out.push({value,precision:m[3]?'day':m[4]||'month',text:m[0],index:m.index});}return out;}
+ function dateKind(line,d,kind){const before=line.slice(0,d.index).slice(-24),after=line.slice(d.index+d.text.length).slice(0,40);return kind==='release'?/(?:発売日|発売時期|発売予定|販売開始日|発売|登場時期|登場予定)[：:\s]*$/.test(before)||/^(?:[（(][^）)]*[）)])?\s*(?:から|より)?\s*(?:発売|販売開始|登場予定)/.test(after):/(?:予約(?:受付)?開始(?:日)?|受注開始(?:日)?)[：:\s]*$/.test(before)||/^(?:[（(][^）)]*[）)])?\s*(?:から|より)?\s*(?:予約(?:受付)?開始|受注開始)/.test(after);}
  function ids(item){const out=[...(item.productIds||[])];for(const j of [item.jan,item.productInfo?.jan])if(/^\d{13}$/.test(String(j||'')))out.push('jan:'+j);if(typeof revenueProductIds==='function')out.push(...revenueProductIds(item));return [...new Set(out.filter(v=>/^(jan:\d{13}|asin:[A-Z0-9]{10}|rakuten:[^:\s]+:[^:\s]+)$/.test(v)))];}
  function extract(item,now=Date.now()){
   const url=item.manufacturerInfo?.url||item.url,valid=trusted(url)&&!item.overseas;
   const lines=[item.schedule,...(Array.isArray(item.facts)?item.facts.map(f=>f.text):Object.entries(item.facts||{}).map(([k,v])=>k+'：'+v)),...Object.entries(item.manufacturerInfo?.facts||{}).map(([k,v])=>k+'：'+v),...(valid?[item.title]:[])].filter(Boolean);
   const e={url,title:item.title||'',source:item.source||'',ids:ids(item),image:item.thumbnail||item.image||'',publishedAt:item.date||'',observedAt:new Date(now).toISOString(),verified:valid,identityUncertain:!!item.needsReview||(!(item.jan||item.productInfo?.jan)&&ids(item).filter(id=>!id.startsWith('jan:')).length>1),release:null,reservation:null,event:'new',price:'',evidence:[]};
   if(valid)for(const line of lines){
-   const d=dates(line);if(d.length===1&&/発売|販売開始|登場時期|登場予定/.test(line)&&!/延期|変更前/.test(line)){e.release=d[0];e.evidence.push(line);}
-   if(d.length===1&&/予約(?:受付)?開始|受注開始/.test(line)&&!/終了/.test(line)){e.reservation=d[0];e.evidence.push(line);}
+   const d=dates(line);if(d.length===1&&dateKind(line,d[0],'release')&&!/延期|変更前/.test(line)){e.release=d[0];e.evidence.push(line);}
+   if(d.length===1&&dateKind(line,d[0],'reservation')&&!/終了/.test(line)){e.reservation=d[0];e.evidence.push(line);}
    if(/再入荷|再販|予約再開|受付再開/.test(line)){e.event='restock';e.evidence.push(line);}
    if(/セール|値下げ/.test(line)){e.event='sale';e.evidence.push(line);}
    if(/価格|税込|税抜/.test(line)&&/[\d,]+円/.test(line)){e.price=line;e.evidence.push(line);}
