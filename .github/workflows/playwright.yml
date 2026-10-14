@@ -10,6 +10,10 @@ on:
       - "local-ai-test.js"
       - "local-ai-worker.js"
       - "app.js"
+      - "domestic-candidates.js"
+      - "competitor-analysis.js"
+      - "server/lolipop/competitor.php"
+      - "scripts/verify-competitor.php"
       - "news.js"
       - "news-collage.js"
       - "product-flow.js"
@@ -45,6 +49,10 @@ on:
       - "local-ai-test.js"
       - "local-ai-worker.js"
       - "app.js"
+      - "domestic-candidates.js"
+      - "competitor-analysis.js"
+      - "server/lolipop/competitor.php"
+      - "scripts/verify-competitor.php"
       - "news.js"
       - "news-collage.js"
       - "product-flow.js"
@@ -92,6 +100,9 @@ jobs:
 
       - name: Check product PHP API and parsers
         run: |
+          php -l server/lolipop/competitor.php
+          php tests/competitor.php
+          php -l scripts/verify-competitor.php
           php -l server/lolipop/amazon-creators.php
           php tests/amazon-creators.php
           php -l scripts/verify-amazon-discovery.php

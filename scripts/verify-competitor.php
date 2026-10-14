@@ -1,0 +1,7 @@
+<?php
+declare(strict_types=1);
+try{
+ $config=require $argv[1];$key=(string)($config['sync_key']??'');if($key==='')throw new RuntimeException('Sync configuration unavailable');$url='https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/competitor.php?action=settings';
+ $request=static function(bool $authenticated)use($url,$key):array{$c=curl_init($url);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>$authenticated?['Authorization: Bearer '.$key,'Origin: https://zero830711-svg.github.io']:[]]);$body=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);return [$status,json_decode((string)$body,true)];};
+ [$status]=$request(false);if($status!==401)throw new RuntimeException('Competitor endpoint is not protected');[$status,$data]=$request(true);if($status!==200||empty($data['ok'])||($data['account']??'')!=='sanrio_oshikatu'||!is_bool($data['configured']??null)||!is_int($data['monthlyLimit']??null)||!is_int($data['used']??null))throw new RuntimeException('Competitor settings API verification failed');foreach(['token','sync_key','secret'] as $field)if(isset($data[$field]))throw new RuntimeException('Private credential returned');echo "Competitor deployed: authentication, fixed account and budget metadata verified; no paid X requests made\n";
+}catch(Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);}

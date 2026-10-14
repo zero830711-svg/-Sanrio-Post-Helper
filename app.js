@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.09-3450";
+const APP_VERSION="2026.10.14-3531";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2684,6 +2684,7 @@ function buildRewritePrompt(item,role,recent=[]){
     "・リンクはURLだけで並べず、1リンクずつリンク先名を付けて「楽天：URL」「Amazon：URL」の形で改行する。保存済みの名称とドメインを参考にし、判別できなければ元の名称または「関連リンク：URL」とする。販売状況が未確認なら断定しない。",
     "・資料のAmazon・楽天の商品リンク候補は、同じURLを本文の後に必ず残す。写真URL・X投稿URL・ニュースURLは購入リンクにしない。新しいURLやアフィリエイトIDを作らない。複数リンクも省略しない。出力順は「本文 → リンク先名付きの商品リンク → 関連タグ → #pr」。",
     "",
+    domesticCandidates.context(item),
     "【候補の役割】 "+(role||item.recommendedRole||"過去最強"),
     "【テーマ】 "+reuseTopicKey(item).replace("|"," / "),
     "【投稿日】 "+formatPostedMeta(item),
@@ -2702,6 +2703,7 @@ function buildBlogPrompt(item){
   const videos=mediaArray(item.videos);
   const links=threadsSourceLinks(item);
   const source=[
+    domesticCandidates.context(item),
     "投稿タイトル："+String(item.title||shortLabel(item)||"").trim(),
     "投稿日："+formatPostedMeta(item),
     "X投稿URL："+String(item.xUrl||item.tweetUrl||item.url||"なし"),
@@ -2774,6 +2776,7 @@ function buildThreadsPrompt(item){
   const videos=mediaArray(item.videos);
   const links=threadsSourceLinks(item);
   const source=[
+    domesticCandidates.context(item),
     "投稿タイトル："+String(item.title||shortLabel(item)||"").trim(),
     "元の投稿日："+formatPostedMeta(item),
     "元のX投稿本文：",
@@ -2949,7 +2952,8 @@ async function showTodayDetail(item,continueQueue=false){
   $("detailMeta").textContent=[formatPostedMeta(item),item.impressions?("表示 "+metricNumber(item.impressions).toLocaleString()):"",item.likes?("♥ "+metricNumber(item.likes).toLocaleString()):"",item.bookmarks?("保存 "+metricNumber(item.bookmarks).toLocaleString()):"",metricNumber(item.impressions)&&item.bookmarks!==null&&item.bookmarks!==undefined&&String(item.bookmarks).trim()!==""?("保存率 "+percentText(metricRate(item.bookmarks,item.impressions))):"",metricNumber(item.urlClicks)?("クリック "+metricNumber(item.urlClicks).toLocaleString()):""].filter(Boolean).join(" ・ ");
   $("detailCandidateTools").innerHTML='<div class="today-affiliate-badges">'+todayAffiliateBadges(item)+'</div>'+todayAffiliateLinkButtons(item,true)+xOpenButton(item,"Xアプリ")+
     '<p class="recommend-reason">選定理由：'+esc([...recommendationReasons(item),item._diverseReason].filter(Boolean).join("・"))+'</p>';
-  $("detailFreshness").textContent=freshnessReviewReason(item)||"";$("detailFreshness").hidden=!freshnessReviewReason(item);
+  const currentEvidence=domesticCandidates.context(item);
+  $("detailFreshness").textContent=[freshnessReviewReason(item),currentEvidence].filter(Boolean).join("\n\n");$("detailFreshness").hidden=!$("detailFreshness").textContent;
   $("detailText").textContent=item.text||"";
   $("detailTextPreview").textContent=String(item.text||"").replace(/\n{3,}/g,"\n\n");
   $("detailTextMore").open=false;
@@ -4080,7 +4084,7 @@ $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
 
-const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["flow","homeProductFlowTab","productFlowPanel"],["new","homeNewTab","lovelyPanel"]];
+const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["flow","homeProductFlowTab","productFlowPanel"],["new","homeNewTab","lovelyPanel"],["competitor","homeCompetitorTab","competitorPanel"]];
 function setHomeView(view){
  const active=homeTabViews.find(tab=>tab[0]===view)||homeTabViews[0];
  if(view==="news"&&typeof newsSetHomeView==="function")newsSetHomeView(view);

@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
     paths:
+      - "server/lolipop/competitor.php"
+      - "tests/competitor.php"
+      - "scripts/verify-competitor.php"
       - "server/lolipop/overseas.php"
       - "scripts/verify-deployed-news-extra.php"
       - "scripts/verify-furyu-news.php"
@@ -50,6 +53,9 @@ jobs:
 
       - name: Check PHP syntax
         run: |
+          php -l server/lolipop/competitor.php
+          php tests/competitor.php
+          php -l scripts/verify-competitor.php
           php -l server/lolipop/news.php
           php -l server/lolipop/news-instagram.php
           php -l server/lolipop/news-extra.php
@@ -87,6 +93,7 @@ jobs:
           set ftp:ssl-protect-data true
           set ssl:verify-certificate yes
           cd "$LOLIPOP_TREND_DIR"
+          put server/lolipop/competitor.php
           put server/lolipop/news-extra.php
           put server/lolipop/news-bandai.php
           put server/lolipop/news-gashapon.php
@@ -152,7 +159,7 @@ jobs:
           bye
           LFTP
           failed=()
-          for script in verify-furyu-news.php verify-deployed-news-extra.php verify-bandai-news.php verify-gashapon-news.php verify-thankyou-news.php; do
+          for script in verify-competitor.php verify-furyu-news.php verify-deployed-news-extra.php verify-bandai-news.php verify-gashapon-news.php verify-thankyou-news.php; do
             source="${script#verify-}"
             source="${source%.php}"
             echo "::group::Verify ${source}"

@@ -4,6 +4,7 @@ const lovelyWatch = (()=>{
   let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',sourceMode='all',countryMode='all',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
   let discoveryBatchAt='',batchEligible={};
   const sectionMode='new';
+  let kindMode='all';
   let rankingModel=new Map(),sortMode=state().sortMode==='date'?'date':'recommended';
   async function updateHistory(){const history=await dbGetAll();historyIds=usedIds(history);rankingModel=newProductRanking.build(history,CHARACTER_DEFS);}
   let editorGeneration=0,imageBusy=0,uploadBusy=false;
@@ -131,7 +132,7 @@ const lovelyWatch = (()=>{
       // A matching JAN identifies one product; mixed product lists stay reviewable.
       const introduced=hidden[item.url]==='used'||(jan?ids.has(jan)||matched.some(id=>!id.startsWith('jan:')):keys.length>0&&matched.length===keys.length);
       const update=/再入荷|再販|再販売|予約再開|受付再開|販売再開|発売日.{0,8}(変更|決定)|発売延期|発売開始|販売開始/.test(item.title||'');
-      const status=hidden[item.url]==='used'?'used':introduced?(update?'update':'used'):(matched.length?'review':'new');
+      const status=hidden[item.url]==='used'||item.domesticPosted?'used':introduced?(update?'update':'used'):(matched.length?'review':'new');
       const old=groups.get(key);
       if(old){old.articles.push(item);const rank={new:0,review:1,used:2,update:3};if(rank[status]>rank[old.status])old.status=status;if(status==='update'||(old.status!=='update'&&(item.source==='畑山商事'||(old.item.source!=='畑山商事'&&String(item.date||'')>String(old.item.date||'')))))old.item=item;}
       else groups.set(key,{item,status,articles:[item]});
@@ -165,7 +166,7 @@ const lovelyWatch = (()=>{
     render();
   }
   function render(){
-    const value=state(),groups=groupedItems([...rows].sort((a,b)=>compareItems(a,b,value.firstSeen||{})),historyIds,value.hidden||{},value.identities||{});
+    const value=state(),newsRows=(typeof newsState!=='undefined'?newsState.items:[]).filter(i=>!newsState.marks[i.url]||newsState.marks[i.url].kind==='done').map(i=>({...i,domesticNews:true,domesticPosted:newsState.marks[i.url]?.kind==='done'})),groups=groupedItems([...rows,...newsRows].sort((a,b)=>compareItems(a,b,value.firstSeen||{})),historyIds,value.hidden||{},value.identities||{});
     const sourceGroups=groups.flatMap(g=>{
       const matching=g.articles.filter(item=>!!item.overseas===(sectionMode==='overseas')&&(sectionMode==='overseas'||sourceMode==='all'||sourceOf(item)===sourceMode)&&(sectionMode!=='overseas'||countryMode==='all'||item.region===countryMode)).sort((a,b)=>compareItems(a,b,value.firstSeen||{}));
       return matching.length?[{...g,item:matching.includes(g.item)?g.item:matching[0]}]:[];
@@ -174,8 +175,9 @@ const lovelyWatch = (()=>{
     const recentUrls=new Set(Object.values(value.sourceChecks||{}).flatMap(check=>check.recentUrls||[]));
     const recentGroup=g=>g.status!=='used'&&g.articles.every(item=>recentUrls.has(item.url));
     let visible=sourceGroups.filter(x=>filterMode==='all'||(filterMode==='recent'?recentGroup(x):filterMode==='used'?x.status==='used':x.status!=='used'));
-    if(sortMode==='recommended'&&filterMode!=='used')visible=newProductRanking.rank(visible,rankingModel,CHARACTER_DEFS);
-    const rankingHelp=el('lovelyRankingHelp');if(rankingHelp)rankingHelp.textContent=sortMode==='date'?'掲載日・初回取得が新しい順です。':rankingModel.size?'過去投稿の反応からおすすめ。4件に1件は実績の少ない商品も表示します。':'おすすめの判断に必要な実績が足りないため、新着順で表示します。';
+    if(sortMode==='recommended'&&filterMode!=='used')visible=domesticCandidates.rank(newProductRanking.rank(visible,rankingModel,CHARACTER_DEFS));
+    visible=visible.filter(g=>kindMode==='all'||domesticCandidates.classify(domesticCandidates.get(g.item)).kind===kindMode);
+    const rankingHelp=el('lovelyRankingHelp');if(rankingHelp)rankingHelp.textContent=sortMode==='date'?'掲載日・初回取得が新しい順です。':rankingModel.size?'予約開始・発売間近→新着発表→くじ・カプセル→更新情報の順。各区分では過去の反応も考慮します。':'確認できた予約・発売時期と商品テーマを優先します。過去実績がない商品も表示します。';
     const recentHelp=el('lovelyRecentHelp');
     if(recentHelp){
       recentHelp.hidden=filterMode!=='recent';
@@ -184,7 +186,7 @@ const lovelyWatch = (()=>{
         :'最初の確認で比較の基準を作ります。次回から追加された商品を表示します。';
     }
     const labels={new:'未紹介候補',used:'紹介済み',update:'更新候補（要確認）',review:'一部紹介済み・要確認'};
-    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><span class="backup-note">'+labels[g.status]+' ・ '+escape(g.item.source||'Lovely Fancy')+(g.item.overseas&&g.item.isNew?' ・ 24時間以内の追加':'')+'</span><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong>'+(g.rankingReason?'<span class="backup-note lovely-ranking-reason">'+escape(g.rankingReason)+'</span>':'')+'<span class="backup-note">'+escape(g.item.date?'掲載 '+g.item.date:g.item.overseas?'発見 '+new Date(g.item.firstSeenAt||value.firstSeen?.[g.item.url]||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'初回取得 '+new Date(value.firstSeen?.[g.item.url]||Date.now()).toLocaleDateString('ja-JP'))+'</span></div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
+    el('lovelyList').innerHTML=visible.map(g=>'<div class="lovely-row lovely-preview-row">'+thumbnailHtml(g.item)+'<div><span class="backup-note">'+labels[g.status]+' ・ '+escape(g.item.source||'Lovely Fancy')+(g.item.overseas&&g.item.isNew?' ・ 24時間以内の追加':'')+'</span><strong class="lovely-row-title" title="'+escape(g.item.title)+'">'+escape(g.item.title)+'</strong>'+'<span class="backup-note domestic-summary">'+escape(domesticCandidates.summary(domesticCandidates.get(g.item)))+'</span>'+(g.rankingReason?'<span class="backup-note lovely-ranking-reason">'+escape(g.rankingReason)+'</span>':'')+'<span class="backup-note">'+escape(g.item.date?'掲載 '+g.item.date:g.item.overseas?'発見 '+new Date(g.item.firstSeenAt||value.firstSeen?.[g.item.url]||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'初回取得 '+new Date(value.firstSeen?.[g.item.url]||Date.now()).toLocaleDateString('ja-JP'))+'</span></div><button class="small-btn" type="button" data-lovely-select="'+escape(g.item.url)+'">投稿準備</button></div>').join('')||'<p class="backup-note">この条件の候補はありません。</p>';
     el('lovelyCount').textContent=(sectionMode==='overseas'?'海外：':sourceMode==='all'?'':sourceName(sourceMode)+'：')+'未紹介・要確認 '+sourceGroups.filter(x=>x.status==='new'||x.status==='review').length+'件 ／ 更新候補 '+sourceGroups.filter(x=>x.status==='update').length+'件 ／ 紹介済み '+sourceGroups.filter(x=>x.status==='used').length+'件';
   }
   function rememberIdentity(item){
@@ -200,17 +202,17 @@ const lovelyWatch = (()=>{
     el('lovelyRefresh').disabled=activeBusy;el('lovelyRefresh').textContent=sectionMode==='overseas'?'海外商品を確認':'新着商品を確認';
     const button=el('lovelyMore');if(button){button.hidden=!Object.keys(selectedPages()).length;button.disabled=activeBusy;button.textContent=activeBusy?'読み込み中…':'もっと見る';}
   }
-  const sourceOf=item=>item.overseas?'overseas':item.source==='スケーター'?'skater':item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
-  const sourceName=source=>({overseas:'海外公式',skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ'}[source]||source);
+  const sourceOf=item=>item.domesticNews?'news':item.overseas?'overseas':item.source==='スケーター'?'skater':item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
+  const sourceName=source=>({overseas:'海外公式',skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ',news:'公式ニュース'}[source]||source);
   function compareItems(a,b,seen){
     const stamp=item=>{const date=/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(item.date||'')?Date.parse(item.date):NaN;return Number.isFinite(date)?date:Date.parse(item.firstSeenAt||seen[item.url]||'1970-01-01');};
-    return stamp(b)-stamp(a)||({lovely:0,hatakeyama:1,gourmandise:2,skater:3,overseas:4}[sourceOf(a)]-{lovely:0,hatakeyama:1,gourmandise:2,skater:3,overseas:4}[sourceOf(b)])||(a.discoveryOrder||0)-(b.discoveryOrder||0)||String(a.url).localeCompare(String(b.url),'en');
+    return stamp(b)-stamp(a)||({lovely:0,hatakeyama:1,gourmandise:2,skater:3,news:4,overseas:5}[sourceOf(a)]-{lovely:0,hatakeyama:1,gourmandise:2,skater:3,news:4,overseas:5}[sourceOf(b)])||(a.discoveryOrder||0)-(b.discoveryOrder||0)||String(a.url).localeCompare(String(b.url),'en');
   }
   async function loadSources(pages,replace){
     const errors=[],partial=[],observedAt=discoveryBatchAt||new Date().toISOString();
     await Promise.all(Object.entries(pages).map(async([source,page])=>{
       try{
-        const data=await request('list','',null,page,source),merged=new Map((replace&&!data.partial?rows.filter(item=>sourceOf(item)!==source):rows).map(item=>[item.url,item]));
+        const data=await request('list','',null,page,source);domesticCandidates.ingest(data.items||[]);const merged=new Map((replace&&!data.partial?rows.filter(item=>sourceOf(item)!==source):rows).map(item=>[item.url,item]));
         const saved=state();saved.firstSeen=saved.firstSeen||{};
         saved.sourceChecks=saved.sourceChecks||{};
         const previous=saved.sourceChecks[source]||{},recent=new Set(replace?[]:previous.recentUrls||[]);
@@ -440,10 +442,11 @@ const lovelyWatch = (()=>{
     }
   }
   async function choose(url,force=false){
+    if(typeof newsState!=='undefined'&&newsState.items.some(i=>i.url===url)){setHomeView('news');newsPrepare(url);return;}
     if(!force&&selected?.url===url&&(detailLoading||Date.now()-(detailCache.get(url)?.time||0)<900000)){openEditor(url);return;}
     if(selected)persist();
     if(force)detailCache.delete(url);
-    openEditor(url);markViewed(url);
+    openEditor(url);markViewed(url);domesticCandidates.editor(rows.find(i=>i.url===url)||{url},'lovelyEvidenceEditor');
     const sequence=++chooseSequence,cached=detailCache.get(url),saved=state(),draft=saved.drafts?.[url]||(saved.draft?.url===url?saved.draft:null);
     if(cached&&Date.now()-cached.time<900000){el('lovelyRetailerRetry').disabled=false;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;edit({...cached.item,...(draft?.url===url?{ownAmazon:draft.ownAmazon,ownRakuten:draft.ownRakuten,note:draft.note,postText:draft.postText,postEdited:draft.postEdited,postLinks:draft.postLinks}:{})});autoRakuten(selected);return;}
     edit({...((draft?.url===url?draft:null)||rows.find(x=>x.url===url)||{title:'商品情報を確認中…'}),url});
@@ -452,7 +455,7 @@ const lovelyWatch = (()=>{
     el('lovelyStatus').textContent='商品情報を取得中…';
     try{
       const data=await request('detail',url,null,null,'lovely',force);
-      rememberIdentity(data.item);
+      domesticCandidates.ingest([data.item]);domesticCandidates.editor(data.item,'lovelyEvidenceEditor');rememberIdentity(data.item);
       detailCache.delete(url);detailCache.set(url,{time:Date.now(),item:data.item});
       if(detailCache.size>20)detailCache.delete(detailCache.keys().next().value);
       if(sequence!==chooseSequence)return;
@@ -545,6 +548,9 @@ const lovelyWatch = (()=>{
     render();
     try{await updateHistory();render()}catch(_){el('lovelyStatus').textContent='過去投稿の照合を更新できませんでした。新着を確認して再試行してください。'}
   });
+  document.addEventListener('sph-domestic-evidence',()=>{if(loaded)render();});
+  el('domesticKindButtons')?.addEventListener('click',e=>{const b=e.target.closest('[data-kind]');if(!b)return;kindMode=b.dataset.kind;for(const button of el('domesticKindButtons').querySelectorAll('button'))button.setAttribute('aria-pressed',String(button===b));render();});
+  el('domesticNewsLoad')?.addEventListener('click',async()=>{const button=el('domesticNewsLoad');button.disabled=true;try{const ok=await newsLoad();el('domesticNewsStatus').textContent=ok===false?el('newsStatus').textContent:newsState.items.length+'件のニュース資料を一覧に追加しました。'+newsSourceStatusLabel()+' 情報源ごとの取得状況は新作ニュースで確認できます。';render();}finally{button.disabled=false;}});
   el('lovelyList')?.addEventListener('error',e=>{const img=e.target;if(img.tagName==='IMG'&&img.closest('.lovely-thumb')){img.hidden=true;const fallback=img.nextElementSibling;if(fallback)fallback.hidden=false;}},true);
   el('lovelyList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-select]');if(b)choose(b.dataset.lovelySelect)});
   el('lovelyProductInfo')?.addEventListener('change',e=>{
