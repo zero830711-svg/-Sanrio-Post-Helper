@@ -17,6 +17,7 @@ $transport=static function($url,$payload,$headers)use(&$calls){$calls[]=[$url,$p
 $result=am_search($settings,'サンリオ',$transport);
 check_am($calls[0][1]['scope']==='creatorsapi::default'&&$calls[0][1]['client_secret']===$settings['secret'],'OAuth request mismatch');
 check_am($calls[1][0]==='https://creatorsapi.amazon/catalog/v1/searchItems'&&$calls[1][1]['marketplace']==='www.amazon.co.jp'&&$calls[1][1]['partnerTag']==='test-22','Search request mismatch');
+check_am($calls[1][1]['itemCount']===10&&$calls[1][1]['itemPage']===1,'Search must request ten items on page one');
 check_am(count($result['items'])===1&&$result['items'][0]['image']==='https://m.media-amazon.com/images/I/test.jpg','Result URL validation failed');
 check_am(!str_contains(json_encode($result),$settings['secret'])&&!str_contains(json_encode($result),'FAKE_TOKEN'),'Token or secret returned in search');
 check_am(str_contains(am_error(403,false),'利用権限')&&str_contains(am_error(401,true),'認証情報'),'Authentication and API access not distinguished');
@@ -57,3 +58,11 @@ $unexpected=am_auto_tick([],$settings,$now,static function(){throw new RuntimeEx
 check_am(!str_contains(json_encode(am_auto_public($unexpected,$now)),'PRIVATE_TOKEN'),'Discovery error leaked provider content');
 check_am(count(am_auto_queries())===41,'Discovery rotation changed');
 echo "Amazon discovery ASIN dedupe, query rotation, cache TTL, retained candidates and backoff verified\n";
+
+$pageCalls=[];
+$paged=static function($url,$payload,$headers)use(&$pageCalls){$pageCalls[]=$payload;if(isset($payload['grant_type']))return ['status'=>200,'data'=>['access_token'=>'FAKE_TOKEN_NOT_REAL_123456']];$items=[];for($i=0;$i<10;$i++)$items[]=['detailPageURL'=>'https://www.amazon.co.jp/dp/B'.sprintf('%09d',$i),'itemInfo'=>['title'=>['displayValue'=>'商品 '.$i]]];return ['status'=>200,'data'=>['searchResult'=>['items'=>$items,'totalResultCount'=>99]]];};
+$page2=am_search($settings,'サンリオ',$paged,2);check_am(count($page2['items'])===10&&$page2['page']===2&&$page2['hasMore']===true&&$page2['totalResults']===99,'Pagination metadata or ten results missing');check_am($pageCalls[1]['itemPage']===2,'Page two was not requested');
+$last=am_search($settings,'サンリオ',$paged,10);check_am($last['hasMore']===false,'Page ten must stop');
+$before=count($pageCalls);reject_am(fn()=>am_search($settings,'サンリオ',$paged,0));reject_am(fn()=>am_search($settings,'サンリオ',$paged,11));check_am(count($pageCalls)===$before,'Invalid pages made external requests');
+$empty=am_search($settings,'見つからない',static fn($url,$p,$h)=>isset($p['grant_type'])?['status'=>200,'data'=>['access_token'=>'FAKE_TOKEN_NOT_REAL_123456']]:['status'=>200,'data'=>['searchResult'=>['items'=>[],'totalResultCount'=>0]]]);check_am($empty['items']===[]&&$empty['hasMore']===false,'Empty result must not continue');
+echo "Ten-result search, explicit page selection, page limit and empty results verified\n";

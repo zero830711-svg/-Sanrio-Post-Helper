@@ -16,13 +16,13 @@ async function setup(page,{legacy=false,error=false,automatic=false,due=false,au
   calls.push(r.request().postDataJSON());return error?r.fulfill({status:502,json:{ok:false,error:'商品APIの利用権限を確認できません。',stage:'product-search',upstreamStatus:403}}):r.fulfill({json:{ok:true,partnerTag:'test-22',items:[item,{title:'不正リンク',url:'https://www.amazon.co.jp.evil.test/dp/B000000002',image:''}]}});
  });
  await page.goto('/');await page.getByRole('tab',{name:'商品検索',exact:true}).click();await page.getByRole('button',{name:'Amazon',exact:true}).click();await expect(page.locator('#flowProviderAmazon')).toHaveAttribute('aria-pressed','true');await expect(page.locator('#flowProviderRakuten')).toHaveAttribute('aria-pressed','false');
- await expect(page.locator('#amazonFlowSearch')).toBeEnabled();await page.getByText('特定の商品を検索',{exact:true}).click();
+ await expect(page.locator('#amazonFlowSearch')).toBeEnabled();await expect(page.locator('#amazonFlowQuery')).toBeVisible();
  return {calls,autoCalls};
 }
 test('Amazon検索から編集・検索リンク・下書き復元・投稿済みまで',async({page})=>{
  const {calls}=await setup(page);expect(calls).toHaveLength(0);
  await page.locator('#amazonFlowQuery').fill('ハローキティ');await page.locator('#amazonFlowSearch').click();
- await expect(page.locator('#amazonFlowStatus')).toContainText('1件を取得');expect(calls).toEqual([{keywords:'ハローキティ'}]);
+ await expect(page.locator('#amazonFlowStatus')).toContainText('1件を取得');expect(calls).toEqual([{keywords:'ハローキティ',page:1}]);
  await expect(page.locator('#amazonFlowResults')).not.toContainText('不正リンク');
  await page.locator('#amazonFlowResults').getByRole('button',{name:'投稿準備'}).click();
  await expect(page.locator('#amazonFlowFinal')).toHaveValue(new RegExp('ref_=api'));
@@ -72,4 +72,21 @@ test('期限が来た時だけ次の検索を進め、上限エラーでもキ�
 test('投稿済み候補を自動一覧から除外するが保存済み下書きは残す',async({page})=>{
  await setup(page,{automatic:true,legacy:true,posted:true});await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(0);
  await page.locator('#amazonFlowFilter').selectOption('投稿済み');await expect(page.locator('#amazonFlowDrafts')).toContainText('保存済みのクロミ');
+});
+test('検索を上部に表示し、次ページを追記してASIN重複を除き、失敗時に結果を残す',async({page})=>{
+ await setup(page);const pages=[];await page.route('**/amazon-creators.php?action=search',r=>{const d=r.request().postDataJSON();pages.push(d);const items=Array.from({length:10},(_,i)=>({title:'キティ 商品'+(d.page===2?i+9:i),url:'https://www.amazon.co.jp/dp/B'+String(d.page===2?i+9:i).padStart(9,'0')+'?tag=test-22',image:''}));return d.page===3?r.fulfill({status:502,json:{ok:false,error:'利用上限です。'}}):r.fulfill({json:{ok:true,items,partnerTag:'test-22',page:d.page,pageSize:10,hasMore:true}});});
+ const searchBox=await page.locator('#amazonFlowQuery').boundingBox(),auto=await page.getByRole('heading',{name:'自動検索したAmazon候補'}).boundingBox();expect(searchBox.y).toBeLessThan(auto.y);
+ await page.locator('#amazonFlowSearch').click();await expect(page.locator('#amazonFlowResults .flow-card')).toHaveCount(10);await expect(page.locator('#amazonFlowMore')).toBeEnabled({timeout:10000});await page.locator('#amazonFlowMore').click();await expect(page.locator('#amazonFlowResults .flow-card')).toHaveCount(19);await expect(page.locator('#amazonFlowStatus')).toContainText('2ページ取得済み');
+ await expect(page.locator('#amazonFlowMore')).toBeEnabled({timeout:10000});await page.locator('#amazonFlowMore').click();await expect(page.locator('#amazonFlowStatus')).toContainText('利用上限');await expect(page.locator('#amazonFlowResults .flow-card')).toHaveCount(19);expect(pages.map(p=>p.page)).toEqual([1,2,3]);
+ await page.locator('#amazonFlowQuery').fill('クロミ');await expect(page.locator('#amazonFlowMore')).toBeDisabled();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+});
+test('外部で探した検索紹介URLを原文のまま追加・復元し、APIを呼ばない',async({page})=>{
+ const {calls}=await setup(page);const search='https://www.amazon.co.jp/s?k=TOPTOY%20%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA&tag=original-22&ref=manual';await page.locator('#amazonManualAddBox summary').click();await page.locator('#amazonManualTitle').fill('TOPTOY サンリオの検索候補');await page.locator('#amazonManualUrl').fill(search);await page.locator('#amazonManualConfirmed').check();await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonFlowLink')).toHaveValue(search);await page.locator('#amazonFlowBody').fill('🎀 自分で編集した紹介');
+ await page.reload();await page.getByRole('tab',{name:'商品検索',exact:true}).click();await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();await expect(page.locator('#amazonFlowLink')).toHaveValue(search);await expect(page.locator('#amazonFlowBody')).toHaveValue('🎀 自分で編集した紹介');expect(calls).toHaveLength(0);
+ const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('sphAmazonScoutCandidatesV1')));expect(stored[0].affiliateUrl).toBe(search);expect(stored[0].manual).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+});
+test('手動追加の不正URL・未確認を拒否し、同じASINの既存本文と元リンクを変更しない',async({page})=>{
+ const {calls}=await setup(page,{legacy:true});await page.locator('#amazonManualAddBox summary').click();await page.locator('#amazonManualTitle').fill('別の名前');await page.locator('#amazonManualUrl').fill('https://amazon.co.jp.evil.test/dp/B000000001');await page.locator('#amazonManualConfirmed').check();await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonManualStatus')).toContainText('日本のAmazon');
+ await page.locator('#amazonManualUrl').fill('https://www.amazon.co.jp/dp/B000000001?tag=changed-22');await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonManualStatus')).toContainText('一致を確認');await page.locator('#amazonManualConfirmed').check();await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonFlowLink')).toHaveValue(url);await expect(page.locator('#amazonFlowBody')).toHaveValue('💜 前に編集した本文');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('sphAmazonScoutCandidatesV1')).length)).toBe(1);expect(calls).toHaveLength(0);
 });

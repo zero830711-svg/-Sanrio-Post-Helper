@@ -60,4 +60,8 @@ jobs:
           if($status!==200||empty($d["ok"])||!array_key_exists("configured",$d)||isset($d["secret"])||isset($d["credentialId"])||isset($d["access_token"]))throw new RuntimeException("Private settings endpoint verification failed");
           echo "Protected Amazon settings endpoint verified; credentials withheld\n";
           ' "$am_tmp/config.php"
-          php scripts/verify-amazon-discovery.php "$am_tmp/config.php"
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            php scripts/verify-amazon-discovery.php "$am_tmp/config.php"
+          else
+            php scripts/verify-amazon-discovery.php "$am_tmp/config.php" --search-pages
+          fi
