@@ -33,7 +33,7 @@
 <details class="home-info"><summary>データ・更新情報</summary>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.10.14-3532</span>
+<span id="appVersionStatus">アプリ版 2026.10.15-3533</span>
 <button id="forceLatest" type="button" >最新版を読み込む</button>
 </div>
 <p class="backup-note app-update-help">更新後もホーム画面のアイコンはそのまま使えます。作り直しは不要です。この端末に保存した投稿データと同期設定は、同じURLを使う限り引き継がれます。</p>
@@ -44,7 +44,7 @@
 <button id="homeNewsTab" type="button" role="tab" aria-controls="newsPanel" aria-selected="false" tabindex="-1">新作ニュース</button>
 <button id="homeProductFlowTab" type="button" role="tab" aria-controls="productFlowPanel" aria-selected="false" tabindex="-1">商品検索</button>
 <button id="homeNewTab" type="button" role="tab" aria-controls="lovelyPanel" aria-selected="false" tabindex="-1">新着商品</button>
-<button id="homeCompetitorTab" type="button" role="tab" aria-controls="competitorPanel" aria-selected="false" tabindex="-1">競合分析</button>
+
 </div>
 
 <section id="archive">
@@ -75,6 +75,7 @@
 <p class="backup-note">検索先</p><div class="product-provider-buttons" role="group" aria-label="検索先"><button id="flowProviderRakuten" type="button" aria-pressed="true">楽天</button><button id="flowProviderAmazon" type="button" aria-pressed="false">Amazon</button></div><input id="flowProvider" type="hidden" value="rakuten">
 <section id="amazonSearchArea" hidden>
 <p class="backup-note">キャラクター名と商品カテゴリからAmazon候補を自動で集めます。価格・在庫は商品ページで確認してください。</p>
+<button id="amazonDraftsJump" type="button" class="small-btn">保存した下書きへ</button>
 <section id="amazonKeywordSearch" aria-label="Amazonの商品を探して追加">
 <h3>自分で探して候補を追加</h3>
 <label>商品・キャラクター名<input id="amazonFlowQuery" value="サンリオ" maxlength="120" type="search"></label>
@@ -86,11 +87,16 @@
 <label>商品名<input id="amazonManualTitle" maxlength="500" placeholder="商品名を入力"></label><label>自分のAmazon紹介リンク・商品URL<input id="amazonManualUrl" type="url" maxlength="4096" placeholder="https://www.amazon.co.jp/…"></label>
 <label><input id="amazonManualConfirmed" type="checkbox">商品名とリンク先の商品・検索内容を確認しました</label><button id="amazonManualAdd" class="small-btn" type="button">候補に追加して投稿準備</button><p id="amazonManualStatus" class="backup-note" aria-live="polite"></p>
 </details></section>
-<h3>自動検索したAmazon候補</h3><button id="amazonAutoRefresh" class="small-btn" type="button">候補一覧を更新</button><p id="amazonAutoStatus" class="backup-note" aria-live="polite"></p><p id="amazonAutoProgress" class="backup-note"></p><div id="amazonAutoResults"></div>
-<h3>保存したAmazon下書き</h3><label>表示<select id="amazonFlowFilter"><option value="未投稿">未投稿</option><option value="投稿済み">投稿済み</option><option value="見送り">見送り</option></select></label>
+<h3>自動検索したAmazon候補</h3>
+<label>取得済み候補を絞り込む<input id="amazonAutoQuery" type="search" placeholder="商品名で絞り込み（API通信なし）"></label>
+<div id="amazonCharacterButtons" class="evidence-buttons" role="group" aria-label="Amazon候補のキャラクター"></div>
+<div id="amazonCategoryButtons" class="evidence-buttons" role="group" aria-label="Amazon候補の商品カテゴリ"></div>
+<p class="backup-note">絞り込みは取得済み候補の中で行います。発売日・価格・在庫の確認結果ではありません。</p>
+<p id="amazonAutoCount" class="backup-note" aria-live="polite"></p><button id="amazonAutoRefresh" class="small-btn" type="button">候補一覧を更新</button><p id="amazonAutoStatus" class="backup-note" aria-live="polite"></p><p id="amazonAutoProgress" class="backup-note"></p><div id="amazonAutoResults"></div><button id="amazonAutoMore" class="small-btn" type="button" hidden>さらに20件を表示</button>
+<h3 id="amazonDraftsHeading" tabindex="-1">保存したAmazon下書き</h3><label>表示<select id="amazonFlowFilter"><option value="未投稿">未投稿</option><option value="投稿済み">投稿済み</option><option value="見送り">見送り</option></select></label>
 <p class="backup-note">Amazon下書きはこのブラウザーに保存されます。既存の「商品候補づくり」と共通です。</p><div id="amazonFlowDrafts"></div>
 <div id="amazonFlowEditor" hidden>
-<h3 id="amazonFlowTitle"></h3><a id="amazonFlowSource" target="_blank" rel="noopener noreferrer">Amazonの商品ページを確認</a>
+<button id="amazonFlowBack" type="button" class="small-btn">元の一覧へ戻る</button><h3 id="amazonFlowTitle"></h3><a id="amazonFlowSource" target="_blank" rel="noopener noreferrer">Amazonの商品ページを確認</a>
 <label>投稿本文（編集できます）<textarea id="amazonFlowBody" rows="5"></textarea></label>
 <label>Amazonリンク<select id="amazonFlowMode"><option value="item">単品の商品ページ</option><option value="search">検索ページ</option><option value="none">リンクなし</option></select></label>
 <label>紹介リンク<input id="amazonFlowLink" type="url" readonly></label>
@@ -181,15 +187,7 @@
 </section>
 
 
-<section id="competitorPanel" class="card" role="tabpanel" aria-labelledby="homeCompetitorTab" hidden>
-<h2>競合分析</h2><p class="backup-note">対象：@sanrio_oshikatu。公開投稿の観測資料を分析します。取得できない値は「取得不可」と表示します。非公式スクレイピングは行いません。</p>
-<p id="competitorSummary" class="backup-note"></p><p class="backup-note">時間帯・テーマ・頻度は取得した標本内の集計です。全投稿の頻度や最適な投稿時間を断定しません。反応率＝（いいね＋リポスト）÷閲覧数。投稿後の経過時間や観測時点が異なるため、単純比較には限界があります。</p>
-<p id="competitorFrequency" class="backup-note"></p><p id="competitorHours" class="backup-note"></p><div id="competitorThemes" class="competitor-table"></div><p id="competitorPatterns" class="backup-note"></p>
-<details><summary>公開投稿を手動で記録</summary><label>投稿URL<input id="competitorUrl" type="url" placeholder="https://x.com/sanrio_oshikatu/status/…"></label><label>投稿日時（日本時間・不明なら空欄）<input id="competitorDate" type="datetime-local" step="60"></label><label>本文<textarea id="competitorText" rows="4"></textarea></label><div class="competitor-metrics"><label>閲覧数<input id="competitorImpressions" type="number" min="0" step="1"></label><label>いいね数<input id="competitorLikes" type="number" min="0" step="1"></label><label>リポスト数<input id="competitorReposts" type="number" min="0" step="1"></label></div><p class="backup-note">確認できた公開数値だけ入力してください。不明は空欄にします。</p><button id="competitorManualSave" type="button" class="small-btn">観測資料を保存</button></details>
-<details><summary>CSV取込</summary><p class="backup-note">これは競合用の入力資料です。自分のXアナリティクスCSVとは別です。日時は例「2026-10-14T12:00:00+09:00」。数値の空欄は取得不可です。</p><button id="competitorTemplate" type="button" class="small-btn">CSVひな形をダウンロード</button><label>競合の観測CSV<input id="competitorCsv" type="file" accept=".csv,text/csv"></label></details>
-<details><summary>X公式API（任意・有料）</summary><p class="backup-note">公式の従量課金APIです。設定だけでは取得しません。定期実行もありません。既存の開発者アカウントとBearer Tokenが必要です。トークンはロリポップの非公開領域に保存し、ブラウザーには保存しません。</p><button id="competitorApiSettings" type="button" class="small-btn">API設定状況を確認</button><label>Bearer Token（空欄は既存設定を維持）<input id="competitorBearer" type="password" autocomplete="off"></label><label>月間取得上限（100〜10,000件）<input id="competitorMonthlyLimit" type="number" value="1000" min="100" max="10000" step="100"></label><p class="backup-note">投稿取得の公式掲載単価（2026年10月確認）は1件$0.005。1,000件なら投稿取得分の目安$5です。ユーザー取得など別料金があり、この件数上限は請求額の厳密な上限ではありません。<a href="https://docs.x.com/x-api/getting-started/pricing" target="_blank" rel="noopener noreferrer">最新の公式料金を確認</a>。失敗した取得も安全側に取得枠を消費します。</p><label><input id="competitorClearToken" type="checkbox">APIトークンを解除する</label><button id="competitorApiSave" type="button" class="small-btn">API設定を保存</button><p id="competitorApiStatus" class="backup-note" aria-live="polite">未確認・自動取得は停止中</p><label><input id="competitorPaidConsent" type="checkbox">有料APIの取得と月間件数上限を確認しました</label><button id="competitorApiFetch" type="button" class="small-btn" disabled>公式APIで直近投稿を取得</button></details>
-<p id="competitorStatus" class="backup-note" aria-live="polite"></p><p class="backup-note">観測資料はこのブラウザーに保存します。再取込しても投稿アーカイブや紹介リンクは変更しません。一覧は直近100件を表示します。</p><div id="competitorPosts"></div>
-</section>
+
 
 <details id="lovelyPanel" class="card trend-card" role="tabpanel" aria-labelledby="homeNewTab" hidden>
 <summary id="lovelySectionTitle">新着商品</summary>
@@ -428,7 +426,7 @@
 
 <section class="card backup-card">
 <h2 class="section-title">バックアップ</h2>
-<p class="backup-note">保存した投稿データ・写真をまとめて書き出し／復元できます。</p>
+<p class="backup-note">投稿データ・写真に加え、Amazon下書き・商品の確認情報・新着商品の管理状態も書き出し／復元できます。廃止した競合分析の保存資料も保持します。認証キーは含みません。復元時に重複する候補は、この端末の編集内容を優先します。</p>
 <p id="backupStatus" class="backup-status"></p>
 <div class="backup-actions">
 <button id="exportBackup" class="small-btn">バックアップ保存</button>
@@ -569,9 +567,9 @@
 
 <script async src="https://cdn.jsdelivr.net/npm/flexsearch@0.8.215/dist/flexsearch.bundle.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
-<script src="./domestic-candidates.js?v=20261014-3531"></script>
-<script src="./app.js?v=20261014-3532"></script>
-<script src="./competitor-analysis.js?v=20261014-3531"></script>
+<script src="./domestic-candidates.js?v=20261015-3533"></script>
+<script src="./candidate-backup.js?v=20261015-3533"></script>
+<script src="./app.js?v=20261015-3533"></script>
 <script src="./candidate-edit.js?v=20261010-3457"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
@@ -596,7 +594,7 @@ window.addEventListener("load",()=>{
 });
 </script>
 <script src="./product-flow.js?v=20261014-3526"></script>
-<script src="./amazon-product-search.js?v=20261014-3532"></script>
+<script src="./amazon-product-search.js?v=20261015-3533"></script>
 </body>
 </html>
 

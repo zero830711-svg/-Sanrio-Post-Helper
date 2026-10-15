@@ -16,9 +16,9 @@ async function setup(page){
  await page.route('**/lovely-watch.php?**',r=>r.fulfill({json:{ok:true,items:new URL(r.request().url()).searchParams.has('source')?[]:[{url:domestic,title:'国内のキティ商品',source:'Lovely Fancy',products:[],productIds:[],needsReview:true}],nextPage:null}}));
  await page.goto('/');return overseasCalls;
 }
-test('ホームは競合分析を含む5タブで、停止したInstagramと旧海外情報を取得しない',async({page})=>{
+test('ホームは4タブで、停止したInstagramと旧海外情報を取得しない',async({page})=>{
  const calls=await setup(page);
- await expect(page.locator('.home-tabs [role="tab"]')).toHaveText(['今日の候補','新作ニュース','商品検索','新着商品','競合分析']);
+ await expect(page.locator('.home-tabs [role="tab"]')).toHaveText(['今日の候補','新作ニュース','商品検索','新着商品']);
  await expect(page.locator('#homeOverseasTab, #overseasPanel, #homeInstagramTab')).toHaveCount(0);
  await page.reload();await page.getByRole('tab',{name:'新着商品',exact:true}).click();
  await expect(page.locator('#lovelyRefresh')).toBeEnabled();
@@ -26,8 +26,8 @@ test('ホームは競合分析を含む5タブで、停止したInstagramと旧�
  await page.locator('#lovelyFilter').selectOption('all');await expect(page.locator('#lovelyList')).toContainText('国内のキティ商品');
  await expect(page.locator('#lovelyList')).not.toContainText('古い海外候補');
  await page.getByRole('tab',{name:'新着商品',exact:true}).press('Home');await expect(page.getByRole('tab',{name:'今日の候補',exact:true})).toBeFocused();
- await page.getByRole('tab',{name:'今日の候補',exact:true}).press('End');await expect(page.getByRole('tab',{name:'競合分析',exact:true})).toBeFocused();
- await page.getByRole('tab',{name:'競合分析',exact:true}).press('ArrowRight');await expect(page.getByRole('tab',{name:'今日の候補',exact:true})).toBeFocused();
+ await page.getByRole('tab',{name:'今日の候補',exact:true}).press('End');await expect(page.getByRole('tab',{name:'新着商品',exact:true})).toBeFocused();
+ await page.getByRole('tab',{name:'新着商品',exact:true}).press('ArrowRight');await expect(page.getByRole('tab',{name:'今日の候補',exact:true})).toBeFocused();
  for(const width of [390,320]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();}
  expect(calls).toEqual([]);
 });

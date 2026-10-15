@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.14-3532";
+const APP_VERSION="2026.10.15-3533";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -3930,7 +3930,9 @@ document.querySelectorAll(".sort-btn").forEach(btn=>btn.addEventListener("click"
 $("exportBackup").addEventListener("click",async()=>{
   const items=await dbGetAll();
   const exportedAt=new Date().toISOString();
-  const payload={version:1,exportedAt,items};
+  let candidateData;
+  try{candidateData=candidateBackup.collect();}catch(e){alert("候補データを読み込めないためバックアップを保存できません。"+e.message);return;}
+  const payload={version:2,exportedAt,items,candidateData};
   const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
   const file=new File([blob],"sanrio-post-helper-backup.json",{type:"application/json"});
   try{
@@ -3996,7 +3998,8 @@ $("importBackup").addEventListener("change",async e=>{
       e.target.value="";
       return;
     }
-    if(!confirm(items.length+"件のバックアップを読み込みます。既存データは残したまま追加・更新しますか？")){e.target.value="";return}
+    const candidateRestore=candidateBackup.prepare(payload.candidateData);
+    if(!confirm(items.length+"件のバックアップと候補データを読み込みます。既存データを保持して追加・更新しますか？")){e.target.value="";return}
     const existing=await dbGetAll();
     const byId=new Map(existing.map(x=>[x.id,x]));
     const byKey=new Map(existing.map(x=>[canonicalPostKey(x),x]));
@@ -4010,7 +4013,10 @@ $("importBackup").addEventListener("change",async e=>{
       byId.set(merged.id,merged);
       byKey.set(canonicalPostKey(merged),merged);
     }
-    await dbPutMany(pending);
+    candidateRestore.apply();
+    try{await dbPutMany(pending);}catch(error){candidateRestore.rollback();throw error;}
+    document.dispatchEvent(new Event("sph-candidates-restored"));
+    document.dispatchEvent(new Event("sph-domestic-evidence"));
     queueCloudSync(pending,[]);
     await reconcileUsageHistory();
     await renderArchive();
@@ -4022,7 +4028,7 @@ $("importBackup").addEventListener("change",async e=>{
     await renderDataHealth();
     alert("バックアップを読み込みました");
   }catch(err){
-    alert("バックアップファイルを読み込めませんでした");
+    alert("バックアップを復元できませんでした。ファイル形式と端末の空き容量を確認してください");
   }
   e.target.value="";
 });
@@ -4084,7 +4090,7 @@ $("closeModal").addEventListener("click",closeImages);
 $("imageModal").addEventListener("click",e=>{if(e.target===$("imageModal"))closeImages()});
 
 
-const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["flow","homeProductFlowTab","productFlowPanel"],["new","homeNewTab","lovelyPanel"],["competitor","homeCompetitorTab","competitorPanel"]];
+const homeTabViews=[["today","homeTodayTab","todayHomePanel"],["news","homeNewsTab","newsPanel"],["flow","homeProductFlowTab","productFlowPanel"],["new","homeNewTab","lovelyPanel"]];
 function setHomeView(view){
  const active=homeTabViews.find(tab=>tab[0]===view)||homeTabViews[0];
  if(view==="news"&&typeof newsSetHomeView==="function")newsSetHomeView(view);

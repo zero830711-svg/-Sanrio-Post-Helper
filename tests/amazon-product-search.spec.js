@@ -90,3 +90,17 @@ test('手動追加の不正URL・未確認を拒否し、同じASINの既存本�
  await page.locator('#amazonManualUrl').fill('https://www.amazon.co.jp/dp/B000000001?tag=changed-22');await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonManualStatus')).toContainText('一致を確認');await page.locator('#amazonManualConfirmed').check();await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonFlowLink')).toHaveValue(url);await expect(page.locator('#amazonFlowBody')).toHaveValue('💜 前に編集した本文');
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('sphAmazonScoutCandidatesV1')).length)).toBe(1);expect(calls).toHaveLength(0);
 });
+
+test('取得済み候補だけを絞り込み20件ずつ表示し、状態と元位置を保持する',async({page})=>{
+ const {calls}=await setup(page);let external=0;
+ await page.route('**/amazon-creators.php?action=candidates',r=>{external++;return r.fulfill({json:{ok:true,configured:true,nextAt:Math.floor(Date.now()/1000)+1800,updatedAt:Math.floor(Date.now()/1000),items:Array.from({length:26},(_,i)=>({title:(i<23?'ハローキティ ポーチ ':'クロミ ぬいぐるみ ')+i,url:'https://www.amazon.co.jp/dp/C'+String(i).padStart(9,'0')+'?tag=test-22',fetchedAt:Math.floor(Date.now()/1000)}))}});});
+ await page.locator('#amazonAutoRefresh').click();await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(20);await expect(page.locator('#amazonAutoCount')).toContainText('有効な取得 26件');
+ await page.locator('#amazonAutoMore').click();await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(26);
+ await page.locator('#amazonCharacterButtons').getByRole('button',{name:'クロミ',exact:true}).click();await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(3);
+ await page.locator('#amazonCategoryButtons').getByRole('button',{name:'バッグ・ポーチ',exact:true}).click();await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(0);
+ await page.locator('#amazonCategoryButtons').getByRole('button',{name:'すべて',exact:true}).click();await page.locator('#amazonAutoQuery').fill('25');await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(1);
+ await page.locator('#amazonAutoResults').getByRole('button',{name:'投稿準備'}).click();await page.locator('#amazonFlowBody').fill('編集した本文');await page.locator('#amazonFlowBack').click();await expect(page.locator('#amazonFlowEditor')).toBeHidden();await expect(page.locator('#amazonAutoResults')).toContainText('下書きあり');
+ await page.locator('#amazonDraftsJump').click();await expect(page.locator('#amazonDraftsHeading')).toBeFocused();
+ await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();await expect(page.locator('#amazonFlowBody')).toHaveValue('編集した本文');await page.locator('#amazonFlowDone').click();await expect(page.locator('#amazonAutoCount')).toContainText('投稿済み・見送り 1件');
+ expect(external).toBe(1);expect(calls).toHaveLength(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
