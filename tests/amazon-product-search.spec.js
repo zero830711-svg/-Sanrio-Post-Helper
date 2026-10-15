@@ -104,3 +104,14 @@ test('取得済み候補だけを絞り込み20件ずつ表示し、状態と元
  await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();await expect(page.locator('#amazonFlowBody')).toHaveValue('編集した本文');await page.locator('#amazonFlowDone').click();await expect(page.locator('#amazonAutoCount')).toContainText('投稿済み・見送り 1件');
  expect(external).toBe(1);expect(calls).toHaveLength(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+test('未設定応答を取得成功扱いにせず、読込済み候補と保存下書きを消さない',async({page})=>{
+ await setup(page,{automatic:true,legacy:true});await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(1);
+ await page.route('**/amazon-creators.php?action=candidates',r=>r.fulfill({json:{ok:true,configured:false,items:[],nextAt:0}}));
+ await page.locator('#amazonAutoRefresh').click();await expect(page.locator('#amazonAutoStatus')).toContainText('保存領域の確認が必要');await expect(page.locator('#amazonAutoStatus')).toContainText('表示したまま');await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(1);await expect(page.locator('#amazonFlowDrafts')).toContainText('保存済みのクロミ');
+});
+test('起動直後に設定が読み出せない時は、候補保持を断言せず下書きを区別する',async({page})=>{
+ await page.addInitScript(()=>{localStorage.setItem('sanrioCloudSyncKey','test-key');localStorage.setItem('sphProductSearchProviderV1','amazon');});
+ await page.route('**/amazon-creators.php?**',r=>r.fulfill({json:{ok:true,configured:false,items:[]}}));await page.goto('/');await page.getByRole('tab',{name:'商品検索',exact:true}).click();
+ await expect(page.locator('#amazonAutoStatus')).toContainText('取得済み候補を読み込めていません');await expect(page.locator('#amazonAutoStatus')).not.toContainText('取得済み候補は保持');
+});

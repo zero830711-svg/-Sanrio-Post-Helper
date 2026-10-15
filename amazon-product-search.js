@@ -88,13 +88,14 @@ async function loadAuto(){
  if(autoBusy||busy||$('flowProvider').value!=='amazon')return;
  autoBusy=true;$('amazonAutoRefresh').disabled=true;$('amazonFlowSearch').disabled=true;
  try{
-  const d=await amazonRequest('candidates');applyAuto(d);autoLoaded=true;
-  if(d.configured===false)throw new Error('管理画面のAmazon接続設定を確認してください。');
+  const d=await amazonRequest('candidates');
+  if(d.configured===false)throw new Error('サーバーに保存したAmazon接続設定を読み出せません。保存領域の確認が必要です。');
+  applyAuto(d);autoLoaded=true;
   if(autoNextAt<=Date.now()){
    $('amazonAutoStatus').textContent+=' ・ 新しい候補を検索中…';
    const next=await amazonRequest('discover',{});applyAuto(next);
   }
- }catch(e){$('amazonAutoStatus').textContent='自動検索を完了できませんでした：'+e.message+' 取得済み候補は保持しています。';}
+ }catch(e){$('amazonAutoStatus').textContent='自動検索を完了できませんでした：'+e.message+(autoItems.length?' 現在読み込んでいる候補は表示したままです。':' この画面では取得済み候補を読み込めていません。保存した下書きは別管理です。');}
  finally{autoBusy=false;$('amazonAutoRefresh').disabled=false;searchControls();}
 }
 function searchControls(){
