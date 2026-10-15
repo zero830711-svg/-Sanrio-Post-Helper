@@ -1,32 +1,7 @@
 <?php
 declare(strict_types=1);
-// One fixed public account, official X API only, explicit manual requests only.
-function ca_dir():string{$dir=sys_get_temp_dir().'/sph-competitor-'.hash('sha256',__DIR__);if(!is_dir($dir)&&!mkdir($dir,0700,true))throw new RuntimeException('保存先を準備できません。');chmod($dir,0700);return $dir;}
-function ca_read(string $path):array{if(!is_file($path))return [];try{$d=json_decode((string)file_get_contents($path),true,512,JSON_THROW_ON_ERROR);if(!is_array($d))throw new RuntimeException();return $d;}catch(Throwable $e){throw new RuntimeException('保存済み設定を読めません。既存資料は変更していません。');}}
-function ca_write(string $path,array $data):void{$tmp=tempnam(dirname($path),'private-');if($tmp===false)throw new RuntimeException('保存に失敗しました。');chmod($tmp,0600);try{if(file_put_contents($tmp,json_encode($data,JSON_THROW_ON_ERROR),LOCK_EX)===false||!rename($tmp,$path))throw new RuntimeException('保存に失敗しました。');}finally{if(is_file($tmp))unlink($tmp);}}
-function ca_month(int $now):string{return gmdate('Y-m',$now+32400);}
-function ca_public(array $settings,array $state,int $now):array{return ['configured'=>!empty($settings['token']),'monthlyLimit'=>$settings['monthlyLimit']??1000,'used'=>($state['month']??'')===ca_month($now)?($state['used']??0):0,'lastFetchedAt'=>$state['lastFetchedAt']??null,'nextAt'=>$state['nextAt']??0,'account'=>'sanrio_oshikatu'];}
-function ca_settings(array $old,array $input):array{$limit=$input['monthlyLimit']??1000;if(!is_int($limit)||$limit<100||$limit>10000)throw new RuntimeException('月間上限は100〜10,000件で設定してください。');$token=trim((string)($input['token']??''));if(strlen($token)>2048||preg_match('/[\x00-\x20\x7f]/',$token))throw new RuntimeException('Bearer Tokenの形式を確認してください。');return ['token'=>!empty($input['clearToken'])?'':($token!==''?$token:($old['token']??'')),'monthlyLimit'=>$limit];}
-function ca_reserve(array $state,array $settings,int $now):array{if(empty($settings['token']))throw new RuntimeException('X公式APIのBearer Tokenが未設定です。');if(($state['nextAt']??0)>$now)throw new RuntimeException('次の取得まで24時間空けてください。保存済み資料は表示できます。');if(($state['month']??'')!==ca_month($now)){$state['month']=ca_month($now);$state['used']=0;}if(($state['used']??0)+100>($settings['monthlyLimit']??1000))throw new RuntimeException('今月の取得件数上限です。追加API呼出しは行っていません。');$state['used']=($state['used']??0)+100;$state['nextAt']=$now+86400;return $state;}
-function ca_request(string $path,array $query,string $token):array{$url='https://api.x.com/2/'.$path.'?'.http_build_query($query);$c=curl_init($url);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>15,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$token,'Accept: application/json'],CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS]);$body=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);if($status!==200||!is_string($body)||strlen($body)>2097152)throw new RuntimeException('X公式APIの取得に失敗しました（HTTP '.$status.'）。権限・残高・取得上限を確認してください。');$d=json_decode($body,true);if(is_array($d)&&!isset($d['data'])&&($d['meta']['result_count']??null)===0)$d['data']=[];if(!is_array($d)||!isset($d['data'])||isset($d['errors']))throw new RuntimeException('X公式APIから完全な投稿情報を取得できませんでした。');return $d;}
-function ca_rows(array $posts,int $now):array{$rows=[];foreach($posts as $p){if(!is_array($p)||!preg_match('/^\d+$/D',(string)($p['id']??'')))continue;$m=$p['public_metrics']??[];$row=['id'=>(string)$p['id'],'url'=>'https://x.com/sanrio_oshikatu/status/'.$p['id'],'text'=>$p['text']??'','createdAt'=>$p['created_at']??null,'observedAt'=>gmdate('c',$now),'source'=>'official-api'];foreach(['impressions'=>'impression_count','likes'=>'like_count','reposts'=>'retweet_count'] as $key=>$field)$row[$key]=isset($m[$field])&&is_int($m[$field])&&$m[$field]>=0?$m[$field]:null;$rows[]=$row;}return $rows;}
-if(defined('SPH_COMPETITOR_TEST'))return;
-function ca_out(array $data,int $status=200):void{http_response_code($status);header('Content-Type: application/json; charset=utf-8');echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
-$config=require __DIR__.'/config.php';$origin=$_SERVER['HTTP_ORIGIN']??'';$allowed=in_array($origin,$config['allowed_origins']??[],true);header('Cache-Control: no-store');header('X-Content-Type-Options: nosniff');if($allowed){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}header('Access-Control-Allow-Headers: Authorization, Content-Type');header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-if(($_SERVER['REQUEST_METHOD']??'')==='OPTIONS')exit;
-$auth=$_SERVER['HTTP_AUTHORIZATION']??'';$token=preg_match('/^Bearer (.+)$/D',$auth,$m)?$m[1]:'';$key=(string)($config['sync_key']??'');if($key===''||!hash_equals($key,$token))ca_out(['ok'=>false,'error'=>'同期キーを確認してください。'],401);
-try{
- $dir=ca_dir();$lock=fopen($dir.'/request.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))ca_out(['ok'=>false,'error'=>'取得処理が実行中です。少し待ってください。'],409);
- $now=time();$settings=ca_read($dir.'/settings.json');$state=ca_read($dir.'/state.json');$action=$_GET['action']??'settings';$method=$_SERVER['REQUEST_METHOD']??'GET';
- if($method==='GET'&&$action==='settings')ca_out(['ok'=>true]+ca_public($settings,$state,$now));
- if($method!=='POST')ca_out(['ok'=>false,'error'=>'POSTで実行してください。'],405);if(!$allowed)ca_out(['ok'=>false,'error'=>'許可されたアプリから実行してください。'],403);
- $raw=(string)file_get_contents('php://input',false,null,0,4097);$input=json_decode($raw,true);if(strlen($raw)>4096||!is_array($input))ca_out(['ok'=>false,'error'=>'入力を確認してください。'],400);
- if($action==='settings'){$settings=ca_settings($settings,$input);ca_write($dir.'/settings.json',$settings);ca_out(['ok'=>true]+ca_public($settings,$state,$now));}
- if($action!=='fetch')ca_out(['ok'=>false,'error'=>'取得操作を確認してください。'],400);
- if(($input['confirmPaid']??false)!==true)ca_out(['ok'=>false,'error'=>'有料APIの取得確認が必要です。'],400);
- if(!empty($state['rows'])&&($state['nextAt']??0)>$now)ca_out(['ok'=>true,'rows'=>$state['rows'],'cached'=>true]+ca_public($settings,$state,$now));
- $state=ca_reserve($state,$settings,$now);ca_write($dir.'/state.json',$state); // Reserve before any paid call; failures do not trigger automatic retries.
- if(empty($state['userId'])){$user=ca_request('users/by/username/sanrio_oshikatu',[],$settings['token']);$id=(string)($user['data']['id']??'');if(!preg_match('/^\d+$/D',$id))throw new RuntimeException('競合アカウントを確認できませんでした。');$state['userId']=$id;ca_write($dir.'/state.json',$state);}
- $posts=ca_request('users/'.$state['userId'].'/tweets',['max_results'=>100,'tweet.fields'=>'created_at,public_metrics','exclude'=>'retweets'],$settings['token']);
- $state['rows']=ca_rows($posts['data'],$now);$state['lastFetchedAt']=$now;ca_write($dir.'/state.json',$state);ca_out(['ok'=>true,'rows'=>$state['rows'],'cached'=>false]+ca_public($settings,$state,$now));
-}catch(Throwable $e){ca_out(['ok'=>false,'error'=>$e->getMessage()],502);}
+// Retired: never read stored tokens, return saved observations, or call X.
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+http_response_code(410);
+echo json_encode(['ok'=>false,'disabled'=>true,'apiVersion'=>'3533','items'=>[],'error'=>'Competitor analysis removed'],JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);

@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - "server/lolipop/competitor.php"
-      - "tests/competitor.php"
       - "scripts/verify-competitor.php"
       - "server/lolipop/overseas.php"
       - "scripts/verify-deployed-news-extra.php"
@@ -54,7 +53,6 @@ jobs:
       - name: Check PHP syntax
         run: |
           php -l server/lolipop/competitor.php
-          php tests/competitor.php
           php -l scripts/verify-competitor.php
           php -l server/lolipop/news.php
           php -l server/lolipop/news-instagram.php
