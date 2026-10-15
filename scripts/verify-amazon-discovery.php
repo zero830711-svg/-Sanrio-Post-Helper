@@ -11,7 +11,7 @@ try{
   foreach(['secret','credentialId','access_token','sync_key'] as $field)if(isset($d[$field]))throw new RuntimeException('Private field returned');
   return $d;
  };
- $before=$request('candidates');if(empty($before['configured']))throw new RuntimeException('Saved Amazon credentials are not configured');
+ $before=$request('candidates');for($attempt=0;empty($before['configured'])&&$attempt<4;$attempt++){usleep(250000);$before=$request('candidates');}if(($before['storageVersion']??'')!=='persistent-3534')throw new RuntimeException('Persistent Amazon storage is not deployed');if(empty($before['configured']))throw new RuntimeException('Saved Amazon credentials are not configured');
  $result=$request('discover',true);if(($result['autoState']??'')!=='ok')throw new RuntimeException('Amazon auto-discovery did not succeed');
  $after=$request('candidates');$ids=[];$now=time();
  foreach($after['items']??[] as $item){
@@ -19,7 +19,7 @@ try{
   if(isset($ids[$item['asin']??'']))throw new RuntimeException('Duplicate ASIN returned');$ids[$item['asin']]=true;
  }
  if(($after['queryCount']??0)!==41||($after['nextAt']??0)<=$now)throw new RuntimeException('Discovery rotation or cooldown is missing');
- echo 'Amazon auto-discovery verified; '.count($ids).' unique current products; query rotation and cooldown active; credentials withheld'."\n";
+ echo 'Persistent Amazon storage and auto-discovery verified; '.count($ids).' unique current products; query rotation and cooldown active; credentials withheld'."\n";
  if(($argv[2]??'')==='--search-pages'){
   // Only code deployment/manual verification uses two extra searches, never scheduled collection.
   foreach([1,2] as $page){

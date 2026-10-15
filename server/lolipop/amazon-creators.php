@@ -1,8 +1,27 @@
 <?php
 declare(strict_types=1);
-function am_dir():string{$d=sys_get_temp_dir().'/sph-amazon-creators-'.hash('sha256',__DIR__);if(!is_dir($d)&&!mkdir($d,0700,true))throw new RuntimeException('保存先を準備できません。');chmod($d,0700);return $d;}
-function am_write(string $path,array $data):void{$tmp=tempnam(dirname($path),'private-');if($tmp===false)throw new RuntimeException('保存できません。');chmod($tmp,0600);try{if(file_put_contents($tmp,json_encode($data,JSON_THROW_ON_ERROR),LOCK_EX)===false||!rename($tmp,$path))throw new RuntimeException('保存できません。');}finally{if(is_file($tmp))unlink($tmp);}}
-function am_read(string $path):array{if(!is_file($path))return [];$d=json_decode((string)file_get_contents($path),true);return is_array($d)?$d:[];}
+// Runtime files stay on persistent hosting storage. PHP guards also protect them if
+// directory access rules are unavailable; credentials never live in plain JSON.
+function am_guard():string{return "<?php http_response_code(404); exit; __halt_compiler();\n";}
+function am_write(string $path,array $data):void{
+ $tmp=tempnam(dirname($path),'private-');if($tmp===false)throw new RuntimeException('保存できません。');
+ $guarded=$tmp.'.php';if(!rename($tmp,$guarded)){unlink($tmp);throw new RuntimeException('保存できません。');}
+ chmod($guarded,0600);try{if(file_put_contents($guarded,am_guard().json_encode($data,JSON_THROW_ON_ERROR),LOCK_EX)===false||!rename($guarded,$path))throw new RuntimeException('保存できません。');}finally{if(is_file($guarded))unlink($guarded);}
+}
+function am_read(string $path):array{
+ if(!is_file($path))return [];$raw=file_get_contents($path);if($raw===false)throw new RuntimeException('保存データを読み込めません。');
+ if(str_starts_with($raw,am_guard()))$raw=substr($raw,strlen(am_guard()));
+ try{$d=json_decode($raw,true,512,JSON_THROW_ON_ERROR);}catch(Throwable $e){throw new RuntimeException('保存データを確認できません。上書きせず管理者に確認してください。');}
+ if(!is_array($d))throw new RuntimeException('保存データの形式を確認してください。');return $d;
+}
+function am_storage(string $dir,string $legacy):string{
+ if(!is_dir($dir)&&!mkdir($dir,0700,true)&&!is_dir($dir))throw new RuntimeException('保存先を準備できません。');chmod($dir,0700);
+ if(!is_file($dir.'/.htaccess')&&file_put_contents($dir.'/.htaccess',"Require all denied\nDeny from all\n",LOCK_EX)===false)throw new RuntimeException('保存先を保護できません。');
+ $lock=fopen($dir.'/migration.lock.php','c+');if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('保存先を確認できません。');chmod($dir.'/migration.lock.php',0600);
+ try{foreach(['settings','auto','token'] as $name){$target=$dir.'/'.$name.'.php';$old=$legacy.'/'.$name.'.json';if(!is_file($target)&&is_file($old))am_write($target,am_read($old));}}finally{flock($lock,LOCK_UN);fclose($lock);}
+ return $dir;
+}
+function am_dir():string{return am_storage(__DIR__.'/.amazon-creators-private',sys_get_temp_dir().'/sph-amazon-creators-'.hash('sha256',__DIR__));}
 function am_validate(array $d):array{
  foreach(['credentialId','secret','version','partnerTag'] as $field)if(isset($d[$field])&&!is_string($d[$field]))throw new RuntimeException('認証情報の入力内容を確認してください。');
  $id=trim((string)($d['credentialId']??''));$secret=trim((string)($d['secret']??''));$version=(string)($d['version']??'3.3');$tag=trim((string)($d['partnerTag']??''));
@@ -12,7 +31,7 @@ function am_validate(array $d):array{
  if(!preg_match('/^[a-zA-Z0-9_-]{1,80}-22$/D',$tag))throw new RuntimeException('日本のトラッキングID（末尾 -22）を確認してください。');
  return ['credentialId'=>$id,'secret'=>$secret,'version'=>$version,'partnerTag'=>$tag];
 }
-function am_public(array $s):array{return ['configured'=>!empty($s['credentialId'])&&!empty($s['secret']),'version'=>$s['version']??'3.3','partnerTag'=>$s['partnerTag']??'ononbrothers2-22'];}
+function am_public(array $s):array{return ['storageVersion'=>'persistent-3534','configured'=>!empty($s['credentialId'])&&!empty($s['secret']),'version'=>$s['version']??'3.3','partnerTag'=>$s['partnerTag']??'ononbrothers2-22'];}
 function am_endpoint(string $version):string{return ['3.1'=>'https://api.amazon.com/auth/o2/token','3.2'=>'https://api.amazon.co.uk/auth/o2/token','3.3'=>'https://api.amazon.co.jp/auth/o2/token'][$version]??throw new RuntimeException('認証バージョンを確認してください。');}
 function am_http(string $url,array $payload,array $headers=[]):array{
  if(!in_array($url,['https://api.amazon.com/auth/o2/token','https://api.amazon.co.uk/auth/o2/token','https://api.amazon.co.jp/auth/o2/token','https://creatorsapi.amazon/catalog/v1/searchItems'],true))throw new RuntimeException('接続先を確認できません。');
@@ -43,7 +62,7 @@ function am_results(array $data):array{
 function am_search(array $s,string $keywords,?callable $transport=null,int $page=1):array{
  if($page<1||$page>10)throw new RuntimeException('検索ページは1〜10で指定してください。');
  $s=am_validate($s);$keywords=trim($keywords);if(!$keywords||mb_strlen($keywords)>120)throw new RuntimeException('検索語を120文字以内で入力してください。');
- $call=$transport??'am_http';$tokenPath=am_dir().'/token.json';$fingerprint=hash('sha256',json_encode($s));$cache=$transport?[]:am_read($tokenPath);
+ $call=$transport??'am_http';$tokenPath=am_dir().'/token.php';$fingerprint=hash('sha256',json_encode($s));$cache=$transport?[]:am_read($tokenPath);
  if(($cache['fingerprint']??'')===$fingerprint&&($cache['expires']??0)>time()+60)$token=$cache['token'];
  else{
   $r=$call(am_endpoint($s['version']),['grant_type'=>'client_credentials','client_id'=>$s['credentialId'],'client_secret'=>$s['secret'],'scope'=>'creatorsapi::default'],[]);
@@ -107,24 +126,24 @@ if(($_SERVER['REQUEST_METHOD']??'')==='OPTIONS')exit;
 $auth=$_SERVER['HTTP_AUTHORIZATION']??'';$token=preg_match('/^Bearer (.+)$/D',$auth,$m)?$m[1]:'';$key=(string)($config['sync_key']??'');
 if(!$key||!hash_equals($key,$token))am_out(['ok'=>false,'error'=>'アプリの同期キーを確認してください。'],401);
 try{
- $action=$_GET['action']??'settings';$method=$_SERVER['REQUEST_METHOD']??'GET';$path=am_dir().'/settings.json';
+ $action=$_GET['action']??'settings';$method=$_SERVER['REQUEST_METHOD']??'GET';$path=am_dir().'/settings.php';
  if($action==='settings'&&$method==='GET')am_out(['ok'=>true]+am_public(am_read($path)));
- if($action==='candidates'&&$method==='GET')am_out(['ok'=>true]+am_auto_public(am_read(am_dir().'/auto.json'),time())+am_public(am_read($path)));
+ if($action==='candidates'&&$method==='GET')am_out(['ok'=>true]+am_auto_public(am_read(am_dir().'/auto.php'),time())+am_public(am_read($path)));
  if($method!=='POST')am_out(['ok'=>false,'error'=>'POSTで実行してください。'],405);
  if(!in_array($origin,$config['allowed_origins']??[],true))am_out(['ok'=>false,'error'=>'許可されたアプリから実行してください。'],403);
  $raw=(string)file_get_contents('php://input',false,null,0,8193);$d=json_decode($raw,true);if(strlen($raw)>8192||!is_array($d))am_out(['ok'=>false,'error'=>'入力内容を確認してください。'],400);
- if($action==='settings'){$s=am_validate($d);am_write($path,$s);am_write(am_dir().'/auto.json',[]);$tokenPath=am_dir().'/token.json';if(is_file($tokenPath))unlink($tokenPath);am_out(['ok'=>true]+am_public($s));}
+ if($action==='settings'){$s=am_validate($d);am_write($path,$s);am_write(am_dir().'/auto.php',[]);$tokenPath=am_dir().'/token.php';if(is_file($tokenPath))unlink($tokenPath);am_out(['ok'=>true]+am_public($s));}
  if(!in_array($action,['search','discover'],true))am_out(['ok'=>false,'error'=>'操作を確認してください。'],400);
  $page=$d['page']??1;if($action==='search'&&(!is_int($page)||$page<1||$page>10))am_out(['ok'=>false,'error'=>'検索ページは1〜10で指定してください。'],400);
  $s=am_read($path);if(!am_public($s)['configured'])am_out(['ok'=>false,'error'=>'先に認証情報を保存してください。'],400);
- $lock=fopen(am_dir().'/search.lock','c+');chmod(am_dir().'/search.lock',0600);if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('Amazonを確認中です。少し待ってください。');
+ $lock=fopen(am_dir().'/search.lock.php','c+');chmod(am_dir().'/search.lock.php',0600);if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('Amazonを確認中です。少し待ってください。');
  try{
   if($action==='discover'){
-   $state=am_read(am_dir().'/auto.json');
+   $state=am_read(am_dir().'/auto.php');
    if(($state['nextAt']??0)>time())$result=['ok'=>true,'cached'=>true]+am_auto_public($state,time());
    else{
     $last=(int)stream_get_contents($lock);if(time()-$last<5)throw new RuntimeException('5秒以上間隔をあけてください。');rewind($lock);ftruncate($lock,0);fwrite($lock,(string)time());fflush($lock);
-    $state=am_auto_tick($state,$s,time());am_write(am_dir().'/auto.json',$state);$result=['ok'=>($state['autoState']??'')!=='error']+am_auto_public($state,time());
+    $state=am_auto_tick($state,$s,time());am_write(am_dir().'/auto.php',$state);$result=['ok'=>($state['autoState']??'')!=='error']+am_auto_public($state,time());
     if(!$result['ok'])$result+=['error'=>$state['autoError'],'stage'=>$state['failureStage']??'unknown','upstreamStatus'=>$state['upstreamStatus']??0];
    }
   }else{$last=(int)stream_get_contents($lock);if(time()-$last<5)throw new RuntimeException('5秒以上間隔をあけてください。');rewind($lock);ftruncate($lock,0);fwrite($lock,(string)time());fflush($lock);$result=am_search($s,(string)($d['keywords']??'サンリオ'),null,$page);}

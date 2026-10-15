@@ -66,3 +66,26 @@ $last=am_search($settings,'サンリオ',$paged,10);check_am($last['hasMore']===
 $before=count($pageCalls);reject_am(fn()=>am_search($settings,'サンリオ',$paged,0));reject_am(fn()=>am_search($settings,'サンリオ',$paged,11));check_am(count($pageCalls)===$before,'Invalid pages made external requests');
 $empty=am_search($settings,'見つからない',static fn($url,$p,$h)=>isset($p['grant_type'])?['status'=>200,'data'=>['access_token'=>'FAKE_TOKEN_NOT_REAL_123456']]:['status'=>200,'data'=>['searchResult'=>['items'=>[],'totalResultCount'=>0]]]);check_am($empty['items']===[]&&$empty['hasMore']===false,'Empty result must not continue');
 echo "Ten-result search, explicit page selection, page limit and empty results verified\n";
+
+// Persistent storage must survive removal of the old temporary directory.
+$storageTest=sys_get_temp_dir().'/sph-am-storage-test-'.bin2hex(random_bytes(8));
+mkdir($storageTest,0700);mkdir($storageTest.'/old',0700);
+try{
+ file_put_contents($storageTest.'/old/settings.json',json_encode($settings));
+ $pool=['items'=>[['asin'=>'B000000001','url'=>'https://www.amazon.co.jp/dp/B000000001?tag=original-22','title'=>'サンリオ','fetchedAt'=>time()]],'queryIndex'=>4];
+ file_put_contents($storageTest.'/old/auto.json',json_encode($pool));
+ $persistent=am_storage($storageTest.'/persistent',$storageTest.'/old');
+ check_am(am_read($persistent.'/settings.php')===$settings,'Legacy credentials were not migrated');
+ check_am(am_read($persistent.'/auto.php')===$pool,'Legacy candidate links or rotation were changed');
+ check_am(str_starts_with(file_get_contents($persistent.'/settings.php'),am_guard()),'Credentials lack an executable PHP guard');
+ unlink($storageTest.'/old/settings.json');unlink($storageTest.'/old/auto.json');rmdir($storageTest.'/old');
+ check_am(am_storage($storageTest.'/persistent',$storageTest.'/old')===$persistent&&am_read($persistent.'/settings.php')===$settings,'Persistent settings depended on temporary storage');
+ mkdir($storageTest.'/old',0700);file_put_contents($storageTest.'/old/settings.json',json_encode(array_replace($settings,['secret'=>'OLD_FAKE_SECRET_DO_NOT_USE'])));
+ check_am(am_read(am_storage($persistent,$storageTest.'/old').'/settings.php')===$settings,'Migration overwrote current credentials');
+ file_put_contents($storageTest.'/bad.php','not json');reject_am(fn()=>am_read($storageTest.'/bad.php'));
+ check_am(am_public($settings)['storageVersion']==='persistent-3534','Storage version missing');
+ echo "Persistent storage, legacy candidate/settings migration, PHP guards and corrupt-file protection verified\n";
+}finally{
+ foreach(glob($storageTest.'/persistent/*')?:[] as $f)unlink($f);@unlink($storageTest.'/persistent/.htaccess');@rmdir($storageTest.'/persistent');
+ foreach(glob($storageTest.'/old/*')?:[] as $f)unlink($f);@rmdir($storageTest.'/old');@unlink($storageTest.'/bad.php');@rmdir($storageTest);
+}
