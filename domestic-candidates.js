@@ -13,7 +13,7 @@ const domesticCandidates=(()=>{
  function extract(item,now=Date.now()){
   const url=item.manufacturerInfo?.url||item.url,valid=trusted(url)&&!item.overseas;
   const lines=[item.schedule,...(Array.isArray(item.facts)?item.facts.map(f=>f.text):Object.entries(item.facts||{}).map(([k,v])=>k+'：'+v)),...Object.entries(item.manufacturerInfo?.facts||{}).map(([k,v])=>k+'：'+v),...(valid?[item.title]:[])].filter(Boolean);
-  const e={url,title:item.title||'',source:item.source||'',ids:ids(item),image:item.thumbnail||item.image||'',publishedAt:item.date||'',observedAt:new Date(now).toISOString(),verified:valid,identityUncertain:!!item.needsReview||(!(item.jan||item.productInfo?.jan)&&ids(item).filter(id=>!id.startsWith('jan:')).length>1),release:null,reservation:null,event:'new',price:'',evidence:[]};
+  const e={url,title:item.title||'',source:item.source||'',ids:ids(item),image:item.thumbnail||item.image||'',publishedAt:item.date||'',observedAt:new Date(now).toISOString(),verified:valid,catalogUpdate:!!item.catalogUpdate,identityUncertain:!!item.needsReview||(!(item.jan||item.productInfo?.jan)&&ids(item).filter(id=>!id.startsWith('jan:')).length>1),release:null,reservation:null,event:'new',price:'',evidence:[]};
   if(valid)for(const line of lines){
    const d=dates(line);if(d.length===1&&dateKind(line,d[0],'release')&&!/延期|変更前/.test(line)){e.release=d[0];e.evidence.push(line);}
    if(d.length===1&&dateKind(line,d[0],'reservation')&&!/終了/.test(line)){e.reservation=d[0];e.evidence.push(line);}
@@ -35,6 +35,7 @@ const domesticCandidates=(()=>{
   const announcement=Date.parse(e.publishedAt),recentAnnouncement=Number.isFinite(announcement)&&now>=announcement&&now-announcement<=7*DAY;
   if(e.verified&&fresh&&(e.manual||recentAnnouncement)&&['sale','restock'].includes(e.event))return {kind:'update',priority:4,label:(e.event==='sale'?'セール':'再入荷・再販')+'情報（現在の販売状況は要確認）'};
   if(['sale','restock'].includes(e.event))return {kind:'review',priority:6,label:'更新告知の日付・現在の状況は要確認'};
+  if(e.catalogUpdate)return {kind:'review',priority:6,label:'公式楽天店の更新商品（新発売は未確認）'};
   if(/くじ|カプセル|ガシャポン|ガチャ/.test(e.title))return {kind:'lottery',priority:3,label:'当りくじ・カプセルトイ'};
   return {kind:e.verified?'new':'review',priority:e.verified?2:6,label:e.verified?'新着発表・掲載':'要確認'};
  }
