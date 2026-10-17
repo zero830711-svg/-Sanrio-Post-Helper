@@ -17,7 +17,7 @@ try{
  $link='https://a.r10.to/hPDw44';$source=mb_substr(implode("\n",$rows),0,4000);
  $result=$request('news.php?action=product-groq-draft',['mode'=>'product','title'=>$item['title'],'text'=>$source,'links'=>[['kind'=>'rakuten','url'=>$link]]]);$text=(string)($result['text']??'');
  if(empty($result['configured'])||!str_contains($text,'bubble pop charm')||!str_contains($text,$link)||!str_ends_with($text,'#pr'))throw new RuntimeException('Generated product text or original link missing');
- $withoutLinks=preg_replace('~https?://[^\s<>]+~u','',$text);$numbers=static function(string $s):array{preg_match_all('/[0-9０-９]+(?:[,，.．][0-9０-９]+)*/u',$s,$m);return array_map(static fn($v)=>str_replace([',','，'],'',mb_convert_kana($v,'n','UTF-8')),$m[0]);};
+ $withoutLinks=preg_replace('~https?://[^\s<>]+~u','',$text);$numbers=static function(string $s):array{preg_match_all('/[0-9０-９]+(?:[,，.．][0-9０-９]+)*/u',$s,$m);return array_map(static fn($v)=>str_replace([',','，','．'],['','','.'],mb_convert_kana($v,'n','UTF-8')),$m[0]);};
  if(array_diff($numbers($withoutLinks),$numbers($source)))throw new RuntimeException('Unsupported numbers remain in generated text');
  echo "Live product AI verified: bubble pop charm; supported numeric tokens and original affiliate link preserved; no retries\n";
 }catch(Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);}

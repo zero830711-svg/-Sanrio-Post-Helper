@@ -443,7 +443,7 @@ function news_photo_supported_sentences(string $body,array $item):string{
  // Photo numbering is metadata, not evidence for product counts.
  $source=$item['title']."\n".implode("\n",array_slice($item['paragraphs']??[],1));
  foreach($item['photoReadings'] as $row)$source.="\n".$row['original']."\n".$row['japanese'];
- $normalize=static fn($n)=>str_replace([',','，'],'',mb_convert_kana($n,'n','UTF-8'));
+ $normalize=static fn($n)=>str_replace([',','，','．'],['','','.'],mb_convert_kana($n,'n','UTF-8'));
  preg_match_all('/[0-9０-９]+(?:[,，.．][0-9０-９]+)*/u',$source,$matches);$allowed=array_map($normalize,$matches[0]);
  $sentences=preg_split('/(?<=[。！？\n])/u',$body);$kept=[];
  foreach($sentences as $sentence){
@@ -462,7 +462,7 @@ function news_number_values(string $text):array{
  // Numeric tokens must match as a whole: 6 is not evidence from 169 or a JAN.
  $text=preg_replace('~https?://[^\s<>]+~u','',$text);
  preg_match_all('/[0-9０-９]+(?:[,，.．][0-9０-９]+)*/u',$text,$matches);
- return array_values(array_unique(array_map(static fn($n)=>str_replace([',','，'],'',mb_convert_kana($n,'n','UTF-8')),$matches[0])));
+ return array_values(array_unique(array_map(static fn($n)=>str_replace([',','，','．'],['','','.'],mb_convert_kana($n,'n','UTF-8')),$matches[0])));
 }
 function news_number_source(array $item):string{
  $text=$item['title']."\n".implode("\n",$item['paragraphs']??[]);

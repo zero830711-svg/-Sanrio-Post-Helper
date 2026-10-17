@@ -244,7 +244,7 @@ $cleaned=news_groq_validate(json_encode(['body'=>$generated],JSON_UNESCAPED_UNIC
 check(!str_contains($cleaned,'6'));check(!str_contains($cleaned,'全種'));check(str_contains($cleaned,'11月下旬発売予定'));check(str_contains($cleaned,'ストラップ紐付き'));check(str_contains($cleaned,'https://a.r10.to/hPDw44'));check(str_ends_with($cleaned,'#pr'));
 $confirmed=$bubble;$confirmed['paragraphs'][]='ラインナップ：全6種';$withCount=news_groq_validate(json_encode(['body'=>$generated],JSON_UNESCAPED_UNICODE),$confirmed);check(str_contains($withCount,'全6種'));
 $badSize=$bubble;$badSize['paragraphs'][]='サイズ：169mm';$body="🎀 サンリオキャラクターズ bubble pop charm\nサイズ：6mm。\n🗓️ 11月下旬発売予定";$withoutSize=news_groq_validate(json_encode(['body'=>$body],JSON_UNESCAPED_UNICODE),$badSize);check(!str_contains($withoutSize,'6mm'));
-check(news_number_values('１，０７８円、1.5cm')===['1078','1.5']);check(!in_array('6',news_number_values('169mm JAN4550213153506'),true));
+check(news_number_values('１，０７８円、1.5cm、１．５cm')===['1078','1.5']);check(!in_array('6',news_number_values('169mm JAN4550213153506'),true));
 $factItem=$groqItem;$factItem['facts']=['発売日'=>'11月20日'];check(str_contains(news_groq_validate(json_encode(['body'=>'🎀 クロミのリボンバッグは11月20日発売予定。']),$factItem),'11月20日'));
 try{news_groq_validate(json_encode(['body'=>'全999種です。']),$bubble);check(false);}catch(RuntimeException $e){check(str_contains($e->getMessage(),'本文を変更していません'));}
 check(str_contains(news_groq_prompt($bubble),'ラインナップを数えて'));
