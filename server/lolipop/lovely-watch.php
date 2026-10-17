@@ -277,7 +277,7 @@ function lw_affiliate(string $code,array $settings,array $info=[]): array {
     $base=sys_get_temp_dir().'/sph-rakuten-'.hash('sha256',__DIR__.'|resolve-v2|'.json_encode($settings));
     $cache=$base.'-'.hash('sha256',$code).'.json';
     if(is_file($cache)&&filemtime($cache)>time()-900){$cached=json_decode((string)file_get_contents($cache),true);if(is_array($cached))return $cached;}
-    $lock=fopen($base.'.lock','c');if(!$lock)throw new RuntimeException('APIの準備に失敗しました。');chmod($base.'.lock',0600);
+    $lock=fopen($base.'.lock','c+');if(!$lock)throw new RuntimeException('APIの準備に失敗しました。');chmod($base.'.lock',0600);
     if(!flock($lock,LOCK_EX|LOCK_NB)){fclose($lock);throw new RuntimeException('楽天APIを利用中です。少し待って再試行してください。');}
     try {
         $last=(float)stream_get_contents($lock);if(microtime(true)-$last<1)throw new RuntimeException('1秒ほど待って再試行してください。');
@@ -481,7 +481,7 @@ function lw_gour_search(string $keyword,array $settings,string $shopCode='gourma
     if($page<1||$page>20||($code!==''&&($shopCode!=='sanrio'||!preg_match('/^sanrio:[a-zA-Z0-9_-]+$/D',$code))))throw new RuntimeException('楽天の商品指定が不正です。');
     $settings=lw_validate_settings($settings);
     $base=sys_get_temp_dir().'/sph-rakuten-'.hash('sha256',__DIR__.'|resolve-v2|'.json_encode($settings));
-    $lock=fopen($base.'.lock','c');if(!$lock)throw new RuntimeException('楽天APIを準備できませんでした。');chmod($base.'.lock',0600);
+    $lock=fopen($base.'.lock','c+');if(!$lock)throw new RuntimeException('楽天APIを準備できませんでした。');chmod($base.'.lock',0600);
     if(!flock($lock,LOCK_EX|LOCK_NB)){fclose($lock);throw new RuntimeException('楽天APIを利用中です。少し待って再試行してください。');}
     try{
         $last=(float)stream_get_contents($lock);if(microtime(true)-$last<1)throw new RuntimeException('1秒ほど待って再試行してください。');

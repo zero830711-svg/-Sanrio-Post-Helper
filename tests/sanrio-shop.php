@@ -17,4 +17,12 @@ foreach(['itemCode'=>'other:10012345','itemUrl'=>'https://item.rakuten.co.jp/oth
 $failed=false;try{lw_sanrio_data(['items'=>[$row]],$settings,1,str_replace('4550337000000','other',$url));}catch(RuntimeException $e){$failed=true;}sanrio_check($failed,'Mismatched detail rejected');
 $tracking=$row;$tracking['itemUrl']=$row['affiliateUrl'];unset($tracking['affiliateUrl']);sanrio_check(lw_sanrio_data(['items'=>[$tracking]],$settings,1)['items'][0]['url']===$url,'Current API tracking destination normalized');
 $failed=false;try{lw_sanrio_data(['items'=>[$row]],$settings,1,$url,'sanrio:wrong');}catch(RuntimeException $e){$failed=true;}sanrio_check($failed,'Requested API code mismatch rejected');
+// Both API paths must read the same timestamp and refuse a burst before any network call.
+$settings=lw_validate_settings(['applicationId'=>'throttle-test-'.bin2hex(random_bytes(8)),'affiliateId'=>'12345678.12345678.12345678.12345678','accessKey'=>'test-access-key-no-credentials']);
+$base=sys_get_temp_dir().'/sph-rakuten-'.hash('sha256',realpath(__DIR__.'/../server/lolipop').'|resolve-v2|'.json_encode($settings));
+$stamp=(string)(microtime(true)+60);file_put_contents($base.'.lock',$stamp);
+set_error_handler(static function(int $n,string $message):bool{throw new ErrorException($message,0,$n);});
+try{
+ foreach([static fn()=>lw_gour_search('',$settings,'sanrio'),static fn()=>lw_affiliate('sanrio:rate-test',$settings)] as $call){$message='';try{$call();}catch(Throwable $e){$message=$e->getMessage();}sanrio_check(str_contains($message,'1秒ほど待って'),'Shared throttle rejects burst before network');sanrio_check(file_get_contents($base.'.lock')===$stamp,'Rejected request does not reset timestamp');}
+}finally{restore_error_handler();unlink($base.'.lock');}
 echo "Official Sanrio shop API identity, exact affiliate link, photo scope, deduplication and unknown dates passed\n";
