@@ -65,3 +65,19 @@ test('選択した写真4枚とリンク付き本文を共有する',async({page
  await page.locator('#flowShare').click();expect(await page.evaluate(()=>window.__shared.count)).toBe(4);
  expect(await page.evaluate(()=>window.__shared.text)).toContain('#pr');
 });
+
+ test('商品検索のAI本文ボタンで既存本文を再生成し、失敗時は保持する',async({page})=>{
+ const row=entry();await setup(page,row);let calls=0;
+ await page.route('**/product-flow.php?action=retry',r=>{
+  expect(r.request().postDataJSON()).toEqual({id:row.id,generateBody:true});calls++;
+  if(calls===2)return r.fulfill({status:502,json:{ok:false,error:'本文生成は保留：利用上限。現在の本文は保持しています。'}});
+  row.body='🎀💖 キティのマスコットをチェック';
+  return r.fulfill({json:{ok:true,entry:row,entries:[row],message:'本文を生成しました。'}});
+ });
+ await page.getByRole('button',{name:'確認・共有',exact:true}).click();
+ await expect(page.getByRole('button',{name:'AIで本文を生成',exact:true})).toBeVisible();
+ await page.locator('#flowGenerate').click();await expect(page.locator('#flowBody')).toHaveValue(row.body);
+ expect(await page.locator('#flowFinal').inputValue()).toContain(search);
+ await page.locator('#flowGenerate').click();await expect(page.locator('#flowStatus')).toContainText('現在の本文は保持');
+ await expect(page.locator('#flowBody')).toHaveValue(row.body);await expect(page.locator('#flowGenerate')).toBeEnabled();
+ });

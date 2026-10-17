@@ -86,7 +86,7 @@ function render(){
 }
 async function run(action,data,show=false){
  if(busy)return;busy=true;for(const b of el('productFlowPanel').querySelectorAll('button,input,select,textarea'))b.disabled=true;
- status(action==='tick'||action==='prepare'?'原文・写真を確認し、楽天照合と本文生成を進めています…':'保存・確認中…');
+ status(data?.generateBody?'AIで本文を生成しています…':action==='tick'||action==='prepare'?'原文・写真を確認し、楽天照合と本文生成を進めています…':'保存・確認中…');
  try{const d=await api(action,data);apply(d);status(d.message||'保存しました。');if(show&&d.entry)await open(d.entry.id);return d;}
  catch(e){status(e.message);}
  finally{busy=false;for(const b of el('productFlowPanel').querySelectorAll('button,input,select,textarea'))b.disabled=false;updateFinal();}
@@ -223,6 +223,12 @@ el('flowBody').oninput=()=>{dirty=true;updateFinal();queueAutoSave();};
 el('flowLinkMode').onchange=()=>{dirty=true;updateFinal();queueAutoSave();};
 el('flowConfirm').onchange=updateFinal;
 el('flowSave').onclick=()=>saveDraft(true);
+el('flowGenerate').onclick=async()=>{
+ if(!current||busy||saving)return;
+ if(dirty&&!await saveDraft(true))return;
+ el('flowConfirm').checked=false;
+ await run('retry',{id:current.id,generateBody:true},true);
+};
 el('flowRetry').onclick=async()=>{if(dirty){status('編集内容を先に保存してください。');return;}await run('retry',{id:current.id},true);};
 el('flowPhotoRetry').onclick=async()=>{if(!current||preparingPhotos)return;for(const i of current.selected)files[i]=undefined;await prepareSelectedPhotos();};
 el('flowBack').onclick=async()=>{if(dirty&&!await saveDraft(true))return;closeEditor();};
