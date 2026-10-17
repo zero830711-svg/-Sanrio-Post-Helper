@@ -336,6 +336,13 @@ function pf_stock_discover(array &$state):array{
  if(!$state['sources']&&count($errors)===3)throw new RuntimeException(implode(' / ',$errors));
  $state['sourceErrors']=$errors;return $state['sources'];
 }
+function pf_generated_body(string $text):string{
+ $text=preg_replace('~https?://\S+~u','',$text);
+ $text=preg_replace('/^\s*(?:🔎|🔍|🛍️)?\s*(?:詳細|詳細はこちら|楽天でチェック)[：:]?\s*$/mu','',$text);
+ $text=trim(preg_replace('/\n{3,}/u',"\n\n",$text));
+ if($text==='')throw new RuntimeException('有効な生成本文がありません。');
+ return $text;
+}
 function pf_prepare_stock(array $product,array &$state):array{
  $code=(string)($product['code']??'');if($code===''||empty($product['affiliate'])||!pf_safe_affiliate((string)$product['affiliate']))throw new RuntimeException('楽天の在庫商品を確認できません。');
  foreach($state['entries']??[] as $old)if(($old['item']['rakutenCode']??'')===$code||(!empty($product['dedupeKey'])&&($old['item']['rakutenDedupeKey']??'')===$product['dedupeKey']))return $old;
@@ -346,11 +353,10 @@ function pf_prepare_stock(array $product,array &$state):array{
  $fact=$product['service']==='travel'?'楽天トラベルのサンリオ関連施設候補です。空室は未確認です。':$sourceLabel.'で確認した商品です。';$paragraphs=[$title,$fact,'販売店：'.$shop];if($price>0)$paragraphs[]='掲載価格：'.number_format($price).'円（取得時点）';if(!empty($product['caption']))$paragraphs[]=(string)$product['caption'];
  $item=['url'=>(string)$product['url'],'source'=>$sourceLabel,'rakuten'=>true,'rakutenService'=>(string)($product['service']??'market'),'rakutenCode'=>$code,'rakutenDedupeKey'=>(string)($product['dedupeKey']??pf_product_dedupe_key($product)),'sourceAt'=>(int)($product['sourceAt']??time()),'galleryCheckedAt'=>$galleryCheckedAt,'title'=>$title,'date'=>gmdate('Y-m-d'),'paragraphs'=>$paragraphs,'facts'=>$price>0?[['kind'=>'price','text'=>'掲載価格：'.number_format($price).'円（取得時点）']]:[],'images'=>$images,'links'=>[]];
  $warnings=['在庫・価格は検索時点の情報です。投稿前に楽天の商品ページで確認してください。'];$body='';
- try{$draft=news_groq_draft($item);$body=(string)($draft['text']??'');}catch(Throwable $e){$warnings[]='本文生成は保留：'.$e->getMessage();}
  $body=preg_replace('~https?://\\S+~u','',$body);$identity=pf_identity($item,$body);$affiliate=(string)$product['affiliate'];
  $candidate=['code'=>$code,'title'=>$title,'url'=>$item['url'],'affiliate'=>$affiliate,'image'=>$images[0],'shop'=>$shop,'exact'=>true];
  $match=['candidates'=>[$candidate],'shopCount'=>1,'searchUrl'=>pf_search_url($identity['keyword']),'searchAffiliate'=>'','itemAffiliate'=>$affiliate,'link'=>$affiliate,'linkMode'=>'item','matchStatus'=>'楽天市場の商品・在庫あり検索','checkedAt'=>gmdate('c')];
- $row=['id'=>$id,'item'=>$item,'body'=>trim($body),'selected'=>array_slice(array_keys($images),0,4),'identity'=>$identity,'match'=>$match,'warnings'=>$warnings,'createdAt'=>time(),'updatedAt'=>time(),'mark'=>'','edited'=>false];
+ $row=['id'=>$id,'item'=>$item,'body'=>trim($body),'selected'=>array_slice(array_keys($images),0,4),'identity'=>$identity,'match'=>$match,'warnings'=>$warnings,'createdAt'=>time(),'updatedAt'=>time(),'mark'=>'','edited'=>false,'generatedOnRequest'=>false];
  $state['entries'][$id]=$row;return $row;
 }
 function pf_settings():array{return array_replace(['enabled'=>true,'dailyLimit'=>20],pf_read('settings'));}
@@ -417,7 +423,7 @@ function pf_prepare(string $url,array &$state,string $keyword=''):array{
 }
 function pf_tick(array &$state,bool $manual=false):array{
  if(!pf_settings()['enabled'])return ['message'=>'自動準備は停止中です。'];
- if(empty(lw_settings()['accessKey'])||empty(news_groq_settings()['apiKey']))return ['message'=>'楽天API・AI設定を保存すると自動準備が始まります。'];
+ if(empty(lw_settings()['accessKey']))return ['message'=>'楽天API設定を保存すると候補の自動準備が始まります。'];
  if(!$manual&&($state['lastRun']??0)>time()-1500)return ['message'=>'次の自動準備を待っています。'];
  $day=gmdate('Y-m-d',time()+9*3600);if(($state['day']??'')!==$day){$state['day']=$day;$state['count']=0;}
  if(($state['count']??0)>=20)return ['message'=>'本日の自動準備は20件までです。'];
@@ -507,7 +513,7 @@ try{
     $row['match']['itemAffiliate']=$found['affiliate'];$row['match']['searchAffiliate']=pf_affiliate(pf_search_url($row['identity']['keyword']),lw_settings()['affiliateId']??'');
     $row['match']['link']=$found['affiliate'];$row['match']['linkMode']='item';$row['match']['matchStatus']='商品一致を手動確認済み';
    }elseif($action==='retry'){
-    if(!$row['body']||!empty($input['generateBody'])){try{$draft=news_groq_draft($row['item']);$text=trim((string)($draft['text']??''));if($text==='')throw new RuntimeException('AI設定または生成結果を確認してください。');$row['body']=$text;$row['warnings']=array_values(array_filter($row['warnings']??[],static fn($warning)=>!str_starts_with($warning,'本文生成は保留：')));}catch(Throwable $e){throw new RuntimeException('本文生成は保留：'.$e->getMessage().' 現在の本文は保持しています。');}}
+    if(!empty($input['generateBody'])){try{$draft=news_groq_draft($row['item']);$text=trim((string)($draft['text']??''));if($text==='')throw new RuntimeException('AI設定または生成結果を確認してください。');$row['body']=pf_generated_body($text);$row['generatedOnRequest']=true;$row['warnings']=array_values(array_filter($row['warnings']??[],static fn($warning)=>!str_starts_with($warning,'本文生成は保留：')));}catch(Throwable $e){throw new RuntimeException('本文生成は保留：'.$e->getMessage().' 現在の本文は保持しています。');}}
     $identity=pf_identity($row['item'],$row['body']);$row['identity']=$identity;
     if(empty($row['item']['rakuten'])){$settings=lw_settings();$row['match']=pf_resolve($row['item'],$row['body'],$identity,$settings);}
    }else throw new RuntimeException('操作を確認してください。');

@@ -58,3 +58,9 @@ pf_check(count($travelRows)===1&&$travelRows[0]['service']==='travel'&&str_conta
 $file='unit-'.bin2hex(random_bytes(6));
 try{pf_write($file,['body'=>'編集済み本文','mark'=>'done']);pf_check(pf_read($file)['body']==='編集済み本文','Saved draft damaged');pf_check((fileperms(pf_dir().'/'.$file.'.json')&0777)===0600,'Draft not private');}finally{unlink(pf_dir().'/'.$file.'.json');}
 echo "Product identity, Rakuten Ichiba/Books/Travel candidates, wrong-item/bundle rejection, multi-shop links and private storage verified\n";
+
+$stockState=[];
+$stock=pf_prepare_stock(['code'=>'testshop:manual-generation','affiliate'=>'https://hb.afl.rakuten.co.jp/hgc/'.$aid.'/?pc=test','url'=>'https://item.rakuten.co.jp/testshop/manual-generation/','title'=>'クロミのポーチ','shop'=>'テスト店','price'=>1000,'service'=>'market','images'=>['https://image.rakuten.co.jp/testshop/cabinet/pouch.jpg']],$stockState);
+pf_check($stock['body']===''&&$stock['generatedOnRequest']===false,'Stock preparation generated a body without a button request');
+pf_check(pf_generated_body("クロミのポーチ\n\n🔎 詳細：\nhttps://books.rakuten.co.jp/rb/18281023/\n\n#サンリオ")==="クロミのポーチ\n\n#サンリオ",'Generated source URL was not removed');
+try{pf_generated_body('https://books.rakuten.co.jp/rb/18281023/');throw new LogicException('URL-only draft accepted');}catch(RuntimeException $expected){}

@@ -33,7 +33,7 @@
 <details class="home-info"><summary>データ・更新情報</summary>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.10.18-3538</span>
+<span id="appVersionStatus">アプリ版 2026.10.18-3539</span>
 <button id="forceLatest" type="button" >最新版を読み込む</button>
 </div>
 <p class="backup-note app-update-help">更新後もホーム画面のアイコンはそのまま使えます。作り直しは不要です。この端末に保存した投稿データと同期設定は、同じURLを使う限り引き継がれます。</p>
@@ -109,7 +109,7 @@
 </div></section>
 <div id="flowRakutenArea">
 <p class="backup-note">楽天市場・楽天ブックスの在庫あり商品と、楽天トラベルのサンリオ関連施設を自動検索して一覧に表示します。候補から下書きを追加できます。宿泊施設の空室は未確認です。</p>
-<label><input id="flowAuto" type="checkbox" checked> 自動で下書きを準備する</label>
+<label><input id="flowAuto" type="checkbox" checked> 自動で商品候補を準備する（本文はボタンで生成）</label>
 <p id="flowSettingsHint" class="backup-note"></p><p id="flowLastRun" class="backup-note"></p>
 <p id="flowStatus" class="backup-note" aria-live="polite"></p>
 <div id="flowBrowse">
@@ -126,7 +126,7 @@
 <a id="flowSourceLink" target="_blank" rel="noopener noreferrer">情報元を確認</a>
 <p id="flowEvidence" class="backup-note"></p>
 <button id="flowGenerate" type="button" class="small-btn">AIで本文を生成</button>
-<label>投稿本文（編集できます）<textarea id="flowBody" rows="8"></textarea></label>
+<label>投稿本文（編集できます）<textarea id="flowBody" rows="8" placeholder="「AIで本文を生成」を押すか、本文を入力してください。"></textarea></label>
 <label>楽天リンク<select id="flowLinkMode"><option value="search">検索ページ</option><option value="item">単品の商品ページ</option><option value="none">リンクなし</option></select></label>
 <input id="flowLink" type="url" aria-label="投稿に付ける楽天アフィリエイトリンク" autocomplete="off" autocapitalize="none" spellcheck="false">
 <div class="lovely-url-actions lovely-paste-actions"><button id="flowShortUrlPaste" type="button" class="small-btn">📋 短縮URLを貼り付けて反映</button></div>
@@ -570,7 +570,7 @@
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 <script src="./domestic-candidates.js?v=20261017-3537"></script>
 <script src="./candidate-backup.js?v=20261015-3533"></script>
-<script src="./app.js?v=20261018-3538"></script>
+<script src="./app.js?v=20261018-3539"></script>
 <script src="./candidate-edit.js?v=20261010-3457"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
@@ -594,7 +594,7 @@ window.addEventListener("load",()=>{
   },2500);
 });
 </script>
-<script src="./product-flow.js?v=20261018-3538"></script>
+<script src="./product-flow.js?v=20261018-3539"></script>
 <script src="./amazon-product-search.js?v=20261015-3534"></script>
 </body>
 </html>
