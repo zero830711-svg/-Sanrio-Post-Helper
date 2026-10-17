@@ -66,18 +66,29 @@ test('選択した写真4枚とリンク付き本文を共有する',async({page
  expect(await page.evaluate(()=>window.__shared.text)).toContain('#pr');
 });
 
- test('商品検索のAI本文ボタンで既存本文を再生成し、失敗時は保持する',async({page})=>{
- const row=entry();await setup(page,row);let calls=0;
+test('商品検索はボタンでのみ生成し、通常URLを短縮アフィリエイトリンクに置き換える',async({page})=>{
+ const row=entry();row.edited=false;row.body='以前の自動生成本文';await setup(page,row);let calls=0;
+ await page.addInitScript(()=>localStorage.setItem('sphRakutenFlowShortLinksV1',JSON.stringify({'market:shop1:kitty':'https://a.r10.to/hPfTZE'})));
+ await page.reload();await page.locator('#homeProductFlowTab').click();
  await page.route('**/product-flow.php?action=retry',r=>{
   expect(r.request().postDataJSON()).toEqual({id:row.id,generateBody:true});calls++;
   if(calls===2)return r.fulfill({status:502,json:{ok:false,error:'本文生成は保留：利用上限。現在の本文は保持しています。'}});
-  row.body='🎀💖 キティのマスコットをチェック';
-  return r.fulfill({json:{ok:true,entry:row,entries:[row],message:'本文を生成しました。'}});
+  row.body='🎀💖 キティのマスコットをチェック\n\n🔎 詳細：\n'+product+'\n\n#サンリオ';row.generatedOnRequest=true;
+  return r.fulfill({json:{ok:true,entry:row,entries:[row]}});
  });
  await page.getByRole('button',{name:'確認・共有',exact:true}).click();
- await expect(page.getByRole('button',{name:'AIで本文を生成',exact:true})).toBeVisible();
- await page.locator('#flowGenerate').click();await expect(page.locator('#flowBody')).toHaveValue(row.body);
- expect(await page.locator('#flowFinal').inputValue()).toContain(search);
+ await expect(page.locator('#flowGenerate')).toHaveCount(1);
+ await expect(page.locator('#flowBody')).toHaveValue('');expect(calls).toBe(0);
+ await page.locator('#flowLinkMode').selectOption('item');
+ await page.locator('#flowGenerate').click();
+ await expect(page.locator('#flowBody')).toHaveValue(/https:\/\/a.r10.to\/hPfTZE/);
+ const body=await page.locator('#flowBody').inputValue();expect(body).not.toContain(product);expect(body.match(/https:\/\//g)).toHaveLength(1);expect(body).toContain('#pr');
+ await expect(page.locator('#flowFinal')).toHaveValue(body);
+ await page.locator('#flowLinkMode').selectOption('search');
+ await expect(page.locator('#flowBody')).toHaveValue(new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+ expect(await page.locator('#flowBody').inputValue()).not.toContain('hPfTZE');
+ await page.locator('#flowSave').click();const saved=await page.locator('#flowBody').inputValue();
  await page.locator('#flowGenerate').click();await expect(page.locator('#flowStatus')).toContainText('現在の本文は保持');
- await expect(page.locator('#flowBody')).toHaveValue(row.body);await expect(page.locator('#flowGenerate')).toBeEnabled();
- });
+ await expect(page.locator('#flowBody')).toHaveValue(saved);await expect(page.locator('#flowGenerate')).toBeEnabled();
+ await page.locator('#flowBack').click();await page.getByRole('button',{name:'確認・共有',exact:true}).click();await expect(page.locator('#flowBody')).toHaveValue(saved);expect(calls).toBe(2);
+});

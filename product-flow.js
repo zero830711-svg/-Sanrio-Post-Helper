@@ -40,7 +40,7 @@ function saveFlowShort(value){
  const map=flowShortMap();map[flowShortKey(current)]=url;
  try{localStorage.setItem(FLOW_SHORT_KEY,JSON.stringify(map));}catch{throw new Error('短縮URLを端末に保存できませんでした。空き容量を確認してください。');}
  if([...el('flowLinkMode').options].some(o=>o.value==='item'&&!o.disabled))el('flowLinkMode').value='item';
- dirty=true;updateFinal();el('flowShortUrlStatus').textContent='短縮URLを保存して投稿本文に反映しました。';queueAutoSave();
+ dirty=true;syncAffiliateBody();updateFinal();el('flowShortUrlStatus').textContent='短縮URLを保存して投稿本文に反映しました。';queueAutoSave();
 }
 function ready(row){return !!row.body&&!!row.match.link&&row.item.images?.length>0;}
 function apply(d){
@@ -111,11 +111,15 @@ async function load(forceSources=false){
   else status('自動取得した候補を表示しています。');
  }catch(e){status(e.message);}
 }
+function syncAffiliateBody(){
+ if(!current?.generatedOnRequest)return;
+ updateFinal();el('flowBody').value=el('flowFinal').value;current.body=el('flowBody').value;
+}
 function updateFinal(){
  if(!current)return;current.body=el('flowBody').value;const mode=el('flowLinkMode').value;
  const link=mode==='none'?'':(mode==='item'?(flowShort(current)||current.match.itemAffiliate||''):current.match.searchAffiliate||'');
  el('flowLink').value=link;
- const source=current.body.replace(/\r\n?/g,'\n');
+ const source=current.body.replace(/https?:\/\/\S+/gu,'').replace(/\r\n?/g,'\n');
  const tags=[],seenTags=new Set();let hasPr=/#pr\b/iu.test(source);
  for(const match of source.matchAll(/#[\p{L}\p{N}_]+/gu)){
   const tag=match[0],key=tag.toLocaleLowerCase();
@@ -126,7 +130,7 @@ function updateFinal(){
  const lines=withoutTags.split('\n'),clean=[];
  for(let i=0;i<lines.length;i++){
   const line=lines[i].trimEnd();
-  if(/^\s*🔎\s*詳細[：:]?\s*$/u.test(line)){
+  if(/^\s*(?:🔎|🔍|🛍️)?\s*(?:詳細|詳細はこちら|楽天でチェック)[：:]?\s*$/u.test(line)){
    const next=lines.slice(i+1).find(x=>x.trim());
    if(!next||/^\s*🛍️/u.test(next))continue;
   }
@@ -152,7 +156,7 @@ async function open(id){
  }
  resetPhotoPreviews();preparingPhotos=false;photoPreparationSeq++;current=structuredClone(row);dirty=false;files=[];const seq=++requestSeq;
  el('flowBrowse').hidden=true;el('flowEditor').hidden=false;el('flowTitle').textContent=row.item.title;
- el('flowBody').value=row.body;
+ el('flowBody').value=row.edited===false&&!row.generatedOnRequest?'':row.body;
  el('flowConfirm').checked=false;
  el('flowOriginal').textContent=(row.item.paragraphs||[]).join('\n\n');
  el('flowItemUrl').value=row.item.url||'';
@@ -162,7 +166,7 @@ async function open(id){
  el('flowEvidence').textContent=[row.identity.jan?'JAN：'+row.identity.jan:'',row.identity.model?'型番：'+row.identity.model:'',row.match.matchStatus,row.match.shopCount?'一致したショップ：'+row.match.shopCount+'店':'',...(row.warnings||[])].filter(Boolean).join('\n');
  el('flowSourceLink').href=row.item.url;
  el('flowLinkMode').value=row.match.linkMode;for(const o of el('flowLinkMode').options)o.disabled=o.value!=='none'&&!row.match[o.value==='search'?'searchAffiliate':'itemAffiliate'];
- renderPhotos();updateFinal();el('flowEditor').scrollIntoView({block:'start',behavior:'instant'});
+ renderPhotos();updateFinal();syncAffiliateBody();el('flowEditor').scrollIntoView({block:'start',behavior:'instant'});
  await prepareSelectedPhotos();
 }
 async function prepareSelectedPhotos(){
@@ -220,14 +224,15 @@ el('flowRefresh').onclick=()=>load(true);
 el('flowAuto').onchange=()=>run('settings',{enabled:el('flowAuto').checked});
 el('flowFilter').onchange=render;
 el('flowBody').oninput=()=>{dirty=true;updateFinal();queueAutoSave();};
-el('flowLinkMode').onchange=()=>{dirty=true;updateFinal();queueAutoSave();};
+el('flowLinkMode').onchange=()=>{dirty=true;syncAffiliateBody();updateFinal();queueAutoSave();};
 el('flowConfirm').onchange=updateFinal;
 el('flowSave').onclick=()=>saveDraft(true);
 el('flowGenerate').onclick=async()=>{
  if(!current||busy||saving)return;
  if(dirty&&!await saveDraft(true))return;
  el('flowConfirm').checked=false;
- await run('retry',{id:current.id,generateBody:true},true);
+ const result=await run('retry',{id:current.id,generateBody:true},true);
+ if(result){current.generatedOnRequest=true;syncAffiliateBody();dirty=true;await saveDraft(false);status('AIで本文を生成し、選択中のアフィリエイトリンクを反映しました。');}
 };
 el('flowRetry').onclick=async()=>{if(dirty){status('編集内容を先に保存してください。');return;}await run('retry',{id:current.id},true);};
 el('flowPhotoRetry').onclick=async()=>{if(!current||preparingPhotos)return;for(const i of current.selected)files[i]=undefined;await prepareSelectedPhotos();};
