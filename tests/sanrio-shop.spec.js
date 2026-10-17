@@ -12,7 +12,7 @@ async function setup(page){
 }
 test('公式楽天店は更新候補として表示し、APIコードを渡して画像・紹介リンク・下書きを保持する',async({page})=>{
  await setup(page);const calls=[];
- await page.route('**/lovely-watch.php?**',r=>{const q=new URL(r.request().url()).searchParams;calls.push(Object.fromEntries(q));
+ await page.route('**/lovely-watch.php?**',r=>{const q=new URL(r.request().url()).searchParams;calls.push(Object.fromEntries(q));if(q.get('action')==='settings')return r.fulfill({json:{ok:true,configured:true}});
   if(q.get('action')==='list')return r.fulfill({json:{ok:true,items:q.get('source')==='sanrio'?[item]:[],nextPage:null}});
   expect(q.get('code')).toBe(item.productInfo.itemCode);expect(q.get('url')).toBe(url);
   if(q.get('action')==='affiliate')return r.fulfill({json:{ok:true,affiliate:{itemCode:item.productInfo.itemCode,url:affiliate}}});
