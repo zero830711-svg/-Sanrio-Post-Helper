@@ -68,3 +68,21 @@ test('手直しした文章を保持し、リンク変更後は作り直して�
  await page.locator('#lovelyPostReset').click();await expect(draft).toHaveValue(/hNEW123/);await expect(page.locator('#lovelyConfirmed')).not.toBeChecked();
  const saved=await draft.inputValue();await draft.fill(saved.replace('🎀','💖'));await page.reload();await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(draft).toHaveValue(saved.replace('🎀','💖'));
 });
+
+test('Amazon短縮リンクと紹介ID付き検索URLを原文のままAIへ渡し、再読込後も保持する',async({page})=>{
+ await setup(page);await page.locator('#lovelyLinkSummary').click();const calls=[];
+ await page.route('**/news.php?**',r=>{
+  if(new URL(r.request().url()).searchParams.get('action')!=='product-groq-draft')return r.fulfill({json:{ok:true,items:[]}});
+  const input=r.request().postDataJSON();calls.push(input.links);
+  return r.fulfill({json:{ok:true,configured:true,text:'🎀 ウサハナのコスメポーチ ✨\n'+input.links.map(l=>l.url).join('\n')+'\n#pr'}});
+ });
+ const urls=['https://link.amazon/B00Yq3m5X','https://amzn.asia/d/example','https://a.co/d/example','https://www.amazon.co.jp/s?k=TOPTOY%20%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA&tag=original-22'];
+ for(const url of urls){await page.locator('#lovelyAmazon').fill(url);await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostAiStatus')).toContainText('AI生成済み');await expect(page.locator('#lovelyPostText')).toHaveValue(new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));expect(calls.at(-1)).toEqual([{kind:'amazon',url},{kind:'rakuten',url:link}]);}
+ const saved=await page.locator('#lovelyPostText').inputValue();await page.reload();await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(page.locator('#lovelyPostText')).toHaveValue(saved);await expect(page.locator('#lovelyAmazon')).toHaveValue(urls.at(-1));
+});
+test('Amazonを装ったドメインや認証情報付きURLは拒否し、編集本文を保持する',async({page})=>{
+ await setup(page);await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyPostText').fill('手動で編集した本文');let calls=0;
+ await page.route('**/news.php?**',r=>{if(new URL(r.request().url()).searchParams.get('action')==='product-groq-draft')calls++;return r.fulfill({json:{ok:true,items:[]}});});
+ for(const url of ['https://link.amazon.evil.test/B00Yq3m5X','https://user:pass@link.amazon/B00Yq3m5X','https://www.amazon.co.jp/s?k=kitty']){await page.locator('#lovelyAmazon').fill(url);await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostAiStatus')).toContainText('リンク');await expect(page.locator('#lovelyPostText')).toHaveValue('手動で編集した本文');}
+ expect(calls).toBe(0);
+});

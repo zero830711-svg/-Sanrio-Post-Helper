@@ -468,10 +468,10 @@ const lovelyWatch = (()=>{
   function ownLink(url,store){
     if(!url)return '';let u;try{u=new URL(url)}catch(e){throw new Error(store+'リンクを確認してください。')}
     const host=u.hostname.toLowerCase();
-    const allowed=store==='Amazon'?['amazon.co.jp','www.amazon.co.jp','amzn.to']:['a.r10.to','hb.afl.rakuten.co.jp'];
-    if(u.protocol!=='https:'||u.username||u.password||u.port||!allowed.includes(host))throw new Error(store+'の自分のアフィリエイトリンクを入力してください。');
-    if(store==='Amazon'&&host!=='amzn.to'&&(!/\/(?:dp|gp\/product|gp\/aw\/d)\/[a-z0-9]{10}(?:\/|$)/i.test(u.pathname)||!u.searchParams.get('tag')))throw new Error('Amazonは紹介ID付きの商品リンクを入力してください。');
-    return u.href;
+    const allowed=store==='Amazon'?['amazon.co.jp','www.amazon.co.jp','amzn.to','amzn.asia','a.co','link.amazon']:['a.r10.to','hb.afl.rakuten.co.jp'];
+    if(/[\s<>]/u.test(url)||u.protocol!=='https:'||u.username||u.password||u.port||!allowed.includes(host))throw new Error(store+'の自分のアフィリエイトリンクを入力してください。');
+    if(store==='Amazon'&&['amazon.co.jp','www.amazon.co.jp'].includes(host)&&((!/\/(?:dp|gp\/product|gp\/aw\/d)\/[a-z0-9]{10}(?:\/|$)/i.test(u.pathname)&&!/^\/(?:s|gp\/search)\/?$/.test(u.pathname))||!u.searchParams.get('tag')))throw new Error('Amazonは紹介ID付きの商品リンクか検索リンクを入力してください。');
+    return url;
   }
   function prompt(kind,item,amazon,rakuten,note,photoCount){
     const rules=kind==='threads'?
