@@ -507,7 +507,7 @@ try{
     $row['match']['itemAffiliate']=$found['affiliate'];$row['match']['searchAffiliate']=pf_affiliate(pf_search_url($row['identity']['keyword']),lw_settings()['affiliateId']??'');
     $row['match']['link']=$found['affiliate'];$row['match']['linkMode']='item';$row['match']['matchStatus']='商品一致を手動確認済み';
    }elseif($action==='retry'){
-    if(!$row['body']){try{$draft=news_groq_draft($row['item']);$row['body']=$draft['text']??'';}catch(Throwable $e){throw new RuntimeException('本文生成は保留：'.$e->getMessage());}}
+    if(!$row['body']||!empty($input['generateBody'])){try{$draft=news_groq_draft($row['item']);$text=trim((string)($draft['text']??''));if($text==='')throw new RuntimeException('AI設定または生成結果を確認してください。');$row['body']=$text;$row['warnings']=array_values(array_filter($row['warnings']??[],static fn($warning)=>!str_starts_with($warning,'本文生成は保留：')));}catch(Throwable $e){throw new RuntimeException('本文生成は保留：'.$e->getMessage().' 現在の本文は保持しています。');}}
     $identity=pf_identity($row['item'],$row['body']);$row['identity']=$identity;
     if(empty($row['item']['rakuten'])){$settings=lw_settings();$row['match']=pf_resolve($row['item'],$row['body'],$identity,$settings);}
    }else throw new RuntimeException('操作を確認してください。');

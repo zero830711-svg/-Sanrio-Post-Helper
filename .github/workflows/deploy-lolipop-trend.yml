@@ -15,6 +15,7 @@ on:
       - "scripts/verify-bandai-news.php"
       - "scripts/verify-gashapon-news.php"
       - "scripts/verify-thankyou-news.php"
+      - "server/lolipop/product-flow.php"
       - "server/lolipop/news.php"
       - "server/lolipop/news-instagram.php"
       - "server/lolipop/news-extra.php"
@@ -109,6 +110,7 @@ jobs:
           put server/lolipop/trend.php
           put server/lolipop/archive-media-batch.php
           put server/lolipop/share.php
+          put server/lolipop/product-flow.php
           put server/lolipop/lovely-watch.php
           put server/lolipop/overseas.php
           bye
