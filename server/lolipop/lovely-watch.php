@@ -626,9 +626,9 @@ function lw_sanrio_item(array $row,array $settings): array {
     try{$item['matchedAffiliate']=lw_affiliate_result(['items'=>[$row]],$code,$settings['affiliateId']);}catch(Throwable $e){}
     return $item;
 }
-function lw_sanrio_data(array $data,array $settings,int $page,string $expectedUrl=''): array {
+function lw_sanrio_data(array $data,array $settings,int $page,string $expectedUrl='',string $expectedCode=''): array {
     $data=lw_rakuten_search_data($data);if(!isset($data['items'])||!is_array($data['items']))throw new RuntimeException('公式楽天店のAPI応答を確認できませんでした。');$items=[];
-    foreach($data['items']??[] as $row){$item=lw_sanrio_item($row,$settings);if($expectedUrl!==''&&$item['url']!==$expectedUrl)throw new RuntimeException('指定した公式サンリオ商品と一致しません。');$items[$item['url']]=$item;}
+    foreach($data['items']??[] as $row){$item=lw_sanrio_item($row,$settings);if($expectedUrl!==''&&($item['url']!==$expectedUrl||($expectedCode!==''&&$item['productInfo']['itemCode']!==$expectedCode)))throw new RuntimeException('指定した公式サンリオ商品と一致しません。');$items[$item['url']]=$item;}
     if($expectedUrl!==''){if(count($items)!==1)throw new RuntimeException('公式サンリオの商品情報を確認できませんでした。');return ['item'=>array_values($items)[0]];}
     $pages=filter_var($data['pageCount']??0,FILTER_VALIDATE_INT);
     return ['items'=>array_values($items),'nextPage'=>$items&&$pages!==false&&$page<min(20,$pages)?$page+1:null,'page'=>$page,'order'=>'API更新順（発売順ではありません）'];
@@ -687,7 +687,7 @@ try {
     if(is_array($result)&&!empty($result['item']['retryRetailer'])&&filemtime($cache)<=time()-5)$result=null;
     if (!is_array($result)) {
         if($sanrio){
-            $result=array_merge(['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>'サンリオ公式 楽天市場店'],lw_sanrio_data(lw_gour_search('',$sanrioSettings,'sanrio',$action==='list'?$page:1,$sanrioCode),$sanrioSettings,$action==='list'?$page:1,$action==='list'?'':$url));
+            $result=array_merge(['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>'サンリオ公式 楽天市場店'],lw_sanrio_data(lw_gour_search('',$sanrioSettings,'sanrio',$action==='list'?$page:1,$sanrioCode),$sanrioSettings,$action==='list'?$page:1,$action==='list'?'':$url,$sanrioCode));
         }else{
         $html=lw_fetch($url);
         $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>lw_skater_article_url($url)||lw_skater_list_url($url)?'スケーター':(lw_gour_article_url($url)||lw_gour_list_url($url)?'グルマンディーズ':(lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy'))];

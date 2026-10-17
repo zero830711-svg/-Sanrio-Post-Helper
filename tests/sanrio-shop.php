@@ -16,4 +16,5 @@ foreach([$url.'?x=1',$url.'#x',str_replace('/sanrio/','/other/',$url),str_replac
 foreach(['itemCode'=>'other:10012345','itemUrl'=>'https://item.rakuten.co.jp/other/item/','itemName'=>''] as $k=>$v){$bad=$row;$bad[$k]=$v;$failed=false;try{lw_sanrio_item($bad,$settings);}catch(RuntimeException $e){$failed=true;}sanrio_check($failed,'Wrong shop or missing identity rejected');}
 $failed=false;try{lw_sanrio_data(['items'=>[$row]],$settings,1,str_replace('4550337000000','other',$url));}catch(RuntimeException $e){$failed=true;}sanrio_check($failed,'Mismatched detail rejected');
 $tracking=$row;$tracking['itemUrl']=$row['affiliateUrl'];unset($tracking['affiliateUrl']);sanrio_check(lw_sanrio_data(['items'=>[$tracking]],$settings,1)['items'][0]['url']===$url,'Current API tracking destination normalized');
+$failed=false;try{lw_sanrio_data(['items'=>[$row]],$settings,1,$url,'sanrio:wrong');}catch(RuntimeException $e){$failed=true;}sanrio_check($failed,'Requested API code mismatch rejected');
 echo "Official Sanrio shop API identity, exact affiliate link, photo scope, deduplication and unknown dates passed\n";
