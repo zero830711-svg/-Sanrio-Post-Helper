@@ -31,6 +31,7 @@ on:
       - "server/lolipop/news-bandai.php"
       - "server/lolipop/news-gashapon.php"
       - "server/lolipop/news-thankyou.php"
+      - "scripts/verify-product-ai.php"
       - "scripts/verify-deployed-news-extra.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
@@ -70,6 +71,7 @@ on:
       - "server/lolipop/news-bandai.php"
       - "server/lolipop/news-gashapon.php"
       - "server/lolipop/news-thankyou.php"
+      - "scripts/verify-product-ai.php"
       - "scripts/verify-deployed-news-extra.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
@@ -122,6 +124,7 @@ jobs:
           php tests/news-parser.php
           php tests/bandai-parser.php
           php tests/gashapon-parser.php
+          php -l scripts/verify-product-ai.php
           php -l scripts/verify-deployed-news-extra.php
 
       - name: Check news identity and saved progress

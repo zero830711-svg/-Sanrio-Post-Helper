@@ -236,3 +236,16 @@ foreach([
  str_replace('detailTxt','unrelated',$eikohFixture),
 ] as $invalid){$rejected=false;try{news_parse($invalid,$liveUrl);}catch(RuntimeException $ex){$rejected=true;}check($rejected);}
 echo "Eikoh EUC-JP product identity and scoped images passed\n";
+
+// A listed set of A-F variants does not authorize model-calculated quantities.
+$bubble=post_ai_input(['mode'=>'product','title'=>'11月下旬発売予定 サンリオキャラクターズ bubble pop charm','text'=>"発売時期：11月下旬発売予定\nラインナップ：A スタンダード / B ちどり柄 / C ひやけ / D ピンク / E ブルー / F ブラック\nツヤっと立体仕様のチャーム。取り外し可能なストラップ紐付き。",'links'=>[['kind'=>'rakuten','url'=>'https://a.r10.to/hPDw44']]]);$bubble['url']='product';
+$generated="🎀 サンリオキャラクターズ bubble pop charm ✨\n💖 全6種から選べます。\n🗓️ 11月下旬発売予定\n💖 取り外し可能なストラップ紐付き。";
+$cleaned=news_groq_validate(json_encode(['body'=>$generated],JSON_UNESCAPED_UNICODE),$bubble);
+check(!str_contains($cleaned,'6'));check(!str_contains($cleaned,'全種'));check(str_contains($cleaned,'11月下旬発売予定'));check(str_contains($cleaned,'ストラップ紐付き'));check(str_contains($cleaned,'https://a.r10.to/hPDw44'));check(str_ends_with($cleaned,'#pr'));
+$confirmed=$bubble;$confirmed['paragraphs'][]='ラインナップ：全6種';$withCount=news_groq_validate(json_encode(['body'=>$generated],JSON_UNESCAPED_UNICODE),$confirmed);check(str_contains($withCount,'全6種'));
+$badSize=$bubble;$badSize['paragraphs'][]='サイズ：169mm';$body="🎀 サンリオキャラクターズ bubble pop charm\nサイズ：6mm。\n🗓️ 11月下旬発売予定";$withoutSize=news_groq_validate(json_encode(['body'=>$body],JSON_UNESCAPED_UNICODE),$badSize);check(!str_contains($withoutSize,'6mm'));
+check(news_number_values('１，０７８円、1.5cm、１．５cm')===['1078','1.5']);check(!in_array('6',news_number_values('169mm JAN4550213153506'),true));
+$factItem=$groqItem;$factItem['facts']=['発売日'=>'11月20日'];check(str_contains(news_groq_validate(json_encode(['body'=>'🎀 クロミのリボンバッグは11月20日発売予定。']),$factItem),'11月20日'));
+try{news_groq_validate(json_encode(['body'=>'全999種です。']),$bubble);check(false);}catch(RuntimeException $e){check(str_contains($e->getMessage(),'本文を変更していません'));}
+check(str_contains(news_groq_prompt($bubble),'ラインナップを数えて'));
+echo "Product unsupported-number sentences omitted without retries; confirmed facts, whole tokens, release precision and original links preserved\n";
