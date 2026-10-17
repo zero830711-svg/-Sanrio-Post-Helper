@@ -14,10 +14,10 @@ try{
  if(!str_contains(strtolower($item['title']??''),'bubble pop charm'))throw new RuntimeException('Requested product identity mismatch');
  $rows=[$item['title']];foreach([$item['manufacturerInfo']['facts']??[],$item['productInfo']['specs']??[]] as $facts)foreach($facts as $name=>$value)if(!preg_match('/素材|価格|在庫|JAN|商品コード|掲載/u',(string)$name))$rows[]=$name.'：'.$value;
  if(!empty($item['productInfo']['contents']))$rows[]='セット内容：'.implode(' / ',$item['productInfo']['contents']);
- $link='https://a.r10.to/hPDw44';$source=mb_substr(implode("\n",$rows),0,4000);
- $result=$request('news.php?action=product-groq-draft',['mode'=>'product','title'=>$item['title'],'text'=>$source,'links'=>[['kind'=>'rakuten','url'=>$link]]]);$text=(string)($result['text']??'');
- if(empty($result['configured'])||!str_contains($text,'bubble pop charm')||!str_contains($text,$link)||!str_ends_with($text,'#pr'))throw new RuntimeException('Generated product text or original link missing');
+ $amazon='https://link.amazon/B00Yq3m5X';$link='https://a.r10.to/hPDw44';$source=mb_substr(implode("\n",$rows),0,4000);
+ $result=$request('news.php?action=product-groq-draft',['mode'=>'product','title'=>$item['title'],'text'=>$source,'links'=>[['kind'=>'amazon','url'=>$amazon],['kind'=>'rakuten','url'=>$link]]]);$text=(string)($result['text']??'');
+ if(empty($result['configured'])||!str_contains($text,'bubble pop charm')||!str_contains($text,$link)||!str_contains($text,$amazon)||!str_ends_with($text,'#pr'))throw new RuntimeException('Generated product text or original link missing');
  $withoutLinks=preg_replace('~https?://[^\s<>]+~u','',$text);$numbers=static function(string $s):array{preg_match_all('/[0-9０-９]+(?:[,，.．][0-9０-９]+)*/u',$s,$m);return array_map(static fn($v)=>str_replace([',','，','．'],['','','.'],mb_convert_kana($v,'n','UTF-8')),$m[0]);};
  if(array_diff($numbers($withoutLinks),$numbers($source)))throw new RuntimeException('Unsupported numbers remain in generated text');
- echo "Live product AI verified: bubble pop charm; supported numeric tokens and original affiliate link preserved; no retries\n";
+ echo "Live product AI verified: bubble pop charm; supported numeric tokens and original Amazon link.amazon and Rakuten links preserved; no retries\n";
 }catch(Throwable $e){fwrite(STDERR,$e->getMessage()."\n");exit(1);}
