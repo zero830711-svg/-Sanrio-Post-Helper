@@ -32,6 +32,8 @@ on:
       - "server/lolipop/news-gashapon.php"
       - "server/lolipop/news-thankyou.php"
       - "scripts/verify-product-ai.php"
+      - "scripts/verify-sanrio-shop.php"
+      - "tests/sanrio-shop.php"
       - "scripts/verify-deployed-news-extra.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
@@ -72,6 +74,8 @@ on:
       - "server/lolipop/news-gashapon.php"
       - "server/lolipop/news-thankyou.php"
       - "scripts/verify-product-ai.php"
+      - "scripts/verify-sanrio-shop.php"
+      - "tests/sanrio-shop.php"
       - "scripts/verify-deployed-news-extra.php"
       - "amazon-reports.js"
       - "revenue-insights.js"
@@ -114,6 +118,8 @@ jobs:
           php tests/hatakeyama-parser.php
           php tests/gourmandise-parser.php
           php tests/skater-parser.php
+          php tests/sanrio-shop.php
+          php -l scripts/verify-sanrio-shop.php
           php -l server/lolipop/overseas.php
           php -l server/lolipop/news.php
           php -l server/lolipop/news-extra.php
