@@ -49,7 +49,7 @@ class WordPress:
     def call(self, path, data=None):
         if not path.startswith("/wp/v2/"):
             raise ValueError("Only standard WordPress REST routes are allowed.")
-        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.9"}
+        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/2.0"}
         if data is not None:
             headers["Content-Type"] = "application/json"
         req = request.Request(
