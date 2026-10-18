@@ -216,6 +216,8 @@ def run(mode):
         plans.append((editable, related, updated, anchor))
         print("PAGE_PLAN:", slug, "character:", character, "guides:", len(related),
               "anchor:", anchor, "existing_marker:", START in raw)
+    if len(plans) != len(CHARACTERS):
+        raise RuntimeError("Preflight did not find a safe guide plan for every dedicated character page.")
     if mode == "check":
         print("CHECK_TOTALS:", json.dumps({
             "pages_to_update": len(plans),
