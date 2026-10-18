@@ -11,7 +11,7 @@ on:
       mode:
         description: 'check=読み取り確認 / apply=分類と一覧を更新'
         required: true
-        default: apply
+        default: check
         type: choice
         options: [check, apply]
 permissions:
@@ -31,7 +31,7 @@ jobs:
     env:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
-      RUN_MODE: ${{ inputs.mode || 'apply' }}
+      RUN_MODE: ${{ inputs.mode || 'check' }}
     steps:
       - uses: actions/checkout@v6
       - run: python3 scripts/build-product-directory.py --mode "$RUN_MODE"
