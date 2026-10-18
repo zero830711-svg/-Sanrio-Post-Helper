@@ -82,6 +82,7 @@ def inspect(wp):
         "slug": "characters", "context": "edit", "_fields": "id,slug,title,content"
     }))
     print("CHARACTER_DIRECTORY_PAGES: " + str(len(directory_pages)))
+    print("CHARACTER_DIRECTORY_LOOKUP: slug=characters")
     for directory_page in directory_pages:
         directory_title = directory_page.get("title", {})
         directory_title = directory_title.get("rendered", directory_title.get("raw", "")) if isinstance(directory_title, dict) else directory_title
