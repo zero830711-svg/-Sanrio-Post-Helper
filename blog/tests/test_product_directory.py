@@ -60,6 +60,7 @@ class Tests(unittest.TestCase):
         self.assertIn('♡', section)
         self.assertIn('Amazonで探す', section)
         self.assertIn('楽天で探す', section)
+        self.assertIn('型番・JANを手がかりに購入先を探せます', section)
         self.assertNotIn('商品情報・仕様を見る', section)
         self.assertNotIn('goods-jan-4900000000000', section)
 
