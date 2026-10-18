@@ -1,4 +1,4 @@
-"""Publish five reviewed, unique Sanrio product guides via the standard WP REST API."""
+"""Resume publishing five reviewed Sanrio product guides via the standard WP REST API."""
 import argparse
 import importlib.util
 import json
@@ -19,18 +19,24 @@ def load_candidates():
     return products
 
 
-def unique_candidates(wp, products):
+def pending_candidates(wp, products):
     wp.call("/wp/v2/users/me?context=edit&_fields=id")
     existing = wp.posts()
-    ready = []
+    pending = []
     for product in products:
         hits = publisher.duplicates(product, existing)
-        if hits:
-            print("SKIP existing:", product["jan"], ",".join(str(p["id"]) for p in hits))
-        else:
+        slug = "goods-jan-" + product["jan"]
+        if not hits:
             print("READY:", product["jan"], product["title"])
-            ready.append(product)
-    return ready
+            pending.append(product)
+        elif len(hits) == 1 and hits[0]["slug"] == slug and hits[0]["status"] == "draft":
+            print("RESUME_DRAFT:", product["jan"], hits[0]["id"])
+            pending.append(product)
+        elif len(hits) == 1 and hits[0]["slug"] == slug and hits[0]["status"] == "publish":
+            print("ALREADY_PUBLISHED:", product["jan"], hits[0]["id"])
+        else:
+            raise RuntimeError("Unexpected duplicate state for JAN " + product["jan"] + "; no further posts were changed.")
+    return pending
 
 
 if __name__ == "__main__":
@@ -40,13 +46,10 @@ if __name__ == "__main__":
     try:
         products = load_candidates()
         wp = publisher.WordPress()
-        ready = unique_candidates(wp, products)
-        if len(ready) != 5:
-            raise RuntimeError(f"Expected five unique products; found {len(ready)}. No article was published.")
-        print("READY_COUNT:", len(ready))
-        print("SOURCE_BATCH: 2026-10-18-batch4")
-        if args.mode == "publish":
-            publisher.run("publish", wp, ready)
+        pending = pending_candidates(wp, products)
+        print("PENDING_COUNT:", len(pending))
+        if args.mode == "publish" and pending:
+            publisher.run("publish", wp, pending)
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(1)
