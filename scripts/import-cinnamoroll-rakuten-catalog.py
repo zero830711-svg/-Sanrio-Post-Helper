@@ -18,8 +18,9 @@ PAGE_ID = 796
 START = "<!-- sf-character-product-guides:v1 -->"
 END = "<!-- /sf-character-product-guides:v1 -->"
 RAKUTEN_IMAGE_HOSTS = {"image.rakuten.co.jp", "shop.r10s.jp", "tshop.r10s.jp"}
-MAX_CARDS = 36
-MIN_CARDS = 24
+MAX_CARDS = 72
+MIN_CARDS = 48
+CATEGORIES = ["ぬいぐるみ", "バッグ・ポーチ", "文具・シール", "キーホルダー", "タオル", "食器・キッチン", "生活雑貨", "ファッション"]
 MIN_IMAGE_EDGE = 300
 AMAZON_TAG = "ononbrothers2-22"
 GUIDE_TITLE = "シナモロールの商品ガイド"
@@ -134,6 +135,7 @@ def extract_existing_cards(section):
                 "image": html.unescape(attrs["data-image"]),
                 "affiliate": html.unescape(attrs["data-affiliate"]),
                 "shop": html.unescape(attrs["data-shop"]),
+                "category": html.unescape(attrs.get("data-category", "")),
             })
     return cards
 
@@ -156,56 +158,94 @@ def text_from(value):
     return html.unescape(re.sub(r"<[^>]+>", "", value)).strip()
 
 
+def infer_category(title):
+    value = str(title or "")
+    if re.search(r"バッグ|ポーチ|リュック|ショルダー", value):
+        return "バッグ・ポーチ"
+    if re.search(r"文房具|ペン|ノート|シール|ステッカー|筆箱|メモ", value):
+        return "文具・シール"
+    if re.search(r"キーホルダー|マスコット|チャーム|ストラップ", value):
+        return "キーホルダー"
+    if re.search(r"タオル|ハンカチ", value):
+        return "タオル"
+    if re.search(r"水筒|マグ|弁当|ランチ|食器|カップ|ボトル", value):
+        return "食器・キッチン"
+    if re.search(r"服|アパレル|靴下|財布|帽子|ファッション|スニーカー", value):
+        return "ファッション"
+    if re.search(r"クッション|時計|収納|雑貨|ミラー|傘", value):
+        return "生活雑貨"
+    return "ぬいぐるみ"
+
+
 def clean_candidate(item):
     if not isinstance(item, dict):
         return None
     code = str(item.get("code", "")).strip()
-    title = re.sub(r"\s+", " ", str(item.get("title", ""))).strip()
+    title = re.sub(r"\\s+", " ", str(item.get("title", ""))).strip()
     image = safe_image_url(item.get("image"))
     affiliate = safe_affiliate_url(item.get("affiliate"))
-    shop = re.sub(r"\s+", " ", str(item.get("shop", ""))).strip()[:100]
+    shop = re.sub(r"\\s+", " ", str(item.get("shop", ""))).strip()[:100]
+    category = str(item.get("category", "")).strip()
+    if category not in CATEGORIES:
+        category = infer_category(title)
     if not re.fullmatch(r"[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+", code) or not title or not image or not affiliate:
         return None
-    return {"code": code, "title": title[:300], "image": image, "affiliate": affiliate, "shop": shop}
+    return {"code": code, "title": title[:300], "image": image, "affiliate": affiliate, "shop": shop, "category": category}
 
 
 def build_candidate_set(raw_items, old_cards):
-    selected = []
+    buckets = {category: [] for category in CATEGORIES}
     seen_codes = set()
     seen_names = set()
     seen_images = set()
-    for item in old_cards:
-        clean = clean_candidate(item)
-        if not clean:
-            continue
-        selected.append(clean)
-        seen_codes.add(clean["code"])
-        seen_names.add(canonical_text(clean["title"]))
-        seen_images.add(clean["image"])
-
-    checked = 0
-    low_or_failed = 0
     duplicates = 0
-    for raw in raw_items:
-        if len(selected) >= MAX_CARDS:
-            break
+
+    def add_to_pool(raw, existing=False):
+        nonlocal duplicates
         item = clean_candidate(raw)
         if not item:
-            continue
+            return
         name_key = canonical_text(item["title"])
         if item["code"] in seen_codes or item["image"] in seen_images or (name_key and name_key in seen_names):
             duplicates += 1
-            continue
-        checked += 1
-        dimensions = verify_image(item["image"])
-        if not dimensions:
-            low_or_failed += 1
-            continue
-        item["width"], item["height"] = dimensions
-        selected.append(item)
+            return
+        item["existing"] = existing
+        buckets[item["category"]].append(item)
         seen_codes.add(item["code"])
-        seen_names.add(name_key)
         seen_images.add(item["image"])
+        if name_key:
+            seen_names.add(name_key)
+
+    for item in old_cards:
+        add_to_pool(item, existing=True)
+    for item in raw_items:
+        add_to_pool(item)
+
+    selected = []
+    checked = 0
+    low_or_failed = 0
+    offsets = {category: 0 for category in CATEGORIES}
+    made_progress = True
+    while len(selected) < MAX_CARDS and made_progress:
+        made_progress = False
+        for category in CATEGORIES:
+            while offsets[category] < len(buckets[category]):
+                item = buckets[category][offsets[category]]
+                offsets[category] += 1
+                made_progress = True
+                if item["existing"]:
+                    selected.append(item)
+                    break
+                checked += 1
+                dimensions = verify_image(item["image"])
+                if not dimensions:
+                    low_or_failed += 1
+                    continue
+                item["width"], item["height"] = dimensions
+                selected.append(item)
+                break
+            if len(selected) >= MAX_CARDS:
+                break
     return selected, checked, low_or_failed, duplicates
 
 
@@ -221,9 +261,11 @@ def photo_card(item):
     affiliate = html.escape(item["affiliate"], quote=True)
     shop = html.escape(item["shop"] or "楽天市場", quote=True)
     amazon = html.escape(marketplace_urls(item["title"]), quote=True)
+    category = html.escape(item.get("category", infer_category(item["title"])), quote=True)
     return (
         '<article class="sf-cinna-rakuten-card" data-code="' + code + '" data-title="' + title
         + '" data-image="' + image + '" data-affiliate="' + affiliate + '" data-shop="' + shop
+        + '" data-category="' + category
         + '" style="min-width:0;overflow:hidden;border:1px solid #eadde5;border-radius:14px;background:#fff">'
         '<span style="display:grid;place-items:center;aspect-ratio:1/1;padding:5px;background:#fff">'
         '<img src="' + image + '" alt="' + title + '" loading="lazy" decoding="async" '
@@ -245,7 +287,7 @@ def section_html(old_section, products, guide_cards):
     heading_match = re.search(r"<h2\b[^>]*>.*?</h2>", old_section, flags=re.S)
     intro_match = re.search(r"<p\b[^>]*>.*?</p>", old_section[heading_match.end():] if heading_match else "", flags=re.S)
     heading = heading_match.group(0) if heading_match else '<h2 id="sf-character-product-guides-title">' + GUIDE_TITLE + '</h2>'
-    intro = '<p>楽天市場の商品画像を確認できたグッズを、写真付き3列で掲載しています。販売状況は購入先でご確認ください。</p>'
+    intro = '<p>楽天市場の画像を確認した商品を、ジャンルごとに写真付き3列で掲載しています。販売状況は購入先でご確認ください。</p>'
     card_grid = (
         '<div class="sf-cinna-photo-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(7px,1.8vw,12px)">'
         + "".join(photo_card(product) for product in products) + '</div>'
@@ -311,12 +353,13 @@ def main():
     if card_count != len(products) or image_count != len(products) or "grid-template-columns:repeat(3,minmax(0,1fr))" not in saved_section:
         raise RuntimeError("The saved three-column photo catalog did not pass verification.")
 
+    category_counts = {category: sum(1 for item in products if item["category"] == category) for category in CATEGORIES}
     print(
         "Updated Cinnamoroll page 796 through WordPress REST: "
         "%d photo cards; %d unique Rakuten item codes; "
         "%d candidate images checked; %d low-resolution/unavailable; "
-        "%d duplicates skipped. New images require at least %d px on the short edge."
-        % (card_count, card_count, checked, rejected, duplicates, MIN_IMAGE_EDGE)
+        "%d duplicates skipped; category counts %s. New images require at least %d px on the short edge."
+        % (card_count, card_count, checked, rejected, duplicates, category_counts, MIN_IMAGE_EDGE)
     )
 
 
