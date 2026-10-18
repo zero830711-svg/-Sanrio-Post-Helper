@@ -11,6 +11,9 @@ CHARACTERS = [
     ("マイメロディ", "my-melody", 798),
     ("シナモロール", "cinnamoroll", 796),
     ("ハローキティ", "hello-kitty", 801),
+    ("ポムポムプリン", "pompompurin", 799),
+    ("ハンギョドン", "hangyodon", 802),
+    ("リトルツインスターズ", "little-twin-stars", 803),
 ]
 
 class WordPress:
