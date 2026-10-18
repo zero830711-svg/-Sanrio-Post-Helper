@@ -67,7 +67,7 @@ def build_grid(old_section):
         raise RuntimeError("Expected exactly the three existing Cinnamoroll guide cards.")
     cards = []
     for article in articles:
-        title_match = re.search(r"<h3\b[^>]*>(.*?)</h3>", article, flags=re.S)
+        title_match = re.search(r"<h3\b[^>]*>(.*?)</h3>", article, flags=re.S) or re.search(r"<strong\b[^>]*>(.*?)</strong>", article, flags=re.S)
         link_match = re.search(r"""<a\b[^>]*href=["']([^"']+)["']""", article, flags=re.S)
         if not title_match or not link_match:
             raise RuntimeError("A current product card is missing its title or article link.")
