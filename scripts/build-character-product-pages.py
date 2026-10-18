@@ -1,4 +1,4 @@
-"""Refresh existing and create new Sanrio character landing pages via standard WP REST API."""
+"""Idempotently refresh all existing and new character guides via standard WP REST API."""
 import base64
 import html
 import json
