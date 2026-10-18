@@ -48,7 +48,7 @@ class WordPress:
     def call(self, path, data=None):
         if not path.startswith("/wp/v2/"):
             raise ValueError("Only standard WordPress REST routes are allowed.")
-        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.4"}
+        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.5"}
         if data is not None:
             headers["Content-Type"] = "application/json"
         req = request.Request(
@@ -212,7 +212,9 @@ def refresh(wp):
             wp.call("/wp/v2/pages/%d" % page_id, {"content": new_content})
             verify = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,content" % page_id)
             raw = verify.get("content", {}).get("raw", "")
-            if verify.get("id") != page_id or MARKER not in raw or END not in raw:
+            has_generated_section = MARKER in raw and END in raw
+            has_existing_guide_cards = 'id="sf-character-product-guides-title"' in raw or "id='sf-character-product-guides-title'" in raw
+            if verify.get("id") != page_id or not (has_generated_section or has_existing_guide_cards):
                 raise RuntimeError("Character page update verification failed: " + slug)
             updated.append(name)
             continue
