@@ -89,12 +89,12 @@ def insertion_point(raw):
             close = raw.find("</section>", pos)
             if close >= 0:
                 return close + len("</section>"), "hero-section"
-    h1 = re.search(r"<h1\\b[^>]*>.*?</h1>", raw, re.I | re.S)
+    h1 = re.search(r"<h1\b[^>]*>.*?</h1>", raw, re.I | re.S)
     if h1:
         close = raw.find("</section>", h1.end())
         if close >= 0:
             return close + len("</section>"), "first-section-after-h1"
-    # If the custom page has no known CTA anchor, append a valid section at content end.\n    return len(raw), "content-end"
+    return len(raw), "content-end"
 
 def update_content(raw, section):
     if START in raw and END in raw:
