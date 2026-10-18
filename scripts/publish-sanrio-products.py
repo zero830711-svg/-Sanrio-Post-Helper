@@ -141,7 +141,11 @@ if __name__ == '__main__':
     parser.add_argument('--mode', choices=['check', 'draft', 'publish'], default='check')
     args = parser.parse_args()
     try:
-        products = json.loads((ROOT / 'blog/products-2026-10-18.json').read_text())
+        products = []
+        for filename in ('blog/products-2026-10-18.json', 'blog/products-2026-10-18-batch2.json'):
+            path = ROOT / filename
+            if path.exists():
+                products.extend(json.loads(path.read_text()))
         run(args.mode, WordPress(), products)
     except (RuntimeError, error.URLError, ValueError, KeyError) as exc:
         # Network exception strings can contain URLs, so show a bounded operational message.
