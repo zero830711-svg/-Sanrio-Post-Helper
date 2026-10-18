@@ -1,0 +1,30 @@
+name: Refresh Sanrio character guides
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/build-character-product-pages.py
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-character-guide-refresh
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check character guide cleanup
+        run: python3 -m unittest discover -s blog/tests -p 'test_*directory.py' -v
+  refresh:
+    if: github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Update character pages through WordPress REST API
+        run: python3 scripts/build-character-product-pages.py
