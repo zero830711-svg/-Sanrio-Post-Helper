@@ -38,7 +38,7 @@ $('catalogExport').onclick=()=>{
  const characterName=character.selectedOptions[0].dataset.label,kindName=kind.selectedOptions[0].dataset.label;
  const products=lastItems.filter(item=>names.includes(String(item.asin||item.ASIN||'').toUpperCase())).map(item=>({amazon_asin:String(item.asin||item.ASIN||'').toUpperCase(),title:String(item.title||'').slice(0,300),query:(characterName+' '+kindName+' '+String(item.title||'')).slice(0,240),character:characterName,character_slug:character.value,kind:kindName,kind_slug:kind.value,source:item.url}));
  if(!products.length){$('catalogStatus').textContent='ASIN付きの商品候補がありません。';return;}
- const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\\.\\d{3}Z$/,'Z');const url=URL.createObjectURL(new Blob([JSON.stringify(products,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='products-helper-'+stamp+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);$('catalogStatus').textContent=products.length+'件を書き出しました。内容を確認してからブログ/products-*.jsonへ追加してください。記事は作成されません。';
+ const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z$/,'Z');const url=URL.createObjectURL(new Blob([JSON.stringify(products,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='products-helper-'+stamp+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);$('catalogStatus').textContent=products.length+'件を書き出しました。内容を確認してからブログ/products-*.jsonへ追加してください。記事は作成されません。';
 };
 $('saveConnection').onclick=async()=>{
  if(busy)return;setBusy(true);status('認証情報を保存しています…');
