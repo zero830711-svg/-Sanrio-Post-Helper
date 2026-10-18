@@ -346,17 +346,22 @@ def compact_top_and_prioritize_products(content, product_markup):
             raise RuntimeError("Could not find the home-page guide wrapper.")
         content = content[:wrapper.start()] + CSS + content[wrapper.start():]
 
-    # Put the already-existing products immediately after the compact search hero.
+    # Keep the original order: search hero, character shortcuts, genres, products.
     section_match = latest_section(content)
     section = section_match.group(0)
     content = content[:section_match.start()] + content[section_match.end():]
-    hero_end = re.search(r"</header>", content, flags=re.I)
-    if not hero_end:
-        raise RuntimeError("Could not find the home-page search hero.")
-    insert_at = hero_end.end()
+    genre = re.search(
+        r'<section\b[^>]*>(?:(?!<section\b).)*?<h2\b[^>]*>\s*何を探していますか？\s*</h2>.*?</section>',
+        content, flags=re.S | re.I,
+    )
+    if not genre:
+        raise RuntimeError("Could not find the original genre section.")
+    insert_at = genre.end()
     content = content[:insert_at] + section + content[insert_at:]
-    if content.find('<header class="sf-hero"') > content.find('id="sf-home-photo-products"'):
-        raise RuntimeError("Latest product cards were not placed after the hero.")
+    character_at = content.find('id="characters"')
+    products_at = content.find('id="sf-home-photo-products"')
+    if character_at < 0 or not character_at < genre.start() < products_at:
+        raise RuntimeError("Original home-page section order was not restored.")
     return content
 
 
@@ -399,7 +404,7 @@ def main():
             raise RuntimeError("A saved product photo or article link is missing: " + title)
     print("Updated home page through WordPress REST API.")
     print("%d existing product cards now have verified photos and saved controls." % expected_count)
-    print("Product section is directly below the search hero; cards are 3 columns on mobile.")
+    print("Original order restored: hero, characters, genres, products; photo cards remain 3 columns.")
     for _, title, image_url, _ in cards:
         print("Verified photo: %s — %s" % (title, image_url))
 
