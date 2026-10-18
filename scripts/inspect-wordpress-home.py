@@ -93,7 +93,7 @@ def inspect(wp):
         for href, body in directory_anchors:
             label = text_only(body)
             if label:
-                print("CHARACTER_DIRECTORY_LINK: " + repr((html.unescape(href), label))
+                print("CHARACTER_DIRECTORY_LINK: " + repr((html.unescape(href), label)))
 
 
 if __name__ == "__main__":
