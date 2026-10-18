@@ -30,6 +30,10 @@ jobs:
           python3 -m pip install --quiet Pillow
           python3 -m py_compile scripts/import-cinnamoroll-rakuten-catalog.py
           php -l scripts/fetch-cinnamoroll-rakuten.php
+      - name: Install FTPS client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp
       - name: Fetch private Rakuten candidates and update only Cinnamoroll
         shell: bash
         run: |
