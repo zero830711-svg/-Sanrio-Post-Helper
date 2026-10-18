@@ -79,20 +79,30 @@ def repair_goods(raw):
 
 def main():
     wp = catalog.WordPress()
+    ids = ','.join(str(value[0]) for value in catalog.CHARACTERS.values())
+    batch_path = '/wp/v2/pages?context=edit&per_page=100&include=' + ids + '&_fields=id,slug,content'
+    pages = {page['id']: page for page in wp.call(batch_path)}
+    plans = []
     for character, (page_id, slug, name) in catalog.CHARACTERS.items():
-        page = wp.call('/wp/v2/pages/%d?context=edit&_fields=id,slug,content' % page_id)
+        page = pages.get(page_id, {})
         if page.get('id') != page_id or page.get('slug') != slug:
             raise RuntimeError('Character page identity mismatch: ' + character)
         updated, old_count, products = repair_content(page['content']['raw'], character)
-        wp.call('/wp/v2/pages/%d' % page_id, {'content': updated})
-        verify = wp.call('/wp/v2/pages/%d?context=edit&_fields=id,content' % page_id)
-        saved = verify['content']['raw']
+        plans.append((character, page_id, slug, updated, old_count, products))
+    for character, page_id, slug, updated, old_count, products in plans:
+        if updated != pages[page_id]['content']['raw']:
+            wp.call('/wp/v2/pages/%d' % page_id, {'content': updated})
+        print('CLEANED', character, old_count, '->', len(products), flush=True)
+    # One independent REST read verifies the saved content of every catalog.
+    saved_pages = {page['id']: page for page in wp.call(batch_path)}
+    for character, page_id, slug, updated, old_count, products in plans:
+        saved_page = saved_pages.get(page_id, {})
+        saved = saved_page.get('content', {}).get('raw', '')
         cards = catalog.extract_existing_cards(saved)
-        if len(cards) != len(products) or any(not catalog.matches_character(c['title'], character) for c in cards):
+        if saved_page.get('slug') != slug or len(cards) != len(products) or any(not catalog.matches_character(c['title'], character) for c in cards):
             raise RuntimeError('Saved catalog verification failed: ' + character)
         if 'data-sf-catalog-category' not in saved or 'sf-catalog-compact' not in saved:
             raise RuntimeError('Catalog controls were not retained: ' + character)
-        print('CLEANED', character, old_count, '->', len(cards), 'categories', {c: sum(p['category']==c for p in products) for c in catalog.CATEGORIES}, flush=True)
     # Update directory links without regenerating its layout or sort order.
     page = wp.call('/wp/v2/pages/821?context=edit&_fields=id,slug,content')
     if page.get('slug') != 'characters':
