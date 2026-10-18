@@ -1,0 +1,36 @@
+name: Add marketplace buttons to homepage product cards
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/update-home-product-ctas.py
+      - .github/workflows/update-home-product-ctas.yml
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check=対象確認 / apply=トップページ商品カードを更新'
+        required: true
+        default: check
+        type: choice
+        options: [check, apply]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-home-product-ctas
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      RUN_MODE: ${{ contains(github.event.head_commit.message, '[apply-home-product-ctas]') && 'apply' || inputs.mode || 'check' }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate the REST updater
+        run: |
+          python3 -m py_compile scripts/update-home-product-ctas.py
+          python3 scripts/update-home-product-ctas.py --self-test
+      - name: Add marketplace links to the existing homepage cards
+        run: python3 scripts/update-home-product-ctas.py --mode "$RUN_MODE"
