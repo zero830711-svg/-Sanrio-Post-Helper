@@ -32,6 +32,24 @@ CHARACTERS = {
     "character-mymelody": "マイメロディ",
     "character-kuromi": "クロミ",
     "character-cinnamoroll": "シナモロール",
+    "character-kirimi-chan": "KIRIMIちゃん.",
+    "character-osaru-no-monkichi": "おさるのもんきち",
+    "character-gaopoweru": "がおぱわるぅ",
+    "character-corocorokuririn": "コロコロクリリン",
+    "character-goropikadon": "ゴロピカドン",
+    "character-jewelpet": "ジュエルペット",
+    "character-sugar-bunnies": "シュガーバニーズ",
+    "character-charmmy-kitty": "チャーミーキティ",
+    "character-chococat": "チョコキャット",
+    "character-dear-daniel": "ディアダニエル",
+    "character-hanamaru-obake": "はなまるおばけ",
+    "character-bonbonribbon": "ぼんぼんりぼん",
+    "character-marshmallow-fuwafuwa-nyanko": "マシュマロみたいなふわふわにゃんこ",
+    "character-marumofubiyori": "まるもふびより",
+    "character-marroncream": "マロンクリーム",
+    "character-minna-no-taabou": "みんなのたあ坊",
+    "character-little-forest-fellow": "リトルフォレストフェロォ",
+    "character-ruroromannic": "ルロロマニック",
 }
 
 
@@ -206,6 +224,9 @@ def run(mode):
         }, ensure_ascii=False))
         return
 
+    missing_pages = [slug for slug in CHARACTERS if slug not in page_by_slug or page_by_slug[slug].get("status") != "publish"]
+    if missing_pages:
+        raise RuntimeError("Dedicated character pages are missing or unpublished: " + ", ".join(missing_pages))
     plans = []
     for slug, character in CHARACTERS.items():
         page = page_by_slug.get(slug)
@@ -225,8 +246,6 @@ def run(mode):
         plans.append((editable, related, updated, anchor))
         print("PAGE_PLAN:", slug, "character:", character, "guides:", len(related),
               "anchor:", anchor, "existing_marker:", START in raw)
-    if len(plans) != len(CHARACTERS):
-        raise RuntimeError("Preflight did not find a safe guide plan for every dedicated character page.")
     if mode == "check":
         print("CHECK_TOTALS:", json.dumps({
             "pages_to_update": len(plans),
