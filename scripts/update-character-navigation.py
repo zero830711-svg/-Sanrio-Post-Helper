@@ -53,6 +53,8 @@ def update_directory(raw, guides):
     anchor = re.compile(r"<a\b([^>]*?)href=(['\"])(.*?)\2([^>]*)>(.*?)</a>", re.I | re.S)
     def replace(match):
         name = plain_text(match.group(5))
+        if name == "チアリステイルズ":
+            return ""
         target = link_for(name, slug_by_name, guides)
         if target is None:
             return match.group(0)
@@ -60,20 +62,7 @@ def update_directory(raw, guides):
         return "<a" + match.group(1) + "href=" + match.group(2) + html.escape(target, quote=True) + match.group(2) + match.group(4) + ">" + match.group(5) + "</a>"
     updated = anchor.sub(replace, raw)
     missing = set(slug_by_name) - found
-    if missing == {"チアリステイルズ"}:
-        # This catalog entry is absent from the current directory; clone the last
-        # tile's classes so it joins the same responsive character grid.
-        matches = [match for match in anchor.finditer(updated)
-                   if plain_text(match.group(5)) in found]
-        if not matches:
-            raise RuntimeError("Character directory has no links to extend.")
-        last = matches[-1]
-        slug = slug_by_name["チアリステイルズ"]
-        target = "/goods/?character=" + slug
-        tile = "<a" + last.group(1) + "href=" + last.group(2) + html.escape(target, quote=True) + last.group(2) + last.group(4) + ">チアリステイルズ</a>"
-        updated = updated[:last.end()] + tile + updated[last.end():]
-        found.add("チアリステイルズ")
-    elif missing:
+    if missing:
         raise RuntimeError("Character directory is missing catalog entries: " + ", ".join(sorted(missing)))
     if found != set(slug_by_name):
         raise RuntimeError("Could not verify every catalog character link.")
