@@ -48,7 +48,7 @@ class WordPress:
     def call(self, path, data=None):
         if not path.startswith("/wp/v2/"):
             raise ValueError("Only standard WordPress REST routes are allowed.")
-        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.5"}
+        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.6"}
         if data is not None:
             headers["Content-Type"] = "application/json"
         req = request.Request(
@@ -203,8 +203,9 @@ def refresh(wp):
             if not isinstance(content, str) or (name not in content and name not in title_text):
                 raise RuntimeError("Character identity could not be verified for page ID %d." % page_id)
             content = clean_generated_content(content, name)
-            if 'id="sf-character-product-guides-title"' in content or "id='sf-character-product-guides-title'" in content:
-                # Existing editorial guide cards already cover this character; avoid a duplicate listing.
+            has_existing_guide_cards = 'id="sf-character-product-guides-title"' in content or "id='sf-character-product-guides-title'" in content
+            if has_existing_guide_cards or not posts:
+                # Avoid duplicate editorial cards and empty catalog blocks.
                 new_content = route_legacy_goods_links(content, slug)
             else:
                 product_section = cards_section(name, slug, posts)
@@ -214,7 +215,7 @@ def refresh(wp):
             raw = verify.get("content", {}).get("raw", "")
             has_generated_section = MARKER in raw and END in raw
             has_existing_guide_cards = 'id="sf-character-product-guides-title"' in raw or "id='sf-character-product-guides-title'" in raw
-            if verify.get("id") != page_id or not (has_generated_section or has_existing_guide_cards):
+            if verify.get("id") != page_id or not (has_generated_section or has_existing_guide_cards or not posts):
                 raise RuntimeError("Character page update verification failed: " + slug)
             updated.append(name)
             continue
