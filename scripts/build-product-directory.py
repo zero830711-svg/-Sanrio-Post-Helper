@@ -222,7 +222,7 @@ def make_section(products, posts, terms, page_urls=None):
         else:
             title = p.get('name') or p['title']
             product_visual = '<div aria-hidden="true" style="display:grid;place-items:center;width:100%;height:160px;border-radius:12px;background:linear-gradient(135deg,#fdf1f6,#eff9f6);color:#8b7184;font-size:38px">♡</div>'
-            detail = '<div class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit">' + product_visual + '<strong>' + html.escape(title) + '</strong><span>メーカー・型番情報を確認 →</span></div>'
+            detail = '<div class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit">' + product_visual + '<strong>' + html.escape(title) + '</strong><span>型番・JANを手がかりに購入先を探せます</span></div>'
         amazon_url, rakuten_url = marketplace_links(p)
         search_text = ' '.join(str(p.get(key, '')) for key in ('character', 'kind', 'name', 'title', 'model', 'jan'))
         data_attrs = (
