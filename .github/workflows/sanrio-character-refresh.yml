@@ -28,3 +28,5 @@ jobs:
       - uses: actions/checkout@v6
       - name: Update character pages through WordPress REST API
         run: python3 scripts/build-character-product-pages.py
+      - name: Route character directory to guides through WordPress REST API
+        run: python3 scripts/update-character-navigation.py --mode apply
