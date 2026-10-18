@@ -104,6 +104,7 @@ def run(mode):
     wp = WordPress()
     wp.call("/wp/v2/users/me?context=edit&_fields=id")
     if mode == "audit":
+        print("AUDIT_STEP: pages")
         pages, page_no = [], 1
         while page_no <= 10:
             batch = wp.call("/wp/v2/pages?" + parse.urlencode({
@@ -113,6 +114,8 @@ def run(mode):
                 break
             pages.extend(batch)
             page_no += 1
+        print("AUDIT_PAGES:", len(pages))
+        print("AUDIT_STEP: tags")
         tags = {}
         tag_no = 1
         while tag_no <= 10:
@@ -122,7 +125,9 @@ def run(mode):
                 break
             tags.update({tag["id"]: {"slug": tag["slug"], "name": tag["name"]} for tag in batch})
             tag_no += 1
-        print("AUDIT_TAGS:", len(tags))\n        print("AUDIT_STEP: product-posts")\n        cats = wp.call("/wp/v2/categories?" + parse.urlencode({"slug": "shopping-products", "_fields": "id"}))
+        print("AUDIT_TAGS:", len(tags))
+        print("AUDIT_STEP: product-posts")
+        cats = wp.call("/wp/v2/categories?" + parse.urlencode({"slug": "shopping-products", "_fields": "id"}))
         products, post_no = [], 1
         if cats:
             while post_no <= 10:
