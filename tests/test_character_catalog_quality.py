@@ -22,6 +22,10 @@ class QualityTests(unittest.TestCase):
         rows=[item('a','KIRIMIちゃん. ステッカー 4947864052607'),item('b','好評 KIRIMIちゃん. シール 4947864052607'),item('c','KIRIMIちゃん. マスコット 175200'),item('d','サンリオ KIRIMIちゃん. ミニマスコット 175200')]
         products,*_=c.build_candidate_set([],rows,'kirimi-chan')
         self.assertEqual(len(products),2)
+    def test_missing_jan_offer_matches_same_series_design(self):
+        rows=[item('a','KIRIMIちゃん. まじかる百貨店ステッカー 4947864052607 KIRIMIちゃん.01'),item('b','まじかる百貨店ステッカー KIRIMIちゃん.(1)'),item('c','まじかる百貨店ステッカー KIRIMIちゃん.(2)')]
+        products,*_=c.build_candidate_set([],rows,'kirimi-chan')
+        self.assertEqual(len(products),2)
     def test_category_comes_from_item_not_search_query(self):
         products,*_=c.build_candidate_set([], [item('a','KIRIMIちゃん. フラガリアメモリーズ マスコット'),item('b','KIRIMIちゃん. ハンカチ')], 'kirimi-chan')
         self.assertEqual({p['category'] for p in products},{'キーホルダー','タオル'})

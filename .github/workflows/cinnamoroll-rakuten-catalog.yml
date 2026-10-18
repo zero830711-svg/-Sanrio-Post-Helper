@@ -31,10 +31,12 @@ jobs:
           python3 -m py_compile scripts/import-cinnamoroll-rakuten-catalog.py
           php -l scripts/fetch-cinnamoroll-rakuten.php
       - name: Install FTPS client
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[refresh-catalogs]')
         run: |
           sudo apt-get update -qq
           sudo apt-get install --yes lftp
       - name: Fetch private Rakuten candidates and update only Cinnamoroll
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[refresh-catalogs]')
         shell: bash
         run: |
           set -euo pipefail

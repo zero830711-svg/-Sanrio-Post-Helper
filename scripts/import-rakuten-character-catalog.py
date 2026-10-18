@@ -121,10 +121,12 @@ def display_title(title):
     title = re.sub(r"[【\[][^】\]]*(?:クーポン|OFF|ポイント|送料無料|メール便|レビュー投稿)[^】\]]*[】\]]", "", title, flags=re.I)
     title = re.sub(r"^[◆◇]+.*?対応商品[◆◇]+", "", title)
     title = re.sub(r"^(?:数量限定\s*在庫セール\s*売れ筋|数量限定|在庫セール)\s*", "", title)
-    return re.sub(r"\s+", " ", title).strip() or "商品情報"
+    title = re.sub(r"(?<!\S)(?:グッズ|定番|好評|楽天|通販|かわいい|可愛い|カワイイ|キャラクター|推しグッズ)(?!\S)", "", title)
+    title = re.sub(r"\s+", " ", title).strip() or "商品情報"
+    return title
 
 
-def identity_keys(item):
+def identity_keys(item, character=None):
     title = unicodedata.normalize("NFKC", item["title"])
     keys = {"code:" + item["code"], "image:" + parse.urlsplit(item["image"]).path}
     keys.add("name:" + canonical_text(display_title(title)))
@@ -138,6 +140,16 @@ def identity_keys(item):
         keys.add("model:" + number)
     for model in re.findall(r"(?:型番|品番|商品番号)[:：\s]*([A-Za-z0-9][A-Za-z0-9_-]{3,})", title):
         keys.add("model:" + model.casefold())
+    if character:
+        names = ALIASES.get(character, [CHARACTERS[character][2]])
+        # A shop may omit JAN but retain the manufacturer series/design number.
+        for series in ["まじかる百貨店ステッカー"]:
+            if series not in title:
+                continue
+            for name in names:
+                variant = re.search(re.escape(name.rstrip(".")) + r"[.．]?\s*[（(]?\s*0*(\d{1,2})(?!\d)", title, re.I)
+                if variant:
+                    keys.add("series:" + series + ":" + character + ":" + str(int(variant.group(1))))
     return keys
 
 
@@ -145,7 +157,7 @@ def item_labels(title):
     labels = []
     if re.search(r"中古|未使用品|リユース", title):
         labels.append("中古・未使用品")
-    known_names = [names for key, names in ALIASES.items() if key in CHARACTERS]
+    known_names = [ALIASES.get(key, [value[2]]) for key, value in CHARACTERS.items()]
     matches = sum(any(canonical_text(name) in canonical_text(title) for name in names) for names in known_names)
     if matches > 1 or re.search(r"全\d+種|選べる|選択|各種|アソート", title):
         labels.append("種類を選択する商品")
@@ -298,7 +310,7 @@ def build_candidate_set(raw_items, old_cards, character=None):
         item = clean_candidate(raw)
         if not item or (character and not matches_character(item["title"], character)):
             return
-        identities = identity_keys(item)
+        identities = identity_keys(item, character)
         if identities & seen_identity:
             duplicates += 1
             return
@@ -355,7 +367,7 @@ def marketplace_urls(title):
 
 def photo_card(item):
     title = html.escape(item["title"], quote=True)
-    short_title = html.escape(display_title(item["title"]), quote=True)
+    short_title = html.escape(display_title(item["title"])[:64] + ("…" if len(display_title(item["title"])) > 64 else ""), quote=True)
     labels = "".join('<small class="sf-product-label">' + html.escape(label) + '</small>' for label in item_labels(item["title"]))
     code = html.escape(item["code"], quote=True)
     image = html.escape(item["image"], quote=True)
