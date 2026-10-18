@@ -213,7 +213,7 @@ def make_section(products, posts, terms, page_urls=None):
             link = post.get('link', '')
             if not link.startswith(SITE + '/'):
                 raise RuntimeError('Unexpected article URL.')
-            image_match = re.search(r'<img\\b[^>]*\\bsrc=["\\']([^"\\']+)', post.get('content', {}).get('raw', ''))
+            image_match = re.search(r'<img\b[^>]*\bsrc=["\']([^"\']+)', post.get('content', {}).get('raw', ''))
             image_url = image_match.group(1) if image_match else ''
             if not image_url.startswith(SITE + '/wp-content/uploads/'):
                 raise RuntimeError('Could not verify the local featured image for JAN ' + p['jan'])
