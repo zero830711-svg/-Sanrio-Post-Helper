@@ -1,0 +1,26 @@
+name: Cinnamoroll photo grid
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/update-cinnamoroll-photo-grid.py
+      - .github/workflows/cinnamoroll-photo-grid.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-cinnamoroll-photo-grid
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate updater syntax
+        run: python3 -m py_compile scripts/update-cinnamoroll-photo-grid.py
+      - name: Update only Cinnamoroll through WordPress REST API
+        run: python3 scripts/update-cinnamoroll-photo-grid.py
