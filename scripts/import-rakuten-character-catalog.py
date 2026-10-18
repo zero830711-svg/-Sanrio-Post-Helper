@@ -365,7 +365,7 @@ def main():
         if "<!-- sf-character-search-page:v1 -->" not in content:
             raise RuntimeError("A supported character-page template was not found.")
         search_guide = re.search(
-            r'<section class="sf-character-search-guide"\b.*?</section>',
+            r'<section\b[^>]*\bclass="sf-character-search-guide"[^>]*>.*?</section>',
             content,
             flags=re.S,
         )
