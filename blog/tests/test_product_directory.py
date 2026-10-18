@@ -38,6 +38,23 @@ class Tests(unittest.TestCase):
         self.assertIn('/tag/little-twin-stars/', section)
         self.assertIn('/tag/kerokerokeroppi/', section)
 
+    def test_directory_filters_search_character_and_product_kind(self):
+        section = directory.make_section(PRODUCTS, self.posts, {})
+        self.assertIn('data-sf-search', section)
+        self.assertIn('data-sf-character', section)
+        self.assertIn('data-sf-kind', section)
+        self.assertIn('data-sf-reset', section)
+        self.assertIn('data-sf-count aria-live="polite"', section)
+        self.assertIn('data-sf-empty hidden', section)
+        self.assertIn('data-character="hangyodon"', section)
+        self.assertIn('data-kind="ice-bags"', section)
+        self.assertIn('4973307551598', section)
+        self.assertIn('card.hidden=!show', section)
+        self.assertIn('addEventListener("input",apply)', section)
+        self.assertIn('addEventListener("change",apply)', section)
+        self.assertIn('条件をクリア', section)
+        self.assertIn('repeat(auto-fit,minmax(150px,1fr))', section)
+
     def test_marketplace_links_use_affiliate_ids_and_exact_search_query(self):
         amazon, rakuten = directory.marketplace_links(PRODUCTS[0])
         amazon_query = parse.parse_qs(parse.urlparse(amazon).query)
