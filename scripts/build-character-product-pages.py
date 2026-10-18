@@ -49,7 +49,8 @@ def cards_section(name, slug, posts):
         image_url = match.group(1) if match else ""
         if not image_url.startswith(SITE + "/wp-content/uploads/"):
             raise RuntimeError("Could not verify a local product image.")
-        title = post.get("title", {}).get("rendered", "")
+        post_title = post.get("title", "")
+        title = post_title.get("rendered", post_title.get("raw", "")) if isinstance(post_title, dict) else post_title
         cards.append(
             '<article style="border:1px solid #eadde5;border-radius:16px;padding:14px;background:#fff">'
             '<a href="%s" style="display:flex;align-items:center;gap:14px;color:inherit;text-decoration:none">'
@@ -71,27 +72,29 @@ def refresh(wp):
         terms = wp.call("/wp/v2/tags?" + parse.urlencode({"slug": slug, "_fields": "id,slug"}))
         if len(terms) != 1:
             raise RuntimeError("Expected one character tag: " + slug)
-        page = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,slug,content" % page_id)
-        if page.get("slug") != slug:
-            raise RuntimeError("Character page ID/slug mismatch: " + slug)
+        page = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,slug,title,content" % page_id)
+        if page.get("id") != page_id:
+            raise RuntimeError("Character page ID mismatch: " + slug)
+        content = page.get("content", {}).get("raw")
+        page_title = page.get("title", "")
+        title_text = page_title.get("rendered", page_title.get("raw", "")) if isinstance(page_title, dict) else page_title
+        if not isinstance(content, str) or (name not in content and name not in title_text):
+            raise RuntimeError("Character identity could not be verified for page ID %d." % page_id)
         query = parse.urlencode({"tags": terms[0]["id"], "status": "publish",
                                  "per_page": 100, "context": "edit",
                                  "_fields": "slug,title,link,content"})
         posts = wp.call("/wp/v2/posts?" + query)
         section = cards_section(name, slug, posts)
-        content = page.get("content", {}).get("raw")
-        if not isinstance(content, str):
-            raise RuntimeError("Could not read editable character page: " + slug)
         pattern = re.escape(MARKER) + r".*?" + re.escape(END)
         content = re.sub(pattern, "", content, flags=re.S).rstrip()
         new_content = content + "\n\n" + section
         wp.call("/wp/v2/pages/%d" % page_id, {"content": new_content})
-        verify = wp.call("/wp/v2/pages/%d?context=edit&_fields=slug,content" % page_id)
+        verify = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,content" % page_id)
         raw = verify.get("content", {}).get("raw", "")
-        if verify.get("slug") != slug or MARKER not in raw or END not in raw:
+        if verify.get("id") != page_id or MARKER not in raw or END not in raw:
             raise RuntimeError("Character page update verification failed: " + slug)
-        updated.append((name, len(cards_section(name, slug, posts))))
-    print("UPDATED: " + ", ".join(name for name, _ in updated) + " character pages.")
+        updated.append(name)
+    print("UPDATED: " + ", ".join(updated) + " character pages.")
 
 if __name__ == "__main__":
     try:
