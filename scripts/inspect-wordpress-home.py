@@ -92,8 +92,8 @@ def inspect(wp):
         directory_anchors = re.findall(r"<a\b[^>]*href=['\"]([^'\"]+)['\"][^>]*>(.*?)</a>", directory_raw, flags=re.I | re.S)
         for href, body in directory_anchors:
             label = text_only(body)
-            if any(character in label for character in CHARACTERS):
-                print("CHARACTER_DIRECTORY_LINK: " + repr((html.unescape(href), label)))
+            if label:
+                print("CHARACTER_DIRECTORY_LINK: " + repr((html.unescape(href), label))
 
 
 if __name__ == "__main__":
