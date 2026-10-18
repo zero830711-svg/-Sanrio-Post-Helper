@@ -80,9 +80,11 @@ class WordPress:
             return existing[0]
         url = product['image']
         parts = parse.urlsplit(url)
-        if (parts.scheme != 'https' or parts.hostname != 'www.skater-onlineshop.com'
-                or not parts.path.startswith('/img/goods/') or parts.username or parts.password or parts.port):
-            raise RuntimeError('The product image must be from the reviewed Skater image directory.')
+        skater_image = parts.hostname == 'www.skater-onlineshop.com' and parts.path.startswith('/img/goods/')
+        official_yahoo_image = parts.hostname == 'shopping.c.yimg.jp' and parts.path.startswith('/lib/skater-koshiki/')
+        if (parts.scheme != 'https' or not (skater_image or official_yahoo_image)
+                or parts.username or parts.password or parts.port or parts.query):
+            raise RuntimeError('The product image must come from Skater or Skater official Yahoo! Shop.')
         with request.build_opener(NoRedirect).open(url, timeout=30) as response:
             image = response.read(8 * 1024 * 1024 + 1)
         if len(image) > 8 * 1024 * 1024:
@@ -142,7 +144,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     try:
         products = []
-        for filename in ('blog/products-2026-10-18.json', 'blog/products-2026-10-18-batch2.json'):
+        for filename in ('blog/products-2026-10-18.json', 'blog/products-2026-10-18-batch2.json', 'blog/products-2026-10-18-batch3.json'):
             path = ROOT / filename
             if path.exists():
                 products.extend(json.loads(path.read_text()))
