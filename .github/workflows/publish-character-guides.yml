@@ -1,0 +1,37 @@
+name: Publish reviewed Sanrio character guides
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/publish-character-guides.py
+      - blog/character-guides-2026-10-18.json
+      - .github/workflows/publish-character-guides.yml
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check=重複確認 / publish=5件を公開'
+        required: true
+        default: check
+        type: choice
+        options: [check, publish]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      RUN_MODE: ${{ contains(github.event.head_commit.message, '[publish-character-guides]') && 'publish' || inputs.mode || 'check' }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate candidate data and publisher syntax
+        run: |
+          python3 -m py_compile scripts/publish-character-guides.py
+          python3 -c "import json; d=json.load(open('blog/character-guides-2026-10-18.json')); assert len(d)==5 and len({x['key'] for x in d})==5"
+      - name: Check duplicates and publish with WordPress REST API
+        run: python3 scripts/publish-character-guides.py --mode "$RUN_MODE"
