@@ -17,8 +17,8 @@ STYLE_END = "</style>"
 
 class WordPress:
     def __init__(self):
-        user = os.environ.get("SANRIO_WP_USER", "")
-        password = os.environ.get("SANRIO_WP_APP_PASSWORD", "")
+        user = os.environ.get("SANRIO_WP_USER", "").strip()
+        password = "".join(os.environ.get("SANRIO_WP_APP_PASSWORD", "").split())
         if not user or not password:
             raise RuntimeError("WordPress REST credentials are not configured.")
         token = base64.b64encode((user + ":" + password).encode()).decode()
