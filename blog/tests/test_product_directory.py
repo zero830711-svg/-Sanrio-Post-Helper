@@ -9,6 +9,9 @@ spec = importlib.util.spec_from_file_location('directory', ROOT / 'scripts/build
 directory = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(directory)
 PRODUCTS = directory.load_products()
+char_spec = importlib.util.spec_from_file_location('character_pages', ROOT / 'scripts/build-character-product-pages.py')
+character_pages = importlib.util.module_from_spec(char_spec)
+char_spec.loader.exec_module(character_pages)
 
 
 class Tests(unittest.TestCase):
@@ -108,6 +111,40 @@ class Tests(unittest.TestCase):
         tags = [tag for product in PRODUCTS for tag in directory.tag_spec(product)]
         self.assertEqual(len(tags), 30)
         self.assertEqual(len(set(slug for _, slug in tags)), 29)
+
+    def test_new_character_landing_pages_have_affiliate_search_and_product_cards(self):
+        targets = [
+            ("タキシードサム", "tuxedo-sam", "tuxedo-sam-goods"),
+            ("あひるのペックル", "ahiru-no-pekkle", "ahiru-no-pekkle-goods"),
+            ("バッドばつ丸", "bad-badtz-maru", "bad-badtz-maru-goods"),
+            ("こぎみゅん", "cogimyun", "cogimyun-goods"),
+            ("ウサハナ", "usahana", "usahana-goods"),
+        ]
+        for name, slug, page_slug in targets:
+            with self.subTest(slug=slug):
+                product = next(p for p in PRODUCTS if p["character_slug"] == slug)
+                post = next(p for p in self.posts if p["slug"] == "goods-jan-" + product["jan"])
+                content = character_pages.landing_content(name, slug, [post])
+                self.assertIn(character_pages.MARKER, content)
+                self.assertIn(character_pages.END, content)
+                self.assertIn(name + "の商品", content)
+                self.assertIn("仕様・Amazon・楽天の購入先を見る", content)
+                self.assertIn("Amazonで" + name + "を探す", content)
+                self.assertIn("楽天で" + name + "を探す", content)
+                self.assertIn("/goods/", content)
+                self.assertIn("ononbrothers2-22", content)
+                self.assertIn("56386226.a6714b12.56386227.a1326022", content)
+                self.assertEqual(character_pages.NEW_PAGE_SLUGS[slug], page_slug)
+
+    def test_character_page_slug_collision_requires_identity_match(self):
+        self.assertTrue(character_pages.page_identity(
+            {"slug": "usahana-goods", "title": {"rendered": "ウサハナのグッズ・通販ガイド"}, "content": {"raw": ""}},
+            "ウサハナ", "usahana"
+        ))
+        self.assertFalse(character_pages.page_identity(
+            {"slug": "usahana-goods", "title": {"rendered": "別ページ"}, "content": {"raw": "別内容"}},
+            "ウサハナ", "usahana"
+        ))
 
 
 if __name__ == '__main__':
