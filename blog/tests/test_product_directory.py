@@ -69,8 +69,8 @@ class Tests(unittest.TestCase):
 
     def test_official_character_catalog_includes_marketplace_search_for_missing_articles(self):
         controls = directory.filter_controls(PRODUCTS)
-        self.assertEqual(len(directory.CHARACTER_CATALOG), 30)
-        self.assertEqual(controls.count('data-character-name='), 30)
+        self.assertEqual(len(directory.CHARACTER_CATALOG), 36)
+        self.assertEqual(controls.count('data-character-name='), 36)
         for slug, name in [
             ('tuxedo-sam', 'タキシードサム'),
             ('ahiru-no-pekkle', 'あひるのペックル'),
@@ -159,7 +159,7 @@ class Tests(unittest.TestCase):
             'hello-kitty', 'hangyodon', 'little-twin-stars', *directory.CHARACTER_GUIDE_SLUGS.keys()
         )}
         updated, count = nav.update_directory(raw, guides)
-        self.assertEqual(count, 30)
+        self.assertEqual(count, 36)
         self.assertIn('チアリステイルズ</a>', updated)
         self.assertIn('href="/goods/?character=cheeristales"', updated)
         self.assertIn('href="https://sanrio-fan.site/cinnamoroll-guide/"', updated)
