@@ -28,6 +28,11 @@ CHARACTERS = [
     ("バッドばつ丸", "bad-badtz-maru", None, "bad-badtz-maru-goods"),
     ("こぎみゅん", "cogimyun", None, "cogimyun-goods"),
     ("ウサハナ", "usahana", None, "usahana-goods"),
+    ("けろけろけろっぴ", "kerokerokeroppi", None, "kerokerokeroppi-goods"),
+    ("ぐでたま", "gudetama", None, "gudetama-goods"),
+    ("ウィッシュミーメル", "wish-me-mell", None, "wish-me-mell-goods"),
+    ("マイスウィートピアノ", "my-sweet-piano", None, "my-sweet-piano-goods"),
+    ("JOCHUM", "jochum", None, "jochum-goods"),
 ]
 NEW_PAGE_SLUGS = {slug: page_slug for _, slug, page_id, page_slug in CHARACTERS if page_id is None}
 
@@ -170,6 +175,9 @@ def refresh(wp):
     updated, created = [], []
     for name, slug, page_id, page_slug in CHARACTERS:
         terms = wp.call("/wp/v2/tags?" + parse.urlencode({"slug": slug, "_fields": "id,slug"}))
+        if not terms and page_id is None:
+            wp.call("/wp/v2/tags", {"name": name, "slug": slug})
+            terms = wp.call("/wp/v2/tags?" + parse.urlencode({"slug": slug, "_fields": "id,slug"}))
         if len(terms) != 1:
             raise RuntimeError("Expected one character tag: " + slug)
         query = parse.urlencode({
