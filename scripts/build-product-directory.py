@@ -168,8 +168,10 @@ def run(mode, wp, products):
         if end>=0: content=content[:start]+content[end+len('</section>'):]
         else: content=content.replace(MARKER,'')
     updated,_=wp.call('/wp/v2/pages/804',{'content':section+'\n'+content})
-    if MARKER not in updated.get('content',{}).get('raw','') or '楽天で探す' not in updated.get('content',{}).get('raw',''):
-        raise RuntimeError('Product directory insertion verification failed.')
+    saved_content=updated.get('content',{}).get('raw','')
+    required=('data-sf-search','data-sf-character','data-sf-kind','card.hidden=!show','楽天で探す')
+    if MARKER not in saved_content or any(token not in saved_content for token in required):
+        raise RuntimeError('Product directory insertion or filter verification failed.')
     print('UPDATED: /goods/ now has '+str(len(products))+' product cards with article, Amazon, and Rakuten buttons.')
 
 
