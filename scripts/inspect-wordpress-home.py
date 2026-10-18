@@ -88,7 +88,7 @@ def inspect(wp):
         directory_raw = directory_page.get("content", {}).get("raw", "")
         print("CHARACTER_DIRECTORY: id=%s slug=%s title=%s content_chars=%d" % (
             directory_page.get("id"), directory_page.get("slug", ""), text_only(directory_title), len(directory_raw)))
-        directory_anchors = re.findall(r"<a\\b[^>]*href=['\\\"]([^'\\\"]+)['\\\"][^>]*>(.*?)</a>", directory_raw, flags=re.I | re.S)
+        directory_anchors = re.findall(r"<a\b[^>]*href=['\"]([^'\"]+)['\"][^>]*>(.*?)</a>", directory_raw, flags=re.I | re.S)
         for href, body in directory_anchors:
             label = text_only(body)
             if any(character in label for character in CHARACTERS):
