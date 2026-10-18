@@ -139,6 +139,21 @@ def run(mode):
             updated = raw[:point] + "\\n" + section + "\\n" + raw[point:]
         plans.append((page, target, posts, updated, kind))
         print("PAGE:", page_slug, "guides:", len(posts), "anchor:", kind, "marker:", START in raw)
+    if mode == "check":
+        # Report exact duplicate page copy/CTA labels before changing the legacy Cinnamoroll page.
+        cinna = wp.call("/wp/v2/pages/796?context=edit&_fields=id,slug,content")
+        if cinna.get("slug") != "character-cinnamoroll":
+            raise RuntimeError("Cinnamoroll page identity verification failed.")
+        visible = plain(cinna.get("content", {}).get("raw", ""))
+        phrases = {
+            "guide_intro": "シナモロールのサンリオグッズを、商品ガイドと通販検索から探せるページです。",
+            "disclosure": "当サイトは非公式ファンサイトです。記事にアフィリエイト広告を含みます。",
+            "amazon_cta": "Amazonでシナモロールを探す",
+            "rakuten_cta": "楽天でシナモロールを探す",
+            "all_goods_cta": "全商品一覧を見る",
+        }
+        print("CINNAMOROLL_DUPLICATE_COUNTS:", json.dumps(
+            {key: visible.count(value) for key, value in phrases.items()}, ensure_ascii=False))
     if mode != "apply":
         return
     for page, target, posts, updated, kind in plans:
