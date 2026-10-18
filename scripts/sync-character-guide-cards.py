@@ -103,6 +103,48 @@ def update_content(raw, section):
 def run(mode):
     wp = WordPress()
     wp.call("/wp/v2/users/me?context=edit&_fields=id")
+    if mode == "audit":
+        pages, page_no = [], 1
+        while page_no <= 10:
+            batch = wp.call("/wp/v2/pages?" + parse.urlencode({
+                "context": "edit", "status": "publish", "per_page": 100, "page": page_no,
+                "_fields": "id,slug,status,title,content"}))
+            if not batch:
+                break
+            pages.extend(batch)
+            page_no += 1
+        tags = {}
+        tag_no = 1
+        while tag_no <= 10:
+            batch = wp.call("/wp/v2/tags?" + parse.urlencode({
+                "per_page": 100, "page": tag_no, "_fields": "id,slug,name"}))
+            if not batch:
+                break
+            tags.update({tag["id"]: {"slug": tag["slug"], "name": tag["name"]} for tag in batch})
+            tag_no += 1
+        cats = wp.call("/wp/v2/categories?" + parse.urlencode({"slug": "shopping-products", "_fields": "id"}))
+        products, post_no = [], 1
+        if cats:
+            while post_no <= 10:
+                batch = wp.call("/wp/v2/posts?" + parse.urlencode({
+                    "context": "edit", "status": "publish", "categories": cats[0]["id"],
+                    "per_page": 100, "page": post_no, "_fields": "id,slug,status,title,tags"}))
+                if not batch:
+                    break
+                products.extend(batch)
+                post_no += 1
+        page_rows = [{
+            "id": page["id"], "slug": page["slug"], "title": plain(page.get("title", "")),
+            "guide_marker": START in page.get("content", {}).get("raw", "")
+        } for page in pages]
+        product_rows = [{
+            "slug": post["slug"], "title": plain(post.get("title", "")),
+            "tags": [tags[tag_id] for tag_id in post.get("tags", []) if tag_id in tags]
+        } for post in products]
+        print("PAGE_AUDIT:", json.dumps(page_rows, ensure_ascii=False))
+        print("PRODUCT_TAG_AUDIT:", json.dumps(product_rows, ensure_ascii=False))
+        print("AUDIT_TOTALS:", json.dumps({"pages": len(page_rows), "shopping_products": len(product_rows)}, ensure_ascii=False))
+        return
     plans = []
     # Preflight every target before making any page changes.
     for page_slug, target in TARGETS.items():
@@ -154,7 +196,7 @@ def run(mode):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["check", "apply"], default="check")
+    parser.add_argument("--mode", choices=["check", "apply", "audit"], default="check")
     args = parser.parse_args()
     try:
         run(args.mode)
