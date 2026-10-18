@@ -57,6 +57,18 @@ class CatalogCandidateTests(unittest.TestCase):
         self.assertTrue(all(row['catalog_candidate'] for row in additions))
         self.assertTrue(all('price' not in row and 'url' not in row for row in additions))
 
+    def test_directory_uses_incremental_product_batches(self):
+        product = {
+            'jan': '4901234567894', 'name': 'テスト商品', 'title': 'テスト商品',
+            'query': 'テスト商品', 'character': 'シナモロール',
+            'character_slug': 'cinnamoroll', 'kind': 'バッグ・ポーチ',
+            'kind_slug': 'bags-pouches',
+        }
+        section = DIRECTORY.make_section([product], [None], {}, {})
+        self.assertIn('data-sf-load-more', section)
+        self.assertIn('limit=48', section)
+        self.assertIn('次の48件を表示', section)
+
     def test_amazon_candidates_are_marked_as_catalog_only(self):
         row = {
             'asin': 'B012345678',

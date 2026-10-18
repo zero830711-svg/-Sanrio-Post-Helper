@@ -7,6 +7,7 @@ on:
       - server/lolipop/product-flow.php
       - tests/amazon-creators.php
       - tests/product-flow.php
+      - tests/test_catalog_candidates.py
       - scripts/build-product-directory.py
       - scripts/export-rakuten-candidates.php
       - .github/workflows/amazon-creators-deploy.yml
