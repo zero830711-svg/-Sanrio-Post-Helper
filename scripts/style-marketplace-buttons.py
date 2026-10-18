@@ -30,7 +30,7 @@ def set_attr(tag, name, value):
     pattern = ATTR_RE(name)
     if pattern.search(tag):
         return pattern.sub(lambda m: name + '="' + encoded + '"', tag, count=1)
-    return tag[:-1] + ' ' + name + '="' + encoded + '>'
+    return tag[:-1] + ' ' + name + '="' + encoded + '">'
 
 
 def button_kind(tag, anchor):
