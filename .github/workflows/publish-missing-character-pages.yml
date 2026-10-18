@@ -23,9 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SANRIO_WP_USER: \${{ secrets.SANRIO_WP_USER }}
-      SANRIO_WP_APP_PASSWORD: \${{ secrets.SANRIO_WP_APP_PASSWORD }}
-      RUN_MODE: \${{ contains(github.event.head_commit.message, '[publish-character-pages]') && 'publish' || inputs.mode || 'check' }}
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      RUN_MODE: ${{ contains(github.event.head_commit.message, '[publish-character-pages]') && 'publish' || inputs.mode || 'check' }}
     steps:
       - uses: actions/checkout@v6
       - name: Validate script
