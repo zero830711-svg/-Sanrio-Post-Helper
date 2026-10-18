@@ -140,8 +140,11 @@ def add_product_photos(wp, section):
             + '" alt="' + html.escape(alt, quote=True)
             + '" loading="lazy" decoding="async"></a>'
         )
+        image_block = re.compile(r"<a\b[^>]*>\s*<img\b[^>]*>\s*</a>", flags=re.S | re.I)
         image_tag = re.compile(r"<img\b[^>]*>", flags=re.S | re.I)
-        if image_tag.search(article):
+        if image_block.search(article):
+            new_article = image_block.sub(lambda _: image_link, article, count=1)
+        elif image_tag.search(article):
             new_article = image_tag.sub(lambda _: image_link, article, count=1)
         else:
             body_match = re.search(r'<div\b[^>]*class=["\'][^"\']*\bsf-card-body\b[^"\']*["\'][^>]*>', article, flags=re.I)
