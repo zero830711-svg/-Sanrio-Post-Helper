@@ -494,10 +494,19 @@ try{
  try{
   if($action==='image'){pf_image_out((string)($input['url']??''),(string)($input['isbn']??''),(string)($input['productUrl']??''));}
   elseif($action==='catalog-search'){
-   $queries=['シナモロール ぬいぐるみ','シナモロール バッグ','シナモロール ポーチ','シナモロール 文房具','シナモロール キーホルダー','シナモロール タオル','シナモロール 食器','シナモロール 生活雑貨','シナモロール マスコット','シナモロール ファッション'];
+   $queries=[
+    ['ぬいぐるみ','シナモロール ぬいぐるみ'],
+    ['バッグ・ポーチ','シナモロール バッグ ポーチ'],
+    ['文具・シール','シナモロール 文房具 シール'],
+    ['キーホルダー','シナモロール キーホルダー マスコット'],
+    ['タオル','シナモロール タオル ハンカチ'],
+    ['食器・キッチン','シナモロール 水筒 弁当箱 食器'],
+    ['生活雑貨','シナモロール 生活雑貨 クッション 時計'],
+    ['ファッション','シナモロール ファッション 財布 靴下'],
+   ];
    $settings=lw_settings();$items=[];$seen=[];
-   foreach($queries as $keyword){$data=pf_search($keyword,$settings,1,true);foreach($data['items']??[] as $row){if(!is_array($row))continue;$item=pf_catalog_candidate($row);if(!$item||isset($seen[$item['code']]))continue;$seen[$item['code']]=true;$items[]=$item;}}
-   $result=['catalogItems'=>array_slice($items,0,90),'queriesUsed'=>count($queries)];
+   foreach($queries as [$category,$keyword]){$data=pf_search($keyword,$settings,1,true);foreach($data['items']??[] as $row){if(!is_array($row))continue;$item=pf_catalog_candidate($row);if(!$item||isset($seen[$item['code']]))continue;$seen[$item['code']]=true;$item['category']=$category;$items[]=$item;}}
+   $result=['catalogItems'=>array_slice($items,0,240),'queriesUsed'=>count($queries)];
   }
   elseif($action==='prepare-stock'){
    $code=$input['code']??'';$product=null;foreach($state['sources']??[] as $candidate)if(($candidate['code']??'')===$code)$product=$candidate;
