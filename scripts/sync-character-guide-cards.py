@@ -190,9 +190,18 @@ def run(mode):
             "has_guide_marker": START in page.get("content", {}).get("rendered", "")
         } for page in pages if page["slug"] in CHARACTERS]
         print("CHARACTER_PAGE_AUDIT:", json.dumps(relevant_pages, ensure_ascii=False))
+        directory = page_by_slug.get("characters", {})
+        directory_html = directory.get("content", {}).get("rendered", "")
+        directory_links = [{
+            "name": plain(label), "url": html.unescape(url)
+        } for url, label in re.findall(
+            r"""<a\b[^>]*href=["']([^"']+)["'][^>]*>(.*?)</a>""",
+            directory_html, re.I | re.S
+        ) if plain(label)]
+        print("CHARACTER_DIRECTORY_LINKS:", json.dumps(directory_links, ensure_ascii=False))
         print("AUDIT_TOTALS:", json.dumps({
             "published_pages": len(pages), "dedicated_character_pages": len(relevant_pages),
-            "shopping_products": len(posts),
+            "shopping_products": len(posts), "directory_links": len(directory_links),
             "character_pages_with_guides": sum(row["related_published_guides"] > 0 for row in relevant_pages)
         }, ensure_ascii=False))
         return
