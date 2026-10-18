@@ -105,6 +105,59 @@ def build_grid(old_section):
     )
 
 
+
+def compact_top(content):
+    """Tighten only the Cinnamoroll guide intro and product heading."""
+    def replace_opening(pattern, style, label):
+        nonlocal content
+        found = False
+
+        def apply(match):
+            nonlocal found
+            found = True
+            opening = re.sub(r'\sstyle="[^"]*"', "", match.group(0))
+            return opening[:-1] + ' style="' + style + '">'
+
+        content = re.sub(pattern, apply, content, count=1)
+        if not found:
+            raise RuntimeError("Could not find the Cinnamoroll " + label + " element.")
+
+    replace_opening(r'<div class="sf-guide"[^>]*>', "padding-top:12px", "page wrapper")
+    replace_opening(r'<a class="sf-back"[^>]*>', "display:inline-block;margin:0 0 6px", "back link")
+    replace_opening(r'<header class="sf-hero"[^>]*>', "--char:#bee6f5;padding:16px 20px 14px;margin-bottom:8px", "hero")
+    replace_opening(r'<span class="sf-eyebrow"[^>]*>', "font-size:10px;line-height:1.2;letter-spacing:.12em", "eyebrow")
+    replace_opening(r'<h1 class="sf-title"[^>]*>', "font-size:clamp(25px,7vw,34px);line-height:1.25;margin:4px 0 8px", "title")
+    replace_opening(r'<p class="sf-sub"[^>]*>', "font-size:14px;line-height:1.5;margin:4px 0 8px", "subtitle")
+    content = content.replace(
+        "ぬいぐるみから毎日使う小物まで。用途を選んで、Amazon・楽天市場の検索結果を見比べられます。",
+        "用途から選んで、Amazon・楽天市場の商品を探せます。",
+        1,
+    )
+    start = content.find(START)
+    end = content.find(END, start)
+    if start < 0 or end < 0:
+        raise RuntimeError("Could not find the Cinnamoroll product guide markers.")
+    section = content[start:end + len(END)]
+
+    def set_style_on_first(pattern, style, label):
+        nonlocal section
+        found = False
+
+        def apply(match):
+            nonlocal found
+            found = True
+            opening = re.sub(r'\sstyle="[^"]*"', "", match.group(0))
+            return opening[:-1] + ' style="' + style + '">'
+
+        section = re.sub(pattern, apply, section, count=1)
+        if not found:
+            raise RuntimeError("Could not find the product " + label + " element.")
+
+    set_style_on_first(r"<h2\b[^>]*>", "margin:12px 0 6px;font-size:20px;line-height:1.35", "heading")
+    set_style_on_first(r"<p\b[^>]*>", "font-size:14px;line-height:1.5;margin:4px 0 10px", "description")
+    return content[:start] + section + content[end + len(END):]
+
+
 def main():
     wp = WordPress()
     page = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,slug,content" % PAGE_ID)
@@ -117,7 +170,7 @@ def main():
     if not match:
         raise RuntimeError("The existing product guide section markers were not found.")
     new_section = build_grid(match.group(0))
-    updated_content = content[:match.start()] + new_section + content[match.end():]
+    updated_content = compact_top(content[:match.start()] + new_section + content[match.end():])
     wp.call("/wp/v2/pages/%d" % PAGE_ID, {"content": updated_content})
     verify = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,slug,content" % PAGE_ID)
     raw = verify.get("content", {}).get("raw", "")
