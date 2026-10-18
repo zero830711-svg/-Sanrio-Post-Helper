@@ -1,4 +1,5 @@
 name: Add bounded Rakuten Fashion catalog batch
+# Each execution appends at most 100 verified cards; no recurring schedule.
 on:
   push:
     branches: [main]
