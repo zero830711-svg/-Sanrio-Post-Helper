@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'check=配置確認 / apply=ガイドカード反映'
+        description: 'check=配置確認 / apply=反映 / audit=全ページと記事タグ棚卸し'
         required: true
         default: check
         type: choice
-        options: [check, apply]
+        options: [check, apply, audit]
 permissions:
   contents: read
 concurrency:
@@ -25,7 +25,7 @@ jobs:
     env:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
-      RUN_MODE: ${{ contains(github.event.head_commit.message, '[apply-character-guide-cards]') && 'apply' || inputs.mode || 'check' }}
+      RUN_MODE: ${{ contains(github.event.head_commit.message, '[audit-character-pages]') && 'audit' || contains(github.event.head_commit.message, '[apply-character-guide-cards]') && 'apply' || inputs.mode || 'check' }}
     steps:
       - uses: actions/checkout@v6
       - name: Validate script
