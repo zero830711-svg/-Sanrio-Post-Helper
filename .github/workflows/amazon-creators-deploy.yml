@@ -4,7 +4,11 @@ on:
     branches: [main]
     paths:
       - server/lolipop/amazon-creators.php
+      - server/lolipop/product-flow.php
       - tests/amazon-creators.php
+      - tests/product-flow.php
+      - scripts/build-product-directory.py
+      - scripts/export-rakuten-candidates.php
       - .github/workflows/amazon-creators-deploy.yml
       - scripts/verify-amazon-discovery.php
   schedule:
@@ -31,7 +35,11 @@ jobs:
       - name: Verify authentication and private storage
         run: |
           php -l server/lolipop/amazon-creators.php
+          php -l server/lolipop/product-flow.php
           php tests/amazon-creators.php
+          php tests/product-flow.php
+          python3 -m py_compile scripts/build-product-directory.py
+          python3 tests/test_catalog_candidates.py
       - name: Install FTPS client
         run: |
           sudo apt-get update -qq
@@ -51,7 +59,7 @@ jobs:
           set ftp:ssl-protect-data true
           set ssl:verify-certificate yes
           cd "$LOLIPOP_TREND_DIR"
-          $(if [ "$GITHUB_EVENT_NAME" != schedule ]; then echo "put server/lolipop/amazon-creators.php"; fi)
+          $(if [ "$GITHUB_EVENT_NAME" != schedule ]; then echo "put server/lolipop/amazon-creators.php"; echo "put server/lolipop/product-flow.php"; fi)
           get config.php -o "$am_tmp/config.php"
           bye
           LFTP
@@ -64,7 +72,8 @@ jobs:
           ' "$am_tmp/config.php"
           if [ "$GITHUB_EVENT_NAME" = schedule ]; then
             php scripts/verify-amazon-discovery.php "$am_tmp/config.php" --output="$RUNNER_TEMP/amazon-candidates.json"
-            python3 scripts/build-product-directory.py --mode apply --amazon-candidates "$RUNNER_TEMP/amazon-candidates.json"
+            php scripts/export-rakuten-candidates.php "$am_tmp/config.php" --output="$RUNNER_TEMP/rakuten-candidates.json"
+            python3 scripts/build-product-directory.py --mode apply --amazon-candidates "$RUNNER_TEMP/amazon-candidates.json" --rakuten-candidates "$RUNNER_TEMP/rakuten-candidates.json"
           else
             php scripts/verify-amazon-discovery.php "$am_tmp/config.php" --search-pages
           fi

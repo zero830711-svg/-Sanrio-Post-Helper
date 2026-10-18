@@ -133,7 +133,7 @@ def product_key(product):
     raise RuntimeError('A product needs a JAN, Amazon ASIN, Rakuten item code, or catalog_id.')
 
 
-def load_products(amazon_candidates=None):
+def load_products(amazon_candidates=None, rakuten_candidates=None):
     by_key = {}
     for path in sorted((ROOT / 'blog').glob('products-*.json')):
         for product in json.loads(path.read_text()):
@@ -142,7 +142,8 @@ def load_products(amazon_candidates=None):
     if not by_key:
         raise RuntimeError('No reviewed product data was found.')
     products = list(by_key.values())
-    return merge_amazon_candidates(products, amazon_candidates)
+    products = merge_amazon_candidates(products, amazon_candidates)
+    return merge_rakuten_candidates(products, rakuten_candidates)
 
 
 
@@ -202,9 +203,75 @@ def merge_amazon_candidates(products, candidate_path):
             'amazon_asin': asin, 'name': title, 'title': title,
             'query': title, 'character': character[0], 'character_slug': character[1],
             'kind': kind[0], 'kind_slug': kind[1], 'source': 'Amazon Creators API',
-            'fetched_at': fetched,
+            'fetched_at': fetched, 'catalog_candidate': True,
         })
         known.add(key)
+    return products
+
+
+def merge_rakuten_candidates(products, candidate_path):
+    if not candidate_path:
+        return products
+    payload = json.loads(Path(candidate_path).read_text(encoding='utf-8'))
+    if not isinstance(payload, list):
+        raise RuntimeError('Rakuten candidate export must be a list.')
+    known = {product_key(p) for p in products}
+    now = __import__('time').time()
+    chars = sorted(CHARACTER_CATALOG, key=lambda item: len(item[0]), reverse=True)
+    aliases = [('キキララ', 'リトルツインスターズ', 'little-twin-stars')]
+    kinds = [
+        (r'ぬいぐるみ|マスコット|plush', 'ぬいぐるみ', 'plush'),
+        (r'バッグ|ポーチ|ショルダー', 'バッグ・ポーチ', 'bags-pouches'),
+        (r'文房具|ペン|ノート|シール|ステッカー|文具', '文具・シール', 'stationery-stickers'),
+        (r'キーホルダー|チャーム', 'キーホルダー', 'keychains'),
+        (r'食器|マグ|生活雑貨|タオル|収納', '生活雑貨', 'daily-goods'),
+        (r'推し活|カード|トレカ|アクスタ', '推し活・収納', 'oshi-storage'),
+        (r'おもちゃ|玩具|ガチャ|フィギュア', 'おもちゃ', 'toys'),
+        (r'ファッション|靴下|服|アパレル', 'ファッション', 'fashion'),
+        (r'本|絵本|カレンダー|ブック|ISBN', '本・カレンダー', 'books-calendar'),
+    ]
+    accepted = []
+    seen = set()
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        code = str(item.get('code', '')).strip()
+        title = str(item.get('title', '')).strip()
+        service = str(item.get('service', '')).strip()
+        fetched = int(item.get('sourceAt', 0) or 0)
+        if (not re.fullmatch(r'[A-Za-z0-9._:-]{1,200}', code)
+                or service not in ('market', 'books') or not title
+                or fetched > now or now - fetched >= 14 * 86400):
+            continue
+        key = product_key({'rakuten_item_code': code})
+        if key in known or key in seen:
+            continue
+        character = None
+        for name, slug in chars:
+            if name in title:
+                character = (name, slug)
+                break
+        if character is None:
+            for alias, name, slug in aliases:
+                if alias in title:
+                    character = (name, slug)
+                    break
+        if character is None:
+            character = ('サンリオキャラクターズ', 'sanrio-characters')
+        kind = next(((name, slug) for pattern, name, slug in kinds
+                     if re.search(pattern, title, re.I)),
+                    ('本・カレンダー', 'books-calendar') if service == 'books'
+                    else ('サンリオグッズ', 'sanrio-goods'))
+        accepted.append({
+            'rakuten_item_code': code, 'name': title, 'title': title,
+            'query': title, 'character': character[0], 'character_slug': character[1],
+            'kind': kind[0], 'kind_slug': kind[1], 'source': '楽天ウェブサービス',
+            'fetched_at': fetched, 'catalog_candidate': True,
+        })
+        seen.add(key)
+    # Keep the most recently refreshed candidates when the remote source pool is large.
+    accepted.sort(key=lambda product: product['fetched_at'], reverse=True)
+    products.extend(accepted[:3000])
     return products
 
 def marketplace_links(product):
@@ -332,6 +399,9 @@ def run(mode, wp, products):
     wp.call('/wp/v2/users/me?context=edit&_fields=id')
     posts=[]
     for p in products:
+        if p.get('catalog_candidate'):
+            posts.append(None)
+            continue
         key = product_key(p)
         query=parse.urlencode({'slug':'goods-'+key,'context':'edit','_fields':'id,slug,title,link,content,status,tags,categories'})
         rows,_=wp.call('/wp/v2/posts?'+query)
@@ -388,9 +458,10 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--mode',choices=['check','apply'],default='check')
     parser.add_argument('--amazon-candidates', help='Temporary, under-24-hour Amazon API results; never committed.')
+    parser.add_argument('--rakuten-candidates', help='Temporary, 14-day Rakuten API titles; never committed.')
     args=parser.parse_args()
     try:
-        products=load_products(args.amazon_candidates)
+        products=load_products(args.amazon_candidates, args.rakuten_candidates)
         run(args.mode,WordPress(),products)
     except (RuntimeError,error.URLError,ValueError,KeyError) as exc:
         print(str(exc) if isinstance(exc,RuntimeError) else 'Operation failed; check site and secret settings.',file=sys.stderr)

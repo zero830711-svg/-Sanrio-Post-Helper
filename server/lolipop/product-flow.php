@@ -287,9 +287,12 @@ function pf_stock_rows(array $data,array $settings,array $state):array{
  }
  return $rows;
 }
+function pf_stock_expire_prices(array $rows,?int $now=null):array{
+ $now=$now??time();foreach($rows as &$row){if(!is_array($row)||!array_key_exists('price',$row))continue;$priceAt=(int)($row['priceAt']??$row['sourceAt']??0);if($priceAt<=0||$priceAt<=$now-86400){unset($row['price'],$row['priceAt']);if(($row['sourceLabel']??'')==='楽天市場・在庫あり')$row['sourceLabel']='楽天市場の商品候補';}else{$row['priceAt']=$priceAt;}}unset($row);return $rows;
+}
 function pf_stock_discover(array &$state):array{
  $settings=lw_settings();if(empty($settings['accessKey']))throw new RuntimeException('楽天API設定を保存してください。');
- $pool=$state['sourcePool']??$state['sources']??[];
+ $pool=pf_stock_expire_prices($state['sourcePool']??$state['sources']??[]);
  $existing=array_values(array_filter($pool,fn($r)=>is_array($r)&&!empty($r['code'])&&($r['sourceAt']??0)>time()-14*86400&&!pf_stock_used($state,(string)$r['code'],(string)($r['dedupeKey']??''))));
  $queries=pf_stock_queries();$bookQueries=pf_stock_book_queries();
  if(($state['stockSearchMode']??'')!=='catalog-round-robin-v3'){
@@ -331,7 +334,7 @@ function pf_stock_discover(array &$state):array{
  }catch(Throwable $e){$errors[]='楽天トラベル：'.$e->getMessage();$travelPage=$travelPage>=100?1:$travelPage+1;}
  $state['travelPage']=$travelPage;
  $unique=[];foreach(array_merge($existing,$rows) as $r)$unique[$r['code']]=$r;
- $poolRows=array_values($unique);usort($poolRows,static fn($a,$b)=>(int)($b['sourceAt']??0)<=>(int)($a['sourceAt']??0));
+ $poolRows=pf_stock_expire_prices(array_values($unique));usort($poolRows,static fn($a,$b)=>(int)($b['sourceAt']??0)<=>(int)($a['sourceAt']??0));
  $state['sourcePool']=array_slice($poolRows,0,10000);$state['sources']=$state['sourcePool'];$state['sourcesAt']=time();
  if(!$state['sources']&&count($errors)===3)throw new RuntimeException(implode(' / ',$errors));
  $state['sourceErrors']=$errors;return $state['sources'];
@@ -369,7 +372,7 @@ function pf_source_progress(array $state):array{
 }
 function pf_public(array $state,int $offset=0,int $limit=500):array{
  $rows=array_values($state['entries']??[]);usort($rows,static fn($a,$b)=>($b['createdAt']??0)<=>($a['createdAt']??0));
- $pool=$state['sourcePool']??$state['sources']??[];
+ $pool=pf_stock_expire_prices($state['sourcePool']??$state['sources']??[]);
  $available=array_values(array_filter($pool,fn($r)=>is_array($r)&&!empty($r['code'])&&($r['sourceAt']??0)>time()-14*86400&&!pf_stock_used($state,(string)$r['code'],(string)($r['dedupeKey']??''))));
  usort($available,static fn($a,$b)=>(int)($b['sourceAt']??0)<=>(int)($a['sourceAt']??0));
  $sourceCount=count($available);$serviceCounts=['market'=>0,'books'=>0,'travel'=>0];$groups=[];
