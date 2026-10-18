@@ -16,8 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SANRIO_WP_USER: \${{ secrets.SANRIO_WP_USER }}
-      SANRIO_WP_APP_PASSWORD: \${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
     steps:
       - uses: actions/checkout@v6
       - name: Validate updater syntax
