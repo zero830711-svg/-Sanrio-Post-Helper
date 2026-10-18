@@ -264,7 +264,7 @@ CSS = """<style id="sf-home-photo-grid">
     gap:5px!important;
     margin-top:7px!important;
   }
-  #sf-latest-products .sf-home-marketplace-button{
+  #sf-latest-products .sf-marketplace-button{
     min-height:34px!important;
     padding:5px 3px!important;
     font-size:10px!important;
@@ -276,7 +276,6 @@ CSS = """<style id="sf-home-photo-grid">
 
 
 def compact_top_and_prioritize_products(content, product_markup):
-    content = product_markup
     # Replace a previous version of this page-specific style block, if present.
     style_pattern = re.compile(re.escape(STYLE_START) + r".*?" + re.escape(STYLE_END), re.S)
     if style_pattern.search(content):
