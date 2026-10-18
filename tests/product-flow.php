@@ -16,6 +16,10 @@ $thumbnail='https://thumbnail.image.rakuten.co.jp/@0_mall/shop/cabinet/kitty.jpg
 $marketImage=pf_image_url($thumbnail);
 pf_check($marketImage==='https://image.rakuten.co.jp/shop/cabinet/kitty.jpg?_ex=128x128','Rakuten market thumbnail was not normalized');
 pf_check(pf_image_fetch_candidates($marketImage)===['https://image.rakuten.co.jp/shop/cabinet/kitty.jpg'],'Post photo did not prefer the original Rakuten image');
+$catalogAffiliate='https://hb.afl.rakuten.co.jp/hgc/'.$aid.'/?pc='.rawurlencode('https://item.rakuten.co.jp/testshop/cinna/');
+$catalogCandidate=pf_catalog_candidate(['itemCode'=>'testshop:cinna','itemName'=>'シナモロール ぬいぐるみ','itemUrl'=>'https://item.rakuten.co.jp/testshop/cinna/','affiliateUrl'=>$catalogAffiliate,'mediumImageUrls'=>[['imageUrl'=>$thumbnail]],'shopName'=>'テスト店']);
+pf_check(is_array($catalogCandidate)&&$catalogCandidate['image']==='https://image.rakuten.co.jp/shop/cabinet/kitty.jpg'&&$catalogCandidate['affiliate']===$catalogAffiliate,'Cinnamoroll catalog image/link normalization failed');
+pf_check(pf_catalog_candidate(['itemCode'=>'testshop:kitty','itemName'=>'ハローキティ ぬいぐるみ','itemUrl'=>'https://item.rakuten.co.jp/testshop/kitty/','affiliateUrl'=>$catalogAffiliate,'mediumImageUrls'=>[['imageUrl'=>$thumbnail]]])===null,'Non-Cinnamoroll item entered the Cinnamoroll catalog');
 pf_check(!pf_image_large_enough([128,128])&&!pf_image_large_enough([599,1500])&&!pf_image_large_enough([800,899]),'Low resolution photo was accepted');
 pf_check(pf_image_large_enough([600,900])&&pf_image_large_enough([1200,800]),'Usable photo was rejected');
 $tshop='https://tshop.r10s.jp/shop/cabinet/kitty.jpg?fitin=128%3A128';
