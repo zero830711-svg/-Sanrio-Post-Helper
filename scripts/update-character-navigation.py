@@ -1,4 +1,5 @@
 """Connect home and full character directory links to guides or filtered goods."""
+# Current navigation catalog follows all 36 entries in the site's directory.
 import html
 import importlib.util
 import re
