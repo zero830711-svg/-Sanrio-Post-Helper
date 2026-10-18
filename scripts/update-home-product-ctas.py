@@ -47,6 +47,12 @@ def link_data(raw):
     return amazon, rakuten
 
 
+def amazon_search_url(query):
+    if not query.strip():
+        return ""
+    return "https://www.amazon.co.jp/s?" + parse.urlencode({"k": query.strip(), "tag": AMAZON_TAG})
+
+
 def ensure_amazon_tag(amazon_url):
     parts = parse.urlsplit(amazon_url)
     host = parts.hostname or ""
@@ -111,20 +117,23 @@ def update_cards(raw, wp):
         post = source_post(wp, article_href)
         post_raw = post.get("content", {}).get("raw", "")
         amazon, rakuten = link_data(post_raw)
+        title = plain(post.get("title", {}).get("rendered", ""))
+        product_name = re.split(r"[｜|]", title, maxsplit=1)[0].strip()
+        slug = parse.unquote(parse.urlsplit(article_href).path).strip("/").rsplit("/", 1)[-1]
+        model_numbers = re.findall(r"(?<!\\d)\\d{4,}(?!\\d)", slug)
+        if model_numbers and model_numbers[-1] not in product_name:
+            product_name = (product_name + " " + model_numbers[-1]).strip()
         if not amazon:
-            raise RuntimeError("The linked guide has no identifiable Amazon affiliate URL.")
-        if AMAZON_TAG not in amazon:
+            amazon = amazon_search_url(product_name)
+            if not amazon:
+                raise RuntimeError("The linked guide has neither an Amazon URL nor a usable product title.")
+            print("INFO: Amazon search URL derived from the linked guide title and product slug.")
+        elif AMAZON_TAG not in amazon:
             amazon = ensure_amazon_tag(amazon)
             if not amazon:
-                raise RuntimeError("The linked guide's Amazon URL is not an Amazon Japan URL.")
+                raise RuntimeError("The linked guides Amazon URL is not an Amazon Japan URL.")
             print("INFO: configured Amazon affiliate tag added to the linked guide product URL.")
         if not rakuten:
-            title = plain(post.get("title", {}).get("rendered", ""))
-            product_name = re.split(r"[｜|]", title, maxsplit=1)[0].strip()
-            slug = parse.unquote(parse.urlsplit(article_href).path).strip("/").rsplit("/", 1)[-1]
-            model_numbers = re.findall(r"(?<!\\d)\\d{4,}(?!\\d)", slug)
-            if model_numbers and model_numbers[-1] not in product_name:
-                product_name = (product_name + " " + model_numbers[-1]).strip()
             rakuten = rakuten_search_url(amazon, product_name)
             if rakuten:
                 print("INFO: Rakuten search URL derived from the linked guide title and product slug.")
@@ -184,6 +193,7 @@ def self_test():
     rakuten = rakuten_search_url(amazon)
     assert "シナモロール" in parse.unquote(parse.parse_qs(parse.urlsplit(rakuten).query)["pc"][0])
     assert "tag=" + AMAZON_TAG in ensure_amazon_tag("https://www.amazon.co.jp/dp/B0TEST1234")
+    assert "k=" in amazon_search_url("シナモロール 263323")
     assert ensure_amazon_tag("https://example.com/item") == ""
     generated = buttons_html(amazon, rakuten)
     assert MARKER in generated and "#ffd814" in generated and "#bf0000" in generated
