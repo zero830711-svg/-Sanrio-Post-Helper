@@ -74,21 +74,27 @@ def article_section(name, posts):
 
 
 def insertion_point(raw):
-    # Prefer the character hero section and place guide cards immediately after it.
+    # Place guide cards directly before the existing marketplace CTA section.
+    for marker in ("購入先から探す", "Amazon・楽天市場で探す", "Amazonで関連商品を探す"):
+        pos = raw.find(marker)
+        if pos >= 0:
+            heading = raw.rfind("<h2", 0, pos)
+            if heading >= 0:
+                return heading, "before-store-search-heading"
+            return pos, "before-store-search-label"
+    # Legacy character pages may use a section wrapper around the hero.
     for marker in ("CHARACTER GUIDE", "キャラクターガイド"):
         pos = raw.find(marker)
         if pos >= 0:
             close = raw.find("</section>", pos)
             if close >= 0:
                 return close + len("</section>"), "hero-section"
-    # Some WordPress pages use an H1 without a section wrapper. Use its containing block.
-    h1 = re.search(r"<h1\b[^>]*>.*?</h1>", raw, re.I | re.S)
+    h1 = re.search(r"<h1\\b[^>]*>.*?</h1>", raw, re.I | re.S)
     if h1:
         close = raw.find("</section>", h1.end())
         if close >= 0:
             return close + len("</section>"), "first-section-after-h1"
     return None, "not-found"
-
 
 def update_content(raw, section):
     if START in raw and END in raw:
@@ -104,6 +110,8 @@ def update_content(raw, section):
 def run(mode):
     wp = WordPress()
     wp.call("/wp/v2/users/me?context=edit&_fields=id")
+    plans = []
+    # Preflight every target before making any page changes.
     for page_slug, target in TARGETS.items():
         pages = wp.call("/wp/v2/pages?" + parse.urlencode({
             "slug": page_slug, "context": "edit", "_fields": "id,slug,status,content,title"}))
@@ -127,19 +135,21 @@ def run(mode):
         else:
             point, kind = insertion_point(raw)
             if point is None:
-                raise RuntimeError("Could not find a safe hero-section insertion point on " + page_slug)
-            updated = raw[:point] + "\n" + section + "\n" + raw[point:]
+                raise RuntimeError("Could not find a safe insertion point on " + page_slug)
+            updated = raw[:point] + "\\n" + section + "\\n" + raw[point:]
+        plans.append((page, target, posts, updated, kind))
         print("PAGE:", page_slug, "guides:", len(posts), "anchor:", kind, "marker:", START in raw)
-        if mode == "apply":
-            saved = wp.call("/wp/v2/pages/" + str(page["id"]), {"content": updated})
-            if saved.get("id") != page["id"]:
-                raise RuntimeError("Page update returned an unexpected identity.")
-            verify = wp.call("/wp/v2/pages/" + str(page["id"]) + "?context=edit&_fields=id,content")
-            verify_raw = verify.get("content", {}).get("raw", "")
-            if START not in verify_raw or END not in verify_raw or any(p["link"] not in verify_raw for p in posts):
-                raise RuntimeError("Page content verification failed for " + page_slug)
-            print("UPDATED:", page_slug, "cards:", len(posts))
-
+    if mode != "apply":
+        return
+    for page, target, posts, updated, kind in plans:
+        saved = wp.call("/wp/v2/pages/" + str(page["id"]), {"content": updated})
+        if saved.get("id") != page["id"]:
+            raise RuntimeError("Page update returned an unexpected identity.")
+        verify = wp.call("/wp/v2/pages/" + str(page["id"]) + "?context=edit&_fields=id,content")
+        verify_raw = verify.get("content", {}).get("raw", "")
+        if START not in verify_raw or END not in verify_raw or any(p["link"] not in verify_raw for p in posts):
+            raise RuntimeError("Page content verification failed for " + page["slug"])
+        print("UPDATED:", page["slug"], "cards:", len(posts))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
