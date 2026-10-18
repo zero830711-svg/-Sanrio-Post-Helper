@@ -76,13 +76,13 @@ def article_section(name, posts):
 def insertion_point(raw):
     # Put guides immediately after the first introductory paragraph. If the page
     # has no paragraph, place them before its first section heading.
-    intro = re.search(r"</p\\s*>", raw, re.I)
+    intro = re.search(r"</p\s*>", raw, re.I)
     if intro:
         return intro.end(), "after-intro-paragraph"
-    heading = re.search(r"<h2\\b[^>]*>", raw, re.I)
+    heading = re.search(r"<h2\b[^>]*>", raw, re.I)
     if heading:
         return heading.start(), "before-first-content-heading"
-    block_heading = re.search(r"<!--\\s*wp:heading\\b", raw, re.I)
+    block_heading = re.search(r"<!--\s*wp:heading\b", raw, re.I)
     if block_heading:
         return block_heading.start(), "before-first-heading-block"
     return None, "no-safe-intro-anchor"
@@ -98,7 +98,7 @@ def update_content(raw, section):
     point, kind = insertion_point(clean)
     if point is None:
         raise RuntimeError("Could not find a safe introductory insertion point.")
-    return clean[:point] + "\\n" + section + "\\n" + clean[point:], kind
+    return clean[:point] + "\n" + section + "\n" + clean[point:], kind
 
 def run(mode):
     wp = WordPress()
