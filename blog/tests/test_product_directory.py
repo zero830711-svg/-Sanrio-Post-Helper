@@ -165,7 +165,7 @@ class Tests(unittest.TestCase):
             '<a class="sf-char" href="/old/' + str(i) + '/" style="--char:#eee"><span class="sf-dot"></span>' + name + '</a>'
             for i, name in enumerate(names)
         ) + '</div></section>'
-        guides = {slug: 'https://sanrio-fan.site/' + slug + '-guide/' for slug, _ in directory.CHARACTER_CATALOG}
+        guides = {slug: 'https://sanrio-fan.site/' + slug + '-guide/' for _, slug in directory.CHARACTER_CATALOG}
         updated, count = nav.update_home(raw, guides)
         self.assertEqual(count, 13)
         self.assertEqual(updated.count('class="sf-char"'), 13)
