@@ -12,6 +12,9 @@ PRODUCTS = directory.load_products()
 char_spec = importlib.util.spec_from_file_location('character_pages', ROOT / 'scripts/build-character-product-pages.py')
 character_pages = importlib.util.module_from_spec(char_spec)
 char_spec.loader.exec_module(character_pages)
+nav_spec = importlib.util.spec_from_file_location('character_navigation', ROOT / 'scripts/update-character-navigation.py')
+nav = importlib.util.module_from_spec(nav_spec)
+nav_spec.loader.exec_module(nav)
 
 
 class Tests(unittest.TestCase):
@@ -59,6 +62,10 @@ class Tests(unittest.TestCase):
         self.assertIn('addEventListener("change",apply)', section)
         self.assertIn('条件をクリア', section)
         self.assertIn('repeat(auto-fit,minmax(150px,1fr))', section)
+        self.assertIn('new URLSearchParams(window.location.search)', section)
+        self.assertIn('params.get("character")', section)
+        self.assertIn('character.value=initialCharacter', section)
+        self.assertIn('if(initialQuery)search.value=initialQuery', section)
 
     def test_official_character_catalog_includes_marketplace_search_for_missing_articles(self):
         controls = directory.filter_controls(PRODUCTS)
@@ -134,6 +141,37 @@ class Tests(unittest.TestCase):
             self.assertIn('data-character-page-url="https://sanrio-fan.site/verified-page-' + str(page_id) + '/">', controls)
         for slug in directory.CHARACTER_GUIDE_SLUGS:
             self.assertIn('data-character-page-url="https://sanrio-fan.site/' + directory.CHARACTER_GUIDE_SLUGS[slug] + '/">', controls)
+
+    def test_character_directory_routes_guided_characters_and_fills_catalog_gap(self):
+        names = [name for name, _ in directory.CHARACTER_CATALOG if name != 'チアリステイルズ']
+        raw = '<div class="sf-character-grid">' + ''.join(
+            '<a class="sf-char" href="/goods/?q=old">' + name + '</a>' for name in names
+        ) + '</div>'
+        guides = {slug: 'https://sanrio-fan.site/' + slug + '-guide/' for slug in (
+            'cinnamoroll', 'kuromi', 'my-melody', 'pompompurin', 'pochacco',
+            'hello-kitty', 'hangyodon', 'little-twin-stars', *directory.CHARACTER_GUIDE_SLUGS.keys()
+        )}
+        updated, count = nav.update_directory(raw, guides)
+        self.assertEqual(count, 30)
+        self.assertIn('チアリステイルズ</a>', updated)
+        self.assertIn('href="/goods/?character=cheeristales"', updated)
+        self.assertIn('href="https://sanrio-fan.site/cinnamoroll-guide/"', updated)
+        self.assertIn('href="/goods/?character=wish-me-mell"', updated)
+
+    def test_homepage_features_thirteen_direct_character_guides(self):
+        names = ['シナモロール', 'クロミ', 'マイメロディ', 'ポムポムプリン',
+                 'ポチャッコ', 'ハローキティ', 'ハンギョドン', 'リトルツインスターズ']
+        raw = '<section><div class="sf-chars">' + ''.join(
+            '<a class="sf-char" href="/old/' + str(i) + '/" style="--char:#eee"><span class="sf-dot"></span>' + name + '</a>'
+            for i, name in enumerate(names)
+        ) + '</div></section>'
+        guides = {slug: 'https://sanrio-fan.site/' + slug + '-guide/' for slug, _ in directory.CHARACTER_CATALOG}
+        updated, count = nav.update_home(raw, guides)
+        self.assertEqual(count, 13)
+        self.assertEqual(updated.count('class="sf-char"'), 13)
+        for name, slug, _ in nav.HOME_ADDITIONS:
+            self.assertIn('href="https://sanrio-fan.site/' + slug + '-guide/"', updated)
+        self.assertIn('href="https://sanrio-fan.site/cinnamoroll-guide/"', updated)
 
     def test_new_character_landing_pages_have_affiliate_search_and_product_cards(self):
         targets = [
