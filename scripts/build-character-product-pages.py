@@ -97,7 +97,7 @@ def cards_section(name, slug, posts):
                html.escape(name + "の商品", quote=True), html.escape(title))
         )
     if not cards:
-        cards.append('<p>掲載中の商品ガイドはまだありません。<a href="/goods/">商品一覧から探す</a>か、下の通販検索をご利用ください。</p>')
+        cards.append('<p>掲載中の商品ガイドはまだありません。<a href="/goods/?character=' + html.escape(slug, quote=True) + '">このキャラクターの商品を一覧から探す</a>か、下の通販検索をご利用ください。</p>')
     return (
         MARKER + '<section aria-labelledby="sf-char-products-%s">'
         '<h2 id="sf-char-products-%s">%sのグッズ記事</h2>'
@@ -163,6 +163,12 @@ def insert_product_section_before_genres(content, section):
     return content[:match.start()] + section + disclosure + content[match.start():]
 
 
+def route_legacy_goods_links(content, slug):
+    # Keep legacy character pages inside the selected character's catalog results.
+    pattern = re.compile(r"""(?P<prefix>href=["'])(?:https?://sanrio-fan\.site)?/goods/?(?P<suffix>["'])""", re.I)
+    return pattern.sub(lambda match: match.group("prefix") + "/goods/?character=" + html.escape(slug, quote=True) + match.group("suffix"), content)
+
+
 def page_identity(page, name, slug):
     title = page.get("title", "")
     title_text = title.get("rendered", title.get("raw", "")) if isinstance(title, dict) else title
@@ -198,7 +204,7 @@ def refresh(wp):
                 raise RuntimeError("Character identity could not be verified for page ID %d." % page_id)
             content = clean_generated_content(content, name)
             product_section = cards_section(name, slug, posts)
-            new_content = insert_product_section_before_genres(content, product_section)
+            new_content = route_legacy_goods_links(insert_product_section_before_genres(content, product_section), slug)
             wp.call("/wp/v2/pages/%d" % page_id, {"content": new_content})
             verify = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,content" % page_id)
             raw = verify.get("content", {}).get("raw", "")
@@ -220,9 +226,9 @@ def refresh(wp):
             title_text = page_title.get("rendered", page_title.get("raw", "")) if isinstance(page_title, dict) else page_title
             content = page.get("content", {}).get("raw", "")
             editorial_content = clean_generated_content(content, name)
-            new_content = landing_content(name, slug, posts)
+            new_content = route_legacy_goods_links(landing_content(name, slug, posts), slug)
             if editorial_content:
-                new_content += "\n\n" + editorial_content
+                new_content = route_legacy_goods_links(new_content + "\n\n" + editorial_content, slug)
             wp.call("/wp/v2/pages/%d" % page_id, {
                 "title": title_text or (name + "のグッズ・通販ガイド"),
                 "content": new_content, "status": "publish"
