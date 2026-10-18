@@ -112,6 +112,27 @@ class Tests(unittest.TestCase):
         self.assertEqual(len(tags), 30)
         self.assertEqual(len(set(slug for _, slug in tags)), 29)
 
+    def test_all_existing_character_pages_are_resolved_from_wordpress_ids(self):
+        class FakeWordPress:
+            def call(self, path, data=None):
+                page_id = int(path.split("/pages/")[1].split("?")[0])
+                return {"id": page_id, "slug": "verified-page-" + str(page_id)}, None
+
+        urls = directory.character_page_urls(FakeWordPress())
+        expected = {
+            "pochacco": 800, "kuromi": 797, "my-melody": 798, "cinnamoroll": 796,
+            "hello-kitty": 801, "pompompurin": 799, "hangyodon": 802,
+            "little-twin-stars": 803,
+        }
+        for slug, page_id in expected.items():
+            self.assertEqual(urls[slug], "https://sanrio-fan.site/verified-page-" + str(page_id) + "/")
+        controls = directory.filter_controls(PRODUCTS, urls)
+        for slug, page_id in expected.items():
+            self.assertIn('value="' + slug + '"', controls)
+            self.assertIn('data-character-page-url="https://sanrio-fan.site/verified-page-' + str(page_id) + '/">', controls)
+        for slug in directory.CHARACTER_GUIDE_SLUGS:
+            self.assertIn('data-character-page-url="https://sanrio-fan.site/' + directory.CHARACTER_GUIDE_SLUGS[slug] + '/">', controls)
+
     def test_new_character_landing_pages_have_affiliate_search_and_product_cards(self):
         targets = [
             ("タキシードサム", "tuxedo-sam", "tuxedo-sam-goods"),
