@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - scripts/build-character-product-pages.py
+      - blog/tests/test_product_directory.py
 permissions:
   contents: read
 concurrency:
