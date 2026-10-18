@@ -98,7 +98,7 @@ function pf_catalog_characters():array{
   'little-twin-stars'=>['リトルツインスターズ',['リトルツインスターズ','キキ＆ララ','キキ&ララ','Little Twin Stars']],
  ];
 }
-function pf_catalog_candidate(array $row,array $names):?array{
+function pf_catalog_candidate(array $row,array $names=['シナモロール','Cinnamoroll']):?array{
  $title=trim((string)($row['itemName']??''));$caption=strip_tags((string)($row['itemCaption']??''));
  if($title==='')return null;$combined=mb_strtolower($title."\n".$caption,'UTF-8');$matched=false;
  foreach($names as $name)if(mb_stripos($combined,mb_strtolower($name,'UTF-8'),0,'UTF-8')!==false){$matched=true;break;}
