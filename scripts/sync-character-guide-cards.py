@@ -108,7 +108,7 @@ def run(mode):
         pages, page_no = [], 1
         while page_no <= 10:
             batch = wp.call("/wp/v2/pages?" + parse.urlencode({
-                "context": "edit", "status": "publish", "per_page": 100, "page": page_no,
+                "per_page": 100, "page": page_no,
                 "_fields": "id,slug,status,title,content"}))
             if not batch:
                 break
@@ -140,7 +140,7 @@ def run(mode):
                 post_no += 1
         page_rows = [{
             "id": page["id"], "slug": page["slug"], "title": plain(page.get("title", "")),
-            "guide_marker": START in page.get("content", {}).get("raw", "")
+            "guide_marker": START in (page.get("content", {}).get("raw", page.get("content", {}).get("rendered", "")))
         } for page in pages]
         product_rows = [{
             "slug": post["slug"], "title": plain(post.get("title", "")),
