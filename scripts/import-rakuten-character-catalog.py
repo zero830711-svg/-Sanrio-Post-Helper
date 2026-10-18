@@ -15,6 +15,7 @@ from PIL import Image
 
 SITE = "https://sanrio-fan.site"
 CHARACTERS = {
+    "cinnamoroll": (796, "character-cinnamoroll", "シナモロール"),
     "kuromi": (797, "character-kuromi", "クロミ"),
     "mymelody": (798, "character-mymelody", "マイメロディ"),
     "pompompurin": (799, "character-pompompurin", "ポムポムプリン"),
@@ -84,6 +85,71 @@ class WordPress:
 def canonical_text(value):
     value = unicodedata.normalize("NFKC", str(value or "")).casefold()
     return re.sub(r"[^0-9a-zぁ-んァ-ヶ一-龠]", "", value)
+
+
+
+ALIASES = {
+    "kuromi": ["クロミ", "Kuromi"],
+    "pompompurin": ["ポムポムプリン", "Pompompurin"],
+    "pochacco": ["ポチャッコ", "Pochacco"],
+    "hangyodon": ["ハンギョドン", "Hangyodon"],
+    "cinnamoroll": ["シナモロール", "シナモンロール", "Cinnamoroll"],
+    "mymelody": ["マイメロディ", "マイメロ", "My Melody"],
+    "hellokitty": ["ハローキティ", "Hello Kitty"],
+    "little-twin-stars": ["リトルツインスターズ", "キキララ", "キキ＆ララ", "Little Twin Stars"],
+    "kirimi-chan": ["KIRIMIちゃん", "キリミちゃん", "きりみちゃん"],
+    "gaopoweru": ["がおぱわるぅ", "がおぱわるう", "Gaopoweru"],
+    "chococat": ["チョコキャット", "Chococat"],
+    "sugar-bunnies": ["シュガーバニーズ", "Sugarbunnies"],
+    "jewelpet": ["ジュエルペット", "Jewelpet"],
+    "dear-daniel": ["ディアダニエル", "Dear Daniel"],
+    "marshmallow-fuwafuwa-nyanko": ["マシュマロみたいなふわふわにゃんこ", "ふわふわにゃんこ"],
+    "marroncream": ["マロンクリーム", "Marron Cream"],
+}
+
+
+def matches_character(title, character):
+    if character not in CHARACTERS:
+        return False
+    names = ALIASES.get(character, [CHARACTERS[character][2]])
+    value = canonical_text(title)
+    return any(canonical_text(name) in value for name in names)
+
+
+def display_title(title):
+    # Remove shop promotions, keeping product specifications and character names.
+    title = re.sub(r"[【\[][^】\]]*(?:クーポン|OFF|ポイント|送料無料|メール便|レビュー投稿)[^】\]]*[】\]]", "", title, flags=re.I)
+    title = re.sub(r"^[◆◇]+.*?対応商品[◆◇]+", "", title)
+    title = re.sub(r"^(?:数量限定\s*在庫セール\s*売れ筋|数量限定|在庫セール)\s*", "", title)
+    return re.sub(r"\s+", " ", title).strip() or "商品情報"
+
+
+def identity_keys(item):
+    title = unicodedata.normalize("NFKC", item["title"])
+    keys = {"code:" + item["code"], "image:" + parse.urlsplit(item["image"]).path}
+    keys.add("name:" + canonical_text(display_title(title)))
+    # JAN and manufacturer model numbers group offers across different shops.
+    for number in re.findall(r"(?<!\d)(?:\d{13}|\d{8})(?!\d)", title):
+        # Rightmost body digit has weight 3 for both EAN-13 and EAN-8.
+        checksum = sum(int(c) * (3 if i % 2 == 0 else 1) for i, c in enumerate(number[:-1][::-1]))
+        if (10 - checksum % 10) % 10 == int(number[-1]):
+            keys.add("jan:" + number)
+    for number in re.findall(r"(?<![0-9a-z])\d{6}(?![0-9a-z])", title, re.I):
+        keys.add("model:" + number)
+    for model in re.findall(r"(?:型番|品番|商品番号)[:：\s]*([A-Za-z0-9][A-Za-z0-9_-]{3,})", title):
+        keys.add("model:" + model.casefold())
+    return keys
+
+
+def item_labels(title):
+    labels = []
+    if re.search(r"中古|未使用品|リユース", title):
+        labels.append("中古・未使用品")
+    known_names = [names for key, names in ALIASES.items() if key in CHARACTERS]
+    matches = sum(any(canonical_text(name) in canonical_text(title) for name in names) for names in known_names)
+    if matches > 1 or re.search(r"全\d+種|選べる|選択|各種|アソート", title):
+        labels.append("種類を選択する商品")
+    return labels
 
 
 def safe_image_url(value):
@@ -185,9 +251,10 @@ def text_from(value):
 
 def infer_category(title):
     value = str(title or "")
+    value = re.sub(r"バッグチャーム", "キーホルダー", value)
     if re.search(r"バッグ|ポーチ|リュック|ショルダー", value):
         return "バッグ・ポーチ"
-    if re.search(r"文房具|ペン|ノート|シール|ステッカー|筆箱|メモ", value):
+    if re.search(r"文房具|ボールペン|シャープペン|ノート|シール|ステッカー|筆箱|メモ帳", value):
         return "文具・シール"
     if re.search(r"キーホルダー|マスコット|チャーム|ストラップ", value):
         return "キーホルダー"
@@ -195,11 +262,13 @@ def infer_category(title):
         return "タオル"
     if re.search(r"水筒|マグ|弁当|ランチ|食器|カップ|ボトル", value):
         return "食器・キッチン"
-    if re.search(r"服|アパレル|靴下|財布|帽子|ファッション|スニーカー", value):
+    if re.search(r"服|アパレル|靴下|財布|ウォレット|帽子|ファッション|スニーカー|Tシャツ|パジャマ", value):
         return "ファッション"
     if re.search(r"クッション|時計|収納|雑貨|ミラー|傘", value):
         return "生活雑貨"
-    return "ぬいぐるみ"
+    if re.search(r"ぬいぐるみ|人形|ドール", value):
+        return "ぬいぐるみ"
+    return "生活雑貨"
 
 
 def clean_candidate(item):
@@ -210,26 +279,30 @@ def clean_candidate(item):
     image = safe_image_url(item.get("image"))
     affiliate = safe_affiliate_url(item.get("affiliate"))
     shop = re.sub(r"\s+", " ", str(item.get("shop", ""))).strip()[:100]
-    category = str(item.get("category", "")).strip()
-    if category not in CATEGORIES:
-        category = infer_category(title)
+    category = infer_category(title)
     if not re.fullmatch(r"[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+", code) or not title or not image or not affiliate:
         return None
     return {"code": code, "title": title[:300], "image": image, "affiliate": affiliate, "shop": shop, "category": category}
 
 
-def build_candidate_set(raw_items, old_cards):
+def build_candidate_set(raw_items, old_cards, character=None):
     buckets = {category: [] for category in CATEGORIES}
     seen_codes = set()
     seen_names = set()
     seen_images = set()
     duplicates = 0
+    seen_identity = set()
 
     def add_to_pool(raw, existing=False):
         nonlocal duplicates
         item = clean_candidate(raw)
-        if not item:
+        if not item or (character and not matches_character(item["title"], character)):
             return
+        identities = identity_keys(item)
+        if identities & seen_identity:
+            duplicates += 1
+            return
+        seen_identity.update(identities)
         name_key = canonical_text(item["title"])
         if item["code"] in seen_codes or item["image"] in seen_images or (name_key and name_key in seen_names):
             duplicates += 1
@@ -282,6 +355,8 @@ def marketplace_urls(title):
 
 def photo_card(item):
     title = html.escape(item["title"], quote=True)
+    short_title = html.escape(display_title(item["title"]), quote=True)
+    labels = "".join('<small class="sf-product-label">' + html.escape(label) + '</small>' for label in item_labels(item["title"]))
     code = html.escape(item["code"], quote=True)
     image = html.escape(item["image"], quote=True)
     affiliate = html.escape(item["affiliate"], quote=True)
@@ -298,13 +373,13 @@ def photo_card(item):
         'style="display:block;width:100%;height:100%;object-fit:contain"></span>'
         '<div style="display:flex;min-height:124px;flex-direction:column;gap:6px;padding:8px">'
         '<strong style="display:-webkit-box;overflow:hidden;font-size:clamp(11px,2.8vw,14px);line-height:1.45;overflow-wrap:anywhere;-webkit-box-orient:vertical;-webkit-line-clamp:3">'
-        + title + '</strong>'
-        '<small style="overflow:hidden;color:#756b78;font-size:10px;line-height:1.3;text-overflow:ellipsis;white-space:nowrap">' + shop + '</small>'
+        + short_title + '</strong>' + labels
+        + '<small style="overflow:hidden;color:#756b78;font-size:10px;line-height:1.3;text-overflow:ellipsis;white-space:nowrap">' + shop + '</small>'
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:auto">'
         '<a href="' + affiliate + '" target="_blank" rel="sponsored nofollow noopener" '
-        'style="display:flex;align-items:center;justify-content:center;min-height:36px;padding:4px 2px;border-radius:8px;background:#bf0000;color:#fff;font-size:11px;font-weight:700;text-align:center;text-decoration:none">楽天で見る</a>'
+        'style="display:flex;align-items:center;justify-content:center;min-height:44px;padding:4px 2px;border-radius:8px;background:#bf0000;color:#fff;font-size:11px;font-weight:700;text-align:center;text-decoration:none">楽天で見る</a>'
         '<a href="' + amazon + '" target="_blank" rel="sponsored nofollow noopener" '
-        'style="display:flex;align-items:center;justify-content:center;min-height:36px;padding:4px 2px;border-radius:8px;background:#ffbd35;color:#202124;font-size:11px;font-weight:700;text-align:center;text-decoration:none">Amazonで探す</a>'
+        'style="display:flex;align-items:center;justify-content:center;min-height:44px;padding:4px 2px;border-radius:8px;background:#ffbd35;color:#202124;font-size:11px;font-weight:700;text-align:center;text-decoration:none">Amazonで探す</a>'
         '</div></div></article>'
     )
 
@@ -313,7 +388,7 @@ def section_html(old_section, products, guide_cards, character_name):
     heading_match = re.search(r"<h2\b[^>]*>.*?</h2>", old_section, flags=re.S)
     intro_match = re.search(r"<p\b[^>]*>.*?</p>", old_section[heading_match.end():] if heading_match else "", flags=re.S)
     heading = heading_match.group(0) if heading_match else '<h2 id="sf-character-product-guides-title">' + html.escape(character_name) + 'の商品ガイド</h2>'
-    intro = '<p>楽天市場の画像を確認した商品を、ジャンルごとに写真付き3列で掲載しています。販売状況は購入先でご確認ください。</p>'
+    intro = '<p>気になる商品を写真から探せます。購入先で種類・価格・在庫をご確認ください。</p>'
     card_grid = (
         '<div class="sf-character-photo-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(7px,1.8vw,12px)">'
         + "".join(photo_card(product) for product in products) + '</div>'
@@ -330,8 +405,38 @@ def section_html(old_section, products, guide_cards, character_name):
     return (
         START + '<section class="sf-character-product-guides" aria-labelledby="sf-character-product-guides-title">'
         + heading + intro + '<p style="margin:4px 0 10px;color:#766b78;font-size:12px">写真を確認できた商品：' + str(len(products)) + '件</p>'
-        + card_grid + guides + disclosure + '</section>' + END
+        + category_controls(products) + card_grid + guides + disclosure + catalog_filter_script() + '</section>' + END
     )
+
+
+
+def category_controls(products):
+    counts = {c: sum(p["category"] == c for p in products) for c in CATEGORIES}
+    options = '<option value="">すべて（%d件）</option>' % len(products)
+    options += "".join('<option value="' + html.escape(c, quote=True) + '">' + c + '（' + str(n) + '件）</option>' for c, n in counts.items() if n)
+    return '<label class="sf-catalog-filter">ジャンルで絞り込む <select data-sf-catalog-category aria-label="商品ジャンル">' + options + '</select></label><p data-sf-catalog-count aria-live="polite">' + str(len(products)) + '件を表示</p>'
+
+
+def catalog_filter_script():
+    return '''<style>.sf-character-photo-grid [hidden]{display:none!important}.sf-catalog-filter{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px}.sf-catalog-filter select{font-size:16px;min-height:44px;max-width:100%;padding:6px 10px}.sf-product-label{color:#65546a;background:#f7f0f5;border-radius:5px;padding:2px 4px;font-size:11px}[data-sf-catalog-count]{font-size:12px;color:#65546a;margin:6px 0 12px}</style><script>(function(){function init(){document.querySelectorAll('.sf-character-product-guides').forEach(function(root){if(root.dataset.filterReady)return;var select=root.querySelector('[data-sf-catalog-category]');if(!select)return;root.dataset.filterReady='1';var cards=Array.from(root.querySelectorAll('.sf-rakuten-product-card'));select.addEventListener('change',function(){var shown=0;cards.forEach(function(card){card.hidden=!!select.value&&card.dataset.category!==select.value;if(!card.hidden)shown++;});root.querySelector('[data-sf-catalog-count]').textContent=shown+'件を表示';});});}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();})();</script>'''
+
+
+def compact_page(content, character_name):
+    # Theme controls are scoped to catalog pages. Keep directory order and guide links intact.
+    style = '''<style id="sf-catalog-compact">.entry-content .toc,.entry-header .sns-share,.entry-header .sns-share-buttons,.article-header .sns-share,.article-header .sns-share-buttons{display:none!important}.entry-header{margin-bottom:10px!important}.entry-title{font-size:clamp(20px,5vw,28px)!important;line-height:1.4!important;margin-bottom:8px!important}.entry-content>p{margin:8px 0}.sf-character-product-guides h2{margin:12px 0 8px!important}.sf-character-search-guide{margin:0!important}.sf-character-search-guide>div,.sf-character-search-guide>aside{padding:12px!important}.sf-character-search-guide h2{font-size:20px!important;margin:8px 0!important}.sf-character-search-guide p{font-size:13px!important;line-height:1.6!important;margin:6px 0!important}.sf-character-search-guide .toc{display:none!important}.sf-character-product-guides{scroll-margin-top:12px}</style>'''
+    content = re.sub(r'<style id="sf-catalog-compact">.*?</style>', '', content, flags=re.S)
+    # Added 18 pages used a long search-only intro; retain its outbound links in a compact row.
+    if '<!-- sf-character-search-page:v1 -->' in content:
+        pattern = r'<section\b[^>]*class="sf-character-search-guide"[^>]*>.*?</section>'
+        match = re.search(pattern, content, flags=re.S)
+        if match:
+            links = re.findall(r'<a\b[^>]*href="([^"]+)"[^>]*>(.*?)</a>', match.group(0), flags=re.S)
+            markets = [(html.unescape(url), text_from(label)) for url, label in links if 'amazon.co.jp/' in url or 'hb.afl.rakuten.co.jp/' in url]
+            compact = '<section class="sf-character-search-guide"><p><a href="' + SITE + '/characters/">キャラクター一覧に戻る</a></p><p>' + html.escape(character_name) + 'の商品一覧。リンクにはアフィリエイト広告を含みます。</p><p>'
+            compact += ' ／ '.join('<a href="' + html.escape(url, quote=True) + '" target="_blank" rel="sponsored nofollow noopener">' + ('Amazonで探す' if 'amazon.co.jp/' in url else '楽天で探す') + '</a>' for url, _ in markets)
+            compact += '</p></section>'
+            content = content[:match.start()] + compact + content[match.end():]
+    return style + content
 
 
 class CatalogTooSmall(RuntimeError):
@@ -374,8 +479,8 @@ def main():
         old_section = ""
 
     old_cards = extract_existing_cards(old_section)
-    products, checked, rejected, duplicates = build_candidate_set(raw_items, old_cards)
-    if len(products) < MIN_CARDS:
+    products, checked, rejected, duplicates = build_candidate_set(raw_items, old_cards, args.character)
+    if len(products) < MIN_CARDS and not old_cards:
         raise CatalogTooSmall(
             "Only %d verified photo products were available (minimum %d). "
             "Page was left unchanged. Images checked: %d; low-resolution or unavailable: %d."
@@ -388,6 +493,7 @@ def main():
     else:
         updated_content = content[:search_guide.end()] + "\n" + replacement + content[search_guide.end():]
 
+    updated_content = compact_page(updated_content, character_name)
     wp.call("/wp/v2/pages/%d" % page_id, {"content": updated_content})
     verify = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,slug,content" % page_id)
     saved = verify.get("content", {}).get("raw", "")

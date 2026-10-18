@@ -207,7 +207,7 @@ class Tests(unittest.TestCase):
         updated, count = nav.update_directory(raw, guides)
         self.assertEqual(count, 36)
         self.assertNotIn('チアリステイルズ', updated)
-        self.assertIn('href="/goods/?character=kirimi-chan"', updated)
+        self.assertIn('href="https://sanrio-fan.site/character-kirimi-chan/"', updated)
         self.assertIn('href="https://sanrio-fan.site/cinnamoroll-guide/"', updated)
         for slug, page_slug in [
             ('kerokerokeroppi', 'kerokerokeroppi-goods'),
@@ -217,7 +217,7 @@ class Tests(unittest.TestCase):
             ('jochum', 'jochum-goods'),
         ]:
             self.assertIn('href="https://sanrio-fan.site/' + page_slug + '/"', updated)
-        self.assertIn('href="/goods/?character=hanamaru-obake"', updated)
+        self.assertIn('href="https://sanrio-fan.site/character-hanamaru-obake/"', updated)
 
     def test_homepage_features_thirteen_direct_character_guides(self):
         names = ['シナモロール', 'クロミ', 'マイメロディ', 'ポムポムプリン',

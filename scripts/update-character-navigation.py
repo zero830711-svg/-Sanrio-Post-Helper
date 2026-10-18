@@ -148,7 +148,7 @@ def run(mode, wp):
         if slug in {"cinnamoroll", "kuromi", "my-melody", "pompompurin", "pochacco", "hello-kitty", "hangyodon", "little-twin-stars", *NEW_GUIDES.keys()}:
             if url not in directory_saved:
                 raise RuntimeError("Directory guide link missing after save: " + slug)
-    if directory_saved.count("/goods/?character=") < directory_count - len(guides):
+    if directory_saved.count("/goods/?character=") < max(0, directory_count - len(guides)):
         raise RuntimeError("Filtered goods links were not saved as expected.")
     print("UPDATED: homepage has %d guide links; /characters/ routes all %d characters to guides or prefiltered goods." % (home_count, directory_count))
 

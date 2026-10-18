@@ -5,6 +5,10 @@ on:
     paths:
       - scripts/fetch-rakuten-character-catalog.php
       - scripts/import-rakuten-character-catalog.py
+      - scripts/repair-character-catalogs.py
+      - scripts/build-product-directory.py
+      - scripts/update-character-navigation.py
+      - tests/test_character_catalog_quality.py
       - .github/workflows/other-character-rakuten-catalog.yml
   workflow_dispatch:
 permissions:
@@ -30,11 +34,17 @@ jobs:
           python3 -m pip install --quiet Pillow
           python3 -m py_compile scripts/import-rakuten-character-catalog.py
           php -l scripts/fetch-rakuten-character-catalog.php
+      - name: Test catalog selection and UI generation
+        run: python3 -m unittest discover -s tests -p test_character_catalog_quality.py -v
+      - name: Repair existing catalogs and character navigation through REST
+        run: python3 scripts/repair-character-catalogs.py
       - name: Install FTPS client
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[refresh-catalogs]')
         run: |
           sudo apt-get update -qq
           sudo apt-get install --yes lftp
       - name: Import each character catalog through WordPress REST
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[refresh-catalogs]')
         shell: bash
         run: |
           set -euo pipefail
