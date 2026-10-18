@@ -1,0 +1,56 @@
+name: Compact homepage typography
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/compact-home-top.py
+      - .github/workflows/compact-home-top.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-home-top-layout
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate syntax
+        run: python3 -m py_compile scripts/compact-home-top.py
+      - name: Save homepage typography through REST
+        run: python3 scripts/compact-home-top.py
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify at iPhone width
+        run: |
+          node <<'NODE'
+          const {chromium}=require('@playwright/test');
+          (async()=>{
+            const browser=await chromium.launch();
+            const page=await browser.newPage({viewport:{width:393,height:852},deviceScaleFactor:1,isMobile:true,hasTouch:true});
+            await page.goto('https://sanrio-fan.site/?compact-top-check=20261018',{waitUntil:'networkidle'});
+            const result=await page.evaluate(()=>{
+              const rect=s=>{let r=document.querySelector(s).getBoundingClientRect();return {top:r.top,height:r.height};};
+              return {headings:Array.from(document.querySelectorAll('.sf-guide>section>h2')).map(h=>h.textContent),hero:rect('.sf-hero'),characters:rect('.sf-chars'),charCols:getComputedStyle(document.querySelector('.sf-chars')).gridTemplateColumns,productCols:getComputedStyle(document.querySelector('#sf-home-photo-products')).gridTemplateColumns,overflow:document.documentElement.scrollWidth>innerWidth};
+            });
+            console.log(JSON.stringify(result));
+            if(result.overflow||result.headings[0]!=='好きなキャラクターから'||result.charCols.split(' ').length!==4||result.productCols.split(' ').length!==3||result.hero.height>190)throw Error('Mobile layout check failed');
+            await page.screenshot({path:'home-top-mobile.png'});
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: home-top-mobile
+          path: home-top-mobile.png
+          retention-days: 7
