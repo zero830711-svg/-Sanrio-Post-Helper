@@ -161,7 +161,14 @@ def run(mode):
     verify_raw = verify.get("content", {}).get("raw", "")
     if any(target_url not in verify_raw for *_, target_url in plans):
         raise RuntimeError("Character directory link verification failed.")
-    print("DIRECTORY_UPDATED:", len(plans), "character links")
+    still_search_links = [
+        name for name, slug, query_slug, page, create, target_url in plans
+        if ("/goods/?character=" + query_slug) in verify_raw
+        or ("/goods/?character=" + query_slug).replace("&", "&amp;") in verify_raw
+    ]
+    if still_search_links:
+        raise RuntimeError("Directory still points to generic search for: " + ", ".join(still_search_links))
+    print("DIRECTORY_UPDATED_AND_VERIFIED:", len(plans), "character links")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
