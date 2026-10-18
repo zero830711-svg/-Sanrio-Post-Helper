@@ -56,7 +56,8 @@ check_am(count(am_auto_public($failed,$now+3600)['items'])===1&&$failed['queryIn
 check_am($failed['nextAt']===$now+3600+21600&&$failed['autoState']==='error','Rate-limit backoff missing');
 $unexpected=am_auto_tick([],$settings,$now,static function(){throw new RuntimeException('PRIVATE_TOKEN_RESPONSE');});
 check_am(!str_contains(json_encode(am_auto_public($unexpected,$now)),'PRIVATE_TOKEN'),'Discovery error leaked provider content');
-check_am(count(am_auto_queries())===41,'Discovery rotation changed');
+check_am(count(am_auto_queries())===145,'Discovery rotation changed');check_am(in_array('JOCHUM キーホルダー',am_auto_queries(),true)&&in_array('タキシードサム ぬいぐるみ',am_auto_queries(),true),'All-character discovery coverage missing');
+$jochum=am_auto_tick([],$settings,$now,static fn()=>['partnerTag'=>'test-22','items'=>[['title'=>'JOCHUM キーホルダー','url'=>'https://www.amazon.co.jp/dp/B000000004','image'=>'']]]);check_am(count(am_auto_public($jochum,$now)['items'])===1,'Expanded character filter rejected JOCHUM');
 echo "Amazon discovery ASIN dedupe, query rotation, cache TTL, retained candidates and backoff verified\n";
 
 $pageCalls=[];

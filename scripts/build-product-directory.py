@@ -133,7 +133,7 @@ def product_key(product):
     raise RuntimeError('A product needs a JAN, Amazon ASIN, Rakuten item code, or catalog_id.')
 
 
-def load_products():
+def load_products(amazon_candidates=None):
     by_key = {}
     for path in sorted((ROOT / 'blog').glob('products-*.json')):
         for product in json.loads(path.read_text()):
@@ -141,8 +141,71 @@ def load_products():
             by_key.setdefault(key, product)
     if not by_key:
         raise RuntimeError('No reviewed product data was found.')
-    return list(by_key.values())
+    products = list(by_key.values())
+    return merge_amazon_candidates(products, amazon_candidates)
 
+
+
+def merge_amazon_candidates(products, candidate_path):
+    if not candidate_path:
+        return products
+    payload = json.loads(Path(candidate_path).read_text(encoding='utf-8'))
+    if not isinstance(payload, list):
+        raise RuntimeError('Amazon candidate export must be a list.')
+    known = {product_key(p) for p in products}
+    now = __import__('time').time()
+    chars = sorted(CHARACTER_CATALOG, key=lambda item: len(item[0]), reverse=True)
+    aliases = [('キキララ', 'リトルツインスターズ', 'little-twin-stars')]
+    kinds = [
+        (r'ぬいぐるみ|マスコット| plush', 'ぬいぐるみ', 'plush'),
+        (r'バッグ|ポーチ|ショルダー', 'バッグ・ポーチ', 'bags-pouches'),
+        (r'文房具|ペン|ノート|シール|ステッカー', '文具・シール', 'stationery-stickers'),
+        (r'キーホルダー|チャーム', 'キーホルダー', 'keychains'),
+        (r'食器|マグ|生活雑貨|タオル|収納', '生活雑貨', 'daily-goods'),
+        (r'推し活|カード|トレカ|アクスタ', '推し活・収納', 'oshi-storage'),
+        (r'おもちゃ|玩具|ガチャ|フィギュア', 'おもちゃ', 'toys'),
+        (r'ファッション|靴下|服|アパレル', 'ファッション', 'fashion'),
+        (r'本|絵本|カレンダー|ブック', '本・カレンダー', 'books-calendar'),
+    ]
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        asin = str(item.get('asin', '')).upper()
+        title = str(item.get('title', '')).strip()
+        query = str(item.get('query', '')).strip()
+        url = str(item.get('url', ''))
+        fetched = int(item.get('fetchedAt', 0) or 0)
+        if not re.fullmatch(r'[A-Z0-9]{10}', asin) or not title or fetched > now or now - fetched >= 86400:
+            continue
+        parsed = parse.urlparse(url)
+        if parsed.scheme != 'https' or parsed.netloc != 'www.amazon.co.jp' or not re.search(r'/(?:dp|gp/product)/' + asin + r'(?:/|$)', parsed.path, re.I):
+            continue
+        key = 'amazon-' + asin.lower()
+        if key in known:
+            continue
+        search_source = query + ' ' + title
+        character = None
+        for name, slug in chars:
+            if re.search(re.escape(name), query, re.I) or re.search(re.escape(name), title, re.I):
+                character = (name, slug)
+                break
+        if character is None:
+            for alias, name, slug in aliases:
+                if alias in query or alias in title:
+                    character = (name, slug)
+                    break
+        if character is None:
+            character = ('サンリオキャラクターズ', 'sanrio-characters')
+        kind = next(((name, slug) for pattern, name, slug in kinds
+                     if re.search(pattern, search_source, re.I)), ('サンリオグッズ', 'sanrio-goods'))
+        products.append({
+            'amazon_asin': asin, 'name': title, 'title': title,
+            'query': title, 'character': character[0], 'character_slug': character[1],
+            'kind': kind[0], 'kind_slug': kind[1], 'source': 'Amazon Creators API',
+            'fetched_at': fetched,
+        })
+        known.add(key)
+    return products
 
 def marketplace_links(product):
     query = product['query']
@@ -324,9 +387,10 @@ def run(mode, wp, products):
 if __name__=='__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--mode',choices=['check','apply'],default='check')
+    parser.add_argument('--amazon-candidates', help='Temporary, under-24-hour Amazon API results; never committed.')
     args=parser.parse_args()
     try:
-        products=load_products()
+        products=load_products(args.amazon_candidates)
         run(args.mode,WordPress(),products)
     except (RuntimeError,error.URLError,ValueError,KeyError) as exc:
         print(str(exc) if isinstance(exc,RuntimeError) else 'Operation failed; check site and secret settings.',file=sys.stderr)

@@ -18,12 +18,14 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 15
     env:
       LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
       LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
       LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
       LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
     steps:
       - uses: actions/checkout@v6
       - name: Verify authentication and private storage
@@ -61,7 +63,8 @@ jobs:
           echo "Protected Amazon settings endpoint verified; credentials withheld\n";
           ' "$am_tmp/config.php"
           if [ "$GITHUB_EVENT_NAME" = schedule ]; then
-            php scripts/verify-amazon-discovery.php "$am_tmp/config.php"
+            php scripts/verify-amazon-discovery.php "$am_tmp/config.php" --output="$RUNNER_TEMP/amazon-candidates.json"
+            python3 scripts/build-product-directory.py --mode apply --amazon-candidates "$RUNNER_TEMP/amazon-candidates.json"
           else
             php scripts/verify-amazon-discovery.php "$am_tmp/config.php" --search-pages
           fi

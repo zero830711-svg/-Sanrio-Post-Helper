@@ -18,7 +18,15 @@ try{
   $p=parse_url($item['url']??'');if(($p['scheme']??'')!=='https'||($p['host']??'')!=='www.amazon.co.jp'||!preg_match('~/[A-Z0-9]{10}(?:/|$)~i',$p['path']??'')||empty($item['title'])||($item['fetchedAt']??0)<=$now-86400)throw new RuntimeException('Invalid or stale discovered product');
   if(isset($ids[$item['asin']??'']))throw new RuntimeException('Duplicate ASIN returned');$ids[$item['asin']]=true;
  }
- if(($after['queryCount']??0)!==41||($after['nextAt']??0)<=$now)throw new RuntimeException('Discovery rotation or cooldown is missing');
+ if(($after['queryCount']??0)!==145||($after['nextAt']??0)<=$now)throw new RuntimeException('Discovery rotation or cooldown is missing');
+
+ $outputPath='';foreach(array_slice($argv,2) as $arg){if(str_starts_with($arg,'--output='))$outputPath=substr($arg,9);}
+ if($outputPath!==''){
+  $export=[];foreach($after['items']??[] as $item)$export[]=['asin'=>$item['asin'],'title'=>$item['title'],'url'=>$item['url'],'query'=>$item['query'],'fetchedAt'=>(int)$item['fetchedAt']];
+  if(file_put_contents($outputPath,json_encode($export,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),LOCK_EX)===false)throw new RuntimeException('Amazon candidate export failed');
+  chmod($outputPath,0600);
+  echo 'Current Amazon catalog candidates exported for immediate REST sync; '.count($export).' items; API data is not committed'."\n";
+ }
  echo 'Persistent Amazon storage and auto-discovery verified; '.count($ids).' unique current products; query rotation and cooldown active; credentials withheld'."\n";
  if(($argv[2]??'')==='--search-pages'){
   // Only code deployment/manual verification uses two extra searches, never scheduled collection.

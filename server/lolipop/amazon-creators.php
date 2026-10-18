@@ -81,9 +81,10 @@ function am_asin(string $url):string{
  $p=parse_url($url);if(($p['scheme']??'')!=='https'||($p['host']??'')!=='www.amazon.co.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port']))return '';
  return preg_match('~/(?:dp|gp/product)/([A-Z0-9]{10})(?:/|$)~i',$p['path']??'',$m)?strtoupper($m[1]):'';
 }
+function am_auto_characters():array{return ["ハローキティ","マイメロディ","リトルツインスターズ","ポムポムプリン","シナモロール","クロミ","ポチャッコ","ハンギョドン","タキシードサム","けろけろけろっぴ","バッドばつ丸","あひるのペックル","ぐでたま","マイスウィートピアノ","ウィッシュミーメル","こぎみゅん","はなまるおばけ","がおぱわるぅ","ぼんぼんりぼん","ディアダニエル","チャーミーキティ","まるもふびより","コロコロクリリン","マロンクリーム","シュガーバニーズ","ウサハナ","マシュマロみたいなふわふわにゃんこ","チョコキャット","KIRIMIちゃん.","おさるのもんきち","ゴロピカドン","ジュエルペット","みんなのたあ坊","リトルフォレストフェロォ","ルロロマニック","JOCHUM"];}
 function am_auto_queries():array{
  $queries=['サンリオ'];
- foreach(['ハローキティ','マイメロディ','クロミ','シナモロール','ポムポムプリン','ポチャッコ','ハンギョドン','リトルツインスターズ','こぎみゅん','ウサハナ'] as $character){
+ foreach(am_auto_characters() as $character){
   foreach(['ぬいぐるみ','ポーチ','文房具','キーホルダー'] as $category)$queries[]=$character.' '.$category;
  }
  return $queries;
@@ -105,7 +106,7 @@ function am_auto_tick(array $state,array $settings,int $now,?callable $search=nu
   foreach(am_auto_items($state,$now) as $item)$pool[am_asin($item['url'])]=$item;
   foreach($result['items']??[] as $item){
    $asin=am_asin((string)($item['url']??''));$title=(string)($item['title']??'');
-   if(!$asin||!preg_match('/サンリオ|ハローキティ|マイメロディ|クロミ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|リトルツインスターズ|キキララ|こぎみゅん|ウサハナ/u',$title))continue;
+   $characterPattern=implode('|',array_map(static fn($name)=>preg_quote($name,'/'),am_auto_characters()));if(!$asin||!preg_match('/サンリオ|キキララ|'.$characterPattern.'/u',$title))continue;
    $pool[$asin]=['asin'=>$asin,'title'=>mb_substr($title,0,500),'url'=>$item['url'],'image'=>$item['image']??'','fetchedAt'=>$now,'query'=>$query];
   }
   uasort($pool,static fn($a,$b)=>$b['fetchedAt']<=>$a['fetchedAt']);$state['items']=array_slice($pool,0,300,true);
