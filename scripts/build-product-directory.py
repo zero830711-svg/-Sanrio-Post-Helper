@@ -2,6 +2,7 @@
 import argparse
 import base64
 import html
+import hashlib
 import json
 import os
 import re
@@ -111,13 +112,36 @@ def tag_spec(product):
     return [(character, character_slug), (kind, kind_slug)]
 
 
+def product_key(product):
+    jan = str(product.get('jan', '')).strip()
+    if jan:
+        if not re.fullmatch(r'\d{8,14}', jan):
+            raise RuntimeError('JAN must contain 8 to 14 digits.')
+        return 'jan-' + jan
+    asin = str(product.get('amazon_asin') or product.get('asin') or '').strip().upper()
+    if asin:
+        if not re.fullmatch(r'[A-Z0-9]{10}', asin):
+            raise RuntimeError('Amazon ASIN must contain 10 letters or digits.')
+        return 'amazon-' + asin.lower()
+    item_code = str(product.get('rakuten_item_code') or product.get('itemCode') or product.get('item_code') or '').strip()
+    if item_code:
+        digest = hashlib.sha256(item_code.encode('utf-8')).hexdigest()[:20]
+        return 'rakuten-' + digest
+    catalog_id = str(product.get('catalog_id') or '').strip().lower()
+    if catalog_id and re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', catalog_id):
+        return catalog_id
+    raise RuntimeError('A product needs a JAN, Amazon ASIN, Rakuten item code, or catalog_id.')
+
+
 def load_products():
-    products = []
+    by_key = {}
     for path in sorted((ROOT / 'blog').glob('products-*.json')):
-        products.extend(json.loads(path.read_text()))
-    if not products:
+        for product in json.loads(path.read_text()):
+            key = product_key(product)
+            by_key.setdefault(key, product)
+    if not by_key:
         raise RuntimeError('No reviewed product data was found.')
-    return products
+    return list(by_key.values())
 
 
 def marketplace_links(product):
@@ -195,13 +219,13 @@ def filter_controls(products, page_urls=None):
 
 
 def make_section(products, posts, terms, page_urls=None):
-    by_jan = {
-        post.get('slug', '').removeprefix('goods-jan-'): post
+    by_key = {
+        post.get('slug', '').removeprefix('goods-'): post
         for post in posts if post
     }
     cards = []
     for p in products:
-        post = by_jan.get(p['jan'])
+        post = by_key.get(product_key(p))
         chips = []
         for name, slug in tag_spec(p):
             if post:
@@ -216,7 +240,7 @@ def make_section(products, posts, terms, page_urls=None):
             image_match = re.search(r'<img\b[^>]*\bsrc=["\']([^"\']+)', post.get('content', {}).get('raw', ''))
             image_url = image_match.group(1) if image_match else ''
             if not image_url.startswith(SITE + '/wp-content/uploads/'):
-                raise RuntimeError('Could not verify the local featured image for JAN ' + p['jan'])
+                raise RuntimeError('Could not verify the local featured image for ' + product_key(p))
             product_visual = '<img loading="lazy" style="width:100%;height:160px;object-fit:contain" src="' + html.escape(image_url, quote=True) + '" alt="' + html.escape(p['character'] + ' ' + p['name'], quote=True) + '">'
             detail = '<a class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit;text-decoration:none" href="' + html.escape(link, quote=True) + '">' + product_visual + '<strong>' + html.escape(title) + '</strong><span>商品情報・仕様を見る →</span></a>'
         else:
@@ -245,14 +269,15 @@ def run(mode, wp, products):
     wp.call('/wp/v2/users/me?context=edit&_fields=id')
     posts=[]
     for p in products:
-        query=parse.urlencode({'slug':'goods-jan-'+p['jan'],'context':'edit','_fields':'id,slug,title,link,content,status,tags,categories'})
+        key = product_key(p)
+        query=parse.urlencode({'slug':'goods-'+key,'context':'edit','_fields':'id,slug,title,link,content,status,tags,categories'})
         rows,_=wp.call('/wp/v2/posts?'+query)
         if len(rows) > 1:
-            raise RuntimeError('Multiple published product posts found for JAN ' + p['jan'])
+            raise RuntimeError('Multiple published product posts found for ' + key)
         post = rows[0] if rows else None
         if post and post.get('status') != 'publish':
-            raise RuntimeError('Unexpected product article status for JAN ' + p['jan'])
-        if post and p['jan'] not in post.get('content', {}).get('raw', ''):
+            raise RuntimeError('Unexpected product article status for ' + key)
+        if post and p.get('jan') and p['jan'] not in post.get('content', {}).get('raw', ''):
             raise RuntimeError('JAN verification failed: ' + p['jan'])
         posts.append(post)
     specs={}

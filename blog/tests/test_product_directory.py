@@ -64,6 +64,20 @@ class Tests(unittest.TestCase):
         self.assertNotIn('商品情報・仕様を見る', section)
         self.assertNotIn('goods-jan-4900000000000', section)
 
+    def test_marketplace_ids_support_catalog_items_without_jan(self):
+        asin_product = dict(PRODUCTS[0])
+        asin_product.pop('jan', None)
+        asin_product['asin'] = 'B012345678'
+        self.assertEqual(directory.product_key(asin_product), 'amazon-b012345678')
+        rakuten_product = dict(PRODUCTS[0])
+        rakuten_product.pop('jan', None)
+        rakuten_product['itemCode'] = 'shop:item-123'
+        self.assertTrue(directory.product_key(rakuten_product).startswith('rakuten-'))
+        section = directory.make_section([asin_product], [], {})
+        self.assertIn('♡', section)
+        self.assertIn('Amazonで探す', section)
+        self.assertIn('楽天で探す', section)
+
     def test_directory_filters_search_character_and_product_kind(self):
         section = directory.make_section(PRODUCTS, self.posts, {})
         self.assertIn('data-sf-search', section)
