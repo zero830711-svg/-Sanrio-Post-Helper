@@ -94,7 +94,7 @@ def insertion_point(raw):
         close = raw.find("</section>", h1.end())
         if close >= 0:
             return close + len("</section>"), "first-section-after-h1"
-    return None, "not-found"
+    # If the custom page has no known CTA anchor, append a valid section at content end.\n    return len(raw), "content-end"
 
 def update_content(raw, section):
     if START in raw and END in raw:
