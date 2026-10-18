@@ -55,6 +55,26 @@ class Tests(unittest.TestCase):
         self.assertIn('条件をクリア', section)
         self.assertIn('repeat(auto-fit,minmax(150px,1fr))', section)
 
+    def test_official_character_catalog_includes_marketplace_search_for_missing_articles(self):
+        controls = directory.filter_controls(PRODUCTS)
+        self.assertEqual(len(directory.CHARACTER_CATALOG), 30)
+        self.assertEqual(controls.count('data-character-name='), 30)
+        for slug, name in [
+            ('tuxedo-sam', 'タキシードサム'),
+            ('ahiru-no-pekkle', 'あひるのペックル'),
+            ('bad-badtz-maru', 'バッドばつ丸'),
+            ('cogimyun', 'こぎみゅん'),
+        ]:
+            self.assertIn('value="' + slug + '"', controls)
+            self.assertIn('data-character-name="' + name + '"', controls)
+        self.assertIn('data-article-count="0"', controls)
+        self.assertIn('data-article-count="2"', controls)
+        self.assertIn('data-sf-marketplace', controls)
+        self.assertIn('data-sf-amazon', controls)
+        self.assertIn('data-sf-rakuten', controls)
+        self.assertIn('楽天でこのキャラを探す', controls)
+        self.assertIn('https://shop.sanrio.co.jp/character', controls)
+
     def test_marketplace_links_use_affiliate_ids_and_exact_search_query(self):
         amazon, rakuten = directory.marketplace_links(PRODUCTS[0])
         amazon_query = parse.parse_qs(parse.urlparse(amazon).query)
