@@ -1,0 +1,40 @@
+name: Sanrio WordPress REST
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/publish-sanrio-products.py
+      - blog/tests/test_wordpress_rest.py
+      - .github/workflows/sanrio-wordpress.yml
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check=接続と重複確認 / draft=下書き / publish=５商品の公開'
+        required: true
+        default: check
+        type: choice
+        options: [check, draft, publish]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 -m unittest discover -s blog/tests -p test_wordpress_rest.py -v
+  wordpress:
+    if: github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      RUN_MODE: ${{ inputs.mode }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Register products through standard REST API
+        run: python3 scripts/publish-sanrio-products.py --mode "$RUN_MODE"
