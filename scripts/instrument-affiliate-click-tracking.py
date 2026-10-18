@@ -11,8 +11,8 @@ from urllib import error, request, parse
 
 SITE = "https://sanrio-fan.site"
 MARKER = "data-sf-ga4-event"
-OPEN_TAG_RE = re.compile(r"<a\\b[^>]*>", re.I)
-ATTR_RE = lambda name: re.compile(r"\\b" + re.escape(name) + r"\\s*=\\s*([\"'])(.*?)\\1", re.I)
+OPEN_TAG_RE = re.compile(r"<a\b[^>]*>", re.I)
+ATTR_RE = lambda name: re.compile(r"\b" + re.escape(name) + r"\s*=\s*([\"'])(.*?)\1", re.I)
 EVENTS = {"amazon": "amazon_affiliate_click", "rakuten": "rakuten_affiliate_click"}
 
 
@@ -44,7 +44,7 @@ def tracked_anchor(tag):
         "transport_type:'beacon'"
         "});}"
     )
-    marker_re = re.compile(r"\\s+" + MARKER + r"\\s*=\\s*([\"'])(.*?)\\1", re.I)
+    marker_re = re.compile(r"\s+" + MARKER + r"\s*=\s*([\"'])(.*?)\1", re.I)
     onclick_re = ATTR_RE("onclick")
     existing_marker = marker_re.search(tag)
     existing_onclick = onclick_re.search(tag)
