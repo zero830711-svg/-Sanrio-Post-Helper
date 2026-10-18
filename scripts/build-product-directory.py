@@ -222,7 +222,7 @@ def make_section(products, posts, terms, page_urls=None):
         else:
             title = p.get('name') or p['title']
             product_visual = '<div aria-hidden="true" style="display:grid;place-items:center;width:100%;height:160px;border-radius:12px;background:linear-gradient(135deg,#fdf1f6,#eff9f6);color:#8b7184;font-size:38px">♡</div>'
-            detail = '<div class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit"><strong>' + html.escape(title) + '</strong><span>メーカー・型番情報を確認 →</span></div>'
+            detail = '<div class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit">' + product_visual + '<strong>' + html.escape(title) + '</strong><span>メーカー・型番情報を確認 →</span></div>'
         amazon_url, rakuten_url = marketplace_links(p)
         search_text = ' '.join(str(p.get(key, '')) for key in ('character', 'kind', 'name', 'title', 'model', 'jan'))
         data_attrs = (
@@ -236,7 +236,7 @@ def make_section(products, posts, terms, page_urls=None):
             '<a href="' + html.escape(rakuten_url, quote=True) + '" target="_blank" rel="sponsored nofollow noopener" '
             'style="display:flex;align-items:center;justify-content:center;min-height:48px;padding:8px;border-radius:10px;background:#bf0000;color:#fff;font-weight:700;text-align:center;text-decoration:none">楽天で探す</a>'
             '</div><small style="display:block;margin-top:8px;color:#777">JAN・型番で検索。価格・在庫・販売元は購入先でご確認ください。</small>')
-        cards.append('<article class="sf-directory-card"' + data_attrs + ' style="min-width:0;border:1px solid #eadde5;border-radius:18px;padding:12px;background:#fff">' + product_visual + detail + buttons + '<nav aria-label="分類" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">' + ''.join(chips) + '</nav></article>')
+        cards.append('<article class="sf-directory-card"' + data_attrs + ' style="min-width:0;border:1px solid #eadde5;border-radius:18px;padding:12px;background:#fff">' + detail + buttons + '<nav aria-label="分類" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">' + ''.join(chips) + '</nav></article>')
     controls = filter_controls(products, page_urls)
     return MARKER + '<section class="sf-directory" aria-labelledby="sf-directory-title"><h2 id="sf-directory-title">サンリオグッズカタログ</h2><p>キャラクター・商品カテゴリ・JANから探せます。購入先で最新の販売状況をご確認ください。</p>' + controls + '<div class="sf-directory-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">' + ''.join(cards) + '</div></section>'
 
