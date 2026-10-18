@@ -49,6 +49,8 @@ class Tests(unittest.TestCase):
         self.assertIn('data-sf-reset', section)
         self.assertIn('data-sf-count aria-live="polite"', section)
         self.assertIn('data-sf-empty hidden', section)
+        self.assertIn('data-sf-character-page', section)
+        self.assertIn('pageLink.style.display=selected.dataset.characterPageUrl?"inline-flex":"none"', section)
         self.assertIn('data-character="hangyodon"', section)
         self.assertIn('data-kind="ice-bags"', section)
         self.assertIn('4973307551598', section)
