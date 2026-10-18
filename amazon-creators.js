@@ -1,7 +1,11 @@
 (()=>{
 'use strict';
 const $=id=>document.getElementById(id),endpoint='https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/amazon-creators.php';
-let busy=false,configured=false;
+let busy=false,configured=false,lastItems=[];
+const CHARACTERS=[['ハローキティ','hello-kitty'],['マイメロディ','my-melody'],['リトルツインスターズ','little-twin-stars'],['ポムポムプリン','pompompurin'],['シナモロール','cinnamoroll'],['クロミ','kuromi'],['ポチャッコ','pochacco'],['ハンギョドン','hangyodon'],['タキシードサム','tuxedo-sam'],['けろけろけろっぴ','kerokerokeroppi'],['バッドばつ丸','bad-badtz-maru'],['あひるのペックル','ahiru-no-pekkle'],['ぐでたま','gudetama'],['マイスウィートピアノ','my-sweet-piano'],['ウィッシュミーメル','wish-me-mell'],['こぎみゅん','cogimyun'],['はなまるおばけ','hanamaru-obake'],['がおぱわるぅ','gaopoweru'],['ぼんぼんりぼん','bonbonribbon'],['ディアダニエル','dear-daniel'],['チャーミーキティ','charmmy-kitty'],['まるもふびより','marumofubiyori'],['コロコロクリリン','corocorokuririn'],['マロンクリーム','marroncream'],['シュガーバニーズ','sugar-bunnies'],['ウサハナ','usahana'],['マシュマロみたいなふわふわにゃんこ','marshmallow-fuwafuwa-nyanko'],['チョコキャット','chococat'],['KIRIMIちゃん.','kirimi-chan'],['おさるのもんきち','osaru-no-monkichi'],['ゴロピカドン','goropikadon'],['ジュエルペット','jewelpet'],['みんなのたあ坊','minna-no-taabou'],['リトルフォレストフェロォ','little-forest-fellow'],['ルロロマニック','ruroromannic'],['JOCHUM','jochum']];
+const KINDS=[['ぬいぐるみ','plushies'],['バッグ・ポーチ','bags-pouches'],['文具・シール','stationery-stickers'],['生活雑貨','lifestyle-goods'],['推し活・収納','oshikatsu-storage'],['おもちゃ','toys'],['ファッション','fashion'],['本・カレンダー','books-calendars']];
+function fillOptions(id,items){const select=$(id);for(const [label,value] of items){const option=document.createElement('option');option.value=value;option.textContent=label;option.dataset.label=label;select.append(option);}}
+fillOptions('catalogCharacter',CHARACTERS);fillOptions('catalogKind',KINDS);
 function syncKey(){return $('syncKey').value.trim()||localStorage.getItem('sanrioCloudSyncKey')||'';}
 function status(text){$('connectionStatus').textContent=text;}
 function setBusy(value){busy=value;for(const id of ['saveConnection','testConnection','searchApi','credentialCsv'])$(id).disabled=value;}
@@ -12,10 +16,11 @@ async function request(action,data){
 }
 function validProductUrl(url){try{const p=new URL(url);return p.protocol==='https:'&&p.hostname==='www.amazon.co.jp'&&!p.username&&!p.password&&!p.port;}catch{return false;}}
 function render(data){
- $('apiResults').replaceChildren();for(const item of data.items||[]){
+ lastItems=data.items||[];$('apiResults').replaceChildren();for(const item of lastItems){
   if(!validProductUrl(item.url))continue;
   const card=document.createElement('article');card.className='item';const title=document.createElement('h3');title.textContent=item.title;
   if(item.image){try{const u=new URL(item.image);if(u.protocol==='https:'&&['m.media-amazon.com','images-na.ssl-images-amazon.com','images-fe.ssl-images-amazon.com'].includes(u.hostname)&&!u.username&&!u.password&&!u.port){const img=document.createElement('img');img.src=u.href;img.alt='';img.className='product-image';img.loading='lazy';img.referrerPolicy='no-referrer';card.append(img);}}catch{}}
+  const asin=String(item.asin||item.ASIN||'').toUpperCase();if(/^[A-Z0-9]{10}$/.test(asin)){const pick=document.createElement('label');pick.className='catalog-pick';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=asin;checkbox.setAttribute('aria-label','カタログ候補に選ぶ');pick.append(checkbox,document.createTextNode(' カタログ候補に選ぶ'));card.append(pick);}
   const links=document.createElement('div');links.className='buttons';const amazon=document.createElement('a');amazon.className='btn amazon';amazon.textContent='Amazonで確認';amazon.href=item.url;amazon.target='_blank';amazon.rel='noopener noreferrer';
   const choose=document.createElement('a');choose.className='btn outline';choose.textContent='この商品を候補づくりへ';const u=new URL('./amazon-scout.html',location.href);u.searchParams.set('title',item.title);u.searchParams.set('url',item.url);u.searchParams.set('tag',data.partnerTag||$('partnerTag').value);choose.href=u.href;
   links.append(amazon,choose);card.append(title,links);$('apiResults').append(card);
@@ -25,6 +30,16 @@ async function search(check=false){
  const data=await request('search',{keywords:check?'サンリオ':$('apiQuery').value.trim()});
  status('Amazonの商品APIに接続できました。');render(data);$('searchStatus').textContent=data.items.length?data.items.length+'件を取得しました。':'接続できました。条件に合う商品はありませんでした。';return data;
 }
+
+$('catalogExport').onclick=()=>{
+ const character=$('catalogCharacter'),kind=$('catalogKind'),selected=[...document.querySelectorAll('#apiResults input[type="checkbox"]:checked')].map(x=>x.value);
+ if(!character.value||!kind.value){$('catalogStatus').textContent='キャラクターとジャンルを選んでください。';return;}
+ const names=[...new Set(selected)];if(!names.length){$('catalogStatus').textContent='カタログ候補にする商品を選んでください。';return;}
+ const characterName=character.selectedOptions[0].dataset.label,kindName=kind.selectedOptions[0].dataset.label;
+ const products=lastItems.filter(item=>names.includes(String(item.asin||item.ASIN||'').toUpperCase())).map(item=>({amazon_asin:String(item.asin||item.ASIN||'').toUpperCase(),title:String(item.title||'').slice(0,300),query:(characterName+' '+kindName+' '+String(item.title||'')).slice(0,240),character:characterName,character_slug:character.value,kind:kindName,kind_slug:kind.value,source:item.url}));
+ if(!products.length){$('catalogStatus').textContent='ASIN付きの商品候補がありません。';return;}
+ const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\\.\\d{3}Z$/,'Z');const url=URL.createObjectURL(new Blob([JSON.stringify(products,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='products-helper-'+stamp+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);$('catalogStatus').textContent=products.length+'件を書き出しました。内容を確認してからブログ/products-*.jsonへ追加してください。記事は作成されません。';
+};
 $('saveConnection').onclick=async()=>{
  if(busy)return;setBusy(true);status('認証情報を保存しています…');
  try{
