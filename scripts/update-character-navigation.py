@@ -108,8 +108,9 @@ def update_home(raw, guides):
 .sf-chars{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important}
 .sf-chars .sf-char{box-sizing:border-box}
 @media(max-width:640px){
-  .sf-chars{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
-  .sf-chars .sf-char{display:flex;min-height:112px;padding:14px 8px;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .sf-chars{grid-template-columns:minmax(0,1fr)!important;gap:8px!important}
+  .sf-chars .sf-char{display:flex;min-height:68px;padding:12px 16px;flex-direction:row;align-items:center;justify-content:flex-start;gap:14px;text-align:left;font-size:17px;line-height:1.4}
+  .sf-chars .sf-char .sf-dot{flex:none;width:32px;height:32px}
 }
 </style>"""
     updated = re.sub(r'<style id="sf-character-grid-mobile">.*?</style>', '', updated, flags=re.I | re.S)
