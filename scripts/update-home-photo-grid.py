@@ -167,21 +167,78 @@ def add_product_photos(wp, section):
     return updated, prepared
 
 
+def verified_photo_products(wp):
+    query = parse.urlencode({
+        "categories": 188, "per_page": 60,
+        "_fields": "id,slug,link,title,content,featured_media",
+    })
+    posts = wp.call("/wp/v2/posts?" + query)
+    cards = []
+    skipped = 0
+    for post in posts:
+        image_url, alt = "", ""
+        for tag in re.findall(r"<img\b[^>]*>", post.get("content", {}).get("rendered", ""), re.I | re.S):
+            for attr in ("src", "data-src", "data-lazy-src"):
+                candidate = first_attribute(tag, attr)
+                if candidate.startswith(SITE + "/wp-content/uploads/"):
+                    image_url = candidate
+                    alt = first_attribute(tag, "alt")
+                    break
+            if image_url:
+                break
+        if not image_url and post.get("featured_media"):
+            media = wp.call("/wp/v2/media/%d?_fields=source_url,alt_text" % post["featured_media"])
+            if media.get("source_url", "").startswith(SITE + "/wp-content/uploads/"):
+                image_url, alt = media["source_url"], media.get("alt_text", "")
+        if not image_url:
+            skipped += 1
+            continue
+        title = plain_text(post["title"]["rendered"]).split("｜")[0].strip()
+        href = post["link"]
+        if not href.startswith(SITE + "/"):
+            raise RuntimeError("A product article has an unexpected link.")
+        esc = lambda value: html.escape(value, quote=True)
+        card = (
+            '<article class="sf-card">'
+            '<a class="sf-home-product-photo" href="' + esc(href) + '">'
+            '<img class="sf-home-product-image" src="' + esc(image_url) + '" alt="' + esc(alt or title)
+            + '" loading="lazy" decoding="async"></a>'
+            '<div class="sf-card-body"><h3><a href="' + esc(href) + '">' + esc(title) + '</a></h3>'
+            '<a class="sf-detail" href="' + esc(href) + '">商品を見る</a>'
+            '<button type="button" class="sf-save" data-save-url="' + esc(href)
+            + '" data-save-title="' + esc(title) + '" data-save-image="' + esc(image_url)
+            + '" aria-pressed="false">🔖 保存</button></div></article>'
+        )
+        cards.append((card, title, image_url, href))
+        if len(cards) == 12:
+            break
+    if len(cards) < 3:
+        raise RuntimeError("Fewer than three existing product articles have verified photos.")
+    section = (
+        '<section><h2>' + SECTION_TITLE + '</h2>'
+        '<p class="sf-sub">商品写真のある掲載記事を新しい順に表示しています。</p>'
+        '<div id="sf-home-photo-products" class="sf-grid">'
+        + "".join(card[0] for card in cards) + '</div></section>'
+    )
+    print("Prepared %d photo product cards; skipped %d articles without a photo." % (len(cards), skipped))
+    return section, cards
+
+
 CSS = """<style id="sf-home-photo-grid">
 /* Keep the character shortcuts at four columns; make the product cards three columns. */
-#sf-latest-products{
+#sf-home-photo-products{
   display:grid!important;
   grid-template-columns:repeat(3,minmax(0,1fr))!important;
   gap:10px!important;
   align-items:stretch;
 }
-#sf-latest-products>.sf-card{
+#sf-home-photo-products>.sf-card{
   display:flex!important;
   min-width:0!important;
   flex-direction:column!important;
   overflow:hidden!important;
 }
-#sf-latest-products .sf-home-product-photo{
+#sf-home-photo-products .sf-home-product-photo{
   display:grid!important;
   width:100%;
   aspect-ratio:1/1;
@@ -189,13 +246,13 @@ CSS = """<style id="sf-home-photo-grid">
   overflow:hidden;
   background:#fff;
 }
-#sf-latest-products .sf-home-product-image{
+#sf-home-photo-products .sf-home-product-image{
   display:block!important;
   width:100%!important;
   height:100%!important;
   object-fit:contain!important;
 }
-#sf-latest-products .sf-card-body{
+#sf-home-photo-products .sf-card-body{
   display:flex;
   min-width:0;
   flex:1;
@@ -203,13 +260,13 @@ CSS = """<style id="sf-home-photo-grid">
   gap:8px;
   padding:10px!important;
 }
-#sf-latest-products .sf-card-body h3{
+#sf-home-photo-products .sf-card-body h3{
   margin:0;
   font-size:clamp(12px,3.1vw,15px)!important;
   line-height:1.45;
   overflow-wrap:anywhere;
 }
-#sf-latest-products .sf-card-body p{
+#sf-home-photo-products .sf-card-body p{
   font-size:12px!important;
   line-height:1.45;
 }
@@ -245,14 +302,14 @@ CSS = """<style id="sf-home-photo-grid">
   }
   .sf-guide>section{margin-top:16px!important;margin-bottom:18px!important}
   #characters>h2,
-  #sf-latest-products-title{margin-bottom:10px!important}
+  #sf-home-photo-products-title{margin-bottom:10px!important}
   .sf-directory-actions{gap:8px!important;margin-bottom:10px!important}
-  #sf-latest-products{gap:8px!important}
-  #sf-latest-products .sf-card{border-radius:14px!important}
-  #sf-latest-products .sf-card-body{gap:6px;padding:8px!important}
-  #sf-latest-products .sf-card-body h3{font-size:12px!important;line-height:1.4}
-  #sf-latest-products .sf-card-body p{font-size:11px!important}
-  #sf-latest-products .sf-detail{
+  #sf-home-photo-products{gap:8px!important}
+  #sf-home-photo-products .sf-card{border-radius:14px!important}
+  #sf-home-photo-products .sf-card-body{gap:6px;padding:8px!important}
+  #sf-home-photo-products .sf-card-body h3{font-size:12px!important;line-height:1.4}
+  #sf-home-photo-products .sf-card-body p{font-size:11px!important}
+  #sf-home-photo-products .sf-detail{
     display:flex;
     min-height:36px;
     align-items:center;
@@ -262,18 +319,18 @@ CSS = """<style id="sf-home-photo-grid">
     line-height:1.25;
     text-align:center;
   }
-  #sf-latest-products .sf-home-marketplace{
+  #sf-home-photo-products .sf-home-marketplace{
     grid-template-columns:1fr!important;
     gap:5px!important;
     margin-top:7px!important;
   }
-  #sf-latest-products .sf-marketplace-button{
+  #sf-home-photo-products .sf-marketplace-button{
     min-height:34px!important;
     padding:5px 3px!important;
     font-size:10px!important;
     line-height:1.2;
   }
-  #sf-latest-products .sf-home-marketplace-note{font-size:10px!important}
+  #sf-home-photo-products .sf-home-marketplace-note{font-size:10px!important}
 }
 </style>"""
 
@@ -298,7 +355,7 @@ def compact_top_and_prioritize_products(content, product_markup):
         raise RuntimeError("Could not find the home-page search hero.")
     insert_at = hero_end.end()
     content = content[:insert_at] + section + content[insert_at:]
-    if content.find('<header class="sf-hero"') > content.find('id="sf-latest-products"'):
+    if content.find('<header class="sf-hero"') > content.find('id="sf-home-photo-products"'):
         raise RuntimeError("Latest product cards were not placed after the hero.")
     return content
 
@@ -313,7 +370,7 @@ def main():
         raise RuntimeError("Could not read the editable home-page content.")
 
     section_match = latest_section(content)
-    updated_section, cards = add_product_photos(wp, section_match.group(0))
+    updated_section, cards = verified_photo_products(wp)
     prepared_content = (
         content[:section_match.start()]
         + updated_section
@@ -331,7 +388,7 @@ def main():
         raise RuntimeError("Home page identity changed during save verification.")
     if verify_section.count('class="sf-home-product-image"') != expected_count:
         raise RuntimeError("Home page photo-card verification failed.")
-    if verify_section.count('🔖') < expected_count:
+    if verify_section.count('class="sf-save"') != expected_count:
         raise RuntimeError("Home page saved-item controls were not retained.")
     if "grid-template-columns:repeat(3,minmax(0,1fr))" not in raw:
         raise RuntimeError("Three-column product-grid verification failed.")
