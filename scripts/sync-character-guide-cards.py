@@ -114,6 +114,8 @@ def run(mode):
             if not batch:
                 break
             pages.extend(batch)
+            if len(batch) < 100:
+                break
             page_no += 1
         print("AUDIT_PAGES:", len(pages))
         print("AUDIT_STEP: tags")
@@ -125,6 +127,8 @@ def run(mode):
             if not batch:
                 break
             tags.update({tag["id"]: {"slug": tag["slug"], "name": tag["name"]} for tag in batch})
+            if len(batch) < 100:
+                break
             tag_no += 1
         print("AUDIT_TAGS:", len(tags))
         print("AUDIT_STEP: product-posts")
@@ -138,6 +142,8 @@ def run(mode):
                 if not batch:
                     break
                 products.extend(batch)
+                if len(batch) < 100:
+                    break
                 post_no += 1
         page_rows = [{
             "id": page["id"], "slug": page["slug"], "title": plain(page.get("title", "")),
