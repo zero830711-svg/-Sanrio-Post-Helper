@@ -75,6 +75,7 @@ def inspect(wp):
         if pos >= 0:
             snippet = text_only(raw[max(0, pos - 100):pos + 350])
             print("FRONT_SECTION: " + needle + " => " + snippet)
+            print("FRONT_HTML: " + repr(raw[max(0, pos - 450):pos + 2600]))
 
 
 if __name__ == "__main__":
