@@ -26,14 +26,13 @@ jobs:
       - uses: actions/checkout@v6
       - run: python3 -m unittest discover -s blog/tests -p test_wordpress_rest.py -v
   wordpress:
-    if: github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
-      RUN_MODE: ${{ inputs.mode }}
+      RUN_MODE: ${{ inputs.mode || 'check' }}
     steps:
       - uses: actions/checkout@v6
       - name: Register products through standard REST API
