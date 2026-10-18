@@ -86,9 +86,23 @@ function pf_search(string $keyword,array $settings,int $page=1,bool $imageOnly=f
  }finally{flock($lock,LOCK_UN);fclose($lock);}
 }
 
-function pf_catalog_candidate(array $row):?array{
+function pf_catalog_characters():array{
+ return [
+  'cinnamoroll'=>['シナモロール',['シナモロール','Cinnamoroll']],
+  'kuromi'=>['クロミ',['クロミ','Kuromi']],
+  'mymelody'=>['マイメロディ',['マイメロディ','マイメロ','My Melody']],
+  'pompompurin'=>['ポムポムプリン',['ポムポムプリン','Pompompurin']],
+  'pochacco'=>['ポチャッコ',['ポチャッコ','Pochacco']],
+  'hellokitty'=>['ハローキティ',['ハローキティ','ハロー・キティ','Hello Kitty']],
+  'hangyodon'=>['ハンギョドン',['ハンギョドン','Hangyodon']],
+  'little-twin-stars'=>['リトルツインスターズ',['リトルツインスターズ','キキ＆ララ','キキ&ララ','Little Twin Stars']],
+ ];
+}
+function pf_catalog_candidate(array $row,array $names):?array{
  $title=trim((string)($row['itemName']??''));$caption=strip_tags((string)($row['itemCaption']??''));
- if($title===''||!preg_match('/シナモロール|Cinnamoroll/i',$title."\n".$caption))return null;
+ if($title==='')return null;$combined=mb_strtolower($title."\n".$caption,'UTF-8');$matched=false;
+ foreach($names as $name)if(mb_stripos($combined,mb_strtolower($name,'UTF-8'),0,'UTF-8')!==false){$matched=true;break;}
+ if(!$matched)return null;
  $code=(string)($row['itemCode']??'');if(!preg_match('/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D',$code))return null;
  $product=lw_product((string)($row['itemUrl']??''));if(!$product||$product['store']!=='楽天')return null;
  $affiliate=(string)($row['affiliateUrl']??'');if(!pf_safe_affiliate($affiliate))return null;
@@ -494,19 +508,22 @@ try{
  try{
   if($action==='image'){pf_image_out((string)($input['url']??''),(string)($input['isbn']??''),(string)($input['productUrl']??''));}
   elseif($action==='catalog-search'){
-   $queries=[
-    ['ぬいぐるみ','シナモロール ぬいぐるみ'],
-    ['バッグ・ポーチ','シナモロール バッグ ポーチ'],
-    ['文具・シール','シナモロール 文房具 シール'],
-    ['キーホルダー','シナモロール キーホルダー マスコット'],
-    ['タオル','シナモロール タオル ハンカチ'],
-    ['食器・キッチン','シナモロール 水筒 弁当箱 食器'],
-    ['生活雑貨','シナモロール 生活雑貨 クッション 時計'],
-    ['ファッション','シナモロール ファッション 財布 靴下'],
+   $catalogCharacters=pf_catalog_characters();$character=(string)($input['character']??'cinnamoroll');
+   if(!isset($catalogCharacters[$character]))throw new RuntimeException('商品検索対象のキャラクターを確認できません。');
+   [$primary,$names]=$catalogCharacters[$character];
+   $terms=[
+    ['ぬいぐるみ','ぬいぐるみ マスコット'],
+    ['バッグ・ポーチ','バッグ ポーチ リュック'],
+    ['文具・シール','文房具 シール ステッカー'],
+    ['キーホルダー','キーホルダー チャーム ストラップ'],
+    ['タオル','タオル ハンカチ'],
+    ['食器・キッチン','水筒 弁当箱 食器 カップ'],
+    ['生活雑貨','生活雑貨 クッション 時計 ミラー'],
+    ['ファッション','ファッション 財布 靴下 帽子'],
    ];
    $settings=lw_settings();$items=[];$seen=[];
-   foreach($queries as [$category,$keyword]){$data=pf_search($keyword,$settings,1,true);foreach($data['items']??[] as $row){if(!is_array($row))continue;$item=pf_catalog_candidate($row);if(!$item||isset($seen[$item['code']]))continue;$seen[$item['code']]=true;$item['category']=$category;$items[]=$item;}}
-   $result=['catalogItems'=>array_slice($items,0,240),'queriesUsed'=>count($queries)];
+   foreach($terms as [$category,$term]){$keyword=$primary.' '.$term;$data=pf_search($keyword,$settings,1,true);foreach($data['items']??[] as $row){if(!is_array($row))continue;$item=pf_catalog_candidate($row,$names);if(!$item||isset($seen[$item['code']]))continue;$seen[$item['code']]=true;$item['category']=$category;$items[]=$item;}}
+   $result=['catalogItems'=>array_slice($items,0,240),'queriesUsed'=>count($terms),'character'=>$character];
   }
   elseif($action==='prepare-stock'){
    $code=$input['code']??'';$product=null;foreach($state['sources']??[] as $candidate)if(($candidate['code']??'')===$code)$product=$candidate;
