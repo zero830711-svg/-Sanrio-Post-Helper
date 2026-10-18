@@ -47,6 +47,18 @@ def link_data(raw):
     return amazon, rakuten
 
 
+def ensure_amazon_tag(amazon_url):
+    parts = parse.urlsplit(amazon_url)
+    host = parts.hostname or ""
+    if not (host == "amazon.co.jp" or host.endswith(".amazon.co.jp")):
+        return ""
+    pairs = parse.parse_qsl(parts.query, keep_blank_values=True)
+    if any(key == "tag" for key, _ in pairs):
+        return amazon_url
+    pairs.append(("tag", AMAZON_TAG))
+    return parse.urlunsplit((parts.scheme, parts.netloc, parts.path, parse.urlencode(pairs), parts.fragment))
+
+
 def rakuten_search_url(amazon_url, fallback_query=""):
     parts = parse.urlsplit(amazon_url)
     query = parse.parse_qs(parts.query).get("k", [""])[0].strip() or fallback_query.strip()
@@ -101,6 +113,11 @@ def update_cards(raw, wp):
         amazon, rakuten = link_data(post_raw)
         if not amazon:
             raise RuntimeError("The linked guide has no identifiable Amazon affiliate URL.")
+        if AMAZON_TAG not in amazon:
+            amazon = ensure_amazon_tag(amazon)
+            if not amazon:
+                raise RuntimeError("The linked guide's Amazon URL is not an Amazon Japan URL.")
+            print("INFO: configured Amazon affiliate tag added to the linked guide product URL.")
         if not rakuten:
             title = plain(post.get("title", {}).get("rendered", ""))
             product_name = re.split(r"[｜|]", title, maxsplit=1)[0].strip()
@@ -166,6 +183,8 @@ def self_test():
     amazon = "https://www.amazon.co.jp/s?k=%E3%82%B7%E3%83%8A%E3%83%A2%E3%83%AD%E3%83%BC%E3%83%AB+263323&tag=" + AMAZON_TAG
     rakuten = rakuten_search_url(amazon)
     assert "シナモロール" in parse.unquote(parse.parse_qs(parse.urlsplit(rakuten).query)["pc"][0])
+    assert "tag=" + AMAZON_TAG in ensure_amazon_tag("https://www.amazon.co.jp/dp/B0TEST1234")
+    assert ensure_amazon_tag("https://example.com/item") == ""
     generated = buttons_html(amazon, rakuten)
     assert MARKER in generated and "#ffd814" in generated and "#bf0000" in generated
     assert 'rel="sponsored nofollow noopener"' in generated
