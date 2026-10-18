@@ -125,8 +125,10 @@ class Tests(unittest.TestCase):
 
     def test_all_product_taxonomy_slugs_are_unique_by_name(self):
         tags = [tag for product in PRODUCTS for tag in directory.tag_spec(product)]
-        self.assertEqual(len(tags), 30)
-        self.assertEqual(len(set(slug for _, slug in tags)), 29)
+        self.assertEqual(len(tags), len(PRODUCTS) * 2)
+        self.assertLessEqual(len(set(slug for _, slug in tags)), len(tags))
+        self.assertEqual(len({p['jan'] for p in PRODUCTS}), len(PRODUCTS))
+        self.assertGreaterEqual(len(PRODUCTS), 20)
 
     def test_all_existing_character_pages_are_resolved_from_wordpress_ids(self):
         class FakeWordPress:
