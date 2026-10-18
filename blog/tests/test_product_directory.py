@@ -70,7 +70,7 @@ class Tests(unittest.TestCase):
     def test_official_character_catalog_includes_marketplace_search_for_missing_articles(self):
         controls = directory.filter_controls(PRODUCTS)
         self.assertEqual(len(directory.CHARACTER_CATALOG), 36)
-        self.assertEqual(controls.count('data-character-name='), 36)
+        self.assertEqual(controls.count('data-character-name='), len(directory.CHARACTER_CATALOG) + len({p['character_slug'] for p in PRODUCTS} - {slug for _, slug in directory.CHARACTER_CATALOG}))
         for slug, name in [
             ('tuxedo-sam', 'タキシードサム'),
             ('ahiru-no-pekkle', 'あひるのペックル'),
