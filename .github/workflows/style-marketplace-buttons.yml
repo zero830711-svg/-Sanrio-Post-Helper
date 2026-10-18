@@ -1,0 +1,36 @@
+name: Style Sanrio marketplace buttons through WordPress REST
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/style-marketplace-buttons.py
+      - .github/workflows/style-marketplace-buttons.yml
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check=変更対象の確認 / apply=既存記事のボタン表示を更新'
+        required: true
+        default: check
+        type: choice
+        options: [check, apply]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-marketplace-button-rest
+  cancel-in-progress: false
+jobs:
+  style-buttons:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      RUN_MODE: ${{ contains(github.event.head_commit.message, '[apply-marketplace-buttons]') && 'apply' || inputs.mode || 'check' }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate the REST updater
+        run: |
+          python3 -m py_compile scripts/style-marketplace-buttons.py
+          python3 scripts/style-marketplace-buttons.py --self-test
+      - name: Update existing published product guides through standard REST
+        run: python3 scripts/style-marketplace-buttons.py --mode "$RUN_MODE"
