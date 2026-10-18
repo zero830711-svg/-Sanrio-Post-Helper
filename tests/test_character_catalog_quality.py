@@ -44,11 +44,17 @@ class QualityTests(unittest.TestCase):
         section=c.section_html('',[dict(item('a','KIRIMIちゃん. ポーチ'),category='バッグ・ポーチ')],[],'KIRIMIちゃん.')
         self.assertIn('すべて（1件）',section);self.assertIn('バッグ・ポーチ（1件）',section)
         self.assertNotIn('タオル（0件）',section);self.assertIn('repeat(3,minmax(0,1fr))',section)
+    def test_unrelated_brand_and_substring_book_are_rejected(self):
+        self.assertFalse(d.title_mentions_character('マクロミル データ分析の教科書', 'kuromi'))
+        self.assertFalse(d.title_mentions_character('ミッフィー タンブラー'))
+        self.assertTrue(d.title_mentions_character('クロミの絵本','kuromi'))
+        self.assertFalse(c.matches_character('フォトクロミズム','kuromi'))
     def test_directory_routes_and_initial_filter(self):
         controls=d.filter_controls([])
         self.assertIn('character-kirimi-chan/',controls)
         self.assertIn('DOMContentLoaded',controls)
         self.assertIn('params.get("character")',controls)
+        self.assertNotIn("&&",controls)
     def test_compaction_is_idempotent_and_keeps_affiliate(self):
         raw='<!-- sf-character-search-page:v1 --><section class="sf-character-search-guide"><a href="https://www.amazon.co.jp/s?k=KIRIMI&amp;tag=test">Amazon</a></section>'
         once=c.compact_page(raw,'KIRIMIちゃん.')

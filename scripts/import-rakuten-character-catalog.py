@@ -112,7 +112,7 @@ def matches_character(title, character):
     if character not in CHARACTERS:
         return False
     names = ALIASES.get(character, [CHARACTERS[character][2]])
-    value = canonical_text(title)
+    value = canonical_text(re.sub(r"マクロミル|フォトクロミズム|エレクトロクロミック|クロミズム", "", title, flags=re.I))
     return any(canonical_text(name) in value for name in names)
 
 
@@ -430,7 +430,7 @@ def category_controls(products):
 
 
 def catalog_filter_script():
-    return '''<style>.sf-character-photo-grid [hidden]{display:none!important}.sf-catalog-filter{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px}.sf-catalog-filter select{font-size:16px;min-height:44px;max-width:100%;padding:6px 10px}.sf-product-label{color:#65546a;background:#f7f0f5;border-radius:5px;padding:2px 4px;font-size:11px}[data-sf-catalog-count]{font-size:12px;color:#65546a;margin:6px 0 12px}</style><script>(function(){function init(){document.querySelectorAll('.sf-character-product-guides').forEach(function(root){if(root.dataset.filterReady)return;var select=root.querySelector('[data-sf-catalog-category]');if(!select)return;root.dataset.filterReady='1';var cards=Array.from(root.querySelectorAll('.sf-rakuten-product-card'));select.addEventListener('change',function(){var shown=0;cards.forEach(function(card){card.hidden=!!select.value&&card.dataset.category!==select.value;if(!card.hidden)shown++;});root.querySelector('[data-sf-catalog-count]').textContent=shown+'件を表示';});});}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();})();</script>'''
+    return '''<style>.sf-character-photo-grid [hidden]{display:none!important}.sf-catalog-filter{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px}.sf-catalog-filter select{font-size:16px;min-height:44px;max-width:100%;padding:6px 10px}.sf-product-label{color:#65546a;background:#f7f0f5;border-radius:5px;padding:2px 4px;font-size:11px}[data-sf-catalog-count]{font-size:12px;color:#65546a;margin:6px 0 12px}</style><script>(function(){function init(){document.querySelectorAll('.sf-character-product-guides').forEach(function(root){if(root.dataset.filterReady)return;var select=root.querySelector('[data-sf-catalog-category]');if(!select)return;root.dataset.filterReady='1';var cards=Array.from(root.querySelectorAll('.sf-rakuten-product-card'));select.addEventListener('change',function(){var shown=0;cards.forEach(function(card){card.hidden=select.value?card.dataset.category!==select.value:false;if(!card.hidden)shown++;});root.querySelector('[data-sf-catalog-count]').textContent=shown+'件を表示';});});}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();})();</script>'''
 
 
 def compact_page(content, character_name):

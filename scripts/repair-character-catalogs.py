@@ -33,6 +33,18 @@ def repair_content(raw, character):
 
 def repair_goods(raw):
     # Replace just the behavior script and guide destinations, retaining every card.
+    def clean_card(match):
+        article = match.group(0)
+        title = re.search(r'<strong\b[^>]*>(.*?)</strong>', article, re.S)
+        if not title:
+            return article
+        title = catalog.text_from(title.group(1))
+        slug = re.search(r'data-character="([^"]+)"', article)
+        key = slug.group(1) if slug else None
+        if not directory.title_mentions_character(title, None if key == 'sanrio-characters' else key):
+            return ''
+        return article
+    raw = re.sub(r'<article\b[^>]*class="sf-directory-card"[^>]*>.*?</article>', clean_card, raw, flags=re.S)
     controls = directory.filter_controls([], {})
     script = re.search(r'<script>.*?</script>', controls, re.S).group(0)
     pattern = r'<script>\s*\(function\(\)\{var root=document.currentScript.closest\(".sf-directory"\);.*?</script>'
@@ -47,6 +59,18 @@ def repair_goods(raw):
             return tag
         return re.sub(r'data-character-page-url="[^"]*"', 'data-character-page-url="' + routes[value.group(1)] + '"', tag)
     updated = re.sub(r'<option\b[^>]*>', option, updated)
+    counts = {}
+    for slug in re.findall(r'<article\b[^>]*data-character="([^"]+)"', updated):
+        counts[slug] = counts.get(slug, 0) + 1
+    def recount(match):
+        option = match.group(0)
+        slug = re.search(r'value="([^"]+)"', option)
+        if not slug or 'data-article-count=' not in option:
+            return option
+        count = counts.get(slug.group(1), 0)
+        option = re.sub(r'data-article-count="[^"]*"', 'data-article-count="' + str(count) + '"', option)
+        return re.sub(r'（(?:商品 \d+件|通販検索)）', '（商品 ' + str(count) + '件）', option)
+    updated = re.sub(r'<option\b[^>]*>.*?</option>', recount, updated, flags=re.S)
     # The hidden attribute must win over card display/grid rules.
     style = '<style id="sf-directory-hidden">.sf-directory [hidden]{display:none!important}</style>'
     updated = re.sub(r'<style id="sf-directory-hidden">.*?</style>', '', updated, flags=re.S)
