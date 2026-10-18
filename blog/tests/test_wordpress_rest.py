@@ -8,6 +8,7 @@ spec = importlib.util.spec_from_file_location('publisher', ROOT / 'scripts/publi
 publisher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publisher)
 PRODUCTS = json.loads((ROOT / 'blog/products-2026-10-18.json').read_text())
+BATCH3 = json.loads((ROOT / 'blog/products-2026-10-18-batch3.json').read_text())
 
 
 class FakeWP:
@@ -46,6 +47,16 @@ class Tests(unittest.TestCase):
         p = PRODUCTS[0]
         self.assertTrue(publisher.duplicates(p, [{'content': {'raw': 'JAN: ' + p['jan']}}]))
         self.assertFalse(publisher.duplicates(p, [{'content': {'raw': '9' + p['jan'] + '9'}}]))
+
+    def test_batch3_products_are_distinct_and_have_verified_sources(self):
+        self.assertEqual(len(BATCH3), 5)
+        self.assertEqual(len({p['jan'] for p in BATCH3}), 5)
+        for product in BATCH3:
+            self.assertIn(product['jan'], product['content'])
+            self.assertIn(product['source'], product['content'])
+            self.assertIn('Amazon', product['content'])
+            self.assertIn('楽天', product['content'])
+            self.assertTrue(product['image'].startswith('https://'))
 
     def test_check_does_not_write(self):
         wp = FakeWP([])
