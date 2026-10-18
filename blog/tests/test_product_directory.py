@@ -154,16 +154,27 @@ class Tests(unittest.TestCase):
         raw = '<div class="sf-character-grid">' + ''.join(
             '<a class="sf-char" href="/goods/?q=old">' + name + '</a>' for name in names
         ) + '<a class="sf-char" href="/goods/?q=old">チアリステイルズ</a></div>'
-        guides = {slug: 'https://sanrio-fan.site/' + slug + '-guide/' for slug in (
-            'cinnamoroll', 'kuromi', 'my-melody', 'pompompurin', 'pochacco',
-            'hello-kitty', 'hangyodon', 'little-twin-stars', *directory.CHARACTER_GUIDE_SLUGS.keys()
-        )}
+        guides = {
+            slug: 'https://sanrio-fan.site/' + directory.CHARACTER_GUIDE_SLUGS.get(slug, slug + '-guide') + '/'
+            for slug in (
+                'cinnamoroll', 'kuromi', 'my-melody', 'pompompurin', 'pochacco',
+                'hello-kitty', 'hangyodon', 'little-twin-stars', *directory.CHARACTER_GUIDE_SLUGS.keys()
+            )
+        }
         updated, count = nav.update_directory(raw, guides)
         self.assertEqual(count, 36)
         self.assertNotIn('チアリステイルズ', updated)
         self.assertIn('href="/goods/?character=kirimi-chan"', updated)
         self.assertIn('href="https://sanrio-fan.site/cinnamoroll-guide/"', updated)
-        self.assertIn('href="/goods/?character=wish-me-mell"', updated)
+        for slug, page_slug in [
+            ('kerokerokeroppi', 'kerokerokeroppi-goods'),
+            ('gudetama', 'gudetama-goods'),
+            ('wish-me-mell', 'wish-me-mell-goods'),
+            ('my-sweet-piano', 'my-sweet-piano-goods'),
+            ('jochum', 'jochum-goods'),
+        ]:
+            self.assertIn('href="https://sanrio-fan.site/' + page_slug + '/"', updated)
+        self.assertIn('href="/goods/?character=hanamaru-obake"', updated)
 
     def test_homepage_features_thirteen_direct_character_guides(self):
         names = ['シナモロール', 'クロミ', 'マイメロディ', 'ポムポムプリン',
