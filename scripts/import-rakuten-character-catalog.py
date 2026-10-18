@@ -223,10 +223,11 @@ def build_candidate_set(raw_items, old_cards):
         if name_key:
             seen_names.add(name_key)
 
-    for item in old_cards:
-        add_to_pool(item, existing=True)
+    # Prefer the fresh Rakuten response, then retain previous cards to fill any sparse categories.
     for item in raw_items:
         add_to_pool(item)
+    for item in old_cards:
+        add_to_pool(item, existing=True)
 
     selected = []
     checked = 0
