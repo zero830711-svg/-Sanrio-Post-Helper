@@ -5,6 +5,9 @@ let busy=false,configured=false,lastItems=[];
 const CHARACTERS=[['ハローキティ','hello-kitty'],['マイメロディ','my-melody'],['リトルツインスターズ','little-twin-stars'],['ポムポムプリン','pompompurin'],['シナモロール','cinnamoroll'],['クロミ','kuromi'],['ポチャッコ','pochacco'],['ハンギョドン','hangyodon'],['タキシードサム','tuxedo-sam'],['けろけろけろっぴ','kerokerokeroppi'],['バッドばつ丸','bad-badtz-maru'],['あひるのペックル','ahiru-no-pekkle'],['ぐでたま','gudetama'],['マイスウィートピアノ','my-sweet-piano'],['ウィッシュミーメル','wish-me-mell'],['こぎみゅん','cogimyun'],['はなまるおばけ','hanamaru-obake'],['がおぱわるぅ','gaopoweru'],['ぼんぼんりぼん','bonbonribbon'],['ディアダニエル','dear-daniel'],['チャーミーキティ','charmmy-kitty'],['まるもふびより','marumofubiyori'],['コロコロクリリン','corocorokuririn'],['マロンクリーム','marroncream'],['シュガーバニーズ','sugar-bunnies'],['ウサハナ','usahana'],['マシュマロみたいなふわふわにゃんこ','marshmallow-fuwafuwa-nyanko'],['チョコキャット','chococat'],['KIRIMIちゃん.','kirimi-chan'],['おさるのもんきち','osaru-no-monkichi'],['ゴロピカドン','goropikadon'],['ジュエルペット','jewelpet'],['みんなのたあ坊','minna-no-taabou'],['リトルフォレストフェロォ','little-forest-fellow'],['ルロロマニック','ruroromannic'],['JOCHUM','jochum']];
 const KINDS=[['ぬいぐるみ','plushies'],['バッグ・ポーチ','bags-pouches'],['文具・シール','stationery-stickers'],['生活雑貨','lifestyle-goods'],['推し活・収納','oshikatsu-storage'],['おもちゃ','toys'],['ファッション','fashion'],['本・カレンダー','books-calendars']];
 function fillOptions(id,items){const select=$(id);for(const [label,value] of items){const option=document.createElement('option');option.value=value;option.textContent=label;option.dataset.label=label;select.append(option);}}
+function guessedCharacter(title){const s=String(title||'');return CHARACTERS.find(([name])=>s.includes(name))||null;}
+function guessedKind(title){const s=String(title||'');const rules=[[/ぬい|マスコット|抱き枕|ぬいぐるみ/,'plushies'],[/バッグ|ポーチ|ショルダー|リュック/,'bags-pouches'],[/シール|ステッカー|文具|ペン|ノート|メモ|マスキングテープ/,'stationery-stickers'],[/収納|カードホルダー|トレカ|アクスタ|缶バッジ|コレクトブック/,'oshikatsu-storage'],[/おもちゃ|玩具|パズル|ゲーム|ブロック/,'toys'],[/Tシャツ|靴下|パジャマ|衣類|服|ファッション/,'fashion'],[/カレンダー|絵本|書籍|コミック|ブック/,'books-calendars'],[/マグ|カップ|食器|タオル|ボトル|水筒|雑貨/,'lifestyle-goods']];const match=rules.find(([pattern])=>pattern.test(s));return match?KINDS.find(([,slug])=>slug===match[1])||null:null;}
+function selectFor(className,items,guess){const select=document.createElement('select');select.className=className;select.setAttribute('aria-label',className==='catalog-character'?'商品キャラクター':'商品ジャンル');const first=document.createElement('option');first.value='';first.textContent='要確認';select.append(first);for(const [label,value] of items){const option=document.createElement('option');option.value=value;option.textContent=label;option.dataset.label=label;select.append(option);}if(guess)select.value=guess[1];return select;}
 fillOptions('catalogCharacter',CHARACTERS);fillOptions('catalogKind',KINDS);
 function syncKey(){return $('syncKey').value.trim()||localStorage.getItem('sanrioCloudSyncKey')||'';}
 function status(text){$('connectionStatus').textContent=text;}
@@ -20,7 +23,7 @@ function render(data){
   if(!validProductUrl(item.url))continue;
   const card=document.createElement('article');card.className='item';const title=document.createElement('h3');title.textContent=item.title;
   if(item.image){try{const u=new URL(item.image);if(u.protocol==='https:'&&['m.media-amazon.com','images-na.ssl-images-amazon.com','images-fe.ssl-images-amazon.com'].includes(u.hostname)&&!u.username&&!u.password&&!u.port){const img=document.createElement('img');img.src=u.href;img.alt='';img.className='product-image';img.loading='lazy';img.referrerPolicy='no-referrer';card.append(img);}}catch{}}
-  const asin=String(item.asin||item.ASIN||'').toUpperCase();if(/^[A-Z0-9]{10}$/.test(asin)){const pick=document.createElement('label');pick.className='catalog-pick';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=asin;checkbox.setAttribute('aria-label','カタログ候補に選ぶ');pick.append(checkbox,document.createTextNode(' カタログ候補に選ぶ'));card.append(pick);}
+  const asin=String(item.asin||item.ASIN||'').toUpperCase();if(/^[A-Z0-9]{10}$/.test(asin)){const pick=document.createElement('label');pick.className='catalog-pick';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.value=asin;checkbox.setAttribute('aria-label','カタログ候補に選ぶ');pick.append(checkbox,document.createTextNode(' カタログ候補に選ぶ'));card.append(pick);const classification=document.createElement('details');classification.className='catalog-classification';const summary=document.createElement('summary');summary.textContent='キャラクター・ジャンルを確認';const fields=document.createElement('div');fields.className='catalog-item-fields';const charSelect=selectFor('catalog-character',CHARACTERS,guessedCharacter(item.title));const kindSelect=selectFor('catalog-kind',KINDS,guessedKind(item.title));fields.append(charSelect,kindSelect);classification.append(summary,fields);card.append(classification);}
   const links=document.createElement('div');links.className='buttons';const amazon=document.createElement('a');amazon.className='btn amazon';amazon.textContent='Amazonで確認';amazon.href=item.url;amazon.target='_blank';amazon.rel='noopener noreferrer';
   const choose=document.createElement('a');choose.className='btn outline';choose.textContent='この商品を候補づくりへ';const u=new URL('./amazon-scout.html',location.href);u.searchParams.set('title',item.title);u.searchParams.set('url',item.url);u.searchParams.set('tag',data.partnerTag||$('partnerTag').value);choose.href=u.href;
   links.append(amazon,choose);card.append(title,links);$('apiResults').append(card);
@@ -32,12 +35,17 @@ async function search(check=false){
 }
 
 $('catalogExport').onclick=()=>{
- const character=$('catalogCharacter'),kind=$('catalogKind'),selected=[...document.querySelectorAll('#apiResults input[type="checkbox"]:checked')].map(x=>x.value);
- if(!character.value||!kind.value){$('catalogStatus').textContent='キャラクターとジャンルを選んでください。';return;}
- const names=[...new Set(selected)];if(!names.length){$('catalogStatus').textContent='カタログ候補にする商品を選んでください。';return;}
- const characterName=character.selectedOptions[0].dataset.label,kindName=kind.selectedOptions[0].dataset.label;
- const products=lastItems.filter(item=>names.includes(String(item.asin||item.ASIN||'').toUpperCase())).map(item=>({amazon_asin:String(item.asin||item.ASIN||'').toUpperCase(),title:String(item.title||'').slice(0,300),query:(characterName+' '+kindName+' '+String(item.title||'')).slice(0,240),character:characterName,character_slug:character.value,kind:kindName,kind_slug:kind.value,source:item.url}));
- if(!products.length){$('catalogStatus').textContent='ASIN付きの商品候補がありません。';return;}
+ const fallbackCharacter=$('catalogCharacter'),fallbackKind=$('catalogKind'),checked=[...document.querySelectorAll('#apiResults input[type="checkbox"]:checked')];
+ if(!checked.length){$('catalogStatus').textContent='カタログ候補にする商品を選んでください。';return;}
+ const byAsin=new Map(lastItems.map(item=>[String(item.asin||item.ASIN||'').toUpperCase(),item])),products=[],seen=new Set(),missing=[];
+ for(const checkbox of checked){const asin=checkbox.value.toUpperCase();if(seen.has(asin))continue;seen.add(asin);const item=byAsin.get(asin),card=checkbox.closest('.item');if(!item||!card)continue;
+  const charSelect=card.querySelector('.catalog-character'),kindSelect=card.querySelector('.catalog-kind'),character=charSelect?.value||fallbackCharacter.value,kind=kindSelect?.value||fallbackKind.value;
+  if(!character||!kind){missing.push(String(item.title||'商品'));continue;}
+  const charName=CHARACTERS.find(([,slug])=>slug===character)?.[0]||'',kindName=KINDS.find(([,slug])=>slug===kind)?.[0]||'';
+  products.push({amazon_asin:asin,title:String(item.title||'').slice(0,300),query:(charName+' '+kindName+' '+String(item.title||'')).slice(0,240),character:charName,character_slug:character,kind:kindName,kind_slug:kind,source:item.url});
+ }
+ if(missing.length){$('catalogStatus').textContent='分類を確認してください。商品カード内の選択、または一括設定を指定します。未分類：'+missing.length+'件';return;}
+ if(!products.length){$('catalogStatus').textContent='有効なASIN付き候補がありません。';return;}
  const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z$/,'Z');const url=URL.createObjectURL(new Blob([JSON.stringify(products,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='products-helper-'+stamp+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);$('catalogStatus').textContent=products.length+'件を書き出しました。内容を確認してからブログ/products-*.jsonへ追加してください。記事は作成されません。';
 };
 $('saveConnection').onclick=async()=>{
