@@ -72,6 +72,8 @@ class Tests(unittest.TestCase):
         self.assertIn('data-sf-marketplace', controls)
         self.assertIn('data-sf-amazon', controls)
         self.assertIn('data-sf-rakuten', controls)
+        self.assertIn('data-sf-marketplace style="display:none;', controls)
+        self.assertIn('marketplace.style.display=character.value?"flex":"none"', controls)
         self.assertIn('楽天でこのキャラを探す', controls)
         self.assertIn('https://shop.sanrio.co.jp/character', controls)
 
