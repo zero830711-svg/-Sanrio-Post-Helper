@@ -288,7 +288,7 @@ function pf_stock_rows(array $data,array $settings,array $state):array{
  return $rows;
 }
 function pf_stock_expire_prices(array $rows,?int $now=null):array{
- $now=$now??time();foreach($rows as &$row){if(!is_array($row)||!array_key_exists('price',$row))continue;$priceAt=(int)($row['priceAt']??$row['sourceAt']??0);if($priceAt<=0||$priceAt<=$now-86400){unset($row['price'],$row['priceAt']);if(($row['sourceLabel']??'')==='楽天市場・在庫あり')$row['sourceLabel']='楽天市場の商品候補';}else{$row['priceAt']=$priceAt;}}unset($row);return $rows;
+ $now=$now??time();foreach($rows as &$row){if(!is_array($row)||!array_key_exists('price',$row))continue;$priceAt=(int)($row['priceAt']??$row['sourceAt']??0);if($priceAt<=0||$priceAt<=$now-86400){unset($row['price'],$row['priceAt']);if(str_contains((string)($row['sourceLabel']??''),'在庫あり'))$row['sourceLabel']=($row['service']??'')==='books'?'楽天ブックスの商品候補':'楽天市場の商品候補';}else{$row['priceAt']=$priceAt;}}unset($row);return $rows;
 }
 function pf_stock_discover(array &$state):array{
  $settings=lw_settings();if(empty($settings['accessKey']))throw new RuntimeException('楽天API設定を保存してください。');

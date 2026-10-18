@@ -7,6 +7,7 @@ $jan='4901234567894';$other='4901234567887';$aid='12345678.12345678.12345678.123
 pf_check(pf_settings()['dailyLimit']===20,'Daily draft limit was not raised to 20');
 pf_check(in_array('サンリオ',pf_stock_queries(),true)&&in_array('クロミ グッズ',pf_stock_queries(),true),'Broad Sanrio Rakuten queries missing');
 pf_check(!isset(pf_stock_expire_prices([['price'=>1200,'sourceAt'=>time()-86401,'sourceLabel'=>'楽天市場・在庫あり']])[0]['price'])&&pf_stock_expire_prices([['price'=>1200,'sourceAt'=>time()-3600]],time())[0]['price']===1200,'Expired Rakuten price was retained or fresh price was removed');
+pf_check(pf_stock_expire_prices([['price'=>1320,'sourceAt'=>time()-86401,'sourceLabel'=>'楽天ブックス・在庫あり','service'=>'books']])[0]['sourceLabel']==='楽天ブックスの商品候補','Expired Rakuten Books availability label was retained');
 pf_check(pf_stock_related(['itemName'=>'クロミ ぬいぐるみ'])&&!pf_stock_related(['itemName'=>'別キャラクター 商品']),'Sanrio stock item filtering failed');
 pf_check(pf_stock_used(['attempted'=>['rakuten-shop:item'=>time()]],'shop:item'),'Prepared stock item was not deduplicated');
 pf_check(pf_jan($jan)&&!pf_jan('4901234567890'),'JAN check digit validation failed');
