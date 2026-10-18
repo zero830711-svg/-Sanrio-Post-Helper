@@ -1,0 +1,35 @@
+name: Publish the first five Sanrio product guides
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/publish-first-five-sanrio-guides.py
+      - .github/workflows/publish-first-five-sanrio-guides.yml
+      - blog/products-2026-10-18.json
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check=重複確認 / publish=最初の5件を公開'
+        required: true
+        default: check
+        type: choice
+        options: [check, publish]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      RUN_MODE: ${{ contains(github.event.head_commit.message, '[publish-first-five-sanrio-guides]') && 'publish' || inputs.mode || 'check' }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check duplicate and publication safeguards
+        run: python3 -m unittest discover -s blog/tests -p test_wordpress_rest.py -v
+      - name: Check existing articles or publish the first five
+        run: python3 scripts/publish-first-five-sanrio-guides.py --mode "$RUN_MODE"
