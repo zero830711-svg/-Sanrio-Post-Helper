@@ -157,7 +157,7 @@ class NoRedirect(request.HTTPRedirectHandler):
 def self_test():
     amazon = "https://www.amazon.co.jp/s?k=%E3%82%B7%E3%83%8A%E3%83%A2%E3%83%AD%E3%83%BC%E3%83%AB+263323&tag=" + AMAZON_TAG
     rakuten = rakuten_search_url(amazon)
-    assert "シナモロール" in parse.unquote(rakuten)
+    assert "シナモロール" in parse.unquote(parse.parse_qs(parse.urlsplit(rakuten).query)["pc"][0])
     generated = buttons_html(amazon, rakuten)
     assert MARKER in generated and "#ffd814" in generated and "#bf0000" in generated
     assert 'rel="sponsored nofollow noopener"' in generated
