@@ -7,6 +7,7 @@ on:
       - blog/tests/test_wordpress_rest.py
       - blog/products-2026-10-18.json
       - blog/products-2026-10-18-batch2.json
+      - blog/products-2026-10-18-batch3.json
       - .github/workflows/sanrio-wordpress.yml
   workflow_dispatch:
     inputs:
@@ -34,7 +35,7 @@ jobs:
     env:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
-      RUN_MODE: ${{ contains(github.event.head_commit.message, '[publish-batch-2]') && 'publish' || inputs.mode || 'check' }}
+      RUN_MODE: ${{ contains(github.event.head_commit.message, '[publish-batch-3]') && 'publish' || inputs.mode || 'check' }}
     steps:
       - uses: actions/checkout@v6
       - name: Register products through standard REST API
