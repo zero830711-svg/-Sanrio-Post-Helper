@@ -25,12 +25,11 @@ def main():
     # Wrap labels so long names can break at a deliberate phrase boundary.
     def label(match):
         opening, dot, name, closing = match.groups()
-        if "sf-char-name" in name:
-            return match.group(0)
+        name = re.sub(r'</?span\\b[^>]*>|<wbr\\s*/?>', "", name)
         actual = html.unescape(name).strip()
         assert "<" not in name, "Unexpected character label markup."
         extra = " sf-wrap-name" if actual == "あひるのペックル" else ""
-        displayed = html.escape(actual)
+        displayed = html.escape("キキ＆ララ" if actual == "リトルツインスターズ" else actual)
         if extra:
             displayed = "あひるの<wbr>ペックル"
         return opening + dot + '<span class="sf-char-name' + extra + '">' + displayed + '</span>' + closing
