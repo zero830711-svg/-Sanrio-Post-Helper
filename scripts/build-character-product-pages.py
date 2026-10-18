@@ -131,7 +131,7 @@ def clean_generated_content(content, name):
         "型番やサイズなどを確認してから、購入先の最新情報をご確認ください。</p>"
     )
     content = content.replace(intro, "")
-    nav_pattern = re.compile(r'<nav\\b[^>]*aria-label=["\\']通販サイト["\\'][^>]*>.*?</nav>', re.S)
+    nav_pattern = re.compile(r'<nav\b[^>]*aria-label=["\\']通販サイト["\\'][^>]*>.*?</nav>', re.S)
 
     def remove_generated_marketplace_nav(match):
         nav = match.group(0)
@@ -143,11 +143,11 @@ def clean_generated_content(content, name):
         "価格・在庫・販売元・配送条件は購入先でご確認ください。</p>"
     )
     content = content.replace(disclosure, "")
-    return re.sub(r"\\n{3,}", "\\n\\n", content).strip()
+    return re.sub(r"\n{3,}", "\\n\\n", content).strip()
 
 
 def insert_product_section_before_genres(content, section):
-    match = re.search(r'<h2\\b[^>]*>\\s*ジャンルを選ぶ\\s*</h2>', content, re.I)
+    match = re.search(r'<h2\b[^>]*>\s*ジャンルを選ぶ\s*</h2>', content, re.I)
     if not match:
         raise RuntimeError("Could not find the genre section on the existing character page.")
     disclosure = (
@@ -213,7 +213,7 @@ def refresh(wp):
             editorial_content = clean_generated_content(content, name)
             new_content = landing_content(name, slug, posts)
             if editorial_content:
-                new_content += "\\n\\n" + editorial_content
+                new_content += "\n\n" + editorial_content
             wp.call("/wp/v2/pages/%d" % page_id, {
                 "title": title_text or (name + "のグッズ・通販ガイド"),
                 "content": new_content, "status": "publish"
