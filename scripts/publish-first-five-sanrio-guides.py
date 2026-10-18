@@ -43,7 +43,7 @@ if __name__ == "__main__":
         ready = unique_candidates(wp, products)
         if len(ready) != 5:
             raise RuntimeError(f"Expected five unique products; found {len(ready)}. No article was published.")
-        print("READY_COUNT:", len(ready))
+        print("READY_COUNT:", len(ready))\n        print("SOURCE_BATCH: 2026-10-18-batch4")
         if args.mode == "publish":
             publisher.run("publish", wp, ready)
     except Exception as exc:
