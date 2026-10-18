@@ -22,6 +22,24 @@ CHARACTERS = {
     "hellokitty": (801, "character-hellokitty", "ハローキティ"),
     "hangyodon": (802, "character-hangyodon", "ハンギョドン"),
     "little-twin-stars": (803, "character-little-twin-stars", "リトルツインスターズ"),
+    "kirimi-chan": (1080, "character-kirimi-chan", "KIRIMIちゃん."),
+    "osaru-no-monkichi": (1082, "character-osaru-no-monkichi", "おさるのもんきち"),
+    "gaopoweru": (1084, "character-gaopoweru", "がおぱわるぅ"),
+    "corocorokuririn": (1086, "character-corocorokuririn", "コロコロクリリン"),
+    "goropikadon": (1088, "character-goropikadon", "ゴロピカドン"),
+    "jewelpet": (1090, "character-jewelpet", "ジュエルペット"),
+    "sugar-bunnies": (1092, "character-sugar-bunnies", "シュガーバニーズ"),
+    "charmmy-kitty": (1094, "character-charmmy-kitty", "チャーミーキティ"),
+    "chococat": (1096, "character-chococat", "チョコキャット"),
+    "dear-daniel": (1098, "character-dear-daniel", "ディアダニエル"),
+    "hanamaru-obake": (1100, "character-hanamaru-obake", "はなまるおばけ"),
+    "bonbonribbon": (1102, "character-bonbonribbon", "ぼんぼんりぼん"),
+    "marshmallow-fuwafuwa-nyanko": (1104, "character-marshmallow-fuwafuwa-nyanko", "マシュマロみたいなふわふわにゃんこ"),
+    "marumofubiyori": (1106, "character-marumofubiyori", "まるもふびより"),
+    "marroncream": (1108, "character-marroncream", "マロンクリーム"),
+    "minna-no-taabou": (1110, "character-minna-no-taabou", "みんなのたあ坊"),
+    "little-forest-fellow": (1112, "character-little-forest-fellow", "リトルフォレストフェロォ"),
+    "ruroromannic": (1114, "character-ruroromannic", "ルロロマニック"),
 }
 START = "<!-- sf-character-product-guides:v1 -->"
 END = "<!-- /sf-character-product-guides:v1 -->"
@@ -339,10 +357,22 @@ def main():
     if not isinstance(content, str):
         raise RuntimeError("Could not read the editable WordPress page.")
     match = re.search(re.escape(START) + r".*?" + re.escape(END), content, flags=re.S)
-    if not match:
-        raise RuntimeError("The existing character guide markers were not found.")
+    search_guide = None
+    if match:
+        old_section = match.group(0)
+    else:
+        # Preserve the existing search guide and place the managed catalog after it.
+        if "<!-- sf-character-search-page:v1 -->" not in content:
+            raise RuntimeError("A supported character-page template was not found.")
+        search_guide = re.search(
+            r'<section class="sf-character-search-guide"\b.*?</section>',
+            content,
+            flags=re.S,
+        )
+        if not search_guide:
+            raise RuntimeError("The character search-guide section was not found.")
+        old_section = ""
 
-    old_section = match.group(0)
     old_cards = extract_existing_cards(old_section)
     products, checked, rejected, duplicates = build_candidate_set(raw_items, old_cards)
     if len(products) < MIN_CARDS:
@@ -353,7 +383,10 @@ def main():
         )
     guide_cards = extract_guide_cards(old_section)
     replacement = section_html(old_section, products, guide_cards, character_name)
-    updated_content = content[:match.start()] + replacement + content[match.end():]
+    if match:
+        updated_content = content[:match.start()] + replacement + content[match.end():]
+    else:
+        updated_content = content[:search_guide.end()] + "\n" + replacement + content[search_guide.end():]
 
     wp.call("/wp/v2/pages/%d" % page_id, {"content": updated_content})
     verify = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,slug,content" % page_id)

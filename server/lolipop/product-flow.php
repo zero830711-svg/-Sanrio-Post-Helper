@@ -96,6 +96,25 @@ function pf_catalog_characters():array{
   'hellokitty'=>['ハローキティ',['ハローキティ','ハロー・キティ','Hello Kitty']],
   'hangyodon'=>['ハンギョドン',['ハンギョドン','Hangyodon']],
   'little-twin-stars'=>['リトルツインスターズ',['リトルツインスターズ','キキ＆ララ','キキ&ララ','Little Twin Stars']],
+
+  'kirimi-chan'=>['KIRIMIちゃん.',["KIRIMIちゃん.","KIRIMIちゃん","キリミちゃん","きりみちゃん"]],
+  'osaru-no-monkichi'=>['おさるのもんきち',["おさるのもんきち","もんきち"]],
+  'gaopoweru'=>['がおぱわるぅ',["がおぱわるぅ","がおぱわるう","Gaopoweru"]],
+  'corocorokuririn'=>['コロコロクリリン',["コロコロクリリン","クリリン"]],
+  'goropikadon'=>['ゴロピカドン',["ゴロピカドン"]],
+  'jewelpet'=>['ジュエルペット',["ジュエルペット","Jewelpet"]],
+  'sugar-bunnies'=>['シュガーバニーズ',["シュガーバニーズ","Sugarbunnies"]],
+  'charmmy-kitty'=>['チャーミーキティ',["チャーミーキティ"]],
+  'chococat'=>['チョコキャット',["チョコキャット","Chococat"]],
+  'dear-daniel'=>['ディアダニエル',["ディアダニエル","Dear Daniel"]],
+  'hanamaru-obake'=>['はなまるおばけ',["はなまるおばけ"]],
+  'bonbonribbon'=>['ぼんぼんりぼん',["ぼんぼんりぼん","Bonbonribbon"]],
+  'marshmallow-fuwafuwa-nyanko'=>['マシュマロみたいなふわふわにゃんこ',["マシュマロみたいなふわふわにゃんこ","ふわふわにゃんこ"]],
+  'marumofubiyori'=>['まるもふびより',["まるもふびより"]],
+  'marroncream'=>['マロンクリーム',["マロンクリーム","Marron Cream"]],
+  'minna-no-taabou'=>['みんなのたあ坊',["みんなのたあ坊","たあ坊"]],
+  'little-forest-fellow'=>['リトルフォレストフェロォ',["リトルフォレストフェロォ"]],
+  'ruroromannic'=>['ルロロマニック',["ルロロマニック"]],
  ];
 }
 function pf_catalog_candidate(array $row,array $names=['シナモロール','Cinnamoroll']):?array{
