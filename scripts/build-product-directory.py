@@ -85,7 +85,7 @@ def tag_spec(product):
 
 def load_products():
     products = []
-    for filename in ('blog/products-2026-10-18.json', 'blog/products-2026-10-18-batch2.json'):
+    for filename in ('blog/products-2026-10-18.json', 'blog/products-2026-10-18-batch2.json', 'blog/products-2026-10-18-batch3.json'):
         path = ROOT / filename
         if path.exists():
             products.extend(json.loads(path.read_text()))
