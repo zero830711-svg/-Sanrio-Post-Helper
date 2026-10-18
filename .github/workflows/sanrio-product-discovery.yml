@@ -11,7 +11,7 @@ on:
       mode:
         description: 'check=読み取り確認 / apply=分類と一覧を更新'
         required: true
-        default: check
+        default: apply
         type: choice
         options: [check, apply]
 permissions:
@@ -26,13 +26,12 @@ jobs:
       - uses: actions/checkout@v6
       - run: python3 -m unittest discover -s blog/tests -p 'test_*directory.py' -v
   wordpress:
-    if: github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: ubuntu-latest
     env:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
-      RUN_MODE: ${{ inputs.mode }}
+      RUN_MODE: ${{ inputs.mode || 'apply' }}
     steps:
       - uses: actions/checkout@v6
       - run: python3 scripts/build-product-directory.py --mode "$RUN_MODE"
