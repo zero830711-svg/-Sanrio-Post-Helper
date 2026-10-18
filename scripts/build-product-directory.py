@@ -15,6 +15,40 @@ MARKER = '<!-- sanrio-product-directory:v1 -->'
 AMAZON_TAG = 'ononbrothers2-22'
 RAKUTEN_AFFILIATE_ID = '56386226.a6714b12.56386227.a1326022'
 
+# Names follow the character categories on Sanrio's official online shop.
+CHARACTER_CATALOG = [
+    ('ハローキティ', 'hello-kitty'),
+    ('マイメロディ', 'my-melody'),
+    ('リトルツインスターズ', 'little-twin-stars'),
+    ('ポムポムプリン', 'pompompurin'),
+    ('シナモロール', 'cinnamoroll'),
+    ('クロミ', 'kuromi'),
+    ('ポチャッコ', 'pochacco'),
+    ('ハンギョドン', 'hangyodon'),
+    ('タキシードサム', 'tuxedo-sam'),
+    ('けろけろけろっぴ', 'kerokerokeroppi'),
+    ('バッドばつ丸', 'bad-badtz-maru'),
+    ('あひるのペックル', 'ahiru-no-pekkle'),
+    ('ぐでたま', 'gudetama'),
+    ('マイスウィートピアノ', 'my-sweet-piano'),
+    ('ウィッシュミーメル', 'wish-me-mell'),
+    ('こぎみゅん', 'cogimyun'),
+    ('はなまるおばけ', 'hanamaru-obake'),
+    ('がおぱわるぅ', 'gaopoweru'),
+    ('ぼんぼんりぼん', 'bonbonribbon'),
+    ('ディアダニエル', 'dear-daniel'),
+    ('チャーミーキティ', 'charmmy-kitty'),
+    ('まるもふびより', 'marumofubiyori'),
+    ('コロコロクリリン', 'corocorokuririn'),
+    ('マロンクリーム', 'marroncream'),
+    ('シュガーバニーズ', 'sugar-bunnies'),
+    ('ウサハナ', 'usahana'),
+    ('マシュマロみたいなふわふわにゃんこ', 'marshmallow-fuwafuwa-nyanko'),
+    ('チョコキャット', 'chococat'),
+    ('チアリステイルズ', 'cheeristales'),
+    ('JOCHUM', 'jochum'),
+]
+
 
 class WordPress:
     def __init__(self):
@@ -70,11 +104,28 @@ def marketplace_links(product):
 
 
 def filter_controls(products):
-    characters = sorted({(p['character'], p['character_slug']) for p in products})
+    characters = list(CHARACTER_CATALOG)
+    known = {slug for _, slug in characters}
+    for p in products:
+        if p['character_slug'] not in known:
+            characters.append((p['character'], p['character_slug']))
+            known.add(p['character_slug'])
+    article_counts = {}
+    for p in products:
+        article_counts[p['character_slug']] = article_counts.get(p['character_slug'], 0) + 1
+    character_options = []
+    for name, slug in characters:
+        amazon_url, rakuten_url = marketplace_links({'query': name})
+        count = article_counts.get(slug, 0)
+        availability = '記事 ' + str(count) + '件' if count else '通販検索'
+        character_options.append(
+            '<option value="' + html.escape(slug, quote=True) + '"'
+            ' data-character-name="' + html.escape(name, quote=True) + '"'
+            ' data-article-count="' + str(count) + '"'
+            ' data-amazon-url="' + html.escape(amazon_url, quote=True) + '"'
+            ' data-rakuten-url="' + html.escape(rakuten_url, quote=True) + '">'
+            + html.escape(name + '（' + availability + '）') + '</option>')
     kinds = sorted({(p['kind'], p['kind_slug']) for p in products})
-    character_options = ''.join(
-        '<option value="' + html.escape(slug, quote=True) + '">' + html.escape(name) + '</option>'
-        for name, slug in characters)
     kind_options = ''.join(
         '<option value="' + html.escape(slug, quote=True) + '">' + html.escape(name) + '</option>'
         for name, slug in kinds)
@@ -83,13 +134,17 @@ def filter_controls(products):
         '<label style="display:flex;flex-direction:column;gap:6px;font-weight:700">キーワードで検索'
         '<input type="search" data-sf-search placeholder="商品名・型番・JANなど" aria-label="商品名、型番、JANで検索" style="box-sizing:border-box;width:100%;min-height:48px;padding:10px 12px;border:1px solid #d9cbd5;border-radius:10px;font-size:16px"></label>'
         '<label style="display:flex;flex-direction:column;gap:6px;font-weight:700">キャラクター'
-        '<select data-sf-character aria-label="キャラクターで絞り込む" style="box-sizing:border-box;width:100%;min-height:48px;padding:10px 12px;border:1px solid #d9cbd5;border-radius:10px;background:#fff;font-size:16px"><option value="">すべてのキャラクター</option>' + character_options + '</select></label>'
+        '<select data-sf-character aria-label="キャラクターで絞り込む" style="box-sizing:border-box;width:100%;min-height:48px;padding:10px 12px;border:1px solid #d9cbd5;border-radius:10px;background:#fff;font-size:16px"><option value="">すべてのキャラクター</option>' + ''.join(character_options) + '</select></label>'
         '<label style="display:flex;flex-direction:column;gap:6px;font-weight:700">商品カテゴリ'
         '<select data-sf-kind aria-label="商品カテゴリで絞り込む" style="box-sizing:border-box;width:100%;min-height:48px;padding:10px 12px;border:1px solid #d9cbd5;border-radius:10px;background:#fff;font-size:16px"><option value="">すべての商品カテゴリ</option>' + kind_options + '</select></label>'
         '<button type="button" data-sf-reset style="align-self:end;min-height:48px;padding:10px 14px;border:1px solid #d9cbd5;border-radius:10px;background:#faf7f9;color:#46374b;font-size:16px;font-weight:700">条件をクリア</button>'
         '</div><p data-sf-count aria-live="polite" style="margin:8px 0 14px;font-weight:700">全' + str(len(products)) + '件を表示</p>'
+        '<p data-sf-marketplace hidden style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0 14px"><strong data-sf-marketplace-label></strong>'
+        '<a data-sf-amazon target="_blank" rel="sponsored nofollow noopener" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 14px;border-radius:10px;background:#ffbd35;color:#202124;font-weight:700;text-decoration:none">Amazonでこのキャラを探す</a>'
+        '<a data-sf-rakuten target="_blank" rel="sponsored nofollow noopener" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 14px;border-radius:10px;background:#bf0000;color:#fff;font-weight:700;text-decoration:none">楽天でこのキャラを探す</a></p>'
         '<p data-sf-empty hidden style="padding:18px;border-radius:12px;background:#fff;color:#65546a">条件に合う商品がありません。検索語や絞り込み条件を変えてください。</p>'
-        '<script>(function(){var root=document.currentScript.closest(".sf-directory");if(!root)return;var cards=Array.prototype.slice.call(root.querySelectorAll(".sf-directory-card"));var search=root.querySelector("[data-sf-search]");var character=root.querySelector("[data-sf-character]");var kind=root.querySelector("[data-sf-kind]");var count=root.querySelector("[data-sf-count]");var empty=root.querySelector("[data-sf-empty]");var reset=root.querySelector("[data-sf-reset]");function apply(){var q=(search.value||"").trim().toLocaleLowerCase("ja");var visible=0;cards.forEach(function(card){var matchesText=!q||(card.getAttribute("data-search")||"").toLocaleLowerCase("ja").indexOf(q)!==-1;var matchesCharacter=!character.value||card.getAttribute("data-character")===character.value;var matchesKind=!kind.value||card.getAttribute("data-kind")===kind.value;var show=matchesText&&matchesCharacter&&matchesKind;card.hidden=!show;if(show)visible++;});count.textContent=visible+"件を表示";empty.hidden=visible!==0;}search.addEventListener("input",apply);character.addEventListener("change",apply);kind.addEventListener("change",apply);reset.addEventListener("click",function(){search.value="";character.value="";kind.value="";apply();search.focus();});})();</script>'
+        '<p style="font-size:13px;color:#766b78">キャラクター名は<a href="https://shop.sanrio.co.jp/character" target="_blank" rel="noopener">サンリオオンラインショップの掲載一覧</a>を参考にしています。通販の掲載状況は検索先でご確認ください。</p>'
+        '<script>(function(){var root=document.currentScript.closest(".sf-directory");if(!root)return;var cards=Array.prototype.slice.call(root.querySelectorAll(".sf-directory-card"));var search=root.querySelector("[data-sf-search]");var character=root.querySelector("[data-sf-character]");var kind=root.querySelector("[data-sf-kind]");var count=root.querySelector("[data-sf-count]");var empty=root.querySelector("[data-sf-empty]");var reset=root.querySelector("[data-sf-reset]");var marketplace=root.querySelector("[data-sf-marketplace]");var marketLabel=root.querySelector("[data-sf-marketplace-label]");var amazon=root.querySelector("[data-sf-amazon]");var rakuten=root.querySelector("[data-sf-rakuten]");function apply(){var q=(search.value||"").trim().toLocaleLowerCase("ja");var visible=0;cards.forEach(function(card){var matchesText=!q||(card.getAttribute("data-search")||"").toLocaleLowerCase("ja").indexOf(q)!==-1;var matchesCharacter=!character.value||card.getAttribute("data-character")===character.value;var matchesKind=!kind.value||card.getAttribute("data-kind")===kind.value;var show=matchesText&&matchesCharacter&&matchesKind;card.hidden=!show;if(show)visible++;});count.textContent=visible+"件を表示";var selected=character.options[character.selectedIndex];marketplace.hidden=!character.value;if(character.value){marketLabel.textContent=selected.dataset.characterName+"の商品を通販で探す";amazon.href=selected.dataset.amazonUrl;rakuten.href=selected.dataset.rakutenUrl;}if(visible===0&&character.value&&selected.dataset.articleCount==="0"){empty.textContent=selected.dataset.characterName+"の商品ガイドはまだありません。下のボタンから通販商品を探せます。";}else{empty.textContent="条件に合う商品がありません。検索語や絞り込み条件を変えてください。";}empty.hidden=visible!==0;}search.addEventListener("input",apply);character.addEventListener("change",apply);kind.addEventListener("change",apply);reset.addEventListener("click",function(){search.value="";character.value="";kind.value="";apply();search.focus();});})();</script>'
     )
 
 
