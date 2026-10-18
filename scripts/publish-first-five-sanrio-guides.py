@@ -1,4 +1,4 @@
-"""Publish five unlisted guides from the reviewed candidate batches via WP REST."""
+"""Publish five reviewed, unique Sanrio product guides via the standard WP REST API."""
 import argparse
 import importlib.util
 import json
@@ -13,12 +13,24 @@ spec.loader.exec_module(publisher)
 
 
 def load_candidates():
-    products = []
-    for filename in ("products-2026-10-18-batch2.json", "products-2026-10-18-batch3.json"):
-        products.extend(json.loads((ROOT / "blog" / filename).read_text(encoding="utf-8")))
-    if len(products) != 10:
-        raise RuntimeError("The reviewed candidate batches must contain exactly ten products.")
+    products = json.loads((ROOT / "blog" / "products-2026-10-18-batch4.json").read_text(encoding="utf-8"))
+    if len(products) != 5:
+        raise RuntimeError("The reviewed batch must contain exactly five candidates.")
     return products
+
+
+def unique_candidates(wp, products):
+    wp.call("/wp/v2/users/me?context=edit&_fields=id")
+    existing = wp.posts()
+    ready = []
+    for product in products:
+        hits = publisher.duplicates(product, existing)
+        if hits:
+            print("SKIP existing:", product["jan"], ",".join(str(p["id"]) for p in hits))
+        else:
+            print("READY:", product["jan"], product["title"])
+            ready.append(product)
+    return ready
 
 
 if __name__ == "__main__":
@@ -28,29 +40,12 @@ if __name__ == "__main__":
     try:
         products = load_candidates()
         wp = publisher.WordPress()
-        if args.mode == "check":
-            wp.call("/wp/v2/users/me?context=edit&_fields=id")
-            existing = wp.posts()
-            ready = []
-            for product in products:
-                hits = publisher.duplicates(product, existing)
-                if hits:
-                    print("SKIP existing:", product["jan"], ",".join(str(p["id"]) for p in hits))
-                else:
-                    print("READY:", product["jan"], product["title"])
-                    ready.append(product)
-            if len(ready) < 5:
-                raise RuntimeError("Fewer than five unlisted candidates remain.")
-            print("READY_COUNT:", len(ready))
-        else:
-            wp.call("/wp/v2/users/me?context=edit&_fields=id")
-            existing = wp.posts()
-            ready = [p for p in products if not publisher.duplicates(p, existing)]
-            if len(ready) < 5:
-                raise RuntimeError("Fewer than five unlisted candidates remain.")
-            selected = ready[:5]
-            print("SELECTED:", " | ".join(p["title"] for p in selected))
-            publisher.run("publish", wp, selected)
+        ready = unique_candidates(wp, products)
+        if len(ready) != 5:
+            raise RuntimeError(f"Expected five unique products; found {len(ready)}. No article was published.")
+        print("READY_COUNT:", len(ready))
+        if args.mode == "publish":
+            publisher.run("publish", wp, ready)
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(1)
