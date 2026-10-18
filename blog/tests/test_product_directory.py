@@ -76,6 +76,13 @@ class Tests(unittest.TestCase):
             ('ahiru-no-pekkle', 'あひるのペックル'),
             ('bad-badtz-maru', 'バッドばつ丸'),
             ('cogimyun', 'こぎみゅん'),
+            ('kirimi-chan', 'KIRIMIちゃん.'),
+            ('osaru-no-monkichi', 'おさるのもんきち'),
+            ('goropikadon', 'ゴロピカドン'),
+            ('jewelpet', 'ジュエルペット'),
+            ('minna-no-taabou', 'みんなのたあ坊'),
+            ('little-forest-fellow', 'リトルフォレストフェロォ'),
+            ('ruroromannic', 'ルロロマニック'),
         ]:
             self.assertIn('value="' + slug + '"', controls)
             self.assertIn('data-character-name="' + name + '"', controls)
@@ -146,7 +153,7 @@ class Tests(unittest.TestCase):
         names = [name for name, _ in directory.CHARACTER_CATALOG if name != 'チアリステイルズ']
         raw = '<div class="sf-character-grid">' + ''.join(
             '<a class="sf-char" href="/goods/?q=old">' + name + '</a>' for name in names
-        ) + '</div>'
+        ) + '<a class="sf-char" href="/goods/?q=old">チアリステイルズ</a></div>'
         guides = {slug: 'https://sanrio-fan.site/' + slug + '-guide/' for slug in (
             'cinnamoroll', 'kuromi', 'my-melody', 'pompompurin', 'pochacco',
             'hello-kitty', 'hangyodon', 'little-twin-stars', *directory.CHARACTER_GUIDE_SLUGS.keys()
