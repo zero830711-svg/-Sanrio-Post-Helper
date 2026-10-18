@@ -6,6 +6,7 @@ on:
       - scripts/build-product-directory.py
       - scripts/build-character-product-pages.py
       - scripts/update-character-navigation.py
+      - scripts/inspect-wordpress-home.py
       - blog/tests/test_product_directory.py
       - .github/workflows/sanrio-product-discovery.yml
   workflow_dispatch:
