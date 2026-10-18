@@ -25,6 +25,11 @@ CHARACTER_GUIDE_PAGE_IDS = {
     'little-twin-stars': 803,
 }
 CHARACTER_GUIDE_SLUGS = {
+    'kerokerokeroppi': 'kerokerokeroppi-goods',
+    'gudetama': 'gudetama-goods',
+    'wish-me-mell': 'wish-me-mell-goods',
+    'my-sweet-piano': 'my-sweet-piano-goods',
+    'jochum': 'jochum-goods',
     'tuxedo-sam': 'tuxedo-sam-goods',
     'ahiru-no-pekkle': 'ahiru-no-pekkle-goods',
     'bad-badtz-maru': 'bad-badtz-maru-goods',
