@@ -123,6 +123,40 @@ def landing_content(name, slug, posts):
     return intro + cards_section(name, slug, posts) + disclosure
 
 
+def clean_generated_content(content, name):
+    """Remove repeated legacy landing blocks while retaining editorial page content."""
+    content = re.sub(re.escape(MARKER) + r".*?" + re.escape(END), "", content, flags=re.S)
+    intro = (
+        "<p>" + html.escape(name) + "のサンリオグッズを、商品ガイドと通販検索から探せるページです。"
+        "型番やサイズなどを確認してから、購入先の最新情報をご確認ください。</p>"
+    )
+    content = content.replace(intro, "")
+    nav_pattern = re.compile(r'<nav\\b[^>]*aria-label=["\\']通販サイト["\\'][^>]*>.*?</nav>', re.S)
+
+    def remove_generated_marketplace_nav(match):
+        nav = match.group(0)
+        return "" if ("Amazonで" + name + "を探す" in nav and "楽天で" + name + "を探す" in nav) else nav
+
+    content = nav_pattern.sub(remove_generated_marketplace_nav, content)
+    disclosure = (
+        '<p style="font-size:14px;color:#766b78">当サイトは非公式ファンサイトです。記事にアフィリエイト広告を含みます。'
+        "価格・在庫・販売元・配送条件は購入先でご確認ください。</p>"
+    )
+    content = content.replace(disclosure, "")
+    return re.sub(r"\\n{3,}", "\\n\\n", content).strip()
+
+
+def insert_product_section_before_genres(content, section):
+    match = re.search(r'<h2\\b[^>]*>\\s*ジャンルを選ぶ\\s*</h2>', content, re.I)
+    if not match:
+        raise RuntimeError("Could not find the genre section on the existing character page.")
+    disclosure = (
+        '<p style="font-size:14px;color:#766b78">当サイトは非公式ファンサイトです。記事にアフィリエイト広告を含みます。'
+        "価格・在庫・販売元・配送条件は購入先でご確認ください。</p>"
+    )
+    return content[:match.start()] + section + disclosure + content[match.start():]
+
+
 def page_identity(page, name, slug):
     title = page.get("title", "")
     title_text = title.get("rendered", title.get("raw", "")) if isinstance(title, dict) else title
@@ -153,9 +187,9 @@ def refresh(wp):
             title_text = page_title.get("rendered", page_title.get("raw", "")) if isinstance(page_title, dict) else page_title
             if not isinstance(content, str) or (name not in content and name not in title_text):
                 raise RuntimeError("Character identity could not be verified for page ID %d." % page_id)
-            pattern = re.escape(MARKER) + r".*?" + re.escape(END)
-            content = re.sub(pattern, "", content, flags=re.S).rstrip()
-            new_content = content + "\n\n" + section_content
+            content = clean_generated_content(content, name)
+            product_section = cards_section(name, slug, posts)
+            new_content = insert_product_section_before_genres(content, product_section)
             wp.call("/wp/v2/pages/%d" % page_id, {"content": new_content})
             verify = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,content" % page_id)
             raw = verify.get("content", {}).get("raw", "")
@@ -176,9 +210,10 @@ def refresh(wp):
             page_title = page.get("title", "")
             title_text = page_title.get("rendered", page_title.get("raw", "")) if isinstance(page_title, dict) else page_title
             content = page.get("content", {}).get("raw", "")
-            pattern = re.escape(MARKER) + r".*?" + re.escape(END)
-            content = re.sub(pattern, "", content, flags=re.S).rstrip()
-            new_content = content if section_content in content else content + "\n\n" + section_content
+            editorial_content = clean_generated_content(content, name)
+            new_content = landing_content(name, slug, posts)
+            if editorial_content:
+                new_content += "\\n\\n" + editorial_content
             wp.call("/wp/v2/pages/%d" % page_id, {
                 "title": title_text or (name + "のグッズ・通販ガイド"),
                 "content": new_content, "status": "publish"
