@@ -5,9 +5,7 @@ on:
     paths:
       - scripts/publish-sanrio-products.py
       - blog/tests/test_wordpress_rest.py
-      - blog/products-2026-10-18.json
-      - blog/products-2026-10-18-batch2.json
-      - blog/products-2026-10-18-batch3.json
+      - 'blog/products-*.json'
       - .github/workflows/sanrio-wordpress.yml
   workflow_dispatch:
     inputs:
