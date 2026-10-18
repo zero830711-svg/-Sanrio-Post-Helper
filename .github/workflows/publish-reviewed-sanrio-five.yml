@@ -1,0 +1,24 @@
+name: Publish five reviewed Sanrio guides
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-reviewed-sanrio-five.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check duplicate and publication safeguards
+        run: python3 -m unittest discover -s blog/tests -p test_wordpress_rest.py -v
+      - name: Publish the five reviewed products through standard REST
+        run: python3 scripts/publish-sanrio-products.py --mode publish
