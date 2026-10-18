@@ -1,0 +1,26 @@
+name: Character photo grids
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/update-character-photo-grids.py
+      - .github/workflows/character-photo-grids.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-character-photo-grids
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate updater syntax
+        run: python3 -m py_compile scripts/update-character-photo-grids.py
+      - name: Update other character pages through WordPress REST API
+        run: python3 scripts/update-character-photo-grids.py
