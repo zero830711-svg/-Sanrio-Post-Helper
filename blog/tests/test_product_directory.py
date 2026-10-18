@@ -44,6 +44,25 @@ class Tests(unittest.TestCase):
         self.assertIn('/tag/little-twin-stars/', section)
         self.assertIn('/tag/kerokerokeroppi/', section)
 
+    def test_catalog_cards_work_without_one_wordpress_article_per_product(self):
+        product = dict(PRODUCTS[0])
+        product['jan'] = '4900000000000'
+        product['title'] = '未記事カタログ商品'
+        product['name'] = '未記事カタログ商品'
+        product['model'] = 'CATALOG-1'
+        product['character'] = 'シナモロール'
+        product['character_slug'] = 'cinnamoroll'
+        product['kind'] = 'ポーチ'
+        product['kind_slug'] = 'pouches'
+        section = directory.make_section([product], [], {})
+        self.assertIn('class="sf-directory-card"', section)
+        self.assertIn('未記事カタログ商品', section)
+        self.assertIn('♡', section)
+        self.assertIn('Amazonで探す', section)
+        self.assertIn('楽天で探す', section)
+        self.assertNotIn('商品情報・仕様を見る', section)
+        self.assertNotIn('goods-jan-4900000000000', section)
+
     def test_directory_filters_search_character_and_product_kind(self):
         section = directory.make_section(PRODUCTS, self.posts, {})
         self.assertIn('data-sf-search', section)

@@ -161,7 +161,7 @@ def filter_controls(products, page_urls=None):
         amazon_url, rakuten_url = marketplace_links({'query': name})
         count = article_counts.get(slug, 0)
         page_url = page_urls.get(slug, '')
-        availability = '記事 ' + str(count) + '件' if count else '通販検索'
+        availability = '商品 ' + str(count) + '件' if count else '通販検索'
         character_options.append(
             '<option value="' + html.escape(slug, quote=True) + '"'
             ' data-character-name="' + html.escape(name, quote=True) + '"'
@@ -195,36 +195,50 @@ def filter_controls(products, page_urls=None):
 
 
 def make_section(products, posts, terms, page_urls=None):
-    by_jan = {post.get('slug','').removeprefix('goods-jan-'): post for post in posts}
-    cards=[]
+    by_jan = {
+        post.get('slug', '').removeprefix('goods-jan-'): post
+        for post in posts if post
+    }
+    cards = []
     for p in products:
-        post=by_jan.get(p['jan'])
-        if not post: raise RuntimeError('Could not locate published product ' + p['jan'])
-        title=post['title'].get('rendered','') if isinstance(post['title'],dict) else post['title']
-        link=post.get('link','')
-        if not link.startswith(SITE+'/'): raise RuntimeError('Unexpected article URL.')
-        image_match=re.search(r'<img\b[^>]*\bsrc=["\']([^"\']+)',post.get('content',{}).get('raw',''))
-        image_url=image_match.group(1) if image_match else ''
-        if not image_url.startswith(SITE+'/wp-content/uploads/'):
-            raise RuntimeError('Could not verify the local featured image for JAN '+p['jan'])
-        image=html.escape(image_url,quote=True)
-        chips=''.join('<a class="sf-directory-chip" href="/tag/'+html.escape(slug,quote=True)+'/">'+html.escape(name)+'</a>' for name,slug in tag_spec(p))
+        post = by_jan.get(p['jan'])
+        chips = []
+        for name, slug in tag_spec(p):
+            if post:
+                chips.append('<a class="sf-directory-chip" href="/tag/' + html.escape(slug, quote=True) + '/">' + html.escape(name) + '</a>')
+            else:
+                chips.append('<span class="sf-directory-chip">' + html.escape(name) + '</span>')
+        if post:
+            title = post['title'].get('rendered', '') if isinstance(post['title'], dict) else post['title']
+            link = post.get('link', '')
+            if not link.startswith(SITE + '/'):
+                raise RuntimeError('Unexpected article URL.')
+            image_match = re.search(r'<img\\b[^>]*\\bsrc=["\\']([^"\\']+)', post.get('content', {}).get('raw', ''))
+            image_url = image_match.group(1) if image_match else ''
+            if not image_url.startswith(SITE + '/wp-content/uploads/'):
+                raise RuntimeError('Could not verify the local featured image for JAN ' + p['jan'])
+            product_visual = '<img loading="lazy" style="width:100%;height:160px;object-fit:contain" src="' + html.escape(image_url, quote=True) + '" alt="' + html.escape(p['character'] + ' ' + p['name'], quote=True) + '">'
+            detail = '<a class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit;text-decoration:none" href="' + html.escape(link, quote=True) + '">' + product_visual + '<strong>' + html.escape(title) + '</strong><span>商品情報・仕様を見る →</span></a>'
+        else:
+            title = p.get('name') or p['title']
+            product_visual = '<div aria-hidden="true" style="display:grid;place-items:center;width:100%;height:160px;border-radius:12px;background:linear-gradient(135deg,#fdf1f6,#eff9f6);color:#8b7184;font-size:38px">♡</div>'
+            detail = '<div class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit"><strong>' + html.escape(title) + '</strong><span>メーカー・型番情報を確認 →</span></div>'
         amazon_url, rakuten_url = marketplace_links(p)
-        search_text = ' '.join((p['character'], p['kind'], p['name'], p['title'], p['model'], p['jan']))
+        search_text = ' '.join(str(p.get(key, '')) for key in ('character', 'kind', 'name', 'title', 'model', 'jan'))
         data_attrs = (
             ' data-character="' + html.escape(p['character_slug'], quote=True) + '"'
             ' data-kind="' + html.escape(p['kind_slug'], quote=True) + '"'
             ' data-search="' + html.escape(search_text, quote=True) + '"')
         buttons = (
             '<div class="sf-directory-buy" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">'
-            '<a href="'+html.escape(amazon_url,quote=True)+'" target="_blank" rel="sponsored nofollow noopener" '
+            '<a href="' + html.escape(amazon_url, quote=True) + '" target="_blank" rel="sponsored nofollow noopener" '
             'style="display:flex;align-items:center;justify-content:center;min-height:48px;padding:8px;border-radius:10px;background:#ffbd35;color:#202124;font-weight:700;text-align:center;text-decoration:none">Amazonで探す</a>'
-            '<a href="'+html.escape(rakuten_url,quote=True)+'" target="_blank" rel="sponsored nofollow noopener" '
+            '<a href="' + html.escape(rakuten_url, quote=True) + '" target="_blank" rel="sponsored nofollow noopener" '
             'style="display:flex;align-items:center;justify-content:center;min-height:48px;padding:8px;border-radius:10px;background:#bf0000;color:#fff;font-weight:700;text-align:center;text-decoration:none">楽天で探す</a>'
             '</div><small style="display:block;margin-top:8px;color:#777">JAN・型番で検索。価格・在庫・販売元は購入先でご確認ください。</small>')
-        cards.append('<article class="sf-directory-card"'+data_attrs+' style="min-width:0;border:1px solid #eadde5;border-radius:18px;padding:12px;background:#fff"><a class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit;text-decoration:none" href="'+html.escape(link,quote=True)+'"><img loading="lazy" style="width:100%;height:160px;object-fit:contain" src="'+image+'" alt="'+html.escape(p['character']+' '+p['name'],quote=True)+'"><strong>'+html.escape(title)+'</strong><span>商品情報・仕様を見る →</span></a>'+buttons+'<nav aria-label="分類" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+chips+'</nav></article>')
+        cards.append('<article class="sf-directory-card"' + data_attrs + ' style="min-width:0;border:1px solid #eadde5;border-radius:18px;padding:12px;background:#fff">' + product_visual + detail + buttons + '<nav aria-label="分類" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">' + ''.join(chips) + '</nav></article>')
     controls = filter_controls(products, page_urls)
-    return MARKER+'<section class="sf-directory" aria-labelledby="sf-directory-title"><h2 id="sf-directory-title">新着サンリオグッズ</h2><p>商品仕様を確認して、Amazon・楽天市場の検索結果から購入先を選べます。</p>'+controls+'<div class="sf-directory-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">'+''.join(cards)+'</div></section>'
+    return MARKER + '<section class="sf-directory" aria-labelledby="sf-directory-title"><h2 id="sf-directory-title">サンリオグッズカタログ</h2><p>キャラクター・商品カテゴリ・JANから探せます。購入先で最新の販売状況をご確認ください。</p>' + controls + '<div class="sf-directory-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">' + ''.join(cards) + '</div></section>'
 
 
 def run(mode, wp, products):
@@ -233,11 +247,14 @@ def run(mode, wp, products):
     for p in products:
         query=parse.urlencode({'slug':'goods-jan-'+p['jan'],'context':'edit','_fields':'id,slug,title,link,content,status,tags,categories'})
         rows,_=wp.call('/wp/v2/posts?'+query)
-        if len(rows)!=1 or rows[0].get('status')!='publish':
-            raise RuntimeError('Expected one published product post for JAN '+p['jan'])
-        if p['jan'] not in rows[0].get('content',{}).get('raw',''):
-            raise RuntimeError('JAN verification failed: '+p['jan'])
-        posts.append(rows[0])
+        if len(rows) > 1:
+            raise RuntimeError('Multiple published product posts found for JAN ' + p['jan'])
+        post = rows[0] if rows else None
+        if post and post.get('status') != 'publish':
+            raise RuntimeError('Unexpected product article status for JAN ' + p['jan'])
+        if post and p['jan'] not in post.get('content', {}).get('raw', ''):
+            raise RuntimeError('JAN verification failed: ' + p['jan'])
+        posts.append(post)
     specs={}
     for p in products:
         for name,slug in tag_spec(p): specs[slug]=name
@@ -257,9 +274,11 @@ def run(mode, wp, products):
     if not isinstance(content,str): raise RuntimeError('Could not read editable /goods/ page content.')
     make_section(products,posts,terms,page_urls)  # Validate article, image, and outbound links before any write.
     if mode=='check':
-        print('READY: '+str(len(products))+' published products; /goods/ page '+page['slug']+'; '+str(len(terms))+' character/kind tags and affiliate links checked.')
+        print('READY: '+str(len(products))+' catalog products; /goods/ page '+page['slug']+'; '+str(len(terms))+' character/kind tags and affiliate links checked.')
         return
     for p,post in zip(products,posts):
+        if not post:
+            continue
         ids=set(post.get('tags') or [])
         for _,slug in tag_spec(p): ids.add(int(terms[slug]['id']))
         wp.call('/wp/v2/posts/'+str(post['id']),{'tags':sorted(ids)})
@@ -274,7 +293,7 @@ def run(mode, wp, products):
     required=('data-sf-search','data-sf-character','data-sf-kind','card.hidden=!show','楽天で探す')
     if MARKER not in saved_content or any(token not in saved_content for token in required):
         raise RuntimeError('Product directory insertion or filter verification failed.')
-    print('UPDATED: /goods/ now has '+str(len(products))+' product cards with article, Amazon, and Rakuten buttons.')
+    print('UPDATED: /goods/ now has '+str(len(products))+' catalog cards with Amazon and Rakuten buttons.')
 
 
 if __name__=='__main__':
