@@ -1,0 +1,36 @@
+name: Track Amazon and Rakuten affiliate clicks
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/instrument-affiliate-click-tracking.py
+      - .github/workflows/instrument-affiliate-click-tracking.yml
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check=対象確認 / apply=GA4クリック計測を追加'
+        required: true
+        default: check
+        type: choice
+        options: [check, apply]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-affiliate-click-tracking
+  cancel-in-progress: false
+jobs:
+  instrument:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      RUN_MODE: ${{ contains(github.event.head_commit.message, '[apply-affiliate-click-tracking]') && 'apply' || inputs.mode || 'check' }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate the REST updater
+        run: |
+          python3 -m py_compile scripts/instrument-affiliate-click-tracking.py
+          python3 scripts/instrument-affiliate-click-tracking.py --self-test
+      - name: Instrument published affiliate links
+        run: python3 scripts/instrument-affiliate-click-tracking.py --mode "$RUN_MODE"
