@@ -74,38 +74,30 @@ def article_section(name, posts):
 
 
 def insertion_point(raw):
-    # Place guide cards directly before the existing marketplace CTA section.
-    for marker in ("購入先から探す", "Amazon・楽天市場で探す", "Amazonで関連商品を探す"):
-        pos = raw.find(marker)
-        if pos >= 0:
-            heading = raw.rfind("<h2", 0, pos)
-            if heading >= 0:
-                return heading, "before-store-search-heading"
-            return pos, "before-store-search-label"
-    # Legacy character pages may use a section wrapper around the hero.
-    for marker in ("CHARACTER GUIDE", "キャラクターガイド"):
-        pos = raw.find(marker)
-        if pos >= 0:
-            close = raw.find("</section>", pos)
-            if close >= 0:
-                return close + len("</section>"), "hero-section"
-    h1 = re.search(r"<h1\b[^>]*>.*?</h1>", raw, re.I | re.S)
-    if h1:
-        close = raw.find("</section>", h1.end())
-        if close >= 0:
-            return close + len("</section>"), "first-section-after-h1"
-    return len(raw), "content-end"
+    # The product guides belong after the character-page introduction and before
+    # the first content section so visitors see them without scrolling to the end.
+    headings = list(re.finditer(r"<h2\\b[^>]*>", raw, re.I))
+    if headings:
+        return headings[0].start(), "before-first-content-heading"
+    # Gutenberg pages may encode headings as block comments before rendered HTML.
+    block_heading = re.search(r"<!--\\s*wp:heading\\b", raw, re.I)
+    if block_heading:
+        return block_heading.start(), "before-first-heading-block"
+    return None, "no-safe-intro-anchor"
+
 
 def update_content(raw, section):
-    if START in raw and END in raw:
-        begin = raw.index(START)
-        finish = raw.index(END, begin) + len(END)
-        return raw[:begin] + section + raw[finish:]
-    point, kind = insertion_point(raw)
+    # Remove any previous copy first, then insert the single canonical section
+    # at the new position. This also relocates cards already appended to the page.
+    clean = raw
+    if START in clean and END in clean:
+        begin = clean.index(START)
+        finish = clean.index(END, begin) + len(END)
+        clean = clean[:begin] + clean[finish:]
+    point, kind = insertion_point(clean)
     if point is None:
-        raise RuntimeError("Could not find a safe hero-section insertion point.")
-    return raw[:point] + "\n" + section + "\n" + raw[point:], kind
-
+        raise RuntimeError("Could not find a safe introductory insertion point.")
+    return clean[:point] + "\\n" + section + "\\n" + clean[point:], kind
 
 def run(mode):
     wp = WordPress()
@@ -129,14 +121,7 @@ def run(mode):
         if not isinstance(raw, str):
             raise RuntimeError("Could not read editable page content " + page_slug)
         section = article_section(target["name"], posts)
-        if START in raw and END in raw:
-            point, kind = None, "existing-marker"
-            updated = update_content(raw, section)
-        else:
-            point, kind = insertion_point(raw)
-            if point is None:
-                raise RuntimeError("Could not find a safe insertion point on " + page_slug)
-            updated = raw[:point] + "\\n" + section + "\\n" + raw[point:]
+        updated, kind = update_content(raw, section)
         plans.append((page, target, posts, updated, kind))
         print("PAGE:", page_slug, "guides:", len(posts), "anchor:", kind, "marker:", START in raw)
     if mode == "check":
