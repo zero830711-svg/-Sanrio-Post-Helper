@@ -77,7 +77,7 @@ def cards_section(name, slug, posts):
         if not link.startswith(SITE + "/"):
             raise RuntimeError("Unexpected product article URL.")
         raw = post.get("content", {}).get("raw", "")
-        match = re.search(r'<img\\b[^>]*\\bsrc=["\\']([^"\\']+)', raw)
+        match = re.search(r"<img\b[^>]*\bsrc=['\"]([^'\"]+)", raw)
         image_url = match.group(1) if match else ""
         if not image_url.startswith(SITE + "/wp-content/uploads/"):
             raise RuntimeError("Could not verify a local product image.")
