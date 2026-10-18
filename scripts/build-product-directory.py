@@ -69,6 +69,30 @@ def marketplace_links(product):
     return amazon_url, rakuten_url
 
 
+def filter_controls(products):
+    characters = sorted({(p['character'], p['character_slug']) for p in products})
+    kinds = sorted({(p['kind'], p['kind_slug']) for p in products})
+    character_options = ''.join(
+        '<option value="' + html.escape(slug, quote=True) + '">' + html.escape(name) + '</option>'
+        for name, slug in characters)
+    kind_options = ''.join(
+        '<option value="' + html.escape(slug, quote=True) + '">' + html.escape(name) + '</option>'
+        for name, slug in kinds)
+    return (
+        '<div class="sf-directory-filters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px;margin:20px 0;padding:14px;border:1px solid #eadde5;border-radius:16px;background:#fff">'
+        '<label style="display:flex;flex-direction:column;gap:6px;font-weight:700">キーワードで検索'
+        '<input type="search" data-sf-search placeholder="商品名・型番・JANなど" aria-label="商品名、型番、JANで検索" style="box-sizing:border-box;width:100%;min-height:48px;padding:10px 12px;border:1px solid #d9cbd5;border-radius:10px;font-size:16px"></label>'
+        '<label style="display:flex;flex-direction:column;gap:6px;font-weight:700">キャラクター'
+        '<select data-sf-character aria-label="キャラクターで絞り込む" style="box-sizing:border-box;width:100%;min-height:48px;padding:10px 12px;border:1px solid #d9cbd5;border-radius:10px;background:#fff;font-size:16px"><option value="">すべてのキャラクター</option>' + character_options + '</select></label>'
+        '<label style="display:flex;flex-direction:column;gap:6px;font-weight:700">商品カテゴリ'
+        '<select data-sf-kind aria-label="商品カテゴリで絞り込む" style="box-sizing:border-box;width:100%;min-height:48px;padding:10px 12px;border:1px solid #d9cbd5;border-radius:10px;background:#fff;font-size:16px"><option value="">すべての商品カテゴリ</option>' + kind_options + '</select></label>'
+        '<button type="button" data-sf-reset style="align-self:end;min-height:48px;padding:10px 14px;border:1px solid #d9cbd5;border-radius:10px;background:#faf7f9;color:#46374b;font-size:16px;font-weight:700">条件をクリア</button>'
+        '</div><p data-sf-count aria-live="polite" style="margin:8px 0 14px;font-weight:700">全' + str(len(products)) + '件を表示</p>'
+        '<p data-sf-empty hidden style="padding:18px;border-radius:12px;background:#fff;color:#65546a">条件に合う商品がありません。検索語や絞り込み条件を変えてください。</p>'
+        '<script>(function(){var root=document.currentScript.closest(".sf-directory");if(!root)return;var cards=Array.prototype.slice.call(root.querySelectorAll(".sf-directory-card"));var search=root.querySelector("[data-sf-search]");var character=root.querySelector("[data-sf-character]");var kind=root.querySelector("[data-sf-kind]");var count=root.querySelector("[data-sf-count]");var empty=root.querySelector("[data-sf-empty]");var reset=root.querySelector("[data-sf-reset]");function apply(){var q=(search.value||"").trim().toLocaleLowerCase("ja");var visible=0;cards.forEach(function(card){var matchesText=!q||(card.getAttribute("data-search")||"").toLocaleLowerCase("ja").indexOf(q)!==-1;var matchesCharacter=!character.value||card.getAttribute("data-character")===character.value;var matchesKind=!kind.value||card.getAttribute("data-kind")===kind.value;var show=matchesText&&matchesCharacter&&matchesKind;card.hidden=!show;if(show)visible++;});count.textContent=visible+"件を表示";empty.hidden=visible!==0;}search.addEventListener("input",apply);character.addEventListener("change",apply);kind.addEventListener("change",apply);reset.addEventListener("click",function(){search.value="";character.value="";kind.value="";apply();search.focus();});})();</script>'
+    )
+
+
 def make_section(products, posts, terms):
     by_jan = {post.get('slug','').removeprefix('goods-jan-'): post for post in posts}
     cards=[]
@@ -85,6 +109,11 @@ def make_section(products, posts, terms):
         image=html.escape(image_url,quote=True)
         chips=''.join('<a class="sf-directory-chip" href="/tag/'+html.escape(slug,quote=True)+'/">'+html.escape(name)+'</a>' for name,slug in tag_spec(p))
         amazon_url, rakuten_url = marketplace_links(p)
+        search_text = ' '.join((p['character'], p['kind'], p['name'], p['title'], p['model'], p['jan']))
+        data_attrs = (
+            ' data-character="' + html.escape(p['character_slug'], quote=True) + '"'
+            ' data-kind="' + html.escape(p['kind_slug'], quote=True) + '"'
+            ' data-search="' + html.escape(search_text, quote=True) + '"')
         buttons = (
             '<div class="sf-directory-buy" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">'
             '<a href="'+html.escape(amazon_url,quote=True)+'" target="_blank" rel="sponsored nofollow noopener" '
@@ -92,8 +121,9 @@ def make_section(products, posts, terms):
             '<a href="'+html.escape(rakuten_url,quote=True)+'" target="_blank" rel="sponsored nofollow noopener" '
             'style="display:flex;align-items:center;justify-content:center;min-height:48px;padding:8px;border-radius:10px;background:#bf0000;color:#fff;font-weight:700;text-align:center;text-decoration:none">楽天で探す</a>'
             '</div><small style="display:block;margin-top:8px;color:#777">JAN・型番で検索。価格・在庫・販売元は購入先でご確認ください。</small>')
-        cards.append('<article class="sf-directory-card" style="min-width:0;border:1px solid #eadde5;border-radius:18px;padding:12px;background:#fff"><a class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit;text-decoration:none" href="'+html.escape(link,quote=True)+'"><img loading="lazy" style="width:100%;height:160px;object-fit:contain" src="'+image+'" alt="'+html.escape(p['character']+' '+p['name'],quote=True)+'"><strong>'+html.escape(title)+'</strong><span>商品情報・仕様を見る →</span></a>'+buttons+'<nav aria-label="分類" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+chips+'</nav></article>')
-    return MARKER+'<section class="sf-directory" aria-labelledby="sf-directory-title"><h2 id="sf-directory-title">新着サンリオグッズ</h2><p>商品仕様を確認して、Amazon・楽天市場の検索結果から購入先を選べます。</p><div class="sf-directory-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px">'+''.join(cards)+'</div></section>'
+        cards.append('<article class="sf-directory-card"'+data_attrs+' style="min-width:0;border:1px solid #eadde5;border-radius:18px;padding:12px;background:#fff"><a class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit;text-decoration:none" href="'+html.escape(link,quote=True)+'"><img loading="lazy" style="width:100%;height:160px;object-fit:contain" src="'+image+'" alt="'+html.escape(p['character']+' '+p['name'],quote=True)+'"><strong>'+html.escape(title)+'</strong><span>商品情報・仕様を見る →</span></a>'+buttons+'<nav aria-label="分類" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+chips+'</nav></article>')
+    controls = filter_controls(products)
+    return MARKER+'<section class="sf-directory" aria-labelledby="sf-directory-title"><h2 id="sf-directory-title">新着サンリオグッズ</h2><p>商品仕様を確認して、Amazon・楽天市場の検索結果から購入先を選べます。</p>'+controls+'<div class="sf-directory-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">'+''.join(cards)+'</div></section>'
 
 
 def run(mode, wp, products):
