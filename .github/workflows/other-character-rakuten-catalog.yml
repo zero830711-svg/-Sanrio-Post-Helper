@@ -1,0 +1,66 @@
+name: Import other character Rakuten photo catalogs
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/fetch-rakuten-character-catalog.php
+      - scripts/import-rakuten-character-catalog.py
+      - .github/workflows/other-character-rakuten-catalog.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-other-character-rakuten-catalog
+  cancel-in-progress: false
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate importer and fetcher syntax
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 -m py_compile scripts/import-rakuten-character-catalog.py
+          php -l scripts/fetch-rakuten-character-catalog.php
+      - name: Install FTPS client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp
+      - name: Import each character catalog through WordPress REST
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          catalog_tmp=$(mktemp -d)
+          trap 'rm -rf "$catalog_tmp"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get config.php -o "$catalog_tmp/config.php"
+          bye
+          LFTP
+          for character in kuromi mymelody pompompurin pochacco hellokitty hangyodon little-twin-stars; do
+            php scripts/fetch-rakuten-character-catalog.php "$catalog_tmp/config.php" "$character" "$catalog_tmp/$character.json"
+            set +e
+            python3 scripts/import-rakuten-character-catalog.py --character "$character" --candidates "$catalog_tmp/$character.json"
+            status=$?
+            set -e
+            if [[ "$status" -eq 2 ]]; then
+              echo "Skipped $character because fewer than 12 verified photos were available."
+            elif [[ "$status" -ne 0 ]]; then
+              exit "$status"
+            fi
+          done
