@@ -49,7 +49,7 @@ class WordPress:
     def call(self, path, data=None):
         if not path.startswith("/wp/v2/"):
             raise ValueError("Only standard WordPress REST routes are allowed.")
-        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.7"}
+        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.8"}
         if data is not None:
             headers["Content-Type"] = "application/json"
         req = request.Request(
@@ -205,7 +205,19 @@ def refresh(wp):
                 raise RuntimeError("Character identity could not be verified for page ID %d." % page_id)
             content = clean_generated_content(content, name)
             has_existing_guide_cards = 'id="sf-character-product-guides-title"' in content or "id='sf-character-product-guides-title'" in content
-            if page_id in LEGACY_GUIDE_PAGE_IDS or has_existing_guide_cards or not posts:
+            if page_id in LEGACY_GUIDE_PAGE_IDS:
+                # Preserve the authored guide block while restoring its marketplace navigation.
+                amazon, rakuten = marketplace_links(name)
+                marketplace_nav = (
+                    '<p>' + html.escape(name) + 'のグッズを、商品ガイドと通販検索から探せます。購入前に型番やサイズ、販売元をご確認ください。</p>'
+                    '<nav aria-label="通販サイト" style="display:flex;flex-wrap:wrap;gap:10px;margin:18px 0">'
+                    '<a href="' + html.escape(amazon, quote=True) + '" target="_blank" rel="sponsored nofollow noopener" style="display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:10px 16px;border-radius:10px;background:#ffbd35;color:#202124;font-weight:700;text-decoration:none">Amazonで' + html.escape(name) + 'を探す</a>'
+                    '<a href="' + html.escape(rakuten, quote=True) + '" target="_blank" rel="sponsored nofollow noopener" style="display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:10px 16px;border-radius:10px;background:#bf0000;color:#fff;font-weight:700;text-decoration:none">楽天で' + html.escape(name) + 'を探す</a>'
+                    '<a href="/goods/?character=' + html.escape(slug, quote=True) + '" style="display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:10px 16px;border:1px solid #eadde5;border-radius:10px;color:#46374b;font-weight:700;text-decoration:none">このキャラクターの商品一覧</a>'
+                    '</nav><p style="font-size:14px;color:#766b78">当サイトは非公式ファンサイトです。記事にアフィリエイト広告を含みます。価格・在庫・販売元・配送条件は購入先でご確認ください。</p>'
+                )
+                new_content = marketplace_nav + route_legacy_goods_links(content, slug)
+            elif has_existing_guide_cards or not posts:
                 # Avoid duplicate editorial cards and empty catalog blocks.
                 new_content = route_legacy_goods_links(content, slug)
             else:
