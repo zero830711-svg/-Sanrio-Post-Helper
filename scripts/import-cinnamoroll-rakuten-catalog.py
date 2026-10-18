@@ -181,10 +181,10 @@ def clean_candidate(item):
     if not isinstance(item, dict):
         return None
     code = str(item.get("code", "")).strip()
-    title = re.sub(r"\\s+", " ", str(item.get("title", ""))).strip()
+    title = re.sub(r"\s+", " ", str(item.get("title", ""))).strip()
     image = safe_image_url(item.get("image"))
     affiliate = safe_affiliate_url(item.get("affiliate"))
-    shop = re.sub(r"\\s+", " ", str(item.get("shop", ""))).strip()[:100]
+    shop = re.sub(r"\s+", " ", str(item.get("shop", ""))).strip()[:100]
     category = str(item.get("category", "")).strip()
     if category not in CATEGORIES:
         category = infer_category(title)
