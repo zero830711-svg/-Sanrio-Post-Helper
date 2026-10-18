@@ -8,6 +8,7 @@ if ($argc !== 4) {
 $characters = [
     'kuromi', 'mymelody', 'pompompurin', 'pochacco',
     'hellokitty', 'hangyodon', 'little-twin-stars',
+    'kirimi-chan', 'osaru-no-monkichi', 'gaopoweru', 'corocorokuririn', 'goropikadon', 'jewelpet', 'sugar-bunnies', 'charmmy-kitty', 'chococat', 'dear-daniel', 'hanamaru-obake', 'bonbonribbon', 'marshmallow-fuwafuwa-nyanko', 'marumofubiyori', 'marroncream', 'minna-no-taabou', 'little-forest-fellow', 'ruroromannic'
 ];
 $character = $argv[2];
 if (!in_array($character, $characters, true)) {
