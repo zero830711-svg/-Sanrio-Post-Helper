@@ -12,7 +12,9 @@ try{
   return $d;
  };
  $before=$request('candidates');for($attempt=0;empty($before['configured'])&&$attempt<4;$attempt++){usleep(250000);$before=$request('candidates');}if(($before['storageVersion']??'')!=='persistent-3534')throw new RuntimeException('Persistent Amazon storage is not deployed');if(empty($before['configured']))throw new RuntimeException('Saved Amazon credentials are not configured');
- $result=$request('discover',true);if(($result['autoState']??'')!=='ok')throw new RuntimeException('Amazon auto-discovery did not succeed');
+ $outputPath='';foreach(array_slice($argv,2) as $arg){if(str_starts_with($arg,'--output='))$outputPath=substr($arg,9);}
+ try{$result=$request('discover',true);if(($result['autoState']??'')!=='ok')throw new RuntimeException('Amazon auto-discovery did not succeed');}
+ catch(Throwable $e){if($outputPath==='')throw $e;fwrite(STDERR,"Amazon refresh failed; syncing only candidates still inside the 24-hour cache window.\n");}
  $after=$request('candidates');$ids=[];$now=time();
  foreach($after['items']??[] as $item){
   $p=parse_url($item['url']??'');if(($p['scheme']??'')!=='https'||($p['host']??'')!=='www.amazon.co.jp'||!preg_match('~/[A-Z0-9]{10}(?:/|$)~i',$p['path']??'')||empty($item['title'])||($item['fetchedAt']??0)<=$now-86400)throw new RuntimeException('Invalid or stale discovered product');
@@ -20,7 +22,6 @@ try{
  }
  if(($after['queryCount']??0)!==145||($after['nextAt']??0)<=$now)throw new RuntimeException('Discovery rotation or cooldown is missing');
 
- $outputPath='';foreach(array_slice($argv,2) as $arg){if(str_starts_with($arg,'--output='))$outputPath=substr($arg,9);}
  if($outputPath!==''){
   $export=[];foreach($after['items']??[] as $item)$export[]=['asin'=>$item['asin'],'title'=>$item['title'],'url'=>$item['url'],'query'=>$item['query'],'fetchedAt'=>(int)$item['fetchedAt']];
   if(file_put_contents($outputPath,json_encode($export,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),LOCK_EX)===false)throw new RuntimeException('Amazon candidate export failed');
