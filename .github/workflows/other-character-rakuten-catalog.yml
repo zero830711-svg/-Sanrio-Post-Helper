@@ -15,7 +15,7 @@ permissions:
   contents: read
 concurrency:
   group: sanrio-other-character-rakuten-catalog
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   import:
     runs-on: ubuntu-latest
@@ -72,7 +72,7 @@ jobs:
           ids=','.join(str(v[0]) for v in c.CHARACTERS.values())
           pages=c.WordPress().call('/wp/v2/pages?context=edit&per_page=100&include='+ids+'&_fields=id,content')
           counts={p['id']:len(c.extract_existing_cards(p['content']['raw'])) for p in pages}
-          print(' '.join(sorted(c.CHARACTERS,key=lambda key:counts.get(c.CHARACTERS[key][0],0))))
+          print(' '.join(sorted((key for key in c.CHARACTERS if counts.get(c.CHARACTERS[key][0],0)<c.MAX_CARDS),key=lambda key:counts.get(c.CHARACTERS[key][0],0))))
           PYORDER
           )
           failures=0
@@ -97,4 +97,3 @@ jobs:
             echo "$failures character updates failed; their existing pages were preserved."
             exit 1
           fi
-# Expanded 36-character replenishment: up to 96 verified unique cards per page.

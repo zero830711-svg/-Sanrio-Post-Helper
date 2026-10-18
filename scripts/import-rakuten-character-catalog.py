@@ -1,5 +1,6 @@
 """Import image-verified Rakuten product catalogs into character pages via WP REST."""
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import base64
 import html
 from html.parser import HTMLParser
@@ -354,26 +355,39 @@ def build_candidate_set(raw_items, old_cards, character=None):
     low_or_failed = 0
     offsets = {category: 0 for category in CATEGORIES}
     made_progress = True
-    while len(selected) < MAX_CARDS and made_progress:
-        made_progress = False
-        for category in CATEGORIES:
-            while offsets[category] < len(buckets[category]):
-                item = buckets[category][offsets[category]]
-                offsets[category] += 1
-                made_progress = True
-                if item["existing"]:
+    pending = {}
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        while len(selected) < MAX_CARDS and made_progress:
+            # Prefetch at most one upcoming image per category. Existing verified
+            # cards need no network request; only four image checks run at once.
+            for category in CATEGORIES:
+                if offsets[category] < len(buckets[category]):
+                    head = buckets[category][offsets[category]]
+                    if not head['existing'] and head['image'] not in pending:
+                        pending[head['image']] = executor.submit(verify_image, head['image'])
+            made_progress = False
+            for category in CATEGORIES:
+                while offsets[category] < len(buckets[category]):
+                    item = buckets[category][offsets[category]]
+                    offsets[category] += 1
+                    made_progress = True
+                    if item["existing"]:
+                        selected.append(item)
+                        break
+                    checked += 1
+                    future = pending.get(item["image"])
+                    if future is None:
+                        future = executor.submit(verify_image, item["image"])
+                        pending[item["image"]] = future
+                    dimensions = future.result()
+                    if not dimensions:
+                        low_or_failed += 1
+                        continue
+                    item["width"], item["height"] = dimensions
                     selected.append(item)
                     break
-                checked += 1
-                dimensions = verify_image(item["image"])
-                if not dimensions:
-                    low_or_failed += 1
-                    continue
-                item["width"], item["height"] = dimensions
-                selected.append(item)
-                break
-            if len(selected) >= MAX_CARDS:
-                break
+                if len(selected) >= MAX_CARDS:
+                    break
     return selected, checked, low_or_failed, duplicates
 
 
