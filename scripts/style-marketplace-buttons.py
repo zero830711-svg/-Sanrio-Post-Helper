@@ -93,13 +93,14 @@ def self_test():
     assert 'https://www.amazon.co.jp/s?k=test&amp;tag=abc' in styled
     assert 'https://hb.afl.rakuten.co.jp/hgc/id/?pc=x' in styled
     assert '#ffd814' in styled and '#bf0000' in styled
-    assert 'https://example.com' in styled and 'sf-marketplace-button' not in styled.split('https://example.com')[0][-0:]
+    assert 'https://example.com' in styled
     styled_again, second_counts = style_content(styled)
     assert styled_again == styled and second_counts == {'amazon': 1, 'rakuten': 1}
     parser = LinkParser()
     parser.feed(styled)
     assert parser.links[0]['target'] == '_blank'
     assert {'sponsored', 'nofollow', 'noopener'} <= set(parser.links[0]['rel'].split())
+    assert not parser.links[2].get('class')
     print('Button styling self-tests passed.')
 
 
