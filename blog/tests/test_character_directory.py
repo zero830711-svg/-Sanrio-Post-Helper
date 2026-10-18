@@ -1,11 +1,14 @@
 import importlib.util
-import sys
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "scripts"))
-import build_character_product_pages as pages
+SPEC = importlib.util.spec_from_file_location(
+    "build_character_product_pages",
+    ROOT / "scripts" / "build-character-product-pages.py",
+)
+pages = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(pages)
 
 
 class CharacterPageCleanupTests(unittest.TestCase):
