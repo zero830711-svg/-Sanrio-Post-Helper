@@ -150,7 +150,7 @@ class Tests(unittest.TestCase):
             self.assertIn('data-character-page-url="https://sanrio-fan.site/' + directory.CHARACTER_GUIDE_SLUGS[slug] + '/">', controls)
 
     def test_character_directory_routes_guided_characters_and_fills_catalog_gap(self):
-        names = [name for name, _ in directory.CHARACTER_CATALOG if name != 'チアリステイルズ']
+        names = [name for name, _ in directory.CHARACTER_CATALOG]
         raw = '<div class="sf-character-grid">' + ''.join(
             '<a class="sf-char" href="/goods/?q=old">' + name + '</a>' for name in names
         ) + '<a class="sf-char" href="/goods/?q=old">チアリステイルズ</a></div>'
@@ -160,8 +160,8 @@ class Tests(unittest.TestCase):
         )}
         updated, count = nav.update_directory(raw, guides)
         self.assertEqual(count, 36)
-        self.assertIn('チアリステイルズ</a>', updated)
-        self.assertIn('href="/goods/?character=cheeristales"', updated)
+        self.assertNotIn('チアリステイルズ', updated)
+        self.assertIn('href="/goods/?character=kirimi-chan"', updated)
         self.assertIn('href="https://sanrio-fan.site/cinnamoroll-guide/"', updated)
         self.assertIn('href="/goods/?character=wish-me-mell"', updated)
 
