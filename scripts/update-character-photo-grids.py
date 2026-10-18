@@ -94,7 +94,8 @@ def build_grid(wp, old_section, character_name):
         href = html.unescape(link_match.group(2))
         if not href.startswith(SITE + "/"):
             raise RuntimeError("An existing card links outside the Sanrio site for " + character_name)
-        path = parse.unquote(parse.urlparse(href).path).strip("/")
+        # Keep the URL-encoded WordPress slug; the REST `slug` filter uses this form for Japanese slugs.
+        path = parse.urlparse(href).path.strip("/")
         slug = path.rsplit("/", 1)[-1]
         image_url, alt = image_for_post(wp, slug)
         cards.append(
