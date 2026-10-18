@@ -14,6 +14,16 @@ SITE = 'https://sanrio-fan.site'
 MARKER = '<!-- sanrio-product-directory:v1 -->'
 AMAZON_TAG = 'ononbrothers2-22'
 RAKUTEN_AFFILIATE_ID = '56386226.a6714b12.56386227.a1326022'
+CHARACTER_GUIDE_PAGE_IDS = {
+    'pochacco': 800,
+    'kuromi': 797,
+    'my-melody': 798,
+    'cinnamoroll': 796,
+    'hello-kitty': 801,
+    'pompompurin': 799,
+    'hangyodon': 802,
+    'little-twin-stars': 803,
+}
 CHARACTER_GUIDE_SLUGS = {
     'tuxedo-sam': 'tuxedo-sam-goods',
     'ahiru-no-pekkle': 'ahiru-no-pekkle-goods',
@@ -110,7 +120,24 @@ def marketplace_links(product):
     return amazon_url, rakuten_url
 
 
-def filter_controls(products):
+def character_page_urls(wp):
+    urls = {
+        slug: SITE + '/' + page_slug + '/'
+        for slug, page_slug in CHARACTER_GUIDE_SLUGS.items()
+    }
+    for character_slug, page_id in CHARACTER_GUIDE_PAGE_IDS.items():
+        page, _ = wp.call('/wp/v2/pages/' + str(page_id) + '?context=edit&_fields=id,slug')
+        page_slug = page.get('slug', '')
+        if page.get('id') != page_id or not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', page_slug):
+            raise RuntimeError('Could not verify character page ID ' + str(page_id))
+        urls[character_slug] = SITE + '/' + page_slug + '/'
+    return urls
+
+
+def filter_controls(products, page_urls=None):
+    page_urls = dict(page_urls or {})
+    for slug, page_slug in CHARACTER_GUIDE_SLUGS.items():
+        page_urls.setdefault(slug, SITE + '/' + page_slug + '/')
     characters = list(CHARACTER_CATALOG)
     known = {slug for _, slug in characters}
     for p in products:
@@ -124,7 +151,7 @@ def filter_controls(products):
     for name, slug in characters:
         amazon_url, rakuten_url = marketplace_links({'query': name})
         count = article_counts.get(slug, 0)
-        page_url = SITE + '/' + CHARACTER_GUIDE_SLUGS[slug] + '/' if slug in CHARACTER_GUIDE_SLUGS else ''
+        page_url = page_urls.get(slug, '')
         availability = '記事 ' + str(count) + '件' if count else '通販検索'
         character_options.append(
             '<option value="' + html.escape(slug, quote=True) + '"'
@@ -158,7 +185,7 @@ def filter_controls(products):
     )
 
 
-def make_section(products, posts, terms):
+def make_section(products, posts, terms, page_urls=None):
     by_jan = {post.get('slug','').removeprefix('goods-jan-'): post for post in posts}
     cards=[]
     for p in products:
@@ -187,7 +214,7 @@ def make_section(products, posts, terms):
             'style="display:flex;align-items:center;justify-content:center;min-height:48px;padding:8px;border-radius:10px;background:#bf0000;color:#fff;font-weight:700;text-align:center;text-decoration:none">楽天で探す</a>'
             '</div><small style="display:block;margin-top:8px;color:#777">JAN・型番で検索。価格・在庫・販売元は購入先でご確認ください。</small>')
         cards.append('<article class="sf-directory-card"'+data_attrs+' style="min-width:0;border:1px solid #eadde5;border-radius:18px;padding:12px;background:#fff"><a class="sf-directory-product" style="display:flex;flex-direction:column;gap:10px;color:inherit;text-decoration:none" href="'+html.escape(link,quote=True)+'"><img loading="lazy" style="width:100%;height:160px;object-fit:contain" src="'+image+'" alt="'+html.escape(p['character']+' '+p['name'],quote=True)+'"><strong>'+html.escape(title)+'</strong><span>商品情報・仕様を見る →</span></a>'+buttons+'<nav aria-label="分類" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+chips+'</nav></article>')
-    controls = filter_controls(products)
+    controls = filter_controls(products, page_urls)
     return MARKER+'<section class="sf-directory" aria-labelledby="sf-directory-title"><h2 id="sf-directory-title">新着サンリオグッズ</h2><p>商品仕様を確認して、Amazon・楽天市場の検索結果から購入先を選べます。</p>'+controls+'<div class="sf-directory-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">'+''.join(cards)+'</div></section>'
 
 
@@ -216,9 +243,10 @@ def run(mode, wp, products):
         else:
             terms[slug]={'id':None,'slug':slug,'name':name}
     page,_=wp.call('/wp/v2/pages/804?context=edit&_fields=id,slug,title,content')
+    page_urls = character_page_urls(wp)
     content=page.get('content',{}).get('raw')
     if not isinstance(content,str): raise RuntimeError('Could not read editable /goods/ page content.')
-    make_section(products,posts,terms)  # Validate article, image, and outbound links before any write.
+    make_section(products,posts,terms,page_urls)  # Validate article, image, and outbound links before any write.
     if mode=='check':
         print('READY: '+str(len(products))+' published products; /goods/ page '+page['slug']+'; '+str(len(terms))+' character/kind tags and affiliate links checked.')
         return
@@ -226,7 +254,7 @@ def run(mode, wp, products):
         ids=set(post.get('tags') or [])
         for _,slug in tag_spec(p): ids.add(int(terms[slug]['id']))
         wp.call('/wp/v2/posts/'+str(post['id']),{'tags':sorted(ids)})
-    section=make_section(products,posts,terms)
+    section=make_section(products,posts,terms,page_urls)
     if MARKER in content:
         start=content.index(MARKER)
         end=content.find('</section>',start)
