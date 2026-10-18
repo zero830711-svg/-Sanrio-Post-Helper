@@ -523,7 +523,9 @@ try{
    ];
    $settings=lw_settings();$items=[];$seen=[];
    foreach($terms as [$category,$term]){$keyword=$primary.' '.$term;$data=pf_search($keyword,$settings,1,true);foreach($data['items']??[] as $row){if(!is_array($row))continue;$item=pf_catalog_candidate($row,$names);if(!$item||isset($seen[$item['code']]))continue;$seen[$item['code']]=true;$item['category']=$category;$items[]=$item;}}
-   $result=['catalogItems'=>array_slice($items,0,240),'queriesUsed'=>count($terms),'character'=>$character];
+   $fashionQueries=['服','靴下','Tシャツ','帽子','財布','パジャマ'];
+   foreach($fashionQueries as $term){$data=pf_search($primary.' '.$term,$settings,1,true);foreach($data['items']??[] as $row){if(!is_array($row))continue;$item=pf_catalog_candidate($row,$names);if(!$item||isset($seen[$item['code']]))continue;$seen[$item['code']]=true;$item['category']='ファッション';$items[]=$item;}}
+   $result=['catalogItems'=>array_slice($items,0,420),'queriesUsed'=>count($terms)+count($fashionQueries),'character'=>$character];
   }
   elseif($action==='prepare-stock'){
    $code=$input['code']??'';$product=null;foreach($state['sources']??[] as $candidate)if(($candidate['code']??'')===$code)$product=$candidate;
