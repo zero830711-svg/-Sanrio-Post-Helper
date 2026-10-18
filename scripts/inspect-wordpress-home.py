@@ -44,7 +44,7 @@ class WordPress:
 
 
 def text_only(value):
-    return re.sub(r"\\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", value))).strip()
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", value))).strip()
 
 
 def inspect(wp):
@@ -61,7 +61,7 @@ def inspect(wp):
     raw = page.get("content", {}).get("raw", "")
     print("FRONT_PAGE: id=%s slug=%s title=%s content_chars=%d" % (
         page_id, page.get("slug", ""), text_only(title), len(raw)))
-    anchors = re.findall(r'<a\\b[^>]*href=["\\']([^"\\']+)["\\'][^>]*>(.*?)</a>', raw, flags=re.I | re.S)
+    anchors = re.findall(r"<a\b[^>]*href=['\"]([^'\"]+)['\"][^>]*>(.*?)</a>", raw, flags=re.I | re.S)
     printed = set()
     for href, body in anchors:
         label = text_only(body)
