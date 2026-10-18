@@ -107,7 +107,7 @@ def build_grid(old_section):
 
 def main():
     wp = WordPress()
-    page = wp.call("/pages/%d?context=edit&_fields=id,slug,content" % PAGE_ID)
+    page = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,slug,content" % PAGE_ID)
     if page.get("id") != PAGE_ID or page.get("slug") != "character-cinnamoroll":
         raise RuntimeError("The target page is not the verified Cinnamoroll page.")
     content = page.get("content", {}).get("raw")
@@ -118,8 +118,8 @@ def main():
         raise RuntimeError("The existing product guide section markers were not found.")
     new_section = build_grid(match.group(0))
     updated_content = content[:match.start()] + new_section + content[match.end():]
-    wp.call("/pages/%d" % PAGE_ID, {"content": updated_content})
-    verify = wp.call("/pages/%d?context=edit&_fields=id,slug,content" % PAGE_ID)
+    wp.call("/wp/v2/pages/%d" % PAGE_ID, {"content": updated_content})
+    verify = wp.call("/wp/v2/pages/%d?context=edit&_fields=id,slug,content" % PAGE_ID)
     raw = verify.get("content", {}).get("raw", "")
     verified_section = re.search(re.escape(START) + r".*?" + re.escape(END), raw, flags=re.S)
     if verify.get("id") != PAGE_ID or verify.get("slug") != "character-cinnamoroll" or not verified_section:
