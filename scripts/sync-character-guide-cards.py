@@ -40,7 +40,8 @@ class WordPress:
             with self.opener.open(req, timeout=45) as response:
                 return json.load(response)
         except error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", "replace")[:500]\n            raise RuntimeError("WordPress REST returned HTTP " + str(exc.code) + " for " + path.split("?")[0] + ": " + detail) from None
+            detail = exc.read().decode("utf-8", "replace")[:500]
+            raise RuntimeError("WordPress REST returned HTTP " + str(exc.code) + " for " + path.split("?")[0] + ": " + detail) from None
 
 
 def plain(value):
