@@ -40,12 +40,24 @@ class WordPress:
 
 def tag_spec(product):
     character = product['character']
-    slug = {'ポチャッコ':'pochacco','クロミ':'kuromi','マイメロディ':'my-melody',
-            'シナモロール':'cinnamoroll','ハローキティ':'hello-kitty'}[character]
+    character_slug = product.get('character_slug', '')
     kind = product['kind']
-    kind_slug = {'ボトルケース':'bottle-cases','ミラー':'mirrors','ランチバッグ':'lunch-bags',
-                 '保冷剤':'ice-packs','ストローホッパーキャップ':'straw-bottle-caps'}[kind]
-    return [(character, slug), (kind, kind_slug)]
+    kind_slug = product.get('kind_slug', '')
+    for slug in (character_slug, kind_slug):
+        if not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', slug):
+            raise RuntimeError('Every product needs an explicit, URL-safe character_slug and kind_slug.')
+    return [(character, character_slug), (kind, kind_slug)]
+
+
+def load_products():
+    products = []
+    for filename in ('blog/products-2026-10-18.json', 'blog/products-2026-10-18-batch2.json'):
+        path = ROOT / filename
+        if path.exists():
+            products.extend(json.loads(path.read_text()))
+    if not products:
+        raise RuntimeError('No reviewed product data was found.')
+    return products
 
 
 def marketplace_links(product):
@@ -113,7 +125,7 @@ def run(mode, wp, products):
     if not isinstance(content,str): raise RuntimeError('Could not read editable /goods/ page content.')
     make_section(products,posts,terms)  # Validate article, image, and outbound links before any write.
     if mode=='check':
-        print('READY: five published products; /goods/ page '+page['slug']+'; '+str(len(terms))+' character/kind tags and affiliate links checked.')
+        print('READY: '+str(len(products))+' published products; /goods/ page '+page['slug']+'; '+str(len(terms))+' character/kind tags and affiliate links checked.')
         return
     for p,post in zip(products,posts):
         ids=set(post.get('tags') or [])
@@ -128,7 +140,7 @@ def run(mode, wp, products):
     updated,_=wp.call('/wp/v2/pages/804',{'content':section+'\n'+content})
     if MARKER not in updated.get('content',{}).get('raw','') or '楽天で探す' not in updated.get('content',{}).get('raw',''):
         raise RuntimeError('Product directory insertion verification failed.')
-    print('UPDATED: /goods/ now has five product cards with article, Amazon, and Rakuten buttons.')
+    print('UPDATED: /goods/ now has '+str(len(products))+' product cards with article, Amazon, and Rakuten buttons.')
 
 
 if __name__=='__main__':
@@ -136,11 +148,7 @@ if __name__=='__main__':
     parser.add_argument('--mode',choices=['check','apply'],default='check')
     args=parser.parse_args()
     try:
-        products=json.loads((ROOT/'blog/products-2026-10-18.json').read_text())
-        for item in products:
-            item['kind']={'4973307730078':'ボトルケース','4973307729553':'ミラー',
-                '4973307730160':'ランチバッグ','4973307643958':'保冷剤',
-                '4973307250705':'ストローホッパーキャップ'}[item['jan']]
+        products=load_products()
         run(args.mode,WordPress(),products)
     except (RuntimeError,error.URLError,ValueError,KeyError) as exc:
         print(str(exc) if isinstance(exc,RuntimeError) else 'Operation failed; check site and secret settings.',file=sys.stderr)
