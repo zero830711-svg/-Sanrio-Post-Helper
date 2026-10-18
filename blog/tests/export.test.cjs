@@ -21,3 +21,15 @@ test('only selected images are exported and character is recognized',()=>{
  const out=payload({selected:[1],item:{title:'クロミ ミラー',url:'https://example.com',images:['https://example.com/a.jpg','https://example.com/b.jpg']}},'');
  assert.equal(out.images.length,1);assert.equal(out.images[0],'https://example.com/b.jpg');assert.equal(out.character,'クロミ');
 });
+
+const catalogPayload=context.window.SPHBlogExport.catalogPayload;
+test('catalog export matches the reviewed product batch fields',()=>{
+ const row={identity:{jan:'4973307730078'},item:{title:'シナモロール バッグ',url:'https://item.rakuten.co.jp/shop/item/'}};
+ const out=catalogPayload(row,{name:'シナモロール',slug:'cinnamoroll'},{name:'バッグ・ポーチ',slug:'bags-pouches'});
+ assert.equal(out.jan,'4973307730078');assert.equal(out.character_slug,'cinnamoroll');assert.equal(out.kind_slug,'bags-pouches');assert.equal(out.query,'シナモロール バッグ・ポーチ シナモロール バッグ');assert.equal(out.source,'https://item.rakuten.co.jp/shop/item/');
+});
+test('catalog export uses Rakuten item code when JAN is unavailable',()=>{
+ const row={identity:{},item:{title:'商品',url:'https://item.rakuten.co.jp/shop/item/',itemCode:'shop:item'}};
+ const out=catalogPayload(row,{name:'クロミ',slug:'kuromi'},{name:'文具・シール',slug:'stationery-stickers'});
+ assert.equal(out.rakuten_item_code,'shop:item');assert.equal(out.jan,undefined);assert.equal(out.catalog_id,undefined);
+});
