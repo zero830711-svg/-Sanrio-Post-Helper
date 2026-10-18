@@ -88,6 +88,16 @@ function pf_search(string $keyword,array $settings,int $page=1,bool $imageOnly=f
 
 function pf_catalog_characters():array{
  return [
+  'tuxedo-sam'=>['タキシードサム',['タキシードサム']],
+  'ahiru-no-pekkle'=>['あひるのペックル',['あひるのペックル']],
+  'bad-badtz-maru'=>['バッドばつ丸',['バッドばつ丸']],
+  'cogimyun'=>['こぎみゅん',['こぎみゅん']],
+  'usahana'=>['ウサハナ',['ウサハナ']],
+  'kerokerokeroppi'=>['けろけろけろっぴ',['けろけろけろっぴ']],
+  'gudetama'=>['ぐでたま',['ぐでたま']],
+  'wish-me-mell'=>['ウィッシュミーメル',['ウィッシュミーメル']],
+  'my-sweet-piano'=>['マイスウィートピアノ',['マイスウィートピアノ']],
+  'jochum'=>['JOCHUM',['JOCHUM']],
   'cinnamoroll'=>['シナモロール',['シナモロール','Cinnamoroll']],
   'kuromi'=>['クロミ',['クロミ','Kuromi']],
   'mymelody'=>['マイメロディ',['マイメロディ','マイメロ','My Melody']],
@@ -117,6 +127,17 @@ function pf_catalog_characters():array{
   'ruroromannic'=>['ルロロマニック',["ルロロマニック"]],
  ];
 }
+
+function pf_catalog_expansion_queries(string $character):array{
+ $characters=pf_catalog_characters();
+ if(!isset($characters[$character]))throw new RuntimeException('商品検索対象のキャラクターを確認できません。');
+ [$primary,$aliases]=$characters[$character];
+ $queries=[[$primary,1],[$primary,2],[$primary,3]];
+ foreach(['ぬいぐるみ','マスコット','キーホルダー','ポーチ','文房具','タオル','食器','生活雑貨','靴下'] as $term)$queries[]=[$primary.' '.$term,1];
+ foreach($aliases as $alias){if($alias!==$primary)$queries[]=[$alias,1];if(count($queries)>=16)break;}
+ return array_slice($queries,0,16);
+}
+
 function pf_catalog_candidate(array $row,array $names=['シナモロール','Cinnamoroll']):?array{
  $title=trim((string)($row['itemName']??''));$caption=strip_tags((string)($row['itemCaption']??''));
  if($title==='')return null;$combined=mb_strtolower($title."\n".$caption,'UTF-8');$matched=false;
@@ -530,6 +551,17 @@ try{
    $catalogCharacters=pf_catalog_characters();$character=(string)($input['character']??'cinnamoroll');
    if(!isset($catalogCharacters[$character]))throw new RuntimeException('商品検索対象のキャラクターを確認できません。');
    [$primary,$names]=$catalogCharacters[$character];
+   if(!empty($input['expand'])){
+    $batch=max(0,min(3,(int)($input['batch']??0)));$allQueries=pf_catalog_expansion_queries($character);
+    $queries=array_slice($allQueries,$batch*4,4);$settings=lw_settings();$items=[];$seen=[];$pageLimits=[];$used=0;
+    foreach($queries as [$keyword,$page]){
+     if(isset($pageLimits[$keyword])&&$page>$pageLimits[$keyword])continue;
+     $data=pf_search($keyword,$settings,$page,true);$used++;
+     $pageLimits[$keyword]=max(1,(int)ceil(((int)($data['count']??0))/30));
+     foreach($data['items']??[] as $row){if(!is_array($row))continue;$item=pf_catalog_candidate($row,$names);if(!$item||isset($seen[$item['code']]))continue;$seen[$item['code']]=true;$items[]=$item;}
+    }
+    $result=['catalogItems'=>$items,'queriesUsed'=>$used,'character'=>$character,'expansionVersion'=>1,'batch'=>$batch,'hasMore'=>(($batch+1)*4<count($allQueries))];
+   }else{
    $terms=[
     ['ぬいぐるみ','ぬいぐるみ マスコット'],
     ['バッグ・ポーチ','バッグ ポーチ リュック'],
@@ -545,6 +577,7 @@ try{
    $fashionQueries=['服','靴下','Tシャツ','帽子','財布','パジャマ'];
    foreach($fashionQueries as $term){$data=pf_search($primary.' '.$term,$settings,1,true);foreach($data['items']??[] as $row){if(!is_array($row))continue;$item=pf_catalog_candidate($row,$names);if(!$item||isset($seen[$item['code']]))continue;$seen[$item['code']]=true;$item['category']='ファッション';$items[]=$item;}}
    $result=['catalogItems'=>array_slice($items,0,420),'queriesUsed'=>count($terms)+count($fashionQueries),'character'=>$character];
+   }
   }
   elseif($action==='prepare-stock'){
    $code=$input['code']??'';$product=null;foreach($state['sources']??[] as $candidate)if(($candidate['code']??'')===$code)$product=$candidate;

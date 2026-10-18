@@ -34,9 +34,12 @@ jobs:
           python3 -m pip install --quiet Pillow
           python3 -m py_compile scripts/import-rakuten-character-catalog.py
           php -l scripts/fetch-rakuten-character-catalog.php
+          php -l server/lolipop/product-flow.php
+          php tests/product-flow.php
       - name: Test catalog selection and UI generation
         run: python3 -m unittest discover -s tests -p test_character_catalog_quality.py -v
       - name: Repair existing catalogs and character navigation through REST
+        if: github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, '[refresh-catalogs]')
         run: python3 scripts/repair-character-catalogs.py
       - name: Install FTPS client
         if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[refresh-catalogs]')
@@ -62,8 +65,23 @@ jobs:
           get config.php -o "$catalog_tmp/config.php"
           bye
           LFTP
-          for character in kuromi mymelody pompompurin pochacco hellokitty hangyodon little-twin-stars kirimi-chan osaru-no-monkichi gaopoweru corocorokuririn goropikadon jewelpet sugar-bunnies charmmy-kitty chococat dear-daniel hanamaru-obake bonbonribbon marshmallow-fuwafuwa-nyanko marumofubiyori marroncream minna-no-taabou little-forest-fellow ruroromannic; do
-            php scripts/fetch-rakuten-character-catalog.php "$catalog_tmp/config.php" "$character" "$catalog_tmp/$character.json"
+          character_order=$(python3 - <<'PYORDER'
+          import importlib.util
+          spec=importlib.util.spec_from_file_location('catalog','scripts/import-rakuten-character-catalog.py')
+          c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)
+          ids=','.join(str(v[0]) for v in c.CHARACTERS.values())
+          pages=c.WordPress().call('/wp/v2/pages?context=edit&per_page=100&include='+ids+'&_fields=id,content')
+          counts={p['id']:len(c.extract_existing_cards(p['content']['raw'])) for p in pages}
+          print(' '.join(sorted(c.CHARACTERS,key=lambda key:counts.get(c.CHARACTERS[key][0],0))))
+          PYORDER
+          )
+          failures=0
+          for character in $character_order; do
+            if ! php scripts/fetch-rakuten-character-catalog.php "$catalog_tmp/config.php" "$character" "$catalog_tmp/$character.json"; then
+              echo "Preserved $character because candidate fetch failed."
+              failures=$((failures+1))
+              continue
+            fi
             set +e
             python3 scripts/import-rakuten-character-catalog.py --character "$character" --candidates "$catalog_tmp/$character.json"
             status=$?
@@ -71,6 +89,11 @@ jobs:
             if [[ "$status" -eq 2 ]]; then
               echo "Skipped $character because fewer than 12 verified photos were available."
             elif [[ "$status" -ne 0 ]]; then
-              exit "$status"
+              failures=$((failures+1))
             fi
           done
+          python3 scripts/repair-character-catalogs.py
+          if [[ "$failures" -gt 0 ]]; then
+            echo "$failures character updates failed; their existing pages were preserved."
+            exit 1
+          fi

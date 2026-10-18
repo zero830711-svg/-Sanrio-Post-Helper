@@ -15,6 +15,16 @@ from PIL import Image
 
 SITE = "https://sanrio-fan.site"
 CHARACTERS = {
+    'tuxedo-sam': (898, 'tuxedo-sam-goods', 'タキシードサム'),
+    'ahiru-no-pekkle': (899, 'ahiru-no-pekkle-goods', 'あひるのペックル'),
+    'bad-badtz-maru': (900, 'bad-badtz-maru-goods', 'バッドばつ丸'),
+    'cogimyun': (901, 'cogimyun-goods', 'こぎみゅん'),
+    'usahana': (902, 'usahana-goods', 'ウサハナ'),
+    'kerokerokeroppi': (1041, 'kerokerokeroppi-goods', 'けろけろけろっぴ'),
+    'gudetama': (1042, 'gudetama-goods', 'ぐでたま'),
+    'wish-me-mell': (1043, 'wish-me-mell-goods', 'ウィッシュミーメル'),
+    'my-sweet-piano': (1044, 'my-sweet-piano-goods', 'マイスウィートピアノ'),
+    'jochum': (1045, 'jochum-goods', 'JOCHUM'),
     "cinnamoroll": (796, "character-cinnamoroll", "シナモロール"),
     "kuromi": (797, "character-kuromi", "クロミ"),
     "mymelody": (798, "character-mymelody", "マイメロディ"),
@@ -45,7 +55,7 @@ CHARACTERS = {
 START = "<!-- sf-character-product-guides:v1 -->"
 END = "<!-- /sf-character-product-guides:v1 -->"
 RAKUTEN_IMAGE_HOSTS = {"image.rakuten.co.jp", "shop.r10s.jp", "tshop.r10s.jp"}
-MAX_CARDS = 72
+MAX_CARDS = 96
 MIN_CARDS = 12
 CATEGORIES = ["ぬいぐるみ", "バッグ・ポーチ", "文具・シール", "キーホルダー", "タオル", "食器・キッチン", "生活雑貨", "ファッション"]
 MIN_IMAGE_EDGE = 300
@@ -332,11 +342,12 @@ def build_candidate_set(raw_items, old_cards, character=None):
         if name_key:
             seen_names.add(name_key)
 
-    # Prefer the fresh Rakuten response, then retain previous cards to fill any sparse categories.
-    for item in raw_items:
-        add_to_pool(item)
+    # Retain curated, verified offers before adding new products; an unavailable
+    # new offer must not displace a working old offer for the same JAN.
     for item in old_cards:
         add_to_pool(item, existing=True)
+    for item in raw_items:
+        add_to_pool(item)
 
     selected = []
     checked = 0

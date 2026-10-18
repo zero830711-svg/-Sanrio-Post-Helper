@@ -87,6 +87,9 @@ def main():
         page = pages.get(page_id, {})
         if page.get('id') != page_id or page.get('slug') != slug:
             raise RuntimeError('Character page identity mismatch: ' + character)
+        if not catalog.extract_existing_cards(page['content']['raw']):
+            print('KEPT editorial guide without a photo catalog:', character, flush=True)
+            continue
         updated, old_count, products = repair_content(page['content']['raw'], character)
         plans.append((character, page_id, slug, updated, old_count, products))
     for character, page_id, slug, updated, old_count, products in plans:
@@ -128,7 +131,7 @@ def main():
     goods_saved = wp.call('/wp/v2/pages/804?context=edit&_fields=content')['content']['raw']
     if 'DOMContentLoaded' not in goods_saved or 'sf-directory-hidden' not in goods_saved:
         raise RuntimeError('Goods directory filter verification failed.')
-    print('VERIFIED: 26 catalogs; 36 character links/order preserved; goods filters deferred until DOM ready.', flush=True)
+    print('VERIFIED:',len(plans),'photo catalogs; 36 character links/order preserved; goods filters deferred until DOM ready.', flush=True)
 
 if __name__ == '__main__':
     main()

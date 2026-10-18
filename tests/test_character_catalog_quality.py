@@ -15,6 +15,14 @@ def item(code, title, image=None):
     return dict(code='shop:'+code, title=title, image='https://image.rakuten.co.jp/shop/cabinet/'+(image or code)+'.jpg', affiliate='https://hb.afl.rakuten.co.jp/hgc/12345678/', shop='テスト店', category='文具・シール')
 
 class QualityTests(unittest.TestCase):
+    def test_expansion_cap_and_preserved_working_offer(self):
+        self.assertEqual(len(c.CHARACTERS),36)
+        self.assertEqual(c.MAX_CARDS,96)
+        old=item('old','KIRIMIちゃん. ステッカー 4947864052607')
+        new=item('new','KIRIMIちゃん. シール 4947864052607')
+        with patch.object(c,'verify_image',return_value=None):
+            products,*_=c.build_candidate_set([new],[old],'kirimi-chan')
+        self.assertEqual([p['code'] for p in products],['shop:old'])
     def test_wrong_character_is_excluded_even_when_legacy_card(self):
         products, *_ = c.build_candidate_set([], [item('wrong','はなまるおばけ マスコット'),item('right','KIRIMIちゃん. マスコット')], 'kirimi-chan')
         self.assertEqual([p['code'] for p in products], ['shop:right'])

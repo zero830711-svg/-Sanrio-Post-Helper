@@ -70,3 +70,9 @@ $stock=pf_prepare_stock(['code'=>'testshop:manual-generation','affiliate'=>'http
 pf_check($stock['body']===''&&$stock['generatedOnRequest']===false,'Stock preparation generated a body without a button request');
 pf_check(pf_generated_body("クロミのポーチ\n\n🔎 詳細：\nhttps://books.rakuten.co.jp/rb/18281023/\n\n#サンリオ")==="クロミのポーチ\n\n#サンリオ",'Generated source URL was not removed');
 try{pf_generated_body('https://books.rakuten.co.jp/rb/18281023/');throw new LogicException('URL-only draft accepted');}catch(RuntimeException $expected){}
+
+$expansionQueries=pf_catalog_expansion_queries('kirimi-chan');
+pf_check(count(pf_catalog_characters())===36,'Expanded catalog does not cover all 36 characters');
+pf_check(count($expansionQueries)<=16&&in_array(['KIRIMIちゃん.',3],$expansionQueries,true),'Expanded catalog pagination missing or unbounded');
+pf_check(in_array(['KIRIMIちゃん',1],$expansionQueries,true),'Character alias search missing');
+pf_check(in_array(['KIRIMIちゃん. タオル',1],$expansionQueries,true),'Simple product-kind query missing');
