@@ -44,6 +44,12 @@ class QualityTests(unittest.TestCase):
         section=c.section_html('',[dict(item('a','KIRIMIちゃん. ポーチ'),category='バッグ・ポーチ')],[],'KIRIMIちゃん.')
         self.assertIn('すべて（1件）',section);self.assertIn('バッグ・ポーチ（1件）',section)
         self.assertNotIn('タオル（0件）',section);self.assertIn('repeat(3,minmax(0,1fr))',section)
+    def test_existing_plain_guide_links_survive_repeat_refresh(self):
+        section='<div><a href="https://sanrio-fan.site/guide/">サイズ情報 →</a></div>'
+        guides=c.extract_guide_cards(section)
+        self.assertEqual(guides,[('サイズ情報','https://sanrio-fan.site/guide/')])
+        next_section=c.section_html('',[],guides,'KIRIMIちゃん.')
+        self.assertEqual(c.extract_guide_cards(next_section),guides)
     def test_unrelated_brand_and_substring_book_are_rejected(self):
         self.assertFalse(d.title_mentions_character('マクロミル データ分析の教科書', 'kuromi'))
         self.assertFalse(d.title_mentions_character('ミッフィー タンブラー'))

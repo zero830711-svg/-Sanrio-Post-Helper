@@ -254,6 +254,12 @@ def extract_guide_cards(section):
         if not href.startswith(SITE + "/"):
             continue
         cards.append((text_from(title.group(1)), href))
+    # Already-rendered guide links are plain anchors rather than article cards.
+    for url, label in re.findall(r'<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', section, flags=re.S):
+        url = html.unescape(url)
+        title = text_from(label).removesuffix(" →").strip()
+        if url.startswith(SITE + "/") and title and (title, url) not in cards:
+            cards.append((title, url))
     return cards
 
 
