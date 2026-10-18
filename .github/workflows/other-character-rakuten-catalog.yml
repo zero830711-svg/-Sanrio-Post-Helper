@@ -97,3 +97,4 @@ jobs:
             echo "$failures character updates failed; their existing pages were preserved."
             exit 1
           fi
+# Expanded 36-character replenishment: up to 96 verified unique cards per page.
