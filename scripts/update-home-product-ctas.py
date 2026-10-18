@@ -47,9 +47,9 @@ def link_data(raw):
     return amazon, rakuten
 
 
-def rakuten_search_url(amazon_url):
+def rakuten_search_url(amazon_url, fallback_query=""):
     parts = parse.urlsplit(amazon_url)
-    query = parse.parse_qs(parts.query).get("k", [""])[0].strip()
+    query = parse.parse_qs(parts.query).get("k", [""])[0].strip() or fallback_query.strip()
     if not query:
         return ""
     target = "https://search.rakuten.co.jp/search/mall/" + parse.quote(query, safe="") + "/"
@@ -102,7 +102,15 @@ def update_cards(raw, wp):
         if not amazon:
             raise RuntimeError("The linked guide has no identifiable Amazon affiliate URL.")
         if not rakuten:
-            rakuten = rakuten_search_url(amazon)
+            title = plain(post.get("title", {}).get("rendered", ""))
+            product_name = re.split(r"[｜|]", title, maxsplit=1)[0].strip()
+            slug = parse.unquote(parse.urlsplit(article_href).path).strip("/").rsplit("/", 1)[-1]
+            model_numbers = re.findall(r"(?<!\\d)\\d{4,}(?!\\d)", slug)
+            if model_numbers and model_numbers[-1] not in product_name:
+                product_name = (product_name + " " + model_numbers[-1]).strip()
+            rakuten = rakuten_search_url(amazon, product_name)
+            if rakuten:
+                print("INFO: Rakuten search URL derived from the linked guide title and product slug.")
         if not rakuten or RAKUTEN_ID not in rakuten:
             raise RuntimeError("The linked guide has no Rakuten URL or usable Amazon search query.")
         if AMAZON_TAG not in amazon:
