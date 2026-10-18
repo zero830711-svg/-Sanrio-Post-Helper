@@ -48,7 +48,7 @@ class WordPress:
     def call(self, path, data=None):
         if not path.startswith("/wp/v2/"):
             raise ValueError("Only standard WordPress REST routes are allowed.")
-        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.3"}
+        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.4"}
         if data is not None:
             headers["Content-Type"] = "application/json"
         req = request.Request(
@@ -203,7 +203,7 @@ def refresh(wp):
             if not isinstance(content, str) or (name not in content and name not in title_text):
                 raise RuntimeError("Character identity could not be verified for page ID %d." % page_id)
             content = clean_generated_content(content, name)
-            if re.search(r'<h2\\b[^>]*id=["\\\']sf-character-product-guides-title["\\\']', content, re.I):
+            if 'id="sf-character-product-guides-title"' in content or "id='sf-character-product-guides-title'" in content:
                 # Existing editorial guide cards already cover this character; avoid a duplicate listing.
                 new_content = route_legacy_goods_links(content, slug)
             else:
