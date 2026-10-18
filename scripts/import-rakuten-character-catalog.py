@@ -357,7 +357,9 @@ def build_candidate_set(raw_items, old_cards, character=None):
     made_progress = True
     pending = {}
     with ThreadPoolExecutor(max_workers=4) as executor:
-        while len(selected) < MAX_CARDS and made_progress:
+        # Incremental imports may grow an existing catalog beyond the initial cap.
+        limit = max(MAX_CARDS, len(old_cards))
+        while len(selected) < limit and made_progress:
             # Prefetch at most one upcoming image per category. Existing verified
             # cards need no network request; only four image checks run at once.
             for category in CATEGORIES:
@@ -386,7 +388,7 @@ def build_candidate_set(raw_items, old_cards, character=None):
                     item["width"], item["height"] = dimensions
                     selected.append(item)
                     break
-                if len(selected) >= MAX_CARDS:
+                if len(selected) >= limit:
                     break
     return selected, checked, low_or_failed, duplicates
 

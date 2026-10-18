@@ -1,0 +1,61 @@
+name: Add bounded Rakuten Fashion catalog batch
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/add-rakuten-fashion.py
+      - scripts/fetch-rakuten-fashion.php
+      - tests/test_fashion_catalog.py
+      - .github/workflows/add-rakuten-fashion.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-other-character-rakuten-catalog
+  cancel-in-progress: false
+jobs:
+  add-fashion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check bounded append and existing catalog preservation
+        run: |
+          python3 -m pip install --quiet Pillow
+          php -l scripts/fetch-rakuten-fashion.php
+          php tests/product-flow.php
+          python3 -m unittest discover -s tests -p test_fashion_catalog.py -v
+          python3 -m unittest discover -s tests -p test_character_catalog_quality.py -v
+      - name: Install FTPS client
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[add-fashion]')
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp
+      - name: Add at most 100 cards through WordPress REST
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[add-fashion]')
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          fashion_tmp=$(mktemp -d)
+          trap 'rm -rf "$fashion_tmp"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get .rakuten-settings.php -o "$fashion_tmp/settings.php"
+          bye
+          LFTP
+          php scripts/fetch-rakuten-fashion.php "$fashion_tmp/settings.php" "$fashion_tmp/candidates.json"
+          python3 scripts/add-rakuten-fashion.py --candidates "$fashion_tmp/candidates.json" --limit 100
