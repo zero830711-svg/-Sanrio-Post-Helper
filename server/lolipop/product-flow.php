@@ -66,16 +66,16 @@ function pf_search_url(string $keyword):string{return 'https://search.rakuten.co
 function pf_safe_affiliate(string $url):bool{
  $p=parse_url($url);return ($p['scheme']??'')==='https'&&($p['host']??'')==='hb.afl.rakuten.co.jp'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&preg_match('~^/hgc/[a-zA-Z0-9._-]{8,128}/?$~D',$p['path']??'');
 }
-function pf_search(string $keyword,array $settings,int $page=1):array{
+function pf_search(string $keyword,array $settings,int $page=1,bool $imageOnly=false):array{
  if(mb_strlen($keyword)<2||mb_strlen($keyword)>80)throw new RuntimeException('楽天の検索語を2〜80文字で指定してください。');
  $settings=lw_validate_settings($settings);
- $cache='search-broad-v1-'.hash('sha256',$keyword.'|'.$page.json_encode($settings));$saved=pf_read($cache);
+ $cache='search-broad-v2-'.hash('sha256',$keyword.'|'.$page.'|'.($imageOnly?'image':'all').json_encode($settings));$saved=pf_read($cache);
  if(($saved['at']??0)>time()-1800)return $saved['data'];
  $lock=fopen(pf_dir().'/rakuten-api.lock','c+');if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('楽天APIを利用中です。少し待ってください。');
  try{
   chmod(pf_dir().'/rakuten-api.lock',0600);rewind($lock);$last=(float)stream_get_contents($lock);$wait=1.1-(microtime(true)-$last);if($wait>0)usleep((int)($wait*1000000));
   rewind($lock);ftruncate($lock,0);fwrite($lock,(string)microtime(true));fflush($lock);
-  $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query(['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'keyword'=>$keyword,'availability'=>1,'field'=>0,'hits'=>30,'page'=>$page,'formatVersion'=>2,'elements'=>'count,itemCode,itemName,itemUrl,itemCaption,itemPrice,mediumImageUrls,affiliateUrl,shopCode,shopName']);
+  $params=['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'keyword'=>$keyword,'availability'=>1,'field'=>0,'hits'=>30,'page'=>$page,'formatVersion'=>2,'elements'=>'count,itemCode,itemName,itemUrl,itemCaption,itemPrice,mediumImageUrls,affiliateUrl,shopCode,shopName'];if($imageOnly)$params['imageFlag']=1;$url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query($params,'','&',PHP_QUERY_RFC3986);
   $c=curl_init($url);$body='';
   curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>static function($c,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>1000000)return 0;$body.=$bytes;return strlen($bytes);}]);
   $ok=curl_exec($c);$status=(int)curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
@@ -84,6 +84,21 @@ function pf_search(string $keyword,array $settings,int $page=1):array{
   $data=json_decode($body,true);if(!is_array($data))throw new RuntimeException('楽天APIの応答を確認できませんでした。');
   $data=lw_rakuten_search_data($data);pf_write($cache,['at'=>time(),'data'=>$data]);return $data;
  }finally{flock($lock,LOCK_UN);fclose($lock);}
+}
+
+function pf_catalog_candidate(array $row):?array{
+ $title=trim((string)($row['itemName']??''));$caption=strip_tags((string)($row['itemCaption']??''));
+ if($title===''||!preg_match('/シナモロール|Cinnamoroll/i',$title."\n".$caption))return null;
+ $code=(string)($row['itemCode']??'');if(!preg_match('/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D',$code))return null;
+ $product=lw_product((string)($row['itemUrl']??''));if(!$product||$product['store']!=='楽天')return null;
+ $affiliate=(string)($row['affiliateUrl']??'');if(!pf_safe_affiliate($affiliate))return null;
+ $image='';
+ foreach($row['mediumImageUrls']??[] as $entry){
+  $candidate=pf_image_url((string)(is_array($entry)?($entry['imageUrl']??''):$entry));if(!$candidate)continue;
+  $full=pf_image_fetch_candidates($candidate)[0]??'';if(pf_image_url($full)){$image=$full;break;}
+ }
+ if($image==='')return null;
+ return ['code'=>$code,'title'=>mb_substr($title,0,300),'image'=>$image,'affiliate'=>$affiliate,'shop'=>mb_substr((string)($row['shopName']??''),0,100)];
 }
 
 function pf_external_search(string $service,string $keyword,array $settings,int $page=1):array{
@@ -478,6 +493,12 @@ try{
  chmod(pf_dir().'/prepare.lock',0600);$state=pf_read('state');@set_time_limit(220);$result=[];
  try{
   if($action==='image'){pf_image_out((string)($input['url']??''),(string)($input['isbn']??''),(string)($input['productUrl']??''));}
+  elseif($action==='catalog-search'){
+   $queries=['シナモロール ぬいぐるみ','シナモロール バッグ','シナモロール ポーチ','シナモロール 文房具','シナモロール キーホルダー','シナモロール タオル','シナモロール 食器','シナモロール 生活雑貨','シナモロール マスコット','シナモロール ファッション'];
+   $settings=lw_settings();$items=[];$seen=[];
+   foreach($queries as $keyword){$data=pf_search($keyword,$settings,1,true);foreach($data['items']??[] as $row){if(!is_array($row))continue;$item=pf_catalog_candidate($row);if(!$item||isset($seen[$item['code']]))continue;$seen[$item['code']]=true;$items[]=$item;}}
+   $result=['catalogItems'=>array_slice($items,0,90),'queriesUsed'=>count($queries)];
+  }
   elseif($action==='prepare-stock'){
    $code=$input['code']??'';$product=null;foreach($state['sources']??[] as $candidate)if(($candidate['code']??'')===$code)$product=$candidate;
    if(!$product)throw new RuntimeException('一覧を更新して商品を選び直してください。');$result=['entry'=>pf_prepare_stock($product,$state)];
