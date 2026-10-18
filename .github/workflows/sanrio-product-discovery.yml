@@ -27,13 +27,13 @@ jobs:
       - uses: actions/checkout@v6
       - run: python3 -m unittest discover -s blog/tests -p 'test_*directory.py' -v
   wordpress:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[apply-character-link-map]')
     needs: test
     runs-on: ubuntu-latest
     env:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
-      RUN_MODE: ${{ inputs.mode || 'check' }}
+      RUN_MODE: ${{ contains(github.event.head_commit.message, '[apply-character-link-map]') && 'apply' || inputs.mode || 'check' }}
     steps:
       - uses: actions/checkout@v6
       - run: python3 scripts/build-product-directory.py --mode "$RUN_MODE"
