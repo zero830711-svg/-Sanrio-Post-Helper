@@ -123,7 +123,8 @@ def landing_content(name, slug, posts):
     return intro + cards_section(name, slug, posts) + disclosure
 
 
-def clean_generated_content(content, name):\n    # Keep the authored guide once while removing every legacy generated CTA/catalog copy.
+def clean_generated_content(content, name):
+    # Keep the authored guide once while removing every legacy generated CTA/catalog copy.
     """Remove repeated legacy landing blocks while retaining editorial page content."""
     content = re.sub(re.escape(MARKER) + r".*?" + re.escape(END), "", content, flags=re.S)
     intro = (
