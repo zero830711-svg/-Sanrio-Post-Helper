@@ -106,8 +106,8 @@ class Tests(unittest.TestCase):
 
     def test_all_product_taxonomy_slugs_are_unique_by_name(self):
         tags = [tag for product in PRODUCTS for tag in directory.tag_spec(product)]
-        self.assertEqual(len(tags), 20)
-        self.assertEqual(len(set(slug for _, slug in tags)), 19)
+        self.assertEqual(len(tags), 30)
+        self.assertEqual(len(set(slug for _, slug in tags)), 29)
 
 
 if __name__ == '__main__':
