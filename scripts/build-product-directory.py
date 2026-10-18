@@ -62,7 +62,13 @@ CHARACTER_CATALOG = [
     ('ウサハナ', 'usahana'),
     ('マシュマロみたいなふわふわにゃんこ', 'marshmallow-fuwafuwa-nyanko'),
     ('チョコキャット', 'chococat'),
-    ('チアリステイルズ', 'cheeristales'),
+    ('KIRIMIちゃん.', 'kirimi-chan'),
+    ('おさるのもんきち', 'osaru-no-monkichi'),
+    ('ゴロピカドン', 'goropikadon'),
+    ('ジュエルペット', 'jewelpet'),
+    ('みんなのたあ坊', 'minna-no-taabou'),
+    ('リトルフォレストフェロォ', 'little-forest-fellow'),
+    ('ルロロマニック', 'ruroromannic'),
     ('JOCHUM', 'jochum'),
 ]
 
