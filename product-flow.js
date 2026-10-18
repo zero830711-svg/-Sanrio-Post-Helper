@@ -166,7 +166,7 @@ async function open(id){
  el('flowEvidence').textContent=[row.identity.jan?'JAN：'+row.identity.jan:'',row.identity.model?'型番：'+row.identity.model:'',row.match.matchStatus,row.match.shopCount?'一致したショップ：'+row.match.shopCount+'店':'',...(row.warnings||[])].filter(Boolean).join('\n');
  el('flowSourceLink').href=row.item.url;
  el('flowLinkMode').value=row.match.linkMode;for(const o of el('flowLinkMode').options)o.disabled=o.value!=='none'&&!row.match[o.value==='search'?'searchAffiliate':'itemAffiliate'];
- renderPhotos();updateFinal();syncAffiliateBody();el('flowEditor').scrollIntoView({block:'start',behavior:'instant'});
+ renderPhotos();updateFinal();syncAffiliateBody();document.dispatchEvent(new CustomEvent('sph-blog-product',{detail:{getProduct:()=>structuredClone(current)}}));el('flowEditor').scrollIntoView({block:'start',behavior:'instant'});
  await prepareSelectedPhotos();
 }
 async function prepareSelectedPhotos(){
@@ -271,3 +271,4 @@ document.addEventListener('sph-product-flow-tab',load);
 setInterval(()=>{if(!document.hidden&&!el('productFlowPanel').hidden)load();},5*60*1000);
 if(location.hash==='#new-product')setHomeView('flow');
 })();
+
