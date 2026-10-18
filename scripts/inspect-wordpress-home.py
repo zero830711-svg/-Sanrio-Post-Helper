@@ -78,6 +78,23 @@ def inspect(wp):
             print("FRONT_HTML: " + repr(raw[max(0, pos - 450):pos + 2600]))
 
 
+    directory_pages = wp.get("/wp/v2/pages?" + parse.urlencode({
+        "slug": "characters", "context": "edit", "_fields": "id,slug,title,content"
+    }))
+    print("CHARACTER_DIRECTORY_PAGES: " + str(len(directory_pages)))
+    for directory_page in directory_pages:
+        directory_title = directory_page.get("title", {})
+        directory_title = directory_title.get("rendered", directory_title.get("raw", "")) if isinstance(directory_title, dict) else directory_title
+        directory_raw = directory_page.get("content", {}).get("raw", "")
+        print("CHARACTER_DIRECTORY: id=%s slug=%s title=%s content_chars=%d" % (
+            directory_page.get("id"), directory_page.get("slug", ""), text_only(directory_title), len(directory_raw)))
+        directory_anchors = re.findall(r"<a\\b[^>]*href=['\\\"]([^'\\\"]+)['\\\"][^>]*>(.*?)</a>", directory_raw, flags=re.I | re.S)
+        for href, body in directory_anchors:
+            label = text_only(body)
+            if any(character in label for character in CHARACTERS):
+                print("CHARACTER_DIRECTORY_LINK: " + repr((html.unescape(href), label)))
+
+
 if __name__ == "__main__":
     try:
         inspect(WordPress())
