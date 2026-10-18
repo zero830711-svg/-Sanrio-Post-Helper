@@ -27,7 +27,7 @@ class Tests(unittest.TestCase):
         count = len(PRODUCTS)
         self.assertEqual(section.count('class="sf-directory-card"'), count)
         self.assertEqual(section.count('/wp-content/uploads/'), count)
-        self.assertEqual(section.count('rel="sponsored nofollow noopener"'), count * 2)
+        self.assertEqual(section.count('rel="sponsored nofollow noopener"'), count * 2 + 2)
         self.assertEqual(section.count('Amazonで探す'), count)
         self.assertEqual(section.count('楽天で探す'), count)
         self.assertEqual(section.count('商品情報・仕様を見る'), count)
