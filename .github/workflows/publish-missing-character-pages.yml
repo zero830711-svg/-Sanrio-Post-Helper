@@ -1,0 +1,34 @@
+name: Publish missing Sanrio character pages
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/publish-missing-character-pages.py
+      - .github/workflows/publish-missing-character-pages.yml
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check=事前確認 / publish=18ページ公開'
+        required: true
+        default: check
+        type: choice
+        options: [check, publish]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: \${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: \${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      RUN_MODE: \${{ contains(github.event.head_commit.message, '[publish-character-pages]') && 'publish' || inputs.mode || 'check' }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate script
+        run: python3 -m py_compile scripts/publish-missing-character-pages.py
+      - name: Create character pages through standard WordPress REST API
+        run: python3 scripts/publish-missing-character-pages.py --mode "$RUN_MODE"
