@@ -62,13 +62,13 @@ def text_from(tagged):
 
 
 def build_grid(old_section):
-    articles = re.findall(r"<article\\b.*?</article>", old_section, flags=re.S)
+    articles = re.findall(r"<article\b.*?</article>", old_section, flags=re.S)
     if len(articles) != 3:
         raise RuntimeError("Expected exactly the three existing Cinnamoroll guide cards.")
     cards = []
     for article in articles:
-        title_match = re.search(r"<h3\\b[^>]*>(.*?)</h3>", article, flags=re.S)
-        link_match = re.search(r'<a\\b[^>]*href=["\\']([^"\\']+)["\\']', article, flags=re.S)
+        title_match = re.search(r"<h3\b[^>]*>(.*?)</h3>", article, flags=re.S)
+        link_match = re.search(r"""<a\b[^>]*href=["']([^"']+)["']""", article, flags=re.S)
         if not title_match or not link_match:
             raise RuntimeError("A current product card is missing its title or article link.")
         title = text_from(title_match.group(1))
@@ -93,8 +93,8 @@ def build_grid(old_section):
             '</strong><span style="margin-top:auto;color:#805d76;font-size:12px;font-weight:700">商品ガイドを見る →</span>'
             '</span></a></article>'
         )
-    heading = re.search(r"<h2\\b[^>]*>.*?</h2>", old_section, flags=re.S)
-    intro = re.search(r"<p\\b[^>]*>.*?</p>", old_section[heading.end():] if heading else "", flags=re.S)
+    heading = re.search(r"<h2\b[^>]*>.*?</h2>", old_section, flags=re.S)
+    intro = re.search(r"<p\b[^>]*>.*?</p>", old_section[heading.end():] if heading else "", flags=re.S)
     heading_html = heading.group(0) if heading else '<h2 id="sf-character-product-guides-title">シナモロールの商品ガイド</h2>'
     intro_html = intro.group(0) if intro else '<p>掲載商品の写真と記事を見比べて、気になるグッズを探せます。</p>'
     return (
