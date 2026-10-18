@@ -10,6 +10,7 @@ from urllib import error, parse, request
 SITE = "https://sanrio-fan.site"
 MARKER = "<!-- sanrio-character-products:v1 -->"
 END = "<!-- /sanrio-character-products:v1 -->"
+LEGACY_GUIDE_PAGE_IDS = {1041, 1042}
 AMAZON_TAG = "ononbrothers2-22"
 RAKUTEN_ID = "56386226.a6714b12.56386227.a1326022"
 # Existing landing pages use verified WordPress page IDs. New pages are found by slug
@@ -28,8 +29,8 @@ CHARACTERS = [
     ("バッドばつ丸", "bad-badtz-maru", None, "bad-badtz-maru-goods"),
     ("こぎみゅん", "cogimyun", None, "cogimyun-goods"),
     ("ウサハナ", "usahana", None, "usahana-goods"),
-    ("けろけろけろっぴ", "kerokerokeroppi", None, "kerokerokeroppi-goods"),
-    ("ぐでたま", "gudetama", None, "gudetama-goods"),
+    ("けろけろけろっぴ", "kerokerokeroppi", 1041, None),
+    ("ぐでたま", "gudetama", 1042, None),
     ("ウィッシュミーメル", "wish-me-mell", None, "wish-me-mell-goods"),
     ("マイスウィートピアノ", "my-sweet-piano", None, "my-sweet-piano-goods"),
     ("JOCHUM", "jochum", None, "jochum-goods"),
@@ -48,7 +49,7 @@ class WordPress:
     def call(self, path, data=None):
         if not path.startswith("/wp/v2/"):
             raise ValueError("Only standard WordPress REST routes are allowed.")
-        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.6"}
+        headers = {"Authorization": self.auth, "User-Agent": "SanrioCharacterPages/1.7"}
         if data is not None:
             headers["Content-Type"] = "application/json"
         req = request.Request(
@@ -204,7 +205,7 @@ def refresh(wp):
                 raise RuntimeError("Character identity could not be verified for page ID %d." % page_id)
             content = clean_generated_content(content, name)
             has_existing_guide_cards = 'id="sf-character-product-guides-title"' in content or "id='sf-character-product-guides-title'" in content
-            if has_existing_guide_cards or not posts:
+            if page_id in LEGACY_GUIDE_PAGE_IDS or has_existing_guide_cards or not posts:
                 # Avoid duplicate editorial cards and empty catalog blocks.
                 new_content = route_legacy_goods_links(content, slug)
             else:
@@ -215,7 +216,7 @@ def refresh(wp):
             raw = verify.get("content", {}).get("raw", "")
             has_generated_section = MARKER in raw and END in raw
             has_existing_guide_cards = 'id="sf-character-product-guides-title"' in raw or "id='sf-character-product-guides-title'" in raw
-            if verify.get("id") != page_id or not (has_generated_section or has_existing_guide_cards or not posts):
+            if verify.get("id") != page_id or not (has_generated_section or has_existing_guide_cards or not posts or page_id in LEGACY_GUIDE_PAGE_IDS):
                 raise RuntimeError("Character page update verification failed: " + slug)
             updated.append(name)
             continue
