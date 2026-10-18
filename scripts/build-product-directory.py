@@ -66,7 +66,7 @@ def make_section(products, posts, terms):
         title=post['title'].get('rendered','') if isinstance(post['title'],dict) else post['title']
         link=post.get('link','')
         if not link.startswith(SITE+'/'): raise RuntimeError('Unexpected article URL.')
-        image_match=re.search(r'<img\\b[^>]*\\bsrc=["\\']([^"\\']+)',post.get('content',{}).get('raw',''))
+        image_match=re.search(r'<img\b[^>]*\bsrc=["\']([^"\']+)',post.get('content',{}).get('raw',''))
         image_url=image_match.group(1) if image_match else ''
         if not image_url.startswith(SITE+'/wp-content/uploads/'):
             raise RuntimeError('Could not verify the local featured image for JAN '+p['jan'])
@@ -125,7 +125,7 @@ def run(mode, wp, products):
         end=content.find('</section>',start)
         if end>=0: content=content[:start]+content[end+len('</section>'):]
         else: content=content.replace(MARKER,'')
-    updated,_=wp.call('/wp/v2/pages/804',{'content':section+'\\n'+content})
+    updated,_=wp.call('/wp/v2/pages/804',{'content':section+'\n'+content})
     if MARKER not in updated.get('content',{}).get('raw','') or '楽天で探す' not in updated.get('content',{}).get('raw',''):
         raise RuntimeError('Product directory insertion verification failed.')
     print('UPDATED: /goods/ now has five product cards with article, Amazon, and Rakuten buttons.')
