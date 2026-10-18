@@ -40,7 +40,7 @@ class WordPress:
             with self.opener.open(req, timeout=45) as response:
                 return json.load(response)
         except error.HTTPError as exc:
-            raise RuntimeError("WordPress REST returned HTTP " + str(exc.code) + ".") from None
+            raise RuntimeError("WordPress REST returned HTTP " + str(exc.code) + " for " + path.split("?")[0] + ".") from None
 
 
 def plain(value):
@@ -122,7 +122,7 @@ def run(mode):
                 break
             tags.update({tag["id"]: {"slug": tag["slug"], "name": tag["name"]} for tag in batch})
             tag_no += 1
-        cats = wp.call("/wp/v2/categories?" + parse.urlencode({"slug": "shopping-products", "_fields": "id"}))
+        print("AUDIT_TAGS:", len(tags))\n        print("AUDIT_STEP: product-posts")\n        cats = wp.call("/wp/v2/categories?" + parse.urlencode({"slug": "shopping-products", "_fields": "id"}))
         products, post_no = [], 1
         if cats:
             while post_no <= 10:
