@@ -1,4 +1,5 @@
 name: Unify photo catalogs and product guide search
+# Preserve first publication dates while rebuilding searchable product metadata.
 on:
   push:
     branches: [main]
