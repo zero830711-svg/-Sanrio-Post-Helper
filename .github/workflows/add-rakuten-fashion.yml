@@ -1,4 +1,5 @@
 name: Add bounded Rakuten Fashion catalog batch
+# Additional bounded batch requested on 2026-10-20.
 # Each execution appends at most 100 verified cards; no recurring schedule.
 on:
   push:
