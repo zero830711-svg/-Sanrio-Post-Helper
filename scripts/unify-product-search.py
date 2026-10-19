@@ -94,6 +94,9 @@ def build_index(pages, guides):
     # Keep guide cards and purchase-search candidates distinct from photo products.
     seen = set(products)
     for guide in guides:
+        guide = dict(guide)
+        if guide.get('kindLabel') in c.CATEGORIES:
+            guide['kind'] = guide['kindLabel']
         if guide['id'] in seen:
             continue
         products[guide['id']] = guide
