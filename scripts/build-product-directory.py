@@ -462,6 +462,7 @@ def run(mode, wp, products):
     page_urls = character_page_urls(wp)
     content=page.get('content',{}).get('raw')
     was_unified = isinstance(content, str) and 'id="sf-unified-search-data"' in content
+    previous_search_content = content
     if not isinstance(content,str): raise RuntimeError('Could not read editable /goods/ page content.')
     make_section(products,posts,terms,page_urls)  # Validate article, image, and outbound links before any write.
     if mode=='check':
@@ -474,6 +475,15 @@ def run(mode, wp, products):
         for _,slug in tag_spec(p): ids.add(int(terms[slug]['id']))
         wp.call('/wp/v2/posts/'+str(post['id']),{'tags':sorted(ids)})
     section=make_section(products,posts,terms,page_urls)
+    if was_unified:
+        # Build and validate the complete unified result before a single write.
+        # A failed sync must leave the current search and its date history intact.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('unified_search', ROOT / 'scripts/unify-product-search.py')
+        unified = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(unified)
+        unified.sync(previous_index=unified.read_index(previous_search_content), guide_source=section)
+        return
     if MARKER in content:
         start=content.index(MARKER)
         end=content.find('</section>',start)
@@ -485,12 +495,6 @@ def run(mode, wp, products):
     if MARKER not in saved_content or any(token not in saved_content for token in required):
         raise RuntimeError('Product directory insertion or filter verification failed.')
     print('UPDATED: /goods/ now has '+str(len(products))+' catalog cards with Amazon and Rakuten buttons.')
-    if was_unified:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location('unified_search', ROOT / 'scripts/unify-product-search.py')
-        unified = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(unified)
-        unified.sync()
 
 
 if __name__=='__main__':

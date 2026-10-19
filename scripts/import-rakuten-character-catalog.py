@@ -5,6 +5,8 @@ import base64
 import html
 from html.parser import HTMLParser
 import io
+import importlib.util
+from pathlib import Path
 import json
 import os
 import re
@@ -12,7 +14,6 @@ import sys
 import unicodedata
 from urllib import error, parse, request
 
-from PIL import Image
 
 SITE = "https://sanrio-fan.site"
 CHARACTERS = {
@@ -208,6 +209,9 @@ def safe_affiliate_url(value):
 
 
 def verify_image(url):
+    # Metadata-only search sync does not download/inspect images and should not
+    # require Pillow on the separate discovery runner.
+    from PIL import Image
     req = request.Request(
         url,
         headers={
@@ -291,7 +295,7 @@ def infer_category(title):
         return "タオル"
     if re.search(r"水筒|マグ|弁当|ランチ|食器|カップ|ボトル", value):
         return "食器・キッチン"
-    if re.search(r"服|アパレル|靴下|財布|ウォレット|帽子|ファッション|スニーカー|Tシャツ|パジャマ", value):
+    if re.search(r"服|アパレル|靴下|財布|ウォレット|帽子|ファッション|スニーカー|Tシャツ|パジャマ|ワンピース|スウェット|パーカー|シュシュ|ヘア|ソックス|レギンス|スカート|ネックレス|ピアス|リング|ブーツ|シャツ|ニット|カーディガン|パンツ", value):
         return "ファッション"
     if re.search(r"クッション|時計|収納|雑貨|ミラー|傘", value):
         return "生活雑貨"
@@ -394,7 +398,14 @@ def build_candidate_set(raw_items, old_cards, character=None):
 
 
 def marketplace_urls(title):
-    amazon = "https://www.amazon.co.jp/s?k=" + parse.quote(title, safe="") + "&tag=" + AMAZON_TAG
+    # Shared with unified search so character pages use the same title/code rules.
+    if not hasattr(marketplace_urls, 'query_helper'):
+        spec = importlib.util.spec_from_file_location('product_search_query', Path(__file__).with_name('product-search-query.py'))
+        helper = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(helper)
+        marketplace_urls.query_helper = helper
+    query = marketplace_urls.query_helper.amazon_query(title)
+    amazon = "https://www.amazon.co.jp/s?k=" + parse.quote(query, safe="") + "&tag=" + AMAZON_TAG
     return amazon
 
 

@@ -12,6 +12,64 @@ spec.loader.exec_module(u)
 
 
 class UnifiedSearchTests(unittest.TestCase):
+    def test_legacy_guide_refresh_writes_unified_page_once_and_keeps_history(self):
+        chars={'cinnamoroll':(1,'cinna','シナモロール')}
+        item={'code':'shop:a','title':'シナモロール ポーチ','image':'https://image.rakuten.co.jp/shop/cabinet/a.jpg',
+              'affiliate':'https://hb.afl.rakuten.co.jp/hgc/12345678.12345678.12345678.12345678/?pc=test','shop':'店','category':'バッグ・ポーチ'}
+        pages=[{'id':1,'slug':'cinna','content':{'raw':u.c.photo_card(item)}}]
+        with patch.object(u.c,'CHARACTERS',chars):
+            previous=u.build_index(pages,[])
+            u.retain_first_seen(previous,None)
+            previous['firstSeenHistory']['rakuten:shop:a']='2026-10-18T00:00:00+00:00'
+            previous['items'][0]['addedAt']='2026-10-18T00:00:00+00:00'
+            raw=u.render(previous)
+            class FakeWP:
+                def __init__(self):self.raw=raw;self.writes=[]
+                def call(self,path,data=None):
+                    if '/pages?' in path:return pages
+                    if data is not None:self.raw=data['content'];self.writes.append(self.raw)
+                    return {'id':804,'slug':'goods','content':{'raw':self.raw,'rendered':self.raw}}
+            wp=FakeWP()
+            guide='<article class="sf-directory-card" data-character="cinnamoroll" data-kind="bags"><a href="https://sanrio-fan.site/new-guide/"><strong>ポーチの仕様</strong></a></article>'
+            saved=u.sync(wp,previous_index=previous,guide_source=guide)
+        self.assertEqual(len(wp.writes),1)
+        self.assertIn(u.DATA_ID,wp.writes[0])
+        self.assertEqual(saved['firstSeenHistory']['rakuten:shop:a'],'2026-10-18T00:00:00+00:00')
+        self.assertTrue(next(x for x in saved['items'] if x['type']=='guide')['addedAt'])
+
+    def test_old_dates_stay_unknown_and_only_new_items_get_dates(self):
+        previous={'items':[{'id':'old','type':'product'}]}
+        data={'items':[{'id':'old'},{'id':'new'}]}
+        u.retain_first_seen(data,previous,now='2026-10-20T00:00:00+00:00')
+        self.assertIsNone(data['items'][0]['addedAt'])
+        self.assertEqual(data['items'][1]['addedAt'],'2026-10-20T00:00:00+00:00')
+        refreshed={'items':[{'id':'new'},{'id':'old'}]}
+        u.retain_first_seen(refreshed,data,now='2026-10-21T00:00:00+00:00')
+        self.assertEqual(refreshed['items'][0]['addedAt'],'2026-10-20T00:00:00+00:00')
+        absent={'items':[]}
+        u.retain_first_seen(absent,refreshed)
+        returning={'items':[{'id':'new'}]}
+        u.retain_first_seen(returning,absent,now='2026-11-01T00:00:00+00:00')
+        self.assertEqual(returning['items'][0]['addedAt'],'2026-10-20T00:00:00+00:00')
+
+    def test_first_population_does_not_invent_dates(self):
+        data=u.retain_first_seen({'items':[{'id':'a'}]},None)
+        self.assertIsNone(data['items'][0]['addedAt'])
+
+    def test_amazon_query_prefers_valid_jan_and_model(self):
+        self.assertEqual(u.queries.amazon_query('サンリオ クロミ ポーチ JAN 4901234567894'),'4901234567894')
+        self.assertEqual(u.queries.amazon_query('スケーター シナモロール 保冷ストローマグ STWM3N 350ml'),'スケーター シナモロール STWM3N')
+        self.assertEqual(u.queries.amazon_query('サンリオ マイメロディ ジェットストリーム 982164'),'サンリオ マイメロディ 982164')
+        self.assertNotEqual(u.queries.amazon_query('クロミ ポーチ 4901234567890'),'4901234567890')
+
+    def test_amazon_fallback_removes_promotions_and_keeps_brand_product(self):
+        result=u.queries.amazon_query('【SALE／50%OFF】FREAK’S STORE SANRIO マイメロディ マスコットホルダー ファッション雑貨 その他のファッション雑貨 【送料無料】')
+        self.assertIn('FREAK',result)
+        self.assertIn('マイメロディ マスコットホルダー',result)
+        self.assertNotIn('SALE',result)
+        self.assertNotIn('送料無料',result)
+        self.assertNotIn('ファッション雑貨',result)
+
     def test_shared_offer_has_both_character_memberships(self):
         chars = {'cinnamoroll':(1,'cinna','シナモロール'),'kuromi':(2,'kuromi','クロミ')}
         card = {'code':'shop:shared','title':'シナモロール クロミ ポーチ','image':'https://image.rakuten.co.jp/shop/cabinet/shared.jpg',
