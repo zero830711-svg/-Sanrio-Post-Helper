@@ -461,6 +461,7 @@ def run(mode, wp, products):
     page,_=wp.call('/wp/v2/pages/804?context=edit&_fields=id,slug,title,content')
     page_urls = character_page_urls(wp)
     content=page.get('content',{}).get('raw')
+    was_unified = isinstance(content, str) and 'id="sf-unified-search-data"' in content
     if not isinstance(content,str): raise RuntimeError('Could not read editable /goods/ page content.')
     make_section(products,posts,terms,page_urls)  # Validate article, image, and outbound links before any write.
     if mode=='check':
@@ -484,6 +485,12 @@ def run(mode, wp, products):
     if MARKER not in saved_content or any(token not in saved_content for token in required):
         raise RuntimeError('Product directory insertion or filter verification failed.')
     print('UPDATED: /goods/ now has '+str(len(products))+' catalog cards with Amazon and Rakuten buttons.')
+    if was_unified:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('unified_search', ROOT / 'scripts/unify-product-search.py')
+        unified = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(unified)
+        unified.sync()
 
 
 if __name__=='__main__':

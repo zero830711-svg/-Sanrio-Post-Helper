@@ -32,6 +32,10 @@ def repair_content(raw, character):
 
 
 def repair_goods(raw):
+    # Unified search owns its data and behavior; do not replace it with the old
+    # article-only filtering script.
+    if 'id="sf-unified-search-data"' in raw:
+        return raw
     # Replace just the behavior script and guide destinations, retaining every card.
     def clean_card(match):
         article = match.group(0)
@@ -130,7 +134,10 @@ def main():
     wp.call('/wp/v2/pages/804', {'content': goods_updated})
     goods_saved = wp.call('/wp/v2/pages/804?context=edit&_fields=content')['content']['raw']
     if 'DOMContentLoaded' not in goods_saved or 'sf-directory-hidden' not in goods_saved:
-        raise RuntimeError('Goods directory filter verification failed.')
+        if 'id="sf-unified-search-data"' not in goods_saved:
+            raise RuntimeError('Goods directory filter verification failed.')
+    if 'id="sf-unified-search-data"' in goods_saved:
+        load('unified_search', 'unify-product-search.py').sync(wp)
     print('VERIFIED:',len(plans),'photo catalogs; 36 character links/order preserved; goods filters deferred until DOM ready.', flush=True)
 
 if __name__ == '__main__':

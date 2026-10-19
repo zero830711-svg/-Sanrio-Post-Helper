@@ -98,6 +98,12 @@ def main():
     print('SUMMARY added_cards=%d updated_pages=%d verified_images=%d rejected_images=%d unassigned_candidates=%d genres=%s' % (
         args.limit-remaining, sum(bool(p[-1]) for p in plans), sum(bool(x) for x in image_cache.values()), sum(not x for x in image_cache.values()),
         sum(not any(c.matches_character(x['title'], key) for key in c.CHARACTERS) for x in candidates), dict(totals)), flush=True)
+    goods = wp.call('/wp/v2/pages/804?context=edit&_fields=content')['content']['raw']
+    if 'id="sf-unified-search-data"' in goods:
+        unified_spec = importlib.util.spec_from_file_location('unified_search', Path(__file__).with_name('unify-product-search.py'))
+        unified = importlib.util.module_from_spec(unified_spec)
+        unified_spec.loader.exec_module(unified)
+        unified.sync(wp)
 
 
 if __name__ == '__main__':

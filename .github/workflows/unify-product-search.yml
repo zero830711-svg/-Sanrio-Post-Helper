@@ -1,0 +1,34 @@
+name: Unify photo catalogs and product guide search
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/unify-product-search.py
+      - scripts/unified-product-search.js
+      - scripts/unified-product-search.css
+      - tests/test_unified_product_search.py
+      - .github/workflows/unify-product-search.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-other-character-rakuten-catalog
+  cancel-in-progress: false
+jobs:
+  unify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test live catalog indexing and guide preservation
+        run: |
+          python3 -m pip install --quiet Pillow
+          node --check scripts/unified-product-search.js
+          python3 -m unittest discover -s tests -p test_unified_product_search.py -v
+          python3 -m unittest discover -s tests -p test_character_catalog_quality.py -v
+      - name: Publish unified search through WordPress REST
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[unify-search]')
+        run: python3 scripts/unify-product-search.py
