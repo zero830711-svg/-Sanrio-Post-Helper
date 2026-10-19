@@ -76,3 +76,19 @@ pf_check(count(pf_catalog_characters())===36,'Expanded catalog does not cover al
 pf_check(count($expansionQueries)<=16&&in_array(['KIRIMIちゃん.',3],$expansionQueries,true),'Expanded catalog pagination missing or unbounded');
 pf_check(in_array(['KIRIMIちゃん',1],$expansionQueries,true),'Character alias search missing');
 pf_check(in_array(['KIRIMIちゃん. タオル',1],$expansionQueries,true),'Simple product-kind query missing');
+
+// Apply the seller exclusion before grouping and to old cached drafts.
+pf_check(pf_blocked_shop(['shopName'=>'TSJショップ'])&&pf_blocked_shop(['shop'=>'ＴＳＪ ショップ'])&&pf_blocked_shop(['shop'=>'TSJショップ 楽天市場店']),'Excluded seller name was not recognized');
+pf_check(!pf_blocked_shop(['shop'=>'ヨツバ商店 楽天市場店'])&&!pf_blocked_shop(['shop'=>'TSJ商品取扱店']),'Unrelated seller was excluded');
+$blockedOffer=['code'=>'blocked:item','shop'=>'TSJショップ','service'=>'market','title'=>'クロミのぬいぐるみ','url'=>'https://item.rakuten.co.jp/blocked/item/','affiliate'=>'https://hb.afl.rakuten.co.jp/hgc/'.$aid.'/?pc=blocked','images'=>['https://image.rakuten.co.jp/blocked/cabinet/item.jpg'],'sourceAt'=>time()];
+$otherOffer=array_replace($blockedOffer,['code'=>'normal:item','shop'=>'ヨツバ商店','url'=>'https://item.rakuten.co.jp/normal/item/']);
+$blockedDraft=['id'=>'blocked','item'=>['rakuten'=>true,'url'=>$blockedOffer['url'],'paragraphs'=>['販売店：TSJショップ']],'createdAt'=>time(),'body'=>'保存済み本文'];
+$original=['sourcePool'=>[$blockedOffer,$otherOffer],'entries'=>['blocked'=>$blockedDraft]];
+$public=pf_public($original);
+pf_check(count($public['sources'])===1&&$public['sources'][0]['shop']==='ヨツバ商店'&&$public['sourcePoolCount']===1,'Cached excluded seller remained visible or affected counts');
+pf_check($public['entries']===[]&&$original['entries']['blocked']['body']==='保存済み本文','Excluded draft remained visible or saved data was deleted');
+$rawBlocked=['shopName'=>'TSJショップ','itemName'=>'サンリオ クロミ','itemCode'=>'blocked:item','itemUrl'=>$blockedOffer['url']];
+pf_check(pf_stock_rows(['items'=>[$rawBlocked]],[],[])===[],'New excluded seller offer entered the pool');
+pf_check(pf_match(['items'=>[$rawBlocked]],['jan'=>'','model'=>'','keyword'=>'クロミ'],'クロミ',['affiliateId'=>$aid])['candidates']===[],'Excluded seller remained in matching offers');
+try{pf_prepare_stock($blockedOffer,$original);throw new LogicException('Excluded seller was prepared');}catch(RuntimeException $expected){}
+echo "Excluded seller: new offers, cached pool, counts, saved draft visibility and preparation verified\n";

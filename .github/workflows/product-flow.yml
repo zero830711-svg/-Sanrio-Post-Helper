@@ -65,11 +65,14 @@ jobs:
           bye
           LFTP
           php -r '
+          define("SPH_FLOW_TEST",true);require "server/lolipop/product-flow.php";
           $config=require $argv[1];$base="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/product-flow.php";
           $c=curl_init($base);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20]);curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);if($status!==401)throw new RuntimeException("Unprotected drafts endpoint");
           $c=curl_init($base."?action=tick");curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>240,CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>"{}",CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"],"Origin: https://zero830711-svg.github.io","Content-Type: application/json"]]);$body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);$d=json_decode((string)$body,true);
           if($status===409){echo "Another product preparation is running; no retry\n";exit;}
           if($status!==200||empty($d["ok"]))throw new RuntimeException("Product flow response failed: ".($d["error"]??"invalid response"));
+          foreach(array_merge($d["sources"]??[],$d["entries"]??[]) as $candidate)if(pf_blocked_shop($candidate))throw new RuntimeException("Excluded seller remained visible in live response");
+          echo "Excluded seller absent from live sources and drafts\n";
           echo "Private product flow endpoint verified\n";
           echo "Rakuten configured: ".(!empty($d["rakutenConfigured"])?"yes":"no")."; AI configured: ".(!empty($d["aiConfigured"])?"yes":"no")."\n";
           echo ($d["message"]??"")."\n";
