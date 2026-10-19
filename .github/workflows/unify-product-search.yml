@@ -1,4 +1,5 @@
 name: Unify photo catalogs and product guide search
+# Search indexes live photo catalogs and preserves existing guide links.
 on:
   push:
     branches: [main]
