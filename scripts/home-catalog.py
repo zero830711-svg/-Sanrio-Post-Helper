@@ -56,4 +56,12 @@ def sync(wp,index):
         if saved[form].count('class="sf-live-card"')!=len(choose(index['items'])):raise RuntimeError('Home cards verification failed')
         oldchars=re.search(r'<section id="characters">.*?</section>',raw,re.S)
         if oldchars and oldchars.group() not in saved['raw']:raise RuntimeError('Character section changed')
+    # Existing favorites code canonicalizes URLs to paths; retain product search URLs on removal.
+    favorites=wp.call('/wp/v2/pages?context=edit&slug=favorites&_fields=id,content')
+    if favorites:
+        favorite=favorites[0];source=favorite['content']['raw']
+        tag='<script id="sf-product-favorite-support">'+(ROOT/'home-catalog.js').read_text()+'</script>'
+        pattern=r'<script id="sf-product-favorite-support">.*?</script>'
+        changed=re.sub(pattern,lambda _:tag,source,flags=re.S) if 'id="sf-product-favorite-support"' in source else source+tag
+        if changed!=source:wp.call('/wp/v2/pages/'+str(favorite['id']),{'content':changed})
     print('HOME catalog refreshed:',len(choose(index['items'])),'cards',flush=True)

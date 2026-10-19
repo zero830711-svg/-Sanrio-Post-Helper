@@ -10,6 +10,7 @@ class HomeTests(unittest.TestCase):
   class WP:
    def __init__(self):self.raw=raw
    def call(self,path,data=None):
+    if '/pages?' in path:return []
     if data:self.raw=data['content']
     return {'slug':'shopping-home','content':{'raw':self.raw,'rendered':self.raw}}
   wp=WP();h.sync(wp,index);first=wp.raw;h.sync(wp,index)
