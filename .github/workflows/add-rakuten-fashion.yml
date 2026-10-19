@@ -1,6 +1,6 @@
 name: Add bounded Rakuten Fashion catalog batch
 # Additional bounded batch requested on 2026-10-20.
-# Each execution appends at most 100 verified cards; no recurring schedule.
+# One-time deep Fashion discovery; image and duplicate checks retained; no schedule.
 on:
   push:
     branches: [main]
@@ -18,7 +18,7 @@ concurrency:
 jobs:
   add-fashion:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 360
     env:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
@@ -40,7 +40,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install --yes lftp
-      - name: Add at most 100 cards through WordPress REST
+      - name: Add all eligible discovered Fashion cards through WordPress REST
         if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[add-fashion]')
         shell: bash
         run: |
@@ -60,11 +60,4 @@ jobs:
           bye
           LFTP
           php scripts/fetch-rakuten-fashion.php "$fashion_tmp/settings.php" "$fashion_tmp/candidates.json"
-          # Drain the fetched candidate pool in bounded, deduplicated batches.
-          for batch in $(seq 1 20); do
-            python3 -u scripts/add-rakuten-fashion.py --candidates "$fashion_tmp/candidates.json" --limit 100 | tee "$fashion_tmp/batch.log"
-            if grep -q 'SUMMARY added_cards=0 ' "$fashion_tmp/batch.log"; then
-              echo "Candidate pool exhausted after batch $batch"
-              break
-            fi
-          done
+          python3 -u scripts/add-rakuten-fashion.py --candidates "$fashion_tmp/candidates.json" --limit 10000

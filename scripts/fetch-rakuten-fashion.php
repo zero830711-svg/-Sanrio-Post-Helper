@@ -5,7 +5,8 @@ require __DIR__.'/../server/lolipop/product-flow.php';
 if($argc!==3){fwrite(STDERR,"Usage: fetch-rakuten-fashion.php PRIVATE_SETTINGS OUTPUT\n");exit(2);}
 try{
  $settings=lw_validate_settings(require $argv[1]);$items=[];$seen=[];$queries=0;
- $plan=[['サンリオ',6],['Sanrio',3],['ハローキティ',1],['クロミ',1],['シナモロール',1],['マイメロディ',1],['ポムポムプリン',1],['ポチャッコ',1],['ハンギョドン',1],['キキララ',1],['タキシードサム',1]];
+ $plan=[['サンリオ',100],['Sanrio',100]];
+ foreach(pf_catalog_characters() as [$primary,$aliases])$plan[]=[$primary,100];
  $names=['サンリオ','Sanrio'];foreach(pf_catalog_characters() as [$primary,$aliases])$names=array_merge($names,$aliases);
  foreach($plan as [$keyword,$pages])for($page=1;$page<=$pages;$page++){
   $params=['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'keyword'=>$keyword,'shopCode'=>'stylife','availability'=>1,'imageFlag'=>1,'hits'=>30,'page'=>$page,'formatVersion'=>2];
@@ -25,6 +26,7 @@ try{
    $item=pf_catalog_candidate($row,$names);if(!$item||isset($seen[$item['code']]))continue;
    $seen[$item['code']]=true;$items[]=$item;
   }
+  echo 'SEARCH '.$keyword.' page='.$page.' count='.(int)($data['count']??0).' unique='.count($items)."\n";
   if($page*30>=(int)($data['count']??0))break;
  }
  if(file_put_contents($argv[2],json_encode($items,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),LOCK_EX)===false)throw new RuntimeException('Cannot save candidates.');

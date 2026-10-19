@@ -41,8 +41,8 @@ def main():
     parser.add_argument('--candidates', required=True)
     parser.add_argument('--limit', type=int, default=100)
     args = parser.parse_args()
-    if not 1 <= args.limit <= 100:
-        raise ValueError('Incremental batch must be between 1 and 100 cards.')
+    if not 1 <= args.limit <= 10000:
+        raise ValueError('Incremental batch must be between 1 and 10000 cards.')
     raw = json.loads(Path(args.candidates).read_text())
     if not isinstance(raw, list):
         raise ValueError('Candidates must be a list.')
@@ -70,7 +70,7 @@ def main():
         if not match:
             raise RuntimeError('Managed section missing: '+key)
         old = c.extract_existing_cards(match.group())
-        extra, rejected, duplicates = additions(candidates, old, key, 20, image_cache)
+        extra, rejected, duplicates = additions(candidates, old, key, args.limit, image_cache)
         available[key] = extra
         plans.append((key, pid, name, content, match, old, []))
     while remaining and any(available.values()):
