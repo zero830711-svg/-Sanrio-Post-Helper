@@ -60,6 +60,7 @@ class UnifiedSearchTests(unittest.TestCase):
         self.assertEqual(u.queries.amazon_query('サンリオ クロミ ポーチ JAN 4901234567894'),'4901234567894')
         self.assertEqual(u.queries.amazon_query('スケーター シナモロール 保冷ストローマグ STWM3N 350ml'),'スケーター シナモロール STWM3N')
         self.assertEqual(u.queries.amazon_query('サンリオ マイメロディ ジェットストリーム 982164'),'サンリオ マイメロディ 982164')
+        self.assertEqual(u.queries.amazon_query('スケーター STSC5 水筒 クロミ シナモロール'),'スケーター STSC5')
         self.assertNotEqual(u.queries.amazon_query('クロミ ポーチ 4901234567890'),'4901234567890')
 
     def test_amazon_fallback_removes_promotions_and_keeps_brand_product(self):

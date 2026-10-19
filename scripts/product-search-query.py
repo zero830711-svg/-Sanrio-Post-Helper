@@ -39,7 +39,8 @@ def amazon_query(title):
     if len(models) == 1 and len(jans) <= 1:
         model = next(iter(models))
         # A known character or manufacturer helps disambiguate short model codes.
-        character = next((name for name in ['シナモロール','クロミ','マイメロディ','ハローキティ','ポムポムプリン','ポチャッコ','ハンギョドン','リトルツインスターズ'] if name in original), '')
+        characters = [name for name in ['シナモロール','クロミ','マイメロディ','ハローキティ','ポムポムプリン','ポチャッコ','ハンギョドン','リトルツインスターズ'] if name in original]
+        character = characters[0] if len(characters) == 1 else ''
         manufacturer = next((name for name in ['スケーター','サンリオ','タカラトミー','サンスター文具'] if name in original), '')
         return ' '.join(x for x in [manufacturer,character,model] if x)
     cleaned = clean_title(original)
