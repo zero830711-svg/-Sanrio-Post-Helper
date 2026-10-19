@@ -1,7 +1,12 @@
 (function(){
-function init(){
+async function init(){
  var root=document.querySelector('.sf-unified-directory');if(!root)return;
- var data=JSON.parse(root.querySelector('#sf-unified-search-data').textContent);
+ var source=root.querySelector('#sf-unified-search-data'),payload=source.textContent;
+ if(source.dataset.encoding==='gzip-base64'){
+  var bytes=Uint8Array.from(atob(payload.trim()),function(char){return char.charCodeAt(0);});
+  payload=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+ }
+ var data=JSON.parse(payload);
  var search=root.querySelector('[data-sf-search]'),character=root.querySelector('[data-sf-character]'),kind=root.querySelector('[data-sf-kind]'),type=root.querySelector('[data-sf-type]');
  var results=root.querySelector('[data-sf-results]'),count=root.querySelector('[data-sf-count]'),more=root.querySelector('[data-sf-load-more]'),empty=root.querySelector('[data-sf-empty]'),links=root.querySelector('[data-sf-character-links]');
  var limit=48,matches=[];

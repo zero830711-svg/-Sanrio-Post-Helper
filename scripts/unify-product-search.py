@@ -1,5 +1,7 @@
 """Build /goods/ from live character catalogs and existing guide cards, via WP REST."""
 import collections
+import base64
+import gzip
 import html
 import importlib.util
 import json
@@ -28,9 +30,9 @@ def attrs(tag):
 
 
 def existing_guides(raw):
-    stored = re.search(r'<script\b[^>]*id="'+DATA_ID+r'"[^>]*>(.*?)</script>', raw, re.S)
-    if stored:
-        return [x for x in json.loads(stored.group(1))['items'] if x['type'] != 'product']
+    stored = read_index(raw)
+    if stored is not None:
+        return [x for x in stored['items'] if x['type'] != 'product']
     result = []
     labels = {html.unescape(key):c.text_from(label) for key,label in re.findall(r'<option value="([^"]+)">(.*?)</option>',raw,re.S)}
     for block in re.findall(r'<article\b[^>]*class="sf-directory-card"[^>]*>.*?</article>', raw, re.S):
@@ -107,6 +109,16 @@ def safe_json(data):
     return json.dumps(data, ensure_ascii=False, separators=(',', ':')).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e')
 
 
+def read_index(raw):
+    match = re.search(r'(<script\b[^>]*id="'+DATA_ID+r'"[^>]*>)(.*?)</script>',raw,re.S)
+    if not match:
+        return None
+    payload = match.group(2)
+    if 'data-encoding="gzip-base64"' in match.group(1):
+        payload = gzip.decompress(base64.b64decode(payload)).decode()
+    return json.loads(payload)
+
+
 def render(index):
     counts = {x['key']: collections.Counter() for x in index['characters']}
     for item in index['items']:
@@ -138,7 +150,7 @@ def render(index):
             '<div class="sf-directory-grid" data-sf-results></div><p data-sf-empty hidden>条件に合う商品がありません。検索語や絞り込み条件を変えてください。</p>'
             '<button type="button" data-sf-load-more hidden>次の商品を表示</button><p><small>価格・在庫・種類・配送条件は購入先でご確認ください。Amazonのボタンは商品名などによる検索です。</small></p>'
             '<noscript>検索にはJavaScriptを使用します。<a href="'+c.SITE+'/characters/">キャラクター別の商品一覧はこちら</a></noscript>'
-            '<script type="application/json" id="'+DATA_ID+'">'+safe_json(index)+'</script><script>'+script+'</script></section>')
+            '<script type="application/octet-stream" data-encoding="gzip-base64" id="'+DATA_ID+'">'+base64.b64encode(gzip.compress(safe_json(index).encode(),mtime=0)).decode()+'</script><script>'+script+'</script></section>')
 
 
 def sync(wp=None):
@@ -162,8 +174,7 @@ def sync(wp=None):
         wp.call('/wp/v2/pages/804', {'content':updated})
     saved = wp.call('/wp/v2/pages/804?context=edit&_fields=content')['content']
     for form in ('raw','rendered'):
-        match = re.search(r'<script\b[^>]*id="'+DATA_ID+r'"[^>]*>(.*?)</script>',saved[form],re.S)
-        if not match or json.loads(match.group(1)) != index:
+        if read_index(saved[form]) != index:
             raise RuntimeError('Saved search index verification failed: '+form)
     totals = collections.Counter(x['type'] for x in index['items'])
     print('UNIFIED',json.dumps({'uniqueItems':len(index['items']),'types':dict(totals),'photoCards':sum(index['photoMemberships'].values()),'characterCounts':index['photoMemberships']},ensure_ascii=False),flush=True)

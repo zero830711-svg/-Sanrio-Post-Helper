@@ -1,5 +1,7 @@
 import importlib.util
 import json
+import base64
+import gzip
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -41,6 +43,9 @@ class UnifiedSearchTests(unittest.TestCase):
         self.assertNotIn('</script>',encoded)
         self.assertNotIn('&',encoded)
         self.assertEqual(json.loads(encoded),value)
+        compressed=base64.b64encode(gzip.compress(encoded.encode())).decode()
+        raw='<script type="application/octet-stream" data-encoding="gzip-base64" id="'+u.DATA_ID+'">'+compressed+'</script>'
+        self.assertEqual(u.read_index(raw),value)
 
     def test_client_uses_all_memberships_and_safe_dom_rendering(self):
         script=(u.ROOT/'unified-product-search.js').read_text()
