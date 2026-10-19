@@ -18,7 +18,7 @@ concurrency:
 jobs:
   add-fashion:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 60
     env:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
@@ -60,4 +60,11 @@ jobs:
           bye
           LFTP
           php scripts/fetch-rakuten-fashion.php "$fashion_tmp/settings.php" "$fashion_tmp/candidates.json"
-          python3 scripts/add-rakuten-fashion.py --candidates "$fashion_tmp/candidates.json" --limit 100
+          # Drain the fetched candidate pool in bounded, deduplicated batches.
+          for batch in $(seq 1 20); do
+            python3 -u scripts/add-rakuten-fashion.py --candidates "$fashion_tmp/candidates.json" --limit 100 | tee "$fashion_tmp/batch.log"
+            if grep -q 'SUMMARY added_cards=0 ' "$fashion_tmp/batch.log"; then
+              echo "Candidate pool exhausted after batch $batch"
+              break
+            fi
+          done
