@@ -1,0 +1,24 @@
+#sf-home-live .sf-live-track{display:flex!important;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;scrollbar-width:none;overscroll-behavior-x:contain}
+#sf-home-live .sf-live-track::-webkit-scrollbar{display:none}
+#sf-home-live .sf-live-page{flex:0 0 100%;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,auto);gap:10px;scroll-snap-align:start;scroll-snap-stop:always;align-content:start}
+#sf-home-live .sf-live-card{position:relative;min-width:0;border:1px solid #ece5ee;border-radius:14px;overflow:hidden;background:white;padding:0 0 9px;display:flex;flex-direction:column}
+#sf-home-live .sf-live-photo{display:block;aspect-ratio:1;background:#fff}
+#sf-home-live .sf-live-photo img{display:block;width:100%;height:100%;object-fit:contain;margin:0}
+#sf-home-live .sf-live-card h3{font-size:13px!important;line-height:1.45!important;margin:8px 8px 6px!important;padding:0!important;border:0!important;background:none!important;height:2.9em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+#sf-home-live .sf-live-card h3 a{color:#39333f;text-decoration:none}
+#sf-home-live .sf-live-save{position:absolute!important;right:4px!important;top:4px!important;padding:0!important;width:34px!important;height:34px!important;min-height:34px!important;margin:0!important;border:1px solid #ece5ee;border-radius:50%;background:#fff!important;line-height:32px!important;font-size:17px!important;box-shadow:0 1px 4px #0001}
+#sf-home-live .sf-live-buy{font-size:12px;text-align:center;color:#674e72;background:#f5eff7;border-radius:8px;padding:6px 2px;margin:0 8px;text-decoration:none}
+#sf-home-live .sf-live-note{font-size:12px;color:#706776;margin:0 0 12px}
+#sf-home-live .sf-live-controls{display:flex;align-items:center;justify-content:center;gap:12px;margin:12px 0;font-size:12px}
+#sf-home-live .sf-live-controls button{padding:4px 10px;background:#fff;border:1px solid #dfd3e3;border-radius:8px;color:#674e72;min-height:36px}
+#sf-home-live .sf-live-controls button:disabled{opacity:.35}
+#sf-home-live .sf-live-dots{display:flex;gap:0}
+#sf-home-live .sf-live-dots button{border:0;font-size:10px;padding:6px;color:#d8ccdc;min-width:28px}
+#sf-home-live .sf-live-dots button[aria-current=true]{color:#674e72}
+#sf-home-live .sf-live-all{display:block;text-align:center;font-size:14px;padding:10px;background:#f5eff7;border-radius:10px;color:#674e72}
+#sf-home-themes .sf-live-themes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#sf-home-themes .sf-live-themes a{display:flex;flex-direction:column;align-items:center;border:1px solid #ece5ee;border-radius:14px;background:#fff;overflow:hidden;text-decoration:none;color:#514058}
+#sf-home-themes img{width:100%;aspect-ratio:1;object-fit:contain;margin:0}
+#sf-home-themes strong{font-size:12px;text-align:center;padding:8px 3px}
+@media(min-width:768px){#sf-home-live .sf-live-card h3{font-size:16px!important}#sf-home-themes strong{font-size:16px}}
+@media(prefers-reduced-motion:reduce){#sf-home-live .sf-live-track{scroll-behavior:auto}}

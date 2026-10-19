@@ -41,7 +41,7 @@ async function init(){
  more.addEventListener('click',function(){limit+=48;show();});
  root.querySelector('[data-sf-reset]').addEventListener('click',function(){search.value='';character.value='';kind.value='';type.value='';sort.value='standard';resetLimit();search.focus();});
  var params=new URLSearchParams(location.search),initial=params.get('character')||'';initial=({'mymelody':'my-melody','hellokitty':'hello-kitty'})[initial]||initial;
- if(Array.from(character.options).some(function(x){return x.value===initial;}))character.value=initial;search.value=params.get('q')||'';show();
+ if(Array.from(character.options).some(function(x){return x.value===initial;}))character.value=initial;search.value=params.get('q')||'';if(Array.from(kind.options).some(function(x){return x.value===params.get('kind');}))kind.value=params.get('kind');if(params.get('type')==='product')type.value='product';if(params.get('sort')==='recent')sort.value='recent';show();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();

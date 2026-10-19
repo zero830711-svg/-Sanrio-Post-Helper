@@ -203,6 +203,8 @@ def sync(wp=None, previous_index=None, guide_source=None):
             raise RuntimeError('Saved search index verification failed: '+form)
     totals = collections.Counter(x['type'] for x in index['items'])
     print('UNIFIED',json.dumps({'uniqueItems':len(index['items']),'types':dict(totals),'photoCards':sum(index['photoMemberships'].values()),'characterCounts':index['photoMemberships']},ensure_ascii=False),flush=True)
+    home = load('home_catalog', 'home-catalog.py')
+    home.sync(wp, index)
     return index
 
 

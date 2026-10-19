@@ -31,7 +31,9 @@ class UnifiedSearchTests(unittest.TestCase):
                     return {'id':804,'slug':'goods','content':{'raw':self.raw,'rendered':self.raw}}
             wp=FakeWP()
             guide='<article class="sf-directory-card" data-character="cinnamoroll" data-kind="bags"><a href="https://sanrio-fan.site/new-guide/"><strong>ポーチの仕様</strong></a></article>'
-            saved=u.sync(wp,previous_index=previous,guide_source=guide)
+            with patch.object(u, "load") as home_loader:
+                saved=u.sync(wp,previous_index=previous,guide_source=guide)
+                home_loader.return_value.sync.assert_called_once_with(wp, saved)
         self.assertEqual(len(wp.writes),1)
         self.assertIn(u.DATA_ID,wp.writes[0])
         self.assertEqual(saved['firstSeenHistory']['rakuten:shop:a'],'2026-10-18T00:00:00+00:00')

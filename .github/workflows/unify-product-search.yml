@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
     paths:
+      - scripts/home-catalog.py
+      - scripts/home-catalog.js
+      - scripts/home-catalog.css
       - scripts/unify-product-search.py
       - scripts/unified-product-search.js
       - scripts/unified-product-search.css
@@ -30,6 +33,8 @@ jobs:
           python3 -S -c "import runpy; runpy.run_path('scripts/unify-product-search.py')"
           python3 -m pip install --quiet Pillow
           node --check scripts/unified-product-search.js
+          node --check scripts/home-catalog.js
+          python3 -m unittest discover -s tests -p test_home_catalog.py -v
           python3 -m unittest discover -s tests -p test_unified_product_search.py -v
           python3 -m unittest discover -s tests -p test_character_catalog_quality.py -v
       - name: Publish unified search through WordPress REST
