@@ -66,6 +66,16 @@ function pf_search_url(string $keyword):string{return 'https://search.rakuten.co
 function pf_safe_affiliate(string $url):bool{
  $p=parse_url($url);return ($p['scheme']??'')==='https'&&($p['host']??'')==='hb.afl.rakuten.co.jp'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&preg_match('~^/hgc/[a-zA-Z0-9._-]{8,128}/?$~D',$p['path']??'');
 }
+function pf_blocked_shop(array $row):bool{
+ $names=[$row['shop']??'', $row['shopName']??'', $row['item']['shop']??''];
+ // Older prepared drafts stored the seller in their matched offer and source paragraphs.
+ if(!empty($row['item']['rakuten'])){
+  foreach($row['match']['candidates']??[] as $offer)if(($offer['url']??'')===($row['item']['url']??''))$names[]=$offer['shop']??'';
+  foreach($row['item']['paragraphs']??[] as $line)if(preg_match('/^販売店[：:]\s*(.+)$/u',(string)$line,$m))$names[]=$m[1];
+ }
+ foreach($names as $name){$name=preg_replace('/[\s\x{3000}]+/u','',pf_normal((string)$name));if(preg_match('/^tsjショップ(?:楽天市場店)?$/u',$name))return true;}
+ return false;
+}
 function pf_search(string $keyword,array $settings,int $page=1,bool $imageOnly=false):array{
  if(mb_strlen($keyword)<2||mb_strlen($keyword)>80)throw new RuntimeException('楽天の検索語を2〜80文字で指定してください。');
  $settings=lw_validate_settings($settings);
@@ -279,7 +289,7 @@ function pf_travel_rows(array $data,array $state):array{
 function pf_match(array $data,array $identity,string $sourceTitle,array $settings):array{
  $rows=[];$exact=[];
  foreach(array_slice($data['items']??[],0,30) as $r){
-  if(!is_array($r))continue;$p=lw_product((string)($r['itemUrl']??''));
+  if(!is_array($r)||pf_blocked_shop($r))continue;$p=lw_product((string)($r['itemUrl']??''));
   if(!$p||$p['store']!=='楽天'||($r['itemCode']??'')!==substr($p['id'],8))continue;
   $affiliate='';try{$affiliate=lw_affiliate_result(['items'=>[$r]],$r['itemCode'],$settings['affiliateId'])['url'];}catch(Throwable $e){}
   $images=$r['mediumImageUrls']??[];$image=$images?lw_image_url((string)($images[0]['imageUrl']??'')):'';
@@ -346,7 +356,7 @@ function pf_stock_related(array $r):bool{
 function pf_stock_rows(array $data,array $settings,array $state):array{
  $rows=[];
  foreach(array_slice($data['items']??[],0,30) as $r){
-  if(!is_array($r)||!pf_stock_related($r))continue;$p=lw_product((string)($r['itemUrl']??''));
+  if(!is_array($r)||pf_blocked_shop($r)||!pf_stock_related($r))continue;$p=lw_product((string)($r['itemUrl']??''));
   if(!$p||$p['store']!=='楽天'||($r['itemCode']??'')!==substr($p['id'],8))continue;
   $code=(string)$r['itemCode'];$title=(string)($r['itemName']??'');$caption=strip_tags((string)($r['itemCaption']??''));$janMatches=[];preg_match_all('/(?<![0-9])[0-9]{13}(?![0-9])/',$title."\n".$caption,$janFound);foreach($janFound[0]??[] as $jan)if(pf_jan($jan))$janMatches[]=$jan;$janMatches=array_values(array_unique($janMatches));$dedupeKey=count($janMatches)===1?'id:'.$janMatches[0]:pf_product_dedupe_key(['code'=>$code,'title'=>$title]);if(pf_stock_used($state,$code,$dedupeKey))continue;
   $affiliate='';try{$affiliate=lw_affiliate_result(['items'=>[$r]],$code,$settings['affiliateId'])['url'];}catch(Throwable $e){}
@@ -362,7 +372,7 @@ function pf_stock_expire_prices(array $rows,?int $now=null):array{
 function pf_stock_discover(array &$state):array{
  $settings=lw_settings();if(empty($settings['accessKey']))throw new RuntimeException('楽天API設定を保存してください。');
  $pool=pf_stock_expire_prices($state['sourcePool']??$state['sources']??[]);
- $existing=array_values(array_filter($pool,fn($r)=>is_array($r)&&!empty($r['code'])&&($r['sourceAt']??0)>time()-14*86400&&!pf_stock_used($state,(string)$r['code'],(string)($r['dedupeKey']??''))));
+ $existing=array_values(array_filter($pool,fn($r)=>is_array($r)&&!pf_blocked_shop($r)&&!empty($r['code'])&&($r['sourceAt']??0)>time()-14*86400&&!pf_stock_used($state,(string)$r['code'],(string)($r['dedupeKey']??''))));
  $queries=pf_stock_queries();$bookQueries=pf_stock_book_queries();
  if(($state['stockSearchMode']??'')!=='catalog-round-robin-v3'){
   $state['stockQueryIndex']=0;$state['stockQueryPages']=[];$state['booksQueryIndex']=0;$state['booksQueryPages']=[];
@@ -416,6 +426,7 @@ function pf_generated_body(string $text):string{
  return $text;
 }
 function pf_prepare_stock(array $product,array &$state):array{
+ if(pf_blocked_shop($product))throw new RuntimeException('このショップは候補の表示対象から除外されています。');
  $code=(string)($product['code']??'');if($code===''||empty($product['affiliate'])||!pf_safe_affiliate((string)$product['affiliate']))throw new RuntimeException('楽天の在庫商品を確認できません。');
  foreach($state['entries']??[] as $old)if(($old['item']['rakutenCode']??'')===$code||(!empty($product['dedupeKey'])&&($old['item']['rakutenDedupeKey']??'')===$product['dedupeKey']))return $old;
  $images=array_values(array_filter(array_map('pf_image_url',$product['images']??[])));if(!$images&&!empty($product['image']))$images=[pf_image_url((string)$product['image'])];$images=array_values(array_filter($images));$galleryCheckedAt=0;
@@ -440,9 +451,9 @@ function pf_source_progress(array $state):array{
  return ['marketTermIndex'=>$marketIndex+1,'marketTermCount'=>count($marketQueries),'marketPage'=>max(1,(int)(($state['stockQueryPages']??[])[$marketQuery]??1)),'booksTermIndex'=>$bookIndex+1,'booksTermCount'=>count($bookQueries),'booksPage'=>max(1,(int)(($state['booksQueryPages']??[])[$bookQuery]??1)),'travelPage'=>max(1,(int)($state['travelPage']??1))];
 }
 function pf_public(array $state,int $offset=0,int $limit=500):array{
- $rows=array_values($state['entries']??[]);usort($rows,static fn($a,$b)=>($b['createdAt']??0)<=>($a['createdAt']??0));
+ $rows=array_values(array_filter($state['entries']??[],static fn($row)=>!pf_blocked_shop($row)));usort($rows,static fn($a,$b)=>($b['createdAt']??0)<=>($a['createdAt']??0));
  $pool=pf_stock_expire_prices($state['sourcePool']??$state['sources']??[]);
- $available=array_values(array_filter($pool,fn($r)=>is_array($r)&&!empty($r['code'])&&($r['sourceAt']??0)>time()-14*86400&&!pf_stock_used($state,(string)$r['code'],(string)($r['dedupeKey']??''))));
+ $available=array_values(array_filter($pool,fn($r)=>is_array($r)&&!pf_blocked_shop($r)&&!empty($r['code'])&&($r['sourceAt']??0)>time()-14*86400&&!pf_stock_used($state,(string)$r['code'],(string)($r['dedupeKey']??''))));
  usort($available,static fn($a,$b)=>(int)($b['sourceAt']??0)<=>(int)($a['sourceAt']??0));
  $sourceCount=count($available);$serviceCounts=['market'=>0,'books'=>0,'travel'=>0];$groups=[];
  foreach($available as $r){
