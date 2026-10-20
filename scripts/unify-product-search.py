@@ -87,7 +87,7 @@ def build_index(pages, guides):
             kinds[kind] = kind
             identity = 'rakuten:'+item['code']
             if identity not in products:
-                products[identity] = {'id': identity, 'type': 'product', 'title': item['title'],
+                products[identity] = {'id': identity, 'type': 'product', 'title': item['title'], 'displayTitle': c.display_title(item['title']),
                                       'image': item['image'], 'rakuten': item['affiliate'],
                                       'url': c.SITE+'/'+slug+'/#sf-product-'+hashlib.sha256(item['code'].encode()).hexdigest()[:16], 'amazonQuery': queries.amazon_query(item['title']),
                                       'characters': [], 'kind': kind, 'shop': item['shop'],

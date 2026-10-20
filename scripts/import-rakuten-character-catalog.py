@@ -128,7 +128,7 @@ def matches_character(title, character):
     return any(canonical_text(name) in value for name in names)
 
 
-def display_title(title):
+def identity_title(title):
     # Remove shop promotions, keeping product specifications and character names.
     title = re.sub(r"[【\[][^】\]]*(?:クーポン|OFF|ポイント|送料無料|メール便|レビュー投稿)[^】\]]*[】\]]", "", title, flags=re.I)
     title = re.sub(r"^[◆◇]+.*?対応商品[◆◇]+", "", title)
@@ -138,10 +138,19 @@ def display_title(title):
     return title
 
 
+_title_spec = importlib.util.spec_from_file_location('catalog_display_title', Path(__file__).with_name('catalog-display-title.py'))
+_title_formatter = importlib.util.module_from_spec(_title_spec)
+_title_spec.loader.exec_module(_title_formatter)
+
+
+def display_title(title):
+    return _title_formatter.display_title(title)
+
+
 def identity_keys(item, character=None):
     title = unicodedata.normalize("NFKC", item["title"])
     keys = {"code:" + item["code"], "image:" + parse.urlsplit(item["image"]).path}
-    keys.add("name:" + canonical_text(display_title(title)))
+    keys.add("name:" + canonical_text(identity_title(title)))
     # JAN and manufacturer model numbers group offers across different shops.
     for number in re.findall(r"(?<!\d)(?:\d{13}|\d{8})(?!\d)", title):
         # Rightmost body digit has weight 3 for both EAN-13 and EAN-8.

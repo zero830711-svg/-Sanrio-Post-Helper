@@ -15,12 +15,13 @@ async function init(){
  function node(tag,text,cls){var el=document.createElement(tag);if(text)el.textContent=text;if(cls)el.className=cls;return el;}
  function button(label,url,cls){var a=node('a',label,'sf-search-button '+cls);a.href=url;a.target='_blank';a.rel='sponsored nofollow noopener';return a;}
  function card(item){
+  var displayTitle=item.displayTitle||item.title;
   var el=node('article');el.className='sf-directory-card';el.dataset.itemId=item.id;el.dataset.type=item.type;
   el.appendChild(node('span',item.type==='guide'?'商品ガイド':(item.type==='product'?'写真付き商品':'通販検索候補'),'sf-search-badge'));
-  if(item.image){var img=node('img');img.src=item.image;img.alt=item.title;img.loading='lazy';img.decoding='async';el.appendChild(img);}
-  var title=node('strong',item.title.length>80?item.title.slice(0,80)+'…':item.title);title.title=item.title;el.appendChild(title);
+  if(item.image){var img=node('img');img.src=item.image;img.alt=displayTitle;img.loading='lazy';img.decoding='async';el.appendChild(img);}
+  var title=node('strong',displayTitle.length>80?displayTitle.slice(0,80)+'…':displayTitle);title.title=displayTitle;el.appendChild(title);
   if(item.shop)el.appendChild(node('small',item.shop));
-  if(item.addedAt){var added=node('small','掲載日：'+new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(item.addedAt)));el.appendChild(added);}
+  if(item.addedAt){var added=node('small','当サイト掲載日：'+new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(item.addedAt)));el.appendChild(added);}
   if(item.url){var detail=node('a',item.type==='product'?'この商品の掲載位置へ →':'商品ガイド・仕様を見る →');detail.href=item.url;el.appendChild(detail);}
   var amazon=item.amazon;if(item.type==='product'){var target=new URL('https://www.amazon.co.jp/s');target.searchParams.set('k',item.amazonQuery||item.title);target.searchParams.set('tag',data.amazonTag);amazon=target.href;}
   var buy=node('div','','sf-search-buy');if(amazon)buy.appendChild(button('Amazonで探す',amazon,'sf-search-amazon'));if(item.rakuten)buy.appendChild(button(item.type==='product'?'楽天で見る':'楽天で探す',item.rakuten,'sf-search-rakuten'));el.appendChild(buy);return el;

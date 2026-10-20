@@ -10,13 +10,15 @@ function lf_keyword(string $title):string{
  return trim(mb_strcut(implode(' ',array_slice($parts,0,4)),0,120,'UTF-8'));
 }
 if(defined('LF_BACKFILL_TEST'))return;
-if(!in_array($argc,[5,6],true)){fwrite(STDERR,"Usage: fetch-lovely-backfill.php SETTINGS STATE CANDIDATES NEXT_STATE [--discover-only|--verify-only]\n");exit(2);}
+if(!in_array($argc,[5,6],true)){fwrite(STDERR,"Usage: fetch-lovely-backfill.php SETTINGS STATE CANDIDATES NEXT_STATE [--discover-only|--verify-only|--latest-only]\n");exit(2);}
 try{
  $settings=lw_validate_settings(require $argv[1]);
  $state=json_decode((string)file_get_contents($argv[2]),true,512,JSON_THROW_ON_ERROR);
  $known=array_fill_keys($state['known']??[],true);$existing=array_fill_keys($state['existingCodes']??[],true);
  $pending=$state['pending']??[];$cursor=(int)($state['cursor']??1);$scanned=0;$discovered=0;$unsupported=0;
- $scanBudget=($argv[5]??'')==='--verify-only'||count($pending)>=300?0:100;
+ $latest=($argv[5]??'')==='--latest-only';$historyCursor=$cursor;$historyFinished=$state['finished']??false;
+ if($latest){$pending=$state['latestPending']??[];$cursor=1;$state['finished']=false;}
+ $scanBudget=$latest?5:((($argv[5]??'')==='--verify-only'||count($pending)>=300)?0:100);
  for($n=0;$n<$scanBudget&&!($state['finished']??false);$n++){
   $url=$cursor===1?'https://lovely-fancy.net/':'https://lovely-fancy.net/page/'.$cursor.'/';
   usleep(800000);$curl=curl_init($url);
@@ -39,6 +41,7 @@ try{
   $scanned++;echo 'DISCOVERY page='.$cursor.' matched='.count($rows).' pending='.count($pending)."\n";
   $cursor++;if(!$next){$state['finished']=true;break;}
  }
+ if($latest){$cursor=$historyCursor;$state['finished']=$historyFinished;}
  if(($argv[5]??'')==='--discover-only'){
   unset($state['existingCodes']);$state['cursor']=$cursor;$state['known']=array_keys($known);$state['pending']=$pending;
   $state['lastDiscovery']=['scannedPages'=>$scanned,'newSourceIds'=>$discovered,'unsupportedAmazon'=>$unsupported];
@@ -49,7 +52,7 @@ try{
  $names=['サンリオ','Sanrio'];foreach(pf_catalog_characters() as [$primary,$aliases])$names=array_merge($names,$aliases);
  $items=[];$processed=0;$missing=0;$already=0;$remaining=[];
  // Finish a small final remainder without starting a second discovery cycle.
- $verifyBudget=count($pending)<=350?350:300;
+ $verifyBudget=$latest?60:(count($pending)<=350?350:300);
  foreach($pending as $entry){
   $code=$entry['code'];
   if(isset($existing[$code])){$already++;continue;}
@@ -82,8 +85,9 @@ try{
   $processed++;if($matched)$items[]=$matched;else $missing++;
   if($processed%25===0)echo 'VERIFIED queries='.$processed.' matched='.count($items).' skipped='.$missing."\n";
  }
- unset($state['existingCodes']);$state['cursor']=$cursor;$state['known']=array_keys($known);$state['pending']=$remaining;
- $state['lastBatch']=($state['lastDiscovery']??['scannedPages'=>$scanned,'newSourceIds'=>$discovered,'unsupportedAmazon'=>$unsupported])+['apiQueries'=>$processed,'apiMatched'=>count($items),'unavailableOrUnmatched'=>$missing,'alreadyCatalogued'=>$already,'remaining'=>count($remaining),'nextPage'=>$cursor];
+ unset($state['existingCodes']);$state['cursor']=$cursor;$state['known']=array_keys($known);if($latest)$state['latestPending']=$remaining;else $state['pending']=$remaining;
+ $discoveryStats=['scannedPages'=>$scanned,'newSourceIds'=>$discovered,'unsupportedAmazon'=>$unsupported];
+ $state['lastBatch']=($latest?$discoveryStats:($state['lastDiscovery']??$discoveryStats))+['mode'=>$latest?'latest-unseen':'historical','apiQueries'=>$processed,'apiMatched'=>count($items),'unavailableOrUnmatched'=>$missing,'alreadyCatalogued'=>$already,'remaining'=>count($remaining),'nextPage'=>$cursor];
  file_put_contents($argv[3],json_encode($items,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
  file_put_contents($argv[4],json_encode($state,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
  echo 'BACKFILL '.json_encode($state['lastBatch'],JSON_UNESCAPED_UNICODE)."\n";

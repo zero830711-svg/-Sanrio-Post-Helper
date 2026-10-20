@@ -1,12 +1,5 @@
 name: Import verified Lovely Fancy discovery backlog
 on:
-  push:
-    branches: [main]
-    paths:
-      - scripts/fetch-lovely-backfill.php
-      - scripts/lovely-backfill-state.py
-      - scripts/import-discovered-products.py
-      - .github/workflows/lovely-catalog-backfill.yml
   workflow_dispatch:
 permissions:
   contents: read
