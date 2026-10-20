@@ -4,7 +4,6 @@ on:
     branches: [main]
     paths:
       - scripts/fetch-rakuten-character-catalog.php
-      - scripts/import-rakuten-character-catalog.py
       - scripts/repair-character-catalogs.py
       - scripts/build-product-directory.py
       - scripts/update-character-navigation.py
