@@ -2,7 +2,7 @@
 import html
 import gzip
 import hashlib
-from urllib import request
+from urllib import request, error
 import importlib.util
 import json
 from html.parser import HTMLParser
@@ -82,8 +82,14 @@ def run(wp=None):
   print('IMAGE PAGE',p['slug'],'photos',len(oldcards),'updated',updated!=raw,flush=True)
  data,count=sitemap(maps)
  Path('catalog-image-sitemap.xml').write_bytes(data)
- url=publish_sitemap(wp,data)
- report={'sitemapUrl':url,'pages':len(selected),'updated':changed,'productPlacementsPreserved':placements,'sitemapImages':count,'sitemapPublished':True}
+ url=None;upload_error=None
+ try:url=publish_sitemap(wp,data)
+ except error.HTTPError as exc:
+  try:
+   body=json.loads(exc.read());upload_error={'httpStatus':exc.code,'code':body.get('code'),'message':body.get('message')}
+  except (ValueError,UnicodeError):upload_error={'httpStatus':exc.code}
+  print('IMAGE SITEMAP UPLOAD BLOCKED',json.dumps(upload_error,ensure_ascii=False),flush=True)
+ report={'sitemapUrl':url,'pages':len(selected),'updated':changed,'productPlacementsPreserved':placements,'sitemapImages':count,'sitemapPublished':bool(url),'uploadError':upload_error}
  Path('catalog-image-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
  print('IMAGE SUMMARY',json.dumps(report),flush=True)
  return report
