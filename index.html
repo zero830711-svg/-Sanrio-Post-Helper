@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261014-3531">
+<link rel="stylesheet" href="./styles.css?v=20261020-3540">
 <style>.home-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}</style>
 <style>
 #newsPhotoDialog{width:min(96vw,1000px);max-height:92dvh;border:1px solid #eadde5;border-radius:18px;padding:16px;background:#fff7fb;color:#29252d}
@@ -33,7 +33,7 @@
 <details class="home-info"><summary>データ・更新情報</summary>
 <div id="dataFreshness" class="data-freshness"></div>
 <div class="app-version-row">
-<span id="appVersionStatus">アプリ版 2026.10.18-3539</span>
+<span id="appVersionStatus">アプリ版 2026.10.20-3540</span>
 <button id="forceLatest" type="button" >最新版を読み込む</button>
 </div>
 <p class="backup-note app-update-help">更新後もホーム画面のアイコンはそのまま使えます。作り直しは不要です。この端末に保存した投稿データと同期設定は、同じURLを使う限り引き継がれます。</p>
@@ -175,7 +175,16 @@
 <p id="newsStatus" class="backup-note" aria-live="polite"></p><div id="newsList"></div><button id="newsMore" class="small-btn" type="button" hidden>もっと見る</button>
 </div><section id="newsEditor" hidden><button id="newsBack" class="small-btn" type="button">一覧へ戻る</button><h3 id="newsTitle"></h3><div id="newsEvidenceEditor"></div><a id="newsSource" target="_blank" rel="noopener noreferrer"></a><p id="newsDate" class="backup-note"></p><div id="newsRelatedSources" class="news-related-sources" hidden aria-label="同じニュースの掲載元"></div>
 <label id="newsAiChoiceLabel" hidden>投稿案<select id="newsAiChoice" aria-label="使うニュース投稿案"><option value="0">1. シンプル情報系（200文字以内）</option><option value="1">2. 華やかな紹介系</option><option value="2">3. 目を引く可愛い系</option></select></label>
-<label>投稿文（編集できます）<textarea id="newsText" rows="6"></textarea></label><label id="newsIncludeLinkLabel"><input id="newsIncludeLink" type="checkbox"> 本文にリンクを含める</label><div id="newsReplyBox"><label>返信用コメント（投稿後に返信してください）<textarea id="newsReplyText" rows="3"></textarea></label><button id="newsReplyCopy" class="small-btn" type="button">返信用コメントをコピー</button></div><details><summary>楽天・Amazonリンクを追加</summary><p class="backup-note">ご自身のアフィリエイトリンクを入力。検索結果リンクもそのまま保存します。</p><label>楽天リンク<input id="newsAffiliateRakuten" type="url" inputmode="url" placeholder="https://"></label><button id="newsAmazonSearch" type="button" class="small-btn">この商品をAmazonで検索</button><label>Amazonリンク<input id="newsAffiliateAmazon" type="url" inputmode="url" placeholder="https://"></label><label>リンクの掲載先<select id="newsAffiliatePlacement"><option value="reply">返信コメント</option><option value="body">投稿本文</option></select></label><button id="newsAffiliateSave" type="button" class="small-btn">リンクを保存・反映</button><p id="newsAffiliateStatus" class="backup-note" aria-live="polite"></p></details><details id="newsConfirmedRegionBox" hidden><summary>海外の販売・開催地域を確認</summary><p id="newsRegionSource" class="backup-note"></p><label>原文で確認した地域<select id="newsConfirmedRegion"><option value="">未確認・本文に入れない</option><option>韓国</option><option>香港</option><option>台湾</option><option>中国</option><option>インド</option><option>日本</option></select></label></details><p id="newsDraftStatus" class="backup-note" aria-live="polite"></p>
+<label>投稿文（編集できます）<textarea id="newsText" rows="6"></textarea></label><label id="newsIncludeLinkLabel"><input id="newsIncludeLink" type="checkbox"> 本文にリンクを含める</label><div id="newsReplyBox"><label>返信用コメント（投稿後に返信してください）<textarea id="newsReplyText" rows="3"></textarea></label><button id="newsReplyCopy" class="small-btn" type="button">返信用コメントをコピー</button></div><details><summary>楽天・Amazonリンクを追加</summary><p class="backup-note">ご自身のアフィリエイトリンクを入力。検索結果リンクもそのまま保存します。</p><label>楽天リンク<input id="newsAffiliateRakuten" type="url" inputmode="url" placeholder="https://"></label><div class="cloud-sync-actions"><button id="newsRakutenSearch" type="button" class="small-btn">楽天で検索</button><button id="newsAmazonSearch" type="button" class="small-btn">Amazonで検索</button></div>
+<section id="newsInlinePanel" hidden aria-label="ニュース内の商品検索">
+<h3><span id="newsInlineProvider">楽天</span>で商品を探す</h3>
+<label>検索語（変更できます）<input id="newsInlineQuery" type="search" maxlength="120"></label>
+<div class="cloud-sync-actions"><button id="newsInlineRun" class="small-btn" type="button">検索する</button><button id="newsInlineClose" class="small-btn" type="button">検索結果を閉じる</button></div>
+<p id="newsInlineStatus" class="backup-note" aria-live="polite"></p>
+<p class="backup-note">写真は商品照合用です。本文と選択写真はそのまま保持します。商品・単品／セット内容・販売状況は掲載ページで確認してください。</p>
+<button id="newsInlineSearchLink" class="small-btn" type="button" disabled>検索ページの紹介リンクを使う</button>
+<div id="newsInlineResults"></div><button id="newsInlineMore" class="small-btn" type="button" hidden>もっと見る</button>
+</section><label>Amazonリンク<input id="newsAffiliateAmazon" type="url" inputmode="url" placeholder="https://"></label><label>リンクの掲載先<select id="newsAffiliatePlacement"><option value="reply">返信コメント</option><option value="body">投稿本文</option></select></label><button id="newsAffiliateSave" type="button" class="small-btn">リンクを保存・反映</button><p id="newsAffiliateStatus" class="backup-note" aria-live="polite"></p></details><details id="newsConfirmedRegionBox" hidden><summary>海外の販売・開催地域を確認</summary><p id="newsRegionSource" class="backup-note"></p><label>原文で確認した地域<select id="newsConfirmedRegion"><option value="">未確認・本文に入れない</option><option>韓国</option><option>香港</option><option>台湾</option><option>中国</option><option>インド</option><option>日本</option></select></label></details><p id="newsDraftStatus" class="backup-note" aria-live="polite"></p>
 <label id="newsPhotoUseLabel" hidden><input id="newsPhotoUse" type="checkbox" checked> 写真の文字も使って生成（選択写真の先頭3枚まで）</label><details id="newsPhotoReadingsBox" hidden><summary>写真から読み取った情報（AI・要確認）</summary><p class="backup-note">読み違いがないか写真と照合してください。失敗した場合は「写真の文字も使って生成」を外して原文のみで生成できます。</p><div id="newsPhotoReadings"></div></details><p id="newsAiStatus" class="backup-note" aria-live="polite"></p><button id="newsAiRetry" class="small-btn" type="button" disabled>🎀 AIで投稿文を作る</button>
 <details id="newsGroqSettings"><summary>AI設定（Groq・初回のみ）</summary><p class="backup-note">Groqの無料APIキーをサーバーに保存します。</p><a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">GroqのAPIキーを作成</a><label>Groq APIキー<input id="newsGroqKey" type="password" autocomplete="off" placeholder="gsk_..."></label><button id="newsGroqSave" class="small-btn" type="button">設定を保存</button><p id="newsGroqStatus" class="backup-note" aria-live="polite"></p></details><details><summary>記事の情報を確認</summary><p id="newsFacts" class="backup-note"></p></details>
 <button id="newsComparePhotos" type="button" class="small-btn">写真を大きく比較・選択</button>
@@ -570,7 +579,7 @@
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 <script src="./domestic-candidates.js?v=20261017-3537"></script>
 <script src="./candidate-backup.js?v=20261015-3533"></script>
-<script src="./app.js?v=20261018-3539"></script>
+<script src="./app.js?v=20261020-3540"></script>
 <script src="./candidate-edit.js?v=20261010-3457"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
@@ -578,7 +587,7 @@
 <script src="./lovely-watch.js?v=20261014-3531"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
 <script src="./news-collage.js?v=20261010-3452"></script>
-<script src="./news.js?v=20261014-3531"></script>
+<script src="./news.js?v=20261020-3540"></script>
 <script src="./post-ai.js?v=20261005-3451"></script>
 <script>
 window.addEventListener("load",()=>{

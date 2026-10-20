@@ -74,6 +74,11 @@ jobs:
           foreach(array_merge($d["sources"]??[],$d["entries"]??[]) as $candidate)if(pf_blocked_shop($candidate))throw new RuntimeException("Excluded seller remained visible in live response");
           echo "Excluded seller absent from live sources and drafts\n";
           echo "Private product flow endpoint verified\n";
+          $c=curl_init($base."?action=affiliate-search");curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>65,CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode(["keywords"=>"タキシードサム","page"=>1]),CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"],"Origin: https://zero830711-svg.github.io","Content-Type: application/json"]]);$searchBody=curl_exec($c);$searchStatus=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);$search=json_decode((string)$searchBody,true);
+          if($searchStatus!==200||empty($search["ok"])||!is_array($search["items"]??null)||!pf_safe_affiliate($search["searchAffiliate"]??""))throw new RuntimeException("Inline affiliate search verification failed");
+          foreach($search["items"] as $offer)if(pf_blocked_shop($offer)||!pf_safe_affiliate($offer["affiliate"]??""))throw new RuntimeException("Invalid inline search offer");
+          echo "Live inline Rakuten search and affiliate links verified: ".count($search["items"])." offers\n";
+
           echo "Rakuten configured: ".(!empty($d["rakutenConfigured"])?"yes":"no")."; AI configured: ".(!empty($d["aiConfigured"])?"yes":"no")."\n";
           echo ($d["message"]??"")."\n";
           if(isset($d["entry"])){echo "Draft created; photos: ".count($d["entry"]["item"]["images"]??[])."; body characters: ".mb_strlen($d["entry"]["body"]??"")."; link mode: ".($d["entry"]["match"]["linkMode"]??"none")."; candidates: ".count($d["entry"]["match"]["candidates"]??[])."\n";foreach($d["entry"]["warnings"]??[] as $warning)echo $warning."\n";}

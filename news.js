@@ -347,7 +347,7 @@ function newsKeepDraft(){
  const entry=newsState.drafts.get(newsState.item.url);
  if(entry){entry.text=$('newsText').value;entry.replyText=newsRemoveBlock($('newsReplyText').value,entry.affiliatePlacement!=='body'?newsAffiliateBlock(entry):'');if(entry.aiDrafts?.length)entry.aiDrafts[entry.aiChoice||0].text=entry.text;entry.selected=newsState.selected.slice();entry.savedAt=Date.now();newsSaveDrafts();}
 }
-function newsReturn(){newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;newsRender();window.scrollTo({top:newsState.browseY,behavior:'instant'});}
+function newsReturn(){newsInlineReset();newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;newsRender();window.scrollTo({top:newsState.browseY,behavior:'instant'});}
 function newsMark(url,kind){
  const entry=newsState.drafts.get(url),xUrl=entry?.postedUrl||'';
  if(kind==='done'&&xUrl&&!newsValidPostedUrl(xUrl)){$('newsEditorStatus').textContent='Xの投稿URLを確認してください。';return;}
@@ -360,6 +360,7 @@ function newsMark(url,kind){
 }
 async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsTrackItems(d.items);newsState.items=d.items;domesticCandidates.ingest(d.items);newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsState.instagramCollection=d.instagramCollection||{};newsRender();return true;}catch(e){$('newsStatus').textContent=e.message;return false;}finally{newsState.busy=false;}}
 async function newsPrepare(url){
+ newsInlineReset();
  newsKeepDraft();if(!$('newsBrowse').hidden)newsState.browseY=window.scrollY;
  const seq=++newsState.seq;$('newsAiStatus').textContent='';$('newsAiRetry').disabled=true;$('newsAiChoiceLabel').hidden=true;newsState.item=null;newsState.files=[];newsState.selected=[];
  $('newsPhotoReadingsBox').hidden=true;$('newsPhotoUseLabel').hidden=true;
@@ -659,10 +660,78 @@ function newsPhotoReadingsRender(entry){
  for(const row of rows){const p=document.createElement('p');p.style.whiteSpace='pre-wrap';p.textContent='写真'+(row.index+1)+'\n'+(row.japanese||'読める文字はありませんでした。')+(row.original?'\n原語：'+row.original:'');box.append(p);}
 }
 
-$('newsAmazonSearch').onclick=()=>{
- const entry=newsCollageEntry();if(!entry)return;
- newsKeepDraft();document.dispatchEvent(new CustomEvent('sph-amazon-product-search',{detail:{title:entry.item.title,sourceUrl:entry.item.url}}));
-};
+// Inline product lookup belongs to the currently open article, never the product-search tab.
+const newsInline={seq:0,controller:null,owner:'',provider:'rakuten',query:'',page:0,items:[],limit:5,more:false,link:'',busy:false};
+function newsInlineReset(){
+ newsInline.seq++;newsInline.controller?.abort();Object.assign(newsInline,{controller:null,owner:'',query:'',page:0,items:[],limit:5,more:false,link:'',busy:false});
+ $('newsInlinePanel').hidden=true;$('newsInlineResults').replaceChildren();$('newsInlineStatus').textContent='';
+}
+function newsInlineControls(){
+ $('newsInlineRun').disabled=newsInline.busy;
+ $('newsInlineMore').disabled=newsInline.busy;
+ $('newsInlineMore').hidden=!(newsInline.items.length>newsInline.limit||newsInline.more);
+ $('newsInlineSearchLink').disabled=newsInline.busy||!newsInline.link;
+ $('newsInlineProvider').textContent=newsInline.provider==='rakuten'?'楽天':'Amazon';
+}
+function newsInlineUse(value,owner){
+ const entry=newsCollageEntry(),kind=newsInline.provider;
+ if(!entry||entry.item.url!==owner||!value||!newsValidAffiliate(value,kind))return;
+ $(kind==='rakuten'?'newsAffiliateRakuten':'newsAffiliateAmazon').value=value;
+ $('newsAffiliateSave').click();$('newsInlinePanel').hidden=true;
+}
+function newsInlineRender(){
+ const host=$('newsInlineResults');host.replaceChildren();
+ for(const item of newsInline.items.slice(0,newsInline.limit)){
+  const card=document.createElement('article');card.className='news-inline-card';
+  if(item.image){try{const u=new URL(item.image),roots=['r10s.jp','rakuten.co.jp','m.media-amazon.com','images-na.ssl-images-amazon.com','images-fe.ssl-images-amazon.com'];if(u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&roots.some(h=>u.hostname===h||u.hostname.endsWith('.'+h))){const img=document.createElement('img');img.src=item.image;img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';card.append(img);}}catch{}}
+  const info=document.createElement('div'),title=document.createElement('p');title.textContent=item.title;info.append(title);
+  if(item.shop){const shop=document.createElement('p');shop.className='backup-note';shop.textContent=item.shop;info.append(shop);}
+  const actions=document.createElement('div');actions.className='cloud-sync-actions';
+  if(newsValidAffiliate(item.url,newsInline.provider)&&item.url){const a=document.createElement('a');a.href=item.url;a.target='_blank';a.rel='noopener noreferrer';a.className='small-btn link-btn';a.textContent='商品を確認';actions.append(a);}
+  const add=document.createElement('button');add.type='button';add.className='small-btn';add.textContent='紹介リンクを追加';const owner=newsInline.owner;add.onclick=()=>newsInlineUse(item.affiliate||item.url,owner);actions.append(add);info.append(actions);card.append(info);host.append(card);
+ }
+ newsInlineControls();
+}
+function newsInlineOpen(provider){
+ const entry=newsCollageEntry();if(!entry)return;newsKeepDraft();newsInlineReset();newsInline.owner=entry.item.url;newsInline.provider=provider;
+ $('newsInlinePanel').hidden=false;$('newsInlineQuery').maxLength=provider==='rakuten'?80:120;$('newsInlineQuery').value=entry.item.title.slice(0,provider==='rakuten'?80:120);newsInlineControls();newsInlineSearch();
+}
+async function newsInlineSearch(more=false){
+ if(newsInline.busy)return;
+ const entry=newsCollageEntry(),query=$('newsInlineQuery').value.trim(),max=newsInline.provider==='rakuten'?80:120;
+ if(!entry||entry.item.url!==newsInline.owner)return;
+ if(!query||query.length>max){$('newsInlineStatus').textContent='検索語を'+max+'文字以内で入力してください。';return;}
+ if(more&&query===newsInline.query&&newsInline.items.length>newsInline.limit){newsInline.limit+=5;newsInlineRender();return;}
+ const {key}=cloudSettings();if(!key){$('newsInlineStatus').textContent='同期キーを設定してください。';return;}
+ const owner=entry.item.url,provider=newsInline.provider,seq=++newsInline.seq,page=more&&query===newsInline.query?newsInline.page+1:1;
+ if(page>(provider==='amazon'?10:100))return;
+ const controller=new AbortController();newsInline.controller=controller;newsInline.busy=true;newsInlineControls();
+ $('newsInlineStatus').textContent='「'+query+'」を'+(provider==='rakuten'?'楽天':'Amazon')+'で検索中…';
+ const timer=setTimeout(()=>controller.abort(),65000);
+ try{
+  const u=new URL(provider==='rakuten'?'product-flow.php':'amazon-creators.php',newsApiUrl('list'));u.searchParams.set('action',provider==='rakuten'?'affiliate-search':'search');
+  const r=await fetch(u.href,{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({keywords:query,page}),cache:'no-store',signal:controller.signal});
+  const data=await r.json();if(!r.ok||data.ok===false)throw new Error(data.error||'商品を検索できませんでした。');
+  if(seq!==newsInline.seq||newsCollageEntry()?.item.url!==owner)return;
+  const items=(data.items||[]).filter(i=>i&&typeof i.title==='string'&&i.url&&newsValidAffiliate(i.affiliate||i.url,provider));
+  const unique=new Map((page===1?[]:newsInline.items).map(i=>[i.code||i.url,i]));for(const item of items)unique.set(item.code||item.url,item);
+  newsInline.items=[...unique.values()];newsInline.query=query;newsInline.page=page;newsInline.limit=page===1?5:newsInline.limit+5;newsInline.more=data.hasMore===true;
+  newsInline.link=provider==='rakuten'?data.searchAffiliate||'':'';
+  if(provider==='amazon'&&/^[a-zA-Z0-9_-]{1,80}-22$/.test(data.partnerTag||'')){const search=new URL('https://www.amazon.co.jp/s');search.searchParams.set('k',query);search.searchParams.set('tag',data.partnerTag);newsInline.link=search.href;}
+  if(newsInline.link&&!newsValidAffiliate(newsInline.link,provider))newsInline.link='';
+  newsInlineRender();$('newsInlineStatus').textContent='「'+query+'」：'+newsInline.items.length+'件取得。商品・単品／セット内容を確認して追加してください。'+(!items.length?'検索語を変更して再検索できます。':'');
+ }catch(error){if(seq===newsInline.seq)$('newsInlineStatus').textContent=error.name==='AbortError'?'検索が時間切れになりました。もう一度検索してください。':error.message;}
+ finally{clearTimeout(timer);if(seq===newsInline.seq){newsInline.busy=false;newsInline.controller=null;newsInlineControls();}}
+}
+$('newsAmazonSearch').onclick=()=>newsInlineOpen('amazon');
+$('newsRakutenSearch').onclick=()=>newsInlineOpen('rakuten');
+$('newsInlineRun').onclick=()=>newsInlineSearch();
+$('newsInlineMore').onclick=()=>newsInlineSearch(true);
+$('newsInlineClose').onclick=()=>{$('newsInlinePanel').hidden=true;};
+$('newsInlineSearchLink').onclick=()=>newsInlineUse(newsInline.link,newsInline.owner);
+$('newsInlineQuery').oninput=()=>{newsInline.seq++;newsInline.controller?.abort();Object.assign(newsInline,{busy:false,items:[],more:false,link:'',page:0});$('newsInlineResults').replaceChildren();$('newsInlineStatus').textContent='検索語を変更しました。「検索する」を押してください。';newsInlineControls();};
+$('newsInlineQuery').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();newsInlineSearch();}};
+
 document.addEventListener('sph-amazon-news-link',event=>{
  const entry=newsCollageEntry(),detail=event.detail;if(!entry||entry.item.url!==detail?.sourceUrl||!newsValidAffiliate(detail.link,'amazon'))return;
  $('newsAffiliateAmazon').value=detail.link;$('newsAffiliateSave').click();setHomeView('news');

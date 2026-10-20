@@ -92,3 +92,9 @@ pf_check(pf_stock_rows(['items'=>[$rawBlocked]],[],[])===[],'New excluded seller
 pf_check(pf_match(['items'=>[$rawBlocked]],['jan'=>'','model'=>'','keyword'=>'クロミ'],'クロミ',['affiliateId'=>$aid])['candidates']===[],'Excluded seller remained in matching offers');
 try{pf_prepare_stock($blockedOffer,$original);throw new LogicException('Excluded seller was prepared');}catch(RuntimeException $expected){}
 echo "Excluded seller: new offers, cached pool, counts, saved draft visibility and preparation verified\n";
+
+$inline=pf_affiliate_search_result(['items'=>[$make('shop1'),array_replace($make('blocked'),['shopName'=>'TSJショップ'])],'count'=>60],'キティ ポーチ',['affiliateId'=>$aid],1);
+pf_check(count($inline['items'])===1&&$inline['items'][0]['code']==='shop1:kitty'&&pf_safe_affiliate($inline['items'][0]['affiliate']),'Inline search did not return affiliate offers or included the blocked seller');
+pf_check($inline['searchAffiliate']===pf_affiliate(pf_search_url('キティ ポーチ'),$aid)&&$inline['hasMore']===true,'Inline search affiliate URL or pagination changed');
+pf_check(pf_affiliate_search_result(['items'=>[],'count'=>0],'キティ',['affiliateId'=>$aid],1)['hasMore']===false,'Empty inline search has more pages');
+echo "Inline affiliate search offers, seller exclusion, search URL and paging verified\n";
