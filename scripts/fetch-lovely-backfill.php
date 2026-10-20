@@ -48,10 +48,12 @@ try{
  }
  $names=['サンリオ','Sanrio'];foreach(pf_catalog_characters() as [$primary,$aliases])$names=array_merge($names,$aliases);
  $items=[];$processed=0;$missing=0;$already=0;$remaining=[];
+ // Finish a small final remainder without starting a second discovery cycle.
+ $verifyBudget=count($pending)<=350?350:300;
  foreach($pending as $entry){
   $code=$entry['code'];
   if(isset($existing[$code])){$already++;continue;}
-  if($processed>=300){$remaining[]=$entry;continue;}
+  if($processed>=$verifyBudget){$remaining[]=$entry;continue;}
   [$shop,$urlItem]=explode(':',$code,2);
   $expected='https://item.rakuten.co.jp/'.$shop.'/'.$urlItem.'/';$keyword=lf_keyword((string)($entry['title']??$urlItem));
   if($keyword===''){$processed++;$missing++;continue;}
