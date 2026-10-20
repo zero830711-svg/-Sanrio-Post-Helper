@@ -38,7 +38,7 @@ test('通常のChatGPTボタンはコピーに失敗してもJPEG写真と投稿
  const data=await page.evaluate(()=>pngShared);
  expect(data.text).toContain('焼き直し投稿');expect(data.text).toContain('リボンバッグの情報です。');
  for(const f of data.files){expect(f.name).toMatch(/^sanrio-[a-z0-9]+-photo-[12]\.jpg$/);expect(f.type).toBe('image/jpeg');expect(f.signature.slice(0,3)).toEqual([255,216,255]);}
- expect(await page.evaluate(()=>document.body.style.position)).toBe('');
+ await expect(page.locator('#todayDetailModal')).toBeVisible();expect(await page.evaluate(()=>document.body.style.position)).toBe('fixed');
 });
 test('変換できないデータは共有準備済みにせずエラーを返す',async({page})=>{
  await page.goto('/');
@@ -79,5 +79,26 @@ test('写真のみの補助共有はJPEGを準備し、コピー失敗なら送�
   expect(f.name).toMatch(new RegExp('^sanrio-[a-z0-9]+-photo-'+(i+1)+'\\.jpg$'));
   expect(f.type).toBe('image/jpeg');expect(f.signature).toEqual([255,216,255]);expect(f.width).toBe(1200);expect(f.height).toBe(1200);
  }
- expect(await page.evaluate(()=>document.body.style.position)).toBe('');
+ await expect(page.locator('#todayDetailModal')).toBeVisible();expect(await page.evaluate(()=>document.body.style.position)).toBe('fixed');
+});
+
+test('ChatGPT共有中と復帰後も投稿準備・写真順・位置を保持し、キャンセル後も使える',async({page})=>{
+ await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.route('**/share-fixture.webp',r=>r.fulfill({contentType:'image/webp',body:Buffer.from(webp,'base64')}));
+ await page.goto('/');
+ await page.evaluate(async()=>{
+  legacyCopyText=()=>true;
+  Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
+  Object.defineProperty(navigator,'share',{value:data=>{window.sharedCount=data.files.length;return new Promise((resolve,reject)=>{window.finishShare=resolve;window.cancelShare=()=>reject(new DOMException('cancel','AbortError'));});},configurable:true});
+  await showTodayDetail({id:'share-return',title:'共有後も残す投稿',text:'編集した投稿本文',images:[location.origin+'/share-fixture.webp',location.origin+'/share-fixture.webp']});
+ });
+ await expect(page.locator('#detailMediaStatus')).toContainText('写真の準備ができました');
+ await page.getByRole('button',{name:'写真2を前へ',exact:true}).click();
+ await page.locator('#detailChatGPTShare').click();await expect.poll(()=>page.evaluate(()=>window.sharedCount)).toBe(2);
+ await expect(page.locator('#todayDetailModal')).toBeVisible();expect(await page.evaluate(()=>detailCurrentItem.id)).toBe('share-return');expect(await page.evaluate(()=>detailPhotoSelection)).toEqual([1,0]);expect(await page.evaluate(()=>document.body.style.position)).toBe('');
+ const scroll=await page.evaluate(()=>chatgptShareModalScroll);await page.evaluate(()=>{document.querySelector('#todayDetailModal').scrollTop=80;window.dispatchEvent(new Event('pageshow'));});
+ expect(await page.locator('#todayDetailModal').evaluate(el=>el.scrollTop)).toBe(scroll);expect(await page.evaluate(()=>document.body.style.position)).toBe('fixed');
+ await page.evaluate(()=>window.finishShare());await expect(page.locator('#detailChatGPTShare')).toBeEnabled();await expect(page.locator('#todayDetailModal')).toBeVisible();
+ await page.locator('#detailChatGPTShare').click();await page.evaluate(()=>window.cancelShare());await expect(page.locator('#detailChatGPTStatus')).toContainText('キャンセル');await expect(page.locator('#todayDetailModal')).toBeVisible();expect(await page.evaluate(()=>detailPhotoSelection)).toEqual([1,0]);
+ await page.locator('#detailChatGPTShare').click();await page.locator('#closeDetailModal').click();await page.evaluate(()=>{window.finishShare();window.dispatchEvent(new Event('pageshow'));});await expect(page.locator('#todayDetailModal')).toBeHidden();expect(await page.evaluate(()=>document.body.style.position)).toBe('');
 });
