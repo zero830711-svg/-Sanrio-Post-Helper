@@ -30,7 +30,7 @@ function open(row){
  returnY=window.scrollY;
  current={...row};current.itemUrl=amazonUrl(row.itemUrl||row.affiliateUrl);current.searchUrl=amazonUrl(row.searchUrl)||(row.manual?'':searchLink(row.title,row.partnerTag||localStorage.getItem('sphAmazonAssociateTagV1')||'ononbrothers2-22'));
  if(!current.itemUrl){$('amazonFlowStatus').textContent='保存済み商品のAmazonリンクを確認してください。';current=null;return;}
- $('amazonFlowEditor').hidden=false;$('amazonFlowTitle').textContent=current.title;$('amazonFlowSource').href=current.itemUrl;
+ $('amazonFlowEditor').hidden=false;$('amazonFlowTitle').textContent=current.title;amazonAppAnchor($('amazonFlowSource'),current.itemUrl);$('amazonFlowSourceWeb').href=current.itemUrl;
  $('amazonFlowBody').value=row.body??text(row.draft||'').split(row.affiliateUrl||'\u0000').join('').replace(/🛍️ Amazonでチェック\s*/gu,'').replace(/\s*#pr\b/giu,'').trim();
  $('amazonFlowMode').value=['item','search','none'].includes(row.linkMode)?row.linkMode:'item';
  for(const option of $('amazonFlowMode').options)option.disabled=option.value==='search'&&!current.searchUrl;
@@ -70,7 +70,7 @@ function filterButtons(id,options,choose){for(const [label,value] of options){co
 function backToList(){if(current&&!save())return;$('amazonFlowEditor').hidden=true;current=null;window.scrollTo({top:returnY,behavior:'instant'});}
 function renderProduct(item,tag,host){
  const card=document.createElement('article');card.className='flow-card flow-source-card';const photo=imageUrl(item.image);if(photo){const img=document.createElement('img');img.src=photo;img.alt='商品照合用写真';img.loading='lazy';img.referrerPolicy='no-referrer';card.classList.add('has-image');card.append(img);}
- const title=document.createElement('h3');title.textContent=item.title;const a=document.createElement('a');a.href=item.url;a.textContent='Amazonで確認';a.className='small-btn link-btn';a.target='_blank';a.rel='sponsored nofollow noopener noreferrer';const actions=document.createElement('div');actions.className='flow-source-actions';actions.append(a,button('投稿準備',()=>prepare(item,tag)));const state=document.createElement('p');state.className='backup-note';const saved=savedProduct(item);state.textContent=saved?(!saved.status||saved.status==='未投稿'?'下書きあり':saved.status):'未保存';card.append(title,state,actions);host.append(card);
+ const title=document.createElement('h3');title.textContent=item.title;const a=document.createElement('a');amazonAppAnchor(a,item.url);a.className='small-btn link-btn';a.rel='sponsored nofollow noopener noreferrer';const actions=document.createElement('div');actions.className='flow-source-actions';const web=document.createElement('a');web.href=item.url;web.target='_blank';web.rel='noopener noreferrer';web.className='small-btn link-btn';web.textContent='ブラウザで開く';actions.append(a,web,button('投稿準備',()=>prepare(item,tag)));const state=document.createElement('p');state.className='backup-note';const saved=savedProduct(item);state.textContent=saved?(!saved.status||saved.status==='未投稿'?'下書きあり':saved.status):'未保存';card.append(title,state,actions);host.append(card);
 }
 async function amazonRequest(action,data){
  const key=cloudSettings().key;if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -102,7 +102,7 @@ function searchControls(){
  $('amazonFlowSearch').disabled=busy||autoBusy;
  $('amazonFlowMore').hidden=!searchMore;$('amazonFlowMore').disabled=busy||autoBusy||Date.now()<searchReadyAt||$('amazonFlowQuery').value.trim()!==searchKeyword;
  clearTimeout(searchTimer);if(Date.now()<searchReadyAt)searchTimer=setTimeout(searchControls,searchReadyAt-Date.now()+20);
- const u=new URL('https://www.amazon.co.jp/s');u.searchParams.set('k',$('amazonFlowQuery').value.trim()||'サンリオ');$('amazonSearchExternal').href=u.href;
+ const u=new URL('https://www.amazon.co.jp/s');u.searchParams.set('k',$('amazonFlowQuery').value.trim()||'サンリオ');amazonAppAnchor($('amazonSearchExternal'),u.href,'Amazonアプリで検索');$('amazonSearchWeb').href=u.href;
 }
 async function search(more=false){
  if(busy||autoBusy)return;const keywords=$('amazonFlowQuery').value.trim();if(!keywords||keywords.length>120){$('amazonFlowStatus').textContent='商品名を120文字以内で入力してください。';return;}
@@ -150,5 +150,7 @@ $('amazonFlowDone').onclick=()=>{if(save('投稿済み'))backToList();};$('amazo
 $('amazonFlowToNews').onclick=()=>{if(save()&&link())document.dispatchEvent(new CustomEvent('sph-amazon-news-link',{detail:{sourceUrl:newsSource,link:link()}}));};
 document.addEventListener('sph-amazon-product-search',event=>{newsSource=text(event.detail?.sourceUrl);$('amazonFlowQuery').value=text(event.detail?.title).slice(0,120)||'サンリオ';$('flowProvider').value='amazon';provider();setHomeView('flow');searchControls();update();$('amazonFlowQuery').scrollIntoView({block:'center',behavior:'instant'});});
 try{if(localStorage.getItem(PROVIDER)==='amazon'){$('flowProvider').value='amazon';provider();}}catch{}
+$('amazonFlowQuery').addEventListener('input',searchControls);
+for(const id of ['amazonFlowSource','amazonFlowSourceWeb'])$(id).addEventListener('click',()=>{if(current)save();});
 searchControls();
 })();

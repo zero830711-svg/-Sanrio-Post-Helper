@@ -741,6 +741,7 @@ document.addEventListener('sph-amazon-news-link',event=>{
 
 // External destinations are navigation only; saved affiliate URLs remain unchanged.
 function newsExternalAnchor(anchor,url,label){
+ if(amazonAppAnchor(anchor,url,label==='商品を確認'?'Amazonアプリで商品を開く':'Amazonアプリで検索'))return;
  const chrome=/iPad|iPhone|iPod/.test(navigator.userAgent||'');
  anchor.href=chrome?url.replace(/^https:\/\//,'googlechromes://'):url;
  anchor.textContent=label+(chrome?'（Chrome）':'');
@@ -754,10 +755,11 @@ function newsExternalSearch(kind){
 function newsExternalRender(){
  newsExternalAnchor($('newsRakutenOpen'),newsExternalSearch('rakuten'),'楽天の検索ページを開く');
  newsExternalAnchor($('newsAmazonOpen'),newsExternalSearch('amazon'),'Amazonの検索ページを開く');
+ $('newsAmazonWebOpen').href=newsExternalSearch('amazon');
  newsExternalAnchor($('newsRakutenPortal'),'https://affiliate.rakuten.co.jp/','楽天アフィリエイトを開く');
 }
 $('newsExternalQuery').oninput=newsExternalQueryChanged;
-for(const [id,kind] of [['newsRakutenOpen','rakuten'],['newsAmazonOpen','amazon'],['newsRakutenPortal','rakuten']])$(id).addEventListener('click',()=>newsExternalLeave(kind));
+for(const [id,kind] of [['newsRakutenOpen','rakuten'],['newsAmazonOpen','amazon'],['newsAmazonWebOpen','amazon'],['newsRakutenPortal','rakuten']])$(id).addEventListener('click',()=>newsExternalLeave(kind));
 $('newsRakutenCopy').onclick=async()=>{
  const entry=newsCollageEntry(),status=$('newsAffiliateStatus');if(!entry)return;
  const value=$('newsAffiliateRakuten').value.trim()||newsExternalSearch('rakuten');
