@@ -1,0 +1,37 @@
+name: Diagnose public character rendering
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/diagnose-character-rendering.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Inspect frontend responses and catalog sizes
+        shell: python
+        run: |
+          import concurrent.futures, importlib.util, json, re, time
+          from urllib import request
+          spec=importlib.util.spec_from_file_location("c","scripts/import-rakuten-character-catalog.py")
+          c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)
+          def inspect(pair):
+            key,(pid,slug,name)=pair
+            result={"character":key}
+            for label,path in [("normal","/"+slug+"/"),("fresh","/"+slug+"/?sf-render-check="+str(int(time.time()))),("rest","/wp-json/wp/v2/pages/"+str(pid)+"?_fields=id,slug,content")]:
+              try:
+                req=request.Request(c.SITE+path,headers={"User-Agent":"Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile Safari/604.1"})
+                with request.urlopen(req,timeout=60) as response:
+                  raw=response.read();text=raw.decode("utf-8","replace")
+                  item={"status":response.status,"bytes":len(raw),"html":text[:160] if len(raw)<300 else "","cards":text.count("data-code="),"contentType":response.headers.get("Content-Type"),"cache":response.headers.get("X-Cache"),"server":response.headers.get("Server")}
+                  if label=="rest":
+                    p=json.loads(text);content=p.get("content",{}).get("rendered","");item.update(contentBytes=len(content.encode()),cards=content.count("data-code="),styles=len(re.findall("<style",content)),scripts=len(re.findall("<script",content)),maxLine=max(map(len,content.splitlines()),default=0))
+                  result[label]=item
+              except Exception as exc:result[label]={"error":str(exc)[:180]}
+            print(json.dumps(result,ensure_ascii=False),flush=True)
+          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+            list(pool.map(inspect,list(c.CHARACTERS.items())))
