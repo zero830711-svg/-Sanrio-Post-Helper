@@ -152,7 +152,7 @@ test('ニュースの外部検索はChromeへ開き、短縮リンクを原文�
  await page.locator('#newsExternalQuery').fill('サム ROOM & 限定');
  const query=encodeURIComponent('サム ROOM & 限定');
  await expect(page.locator('#newsRakutenOpen')).toHaveAttribute('href','googlechromes://search.rakuten.co.jp/search/mall/'+query+'/');
- await expect(page.locator('#newsAmazonOpen')).toHaveAttribute('href','googlechromes://www.amazon.co.jp/s?k='+query);
+ await expect(page.locator('#newsAmazonOpen')).toHaveAttribute('href','com.amazon.mobile.shopping.web://www.amazon.co.jp/s?k='+query);
  await expect(page.locator('#newsRakutenPortal')).toHaveAttribute('href','googlechromes://affiliate.rakuten.co.jp/');
  await page.evaluate(()=>{window.clipboardValue='https://a.r10.to/hPfTZE';Object.defineProperty(navigator,'clipboard',{configurable:true,value:{readText:async()=>window.clipboardValue,writeText:async value=>{window.copiedValue=value;}}});});
  await page.locator('#newsRakutenCopy').click();expect(await page.evaluate(()=>window.copiedValue)).toBe('https://search.rakuten.co.jp/search/mall/'+query+'/');
@@ -196,4 +196,16 @@ test('外部検索から復帰した位置に貼付欄を表示し、差し替�
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  await page.evaluate(()=>{window.resolveCopy=null;navigator.clipboard.readText=()=>new Promise(resolve=>window.resolveCopy=resolve);});await page.locator('#newsReturnPaste').click();await page.locator('#newsReturnClose').click();await page.evaluate(()=>window.resolveCopy('https://a.r10.to/stale'));await expect(page.locator('#newsAffiliateRakuten')).toHaveValue('https://a.r10.to/manual');
  await page.locator('#newsRakutenOpen').dispatchEvent('click');await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await page.locator('#newsBackBottom').click();await expect(page.locator('#newsReturnBar')).toBeHidden();await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.locator('#newsReturnBar')).toBeHidden();
+});
+
+test('Amazonアプリで商品・検索を開く導線とブラウザの代替を用意し紹介URLを保持する',async({page})=>{
+ await setup(page);await page.locator('#amazonFlowQuery').fill('クロミ ポーチ');
+ await expect(page.locator('#amazonSearchExternal')).toHaveAttribute('href',/^com\.amazon\.mobile\.shopping\.web:\/\/www\.amazon\.co\.jp\/s\?k=/);
+ await expect(page.locator('#amazonSearchWeb')).toHaveAttribute('href',/^https:\/\/www\.amazon\.co\.jp\/s\?k=/);
+ await page.locator('#amazonFlowSearch').click();
+ const card=page.locator('#amazonFlowResults article').first();await expect(card.getByRole('link',{name:'Amazonアプリで開く',exact:true})).toHaveAttribute('href',url.replace('https://','com.amazon.mobile.shopping.web://'));
+ await card.getByRole('button',{name:'投稿準備',exact:true}).click();await expect(page.locator('#amazonFlowSource')).toHaveAttribute('href',url.replace('https://','com.amazon.mobile.shopping.web://'));await expect(page.locator('#amazonFlowSourceWeb')).toHaveAttribute('href',url);await expect(page.locator('#amazonFlowLink')).toHaveValue(url);
+ expect(await page.evaluate(()=>{const a=document.createElement('a');return amazonAppAnchor(a,'https://www.amazon.co.jp.evil.invalid/dp/B000000001');})).toBe(false);
+ expect(await page.evaluate(()=>{const a=document.createElement('a');return amazonAppAnchor(a,'https://user@www.amazon.co.jp/dp/B000000001');})).toBe(false);
+ await expect(page.locator('#amazonFlowFinal')).toHaveValue(new RegExp('https://www.amazon.co.jp/dp/B000000001'));
 });

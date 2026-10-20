@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.20-3543";
+const APP_VERSION="2026.10.21-3544";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -4165,3 +4165,17 @@ async function dismissDetailCandidate(exclude){
 }
 $("detailCandidateSkip").addEventListener("click",()=>dismissDetailCandidate(false));
 $("detailCandidateExclude").addEventListener("click",()=>dismissDetailCandidate(true));
+
+// App navigation is separate from the unchanged affiliate URLs saved in drafts.
+function amazonAppAnchor(anchor,value,label='Amazonアプリで開く'){
+ try{
+  const raw=String(value||''),u=new URL(raw);
+  if(u.protocol!=='https:'||u.username||u.password||u.port||!['amazon.co.jp','www.amazon.co.jp','amazon.com','www.amazon.com','amzn.to','amzn.asia','a.co','link.amazon'].includes(u.hostname))return false;
+  const ios=/iPad|iPhone|iPod/.test(navigator.userAgent||'');
+  const direct=['amazon.co.jp','www.amazon.co.jp','amazon.com','www.amazon.com'].includes(u.hostname);
+  anchor.href=ios&&direct?raw.replace(/^https:\/\//,'com.amazon.mobile.shopping.web://'):raw;
+  anchor.textContent=ios||/Android/.test(navigator.userAgent||'')?label:'Amazonで開く';
+  if(ios||/Android/.test(navigator.userAgent||''))anchor.removeAttribute('target');else anchor.target='_blank';
+  anchor.rel='noopener noreferrer';return true;
+ }catch{return false;}
+}
