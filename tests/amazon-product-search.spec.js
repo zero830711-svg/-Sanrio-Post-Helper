@@ -179,10 +179,10 @@ test('ニュース検索語を商品名中心に整え、編集した検索語�
  await expect(page.locator('#newsAdvancedSearch')).not.toHaveAttribute('open','');await expect(page.locator('#newsRakutenSearch')).toBeHidden();
  await page.locator('#newsExternalQuery').fill('サム ROOM');
  await page.evaluate(()=>{document.querySelector('#newsRakutenOpen').addEventListener('click',e=>e.preventDefault(),{once:true});window.scrollTo(0,200);});
- const y=await page.evaluate(()=>window.scrollY);await page.locator('#newsRakutenOpen').dispatchEvent('click');
+ await page.locator('#newsRakutenOpen').dispatchEvent('click');const y=await page.evaluate(()=>newsExternalPending.y);
  await page.reload();await expect(page.locator('#newsEditor')).toBeVisible();await expect(page.locator('#newsReturnBar')).toBeVisible();
  await expect(page.locator('#newsExternalQuery')).toHaveValue('サム ROOM');await expect(page.locator('#newsText')).toHaveValue('写真と一緒に残す手直し本文');
- expect(await page.evaluate(()=>newsState.selected.length)).toBe(1);expect(Math.abs(await page.evaluate(()=>window.scrollY)-y)).toBeLessThan(4);
+ expect(await page.evaluate(()=>newsState.selected.length)).toBe(1);await expect.poll(async()=>Math.abs(await page.evaluate(()=>window.scrollY)-y)).toBeLessThan(4);
  await page.locator('#newsReturnClose').click();await expect(page.locator('#newsReturnBar')).toBeHidden();await page.reload();await expect(page.locator('#newsReturnBar')).toBeHidden();
 });
 test('外部検索から復帰した位置に貼付欄を表示し、差し替え確認・手動貼付・別ニュースへの混入防止を行う',async({page})=>{

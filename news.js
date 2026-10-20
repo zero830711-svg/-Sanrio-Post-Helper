@@ -810,7 +810,8 @@ function newsExternalShow(){
  const pending=newsExternalPending;if(!pending||newsCollageEntry()?.item.url!==pending.owner||$('newsPanel').hidden)return;
  $('newsReturnManual').hidden=true;$('newsReturnInput').value='';$('newsReturnBar').hidden=false;$('newsEditor').classList.add('news-return-active');
  $('newsReturnStatus').textContent=(pending.kind==='rakuten'?'楽天':'Amazon')+'で確認したリンクを貼り付けられます。';
- window.scrollTo({top:Math.max(0,Number(pending.y)||0),behavior:'instant'});
+ const restore=()=>{if(newsExternalPending===pending&&!$('newsReturnBar').hidden&&!$('newsPanel').hidden)window.scrollTo({top:Math.max(0,Number(pending.y)||0),behavior:'instant'});};
+ restore();requestAnimationFrame(()=>requestAnimationFrame(restore));
 }
 async function newsExternalResume(reload=false){
  if(!newsExternalPending||newsExternalRestoring||(!reload&&!newsExternalAway))return;
