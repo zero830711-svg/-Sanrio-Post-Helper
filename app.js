@@ -49,7 +49,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.20-3542";
+const APP_VERSION="2026.10.20-3543";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -2889,6 +2889,7 @@ function copyRewritePrompt(item,role,button){
 
 let detailCurrentItem=null;
 let chatgptShareHandoffActive=false;
+let chatgptShareModalScroll=0;
 let detailCandidateQueue=[];
 let detailRepostBusy=false;
 let detailScrollY=0;
@@ -3109,7 +3110,11 @@ function shareDetailToChatGPT(button,kind="x"){
   try{
     chatgptShareHandoffActive=true;
     // Unlock the page before iOS suspends the web app for the native share sheet.
-    closeTodayDetail();
+    chatgptShareModalScroll=$("todayDetailModal").scrollTop;
+    document.body.style.position="";document.body.style.top="";
+    document.body.style.left="";document.body.style.right="";
+    document.body.style.width="";document.body.style.overflow="";
+    window.scrollTo(0,detailScrollY);
     button.disabled=false;
     const sharing=navigator.share(data);
     Promise.resolve(sharing).then(()=>{
@@ -3117,9 +3122,9 @@ function shareDetailToChatGPT(button,kind="x"){
     }).catch(error=>{
       if(detailCurrentItem!==item||!status)return;
       status.textContent=error?.name==="AbortError"?"共有をキャンセルしました。もう一度押せます。":"共有できませんでした。「写真をまとめて保存」を使ってください。プロンプトがコピーできていれば貼り付けられます。";
-    }).finally(()=>{clearTimeout(resetTimer);reset()});
+    }).finally(()=>{clearTimeout(resetTimer);reset();recoverDetailAfterShare()});
   }catch(error){
-    clearTimeout(resetTimer);reset();
+    clearTimeout(resetTimer);reset();recoverDetailAfterShare();
     if(status)status.textContent="共有できませんでした。「写真をまとめて保存」を使ってください。プロンプトがコピーできていれば貼り付けられます。";
   }
 }
@@ -3417,6 +3422,7 @@ async function repostDetailAndAdvance(){
   }
 }
 function closeTodayDetail(){
+  chatgptShareHandoffActive=false;
   ++candidateEditOpenSeq;
   $("todayDetailModal").classList.add("hidden");
   $("detailMedia").innerHTML="";
@@ -3707,13 +3713,12 @@ function recoverDetailAfterShare(){
     const button=$(id);if(button){button.disabled=false;button.textContent=label}
   }
   const modal=$("todayDetailModal");
-  if(modal&&!modal.classList.contains("hidden"))closeTodayDetail();
-  document.body.style.position="";
-  document.body.style.top="";
-  document.body.style.left="";
-  document.body.style.right="";
-  document.body.style.width="";
-  document.body.style.overflow="";
+  if(!modal||modal.classList.contains("hidden")||!detailCurrentItem)return;
+  document.body.style.position="fixed";
+  document.body.style.top="-"+detailScrollY+"px";
+  document.body.style.left="0";document.body.style.right="0";
+  document.body.style.width="100%";document.body.style.overflow="hidden";
+  modal.scrollTop=chatgptShareModalScroll;
 }
 window.addEventListener("pageshow",recoverDetailAfterShare);
 document.addEventListener("visibilitychange",recoverDetailAfterShare);
