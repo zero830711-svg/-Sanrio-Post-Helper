@@ -55,7 +55,11 @@ def select(pool,category,pattern=None):
 def feature_page(title,intro,items):
  esc=lambda x:html.escape(x,quote=True)
  raw=FEATURE_MARK+'<section class="sf-use-feature"><p>非公式ファンサイト・アフィリエイト広告を含みます。</p><p>'+esc(intro)+'</p><p>当サイトの写真付きカタログから'+str(len(items))+'件を掲載。人気順・新発売順ではありません。価格・在庫・配送条件は購入先でご確認ください。</p><h2>'+esc(title)+'を写真から探す</h2><div class="sf-seo-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">'+''.join(c.photo_card(x) for x in items)+'</div><p><a href="/characters/">キャラクターから探す</a> ／ <a href="/goods/?type=product">すべての商品を探す</a></p></section>'+FEATURE_END
- return direct_links(load('feature_seo','catalog-seo.py').CSS+raw)
+ # Keep detailed guidance after the photos, matching the character catalogs.
+ intro_block='<p>'+esc(intro)+'</p>'
+ raw=raw.replace(intro_block,'',1)
+ raw=raw.replace('<p><a href="/characters/">','<h2>選ぶ前に確認したいこと</h2>'+intro_block+'<p><a href="/characters/">',1)
+ return direct_links(c.compact_page(load('feature_seo','catalog-seo.py').CSS+raw,title))
 
 def save(wp,page,updated):
  raw=page['content']['raw']
