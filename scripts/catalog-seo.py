@@ -16,11 +16,11 @@ GENRES={
 CSS='<style>.sf-seo-links{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.sf-seo-links a{padding:8px 12px;border:1px solid #e4d9e9;border-radius:20px;text-decoration:none}.sf-seo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.sf-seo-entry p{line-height:1.8}.sf-seo-grid article{min-width:0}.sf-seo-note{font-size:13px;color:#6c6170}</style>'
 def esc(x):return html.escape(str(x),quote=True)
 def replace_block(raw,block):
- if MARK in raw:return re.sub(re.escape(MARK)+'.*?'+re.escape(END),lambda _:block,raw,count=1,flags=re.S)
- # Insert within the existing guide after the hero, preserving character lists and all photo cards.
- hero=re.search(r'<(?:div|header)\b[^>]*class=["\'][^"\']*sf-hero[^"\']*["\'][^>]*>.*?</(?:div|header)>',raw,re.S)
- at=hero.end() if hero else 0
- return raw[:at]+block+raw[at:]
+ # Never locate an insertion point by a non-balanced HTML regex: the match can
+ # end inside a product card. Remove the old managed block and place it before
+ # the entire document fragment, outside every card/grid/container.
+ clean=re.sub(re.escape(MARK)+'.*?'+re.escape(END),'',raw,flags=re.S)
+ return block+clean
 def describe(name):return f'{name}のグッズを写真付きで探せる非公式ファンガイド。ぬいぐるみ、バッグ・ポーチ、文具、ファッションなどを用途から探し、Amazon・楽天市場で種類やサイズ、最新の価格・在庫を確認できます。'
 def seo_payload(description):return {'excerpt':description,'aioseo_meta_data':{'description':description,'og_description':description,'twitter_description':description}}
 def landing(name,key,g,products,related):
