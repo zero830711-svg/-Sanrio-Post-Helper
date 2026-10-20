@@ -437,7 +437,7 @@ def photo_card(item):
         'style="display:flex;align-items:center;justify-content:center;min-height:44px;padding:4px 2px;border-radius:8px;background:#bf0000;color:#fff;font-size:11px;font-weight:700;text-align:center;text-decoration:none">楽天で見る</a>'
         '<a href="' + amazon + '" target="_blank" rel="sponsored nofollow noopener" '
         'style="display:flex;align-items:center;justify-content:center;min-height:44px;padding:4px 2px;border-radius:8px;background:#ffbd35;color:#202124;font-size:11px;font-weight:700;text-align:center;text-decoration:none">Amazonで探す</a>'
-        '</div></div></article>'
+        '</div></div></article>\n'
     )
 
 
