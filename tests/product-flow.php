@@ -20,8 +20,8 @@ $catalogAffiliate='https://hb.afl.rakuten.co.jp/hgc/'.$aid.'/?pc='.rawurlencode(
 $catalogCandidate=pf_catalog_candidate(['itemCode'=>'testshop:cinna','itemName'=>'シナモロール ぬいぐるみ','itemUrl'=>'https://item.rakuten.co.jp/testshop/cinna/','affiliateUrl'=>$catalogAffiliate,'mediumImageUrls'=>[['imageUrl'=>$thumbnail]],'shopName'=>'テスト店']);
 pf_check(is_array($catalogCandidate)&&$catalogCandidate['image']==='https://image.rakuten.co.jp/shop/cabinet/kitty.jpg'&&$catalogCandidate['affiliate']===$catalogAffiliate,'Cinnamoroll catalog image/link normalization failed');
 pf_check(pf_catalog_candidate(['itemCode'=>'testshop:kitty','itemName'=>'ハローキティ ぬいぐるみ','itemUrl'=>'https://item.rakuten.co.jp/testshop/kitty/','affiliateUrl'=>$catalogAffiliate,'mediumImageUrls'=>[['imageUrl'=>$thumbnail]]])===null,'Non-Cinnamoroll item entered the Cinnamoroll catalog');
-pf_check(!pf_image_large_enough([128,128])&&!pf_image_large_enough([599,1500])&&!pf_image_large_enough([800,899]),'Low resolution photo was accepted');
-pf_check(pf_image_large_enough([600,900])&&pf_image_large_enough([1200,800]),'Usable photo was rejected');
+pf_check(pf_image_dimensions_valid([599,863])&&pf_image_dimensions_valid([128,128])&&pf_image_dimensions_valid([1,1]),'A valid photo was blocked by its pixel dimensions');
+pf_check(pf_image_dimensions_valid([600,900])&&pf_image_dimensions_valid([1200,800])&&!pf_image_dimensions_valid([0,900])&&!pf_image_dimensions_valid([]),'Image dimensions were not validated');
 $tshop='https://tshop.r10s.jp/shop/cabinet/kitty.jpg?fitin=128%3A128';
 pf_check(pf_image_fetch_candidates(pf_image_url($tshop))===['https://tshop.r10s.jp/shop/cabinet/kitty.jpg'],'tshop thumbnail did not prefer the original image');
 $highResBook=pf_rakuten_book_cover_from_html('<img src="https://shop.r10s.jp/book/cabinet/9555/9784065439555_1_2.jpg?composite-to=%2A%2C%2A%7C560%3A400&amp;fitin=560%3A400">','9784065439555');
