@@ -1,0 +1,30 @@
+name: Improve catalog search entry pages
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/catalog-seo.yml, scripts/catalog-seo.py]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-other-character-rakuten-catalog
+  cancel-in-progress: false
+jobs:
+  seo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Inspect editable SEO fields via standard REST
+        run: |
+          python3 - <<'PY'
+          import importlib.util,json
+          s=importlib.util.spec_from_file_location('c','scripts/import-rakuten-character-catalog.py');c=importlib.util.module_from_spec(s);s.loader.exec_module(c);w=c.WordPress()
+          p=w.call('/wp/v2/pages/804?context=edit')
+          print('PAGE FIELDS',sorted(p));print('META',list(p.get('meta',{})));print('AIOSEO',json.dumps(p.get('aioseo_meta_data',{}),ensure_ascii=False)[:3500])
+          settings=w.call('/wp/v2/settings')
+          print('SETTINGS KEYS',sorted(settings))
+          PY
