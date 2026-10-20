@@ -32,6 +32,9 @@ class DisplayTitleTests(unittest.TestCase):
  def test_shipping_conditions_and_promo_decoration_leave_no_fragments(self):
   self.assertEqual(c.display_title('【3,980円以上で送料無料】 タキシードサム ぬいぐるみ'),'タキシードサム ぬいぐるみ')
   self.assertEqual(c.display_title('＼ネコポス送料無料／ クロミ ポーチ'),'クロミ ポーチ')
+ def test_text_promotions_do_not_survive_as_bracket_fragments(self):
+  self.assertEqual(c.display_title('【お買い物マラソン期間ポイントUP】【車ステッカー】クロミ ドラレコステッカー ゆうパケット対応210円〜'),'【車ステッカー】クロミ ドラレコステッカー')
+  self.assertEqual(c.display_title('【月間MVP受賞】クロミ 印鑑【送料無料 メール便】'),'クロミ 印鑑')
  def test_source_identity_uses_legacy_normalization(self):
   item={'code':'shop:a','title':'クロミ ポーチ ポイント5倍','image':'https://image.rakuten.co.jp/shop/cabinet/a.jpg'}
   self.assertIn('name:'+c.canonical_text(c.identity_title(item['title'])),c.identity_keys(item))
