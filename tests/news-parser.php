@@ -249,3 +249,21 @@ $factItem=$groqItem;$factItem['facts']=['発売日'=>'11月20日'];check(str_con
 try{news_groq_validate(json_encode(['body'=>'全999種です。']),$bubble);check(false);}catch(RuntimeException $e){check(str_contains($e->getMessage(),'本文を変更していません'));}
 check(str_contains(news_groq_prompt($bubble),'ラインナップを数えて'));
 echo "Product unsupported-number sentences omitted without retries; confirmed facts, whole tokens, release precision and original links preserved\n";
+
+// Rakuten product search passes its item directly, without mode=product.
+$book=['title'=>'ぷるぷるゆれる ポムポムプリンが作れる！シリコン型BOOK','url'=>'https://books.rakuten.co.jp/rb/18089315/','rakuten'=>true,'rakutenService'=>'books','paragraphs'=>['ポムポムプリンの形を作れるシリコン型付きの本。お菓子作りを楽しめます。']];
+$intro='🎀 ポムポムプリンの形のお菓子作りを楽しめるシリコン型付きBOOKです。';
+foreach(["素材：シリコン。","参加費：未確認。","参加料は別途です。"] as $spec){
+ $clean=news_groq_validate(json_encode(['body'=>$intro."\n".$spec],JSON_UNESCAPED_UNICODE),$book);
+ check(str_contains($clean,'お菓子作りを楽しめる'));check(!str_contains($clean,$spec));
+}
+$inline=news_groq_validate(json_encode(['body'=>'🎀 素材：シリコン。'.$intro],JSON_UNESCAPED_UNICODE),$book);
+check(str_contains($inline,'シリコン型付きBOOK'));check(!str_contains($inline,'素材：'));
+foreach(['素材：シリコン。','🎀 参加費：未確認。'] as $only){
+ try{news_groq_validate(json_encode(['body'=>$only],JSON_UNESCAPED_UNICODE),$book);check(false);}catch(RuntimeException $e){check(str_contains($e->getMessage(),'本文を変更していません'));}
+}
+$productClean=news_groq_validate(json_encode(['body'=>"🎀 ウサハナのコスメポーチを紹介します。\n素材：ポリエステル。\n価格未確認。\n在庫あります。\n商品コード：未確認。\nJAN未確認。"],JSON_UNESCAPED_UNICODE),$groqProduct);
+check(str_contains($productClean,'コスメポーチを紹介'));check(!preg_match('/素材|価格|在庫|商品コード|JAN/u',$productClean));check(str_contains($productClean,$groqProduct['links'][0]['url']));check(str_ends_with($productClean,'#pr'));
+// News outside the product flow keeps its existing rejection rules.
+try{news_groq_validate(json_encode(['body'=>$intro.'素材：シリコン。'],JSON_UNESCAPED_UNICODE),$groqItem);check(false);}catch(RuntimeException $e){check(str_contains($e->getMessage(),'不要な仕様'));}
+echo "Product-only specification sentences omitted; Rakuten books, inline prose, empty-result protection, original links and news guards passed\n";

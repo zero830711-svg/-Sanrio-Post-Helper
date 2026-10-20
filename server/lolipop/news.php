@@ -471,12 +471,15 @@ function news_number_source(array $item):string{
  return $text;
 }
 function news_product_supported_sentences(string $body,array $item):array{
- if(($item['mode']??'')!=='product')return [$body,false];
+ if(($item['mode']??'')!=='product'&&empty($item['rakuten']))return [$body,false];
  $allowed=news_number_values(news_number_source($item));$kept=[];$omitted=false;
  foreach(preg_split('/(?<=[。！？\n])/u',$body) as $sentence){
   // Removing the entire sentence keeps unsupported quantities from becoming claims.
   $sentence=preg_replace('/^[ \t]*[0-9０-９]+[.．、][ \t]+/u','',$sentence);
-  if(array_diff(news_number_values($sentence),$allowed)){$omitted=true;continue;}$kept[]=$sentence;
+  // A disallowed specification should not discard the usable introduction.
+  $blocked=isset($item['mode'])&&preg_match('/素材|商品コード|JAN|価格|在庫/u',$sentence);
+  $blocked=$blocked||(preg_match('/素材|参加費|参加料/u',$sentence)&&!preg_match('/イベント|ワークショップ|教室/u',$item['title']));
+  if($blocked||array_diff(news_number_values($sentence),$allowed)){$omitted=true;continue;}$kept[]=$sentence;
  }
  $result=trim(implode('',$kept));
  if($omitted&&(mb_strlen($result)<10||!preg_match('/[ぁ-ゖァ-ヺ一-龯A-Za-z]/u',$result)))throw new RuntimeException('確認できる情報が少ないため、本文を変更していません。通常の下書きかChatGPT共有を使ってください。');
