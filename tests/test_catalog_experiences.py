@@ -15,10 +15,14 @@ class Experiences(unittest.TestCase):
   self.assertEqual(result.count('id="'+m.position('shop:a')+'"'),1)
   self.assertIn('href="#'+m.position('shop:a')+'"',result)
  def test_feature_selection_deduplicates_and_balances_characters(self):
-  pool={'a':[item(),item('shop:b')],'b':[item(),item('shop:c')]}
+  a=item();b=item('shop:b','クロミ ぬいぐるみポーチ');b['image']='https://image.rakuten.co.jp/b.jpg'
+  c=item('shop:c','マイメロディ ぬいぐるみポーチ');c['image']='https://image.rakuten.co.jp/c.jpg'
+  pool={'a':[a,b],'b':[a,c]}
   selected=m.select(pool,'バッグ・ポーチ',r'ぬい')
   self.assertEqual([x['code'] for x in selected],['shop:a','shop:c','shop:b'])
   self.assertEqual(m.select(pool,'タオル'),[])
+  accessory=item('shop:d','ぬいぐるみ キーホルダー バッグチャーム')
+  self.assertEqual(m.select({'a':[accessory]},'バッグ・ポーチ',r'ぬい'),[])
  def test_feature_has_static_images_and_mobile_buttons(self):
   raw=m.feature_page('ぬい活バッグ・ポーチ','内寸を確認してください。',[item()])
   self.assertIn('white-space:nowrap!important',raw)
