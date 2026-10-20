@@ -146,3 +146,22 @@ test('Amazon検索語の修正・検索紹介リンク・エラーと遅い応�
  await page.locator('#newsBackBottom').click();release();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();if(!await page.locator('#newsAffiliateAmazon').isVisible())await page.getByText('楽天・Amazonリンクを追加',{exact:true}).click();await expect(page.locator('#newsInlinePanel')).toBeHidden();await expect(page.locator('#newsAffiliateAmazon')).toHaveValue('');
  await page.locator('#newsAmazonSearch').click();await expect(page.locator('#newsInlineSearchLink')).toBeEnabled();await page.locator('#newsInlineSearchLink').click();await expect(page.locator('#newsAffiliateAmazon')).toHaveValue(/tag=test-22/);await expect(page.locator('#newsText')).toHaveValue('写真と一緒に残す手直し本文');
 });
+
+test('ニュースの外部検索はChromeへ開き、短縮リンクを原文反映して本文と写真を保持する',async({page})=>{
+ await openInlineNews(page);const selected=await page.evaluate(()=>newsState.selected.slice());
+ await page.locator('#newsExternalQuery').fill('サム ROOM & 限定');
+ const query=encodeURIComponent('サム ROOM & 限定');
+ await expect(page.locator('#newsRakutenOpen')).toHaveAttribute('href','googlechromes://search.rakuten.co.jp/search/mall/'+query+'/');
+ await expect(page.locator('#newsAmazonOpen')).toHaveAttribute('href','googlechromes://www.amazon.co.jp/s?k='+query);
+ await expect(page.locator('#newsRakutenPortal')).toHaveAttribute('href','googlechromes://affiliate.rakuten.co.jp/');
+ await page.evaluate(()=>{window.clipboardValue='https://a.r10.to/hPfTZE';Object.defineProperty(navigator,'clipboard',{configurable:true,value:{readText:async()=>window.clipboardValue,writeText:async value=>{window.copiedValue=value;}}});});
+ await page.locator('#newsRakutenCopy').click();expect(await page.evaluate(()=>window.copiedValue)).toBe('https://search.rakuten.co.jp/search/mall/'+query+'/');
+ await page.locator('#newsRakutenPaste').click();await expect(page.locator('#newsAffiliateRakuten')).toHaveValue('https://a.r10.to/hPfTZE');
+ await page.evaluate(()=>window.clipboardValue='https://amzn.asia/d/short?test=1');await page.locator('#newsAmazonPaste').click();await expect(page.locator('#newsAffiliateAmazon')).toHaveValue('https://amzn.asia/d/short?test=1');
+ await expect(page.locator('#newsReplyText')).toHaveValue(/https:\/\/a.r10.to\/hPfTZE/);await expect(page.locator('#newsReplyText')).toHaveValue(/https:\/\/amzn.asia\/d\/short\?test=1/);
+ await page.evaluate(()=>window.clipboardValue='https://amzn.asia.evil.invalid/short');await page.locator('#newsAmazonPaste').click();await expect(page.locator('#newsAffiliateAmazon')).toHaveValue('https://amzn.asia/d/short?test=1');await expect(page.locator('#newsAffiliateStatus')).toContainText('HTTPSリンクか確認');
+ await page.evaluate(()=>{navigator.clipboard.readText=async()=>{throw new Error('denied');};});await page.locator('#newsRakutenPaste').click();await expect(page.locator('#newsAffiliateStatus')).toContainText('手動で貼り付け');
+ await expect(page.locator('#newsText')).toHaveValue('写真と一緒に残す手直し本文');expect(await page.evaluate(()=>newsState.selected)).toEqual(selected);await expect(page.locator('#productFlowPanel')).toBeHidden();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+ await page.evaluate(()=>Object.defineProperty(navigator,'userAgent',{configurable:true,value:'Mozilla/5.0 desktop'}));await page.locator('#newsExternalQuery').fill('クロミ');await expect(page.locator('#newsAmazonOpen')).toHaveAttribute('href','https://www.amazon.co.jp/s?k='+encodeURIComponent('クロミ'));await expect(page.locator('#newsAmazonOpen')).toHaveAttribute('target','_blank');
+});
