@@ -17,10 +17,10 @@ CSS='<style>.sf-seo-links{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.sf-
 def esc(x):return html.escape(str(x),quote=True)
 def replace_block(raw,block):
  # Never locate an insertion point by a non-balanced HTML regex: the match can
- # end inside a product card. Remove the old managed block and place it before
- # the entire document fragment, outside every card/grid/container.
+ # end inside a product card. Keep the detailed introduction after the entire
+ # existing document fragment, outside every card/grid/container.
  clean=re.sub(re.escape(MARK)+'.*?'+re.escape(END),'',raw,flags=re.S)
- return block+clean
+ return clean+block
 def describe(name):return f'{name}のグッズを写真付きで探せる非公式ファンガイド。ぬいぐるみ、バッグ・ポーチ、文具、ファッションなどを用途から探し、Amazon・楽天市場で種類やサイズ、最新の価格・在庫を確認できます。'
 def seo_payload(description):return {'excerpt':description,'aioseo_meta_data':{'description':description,'og_description':description,'twitter_description':description}}
 def landing(name,key,g,products,related):

@@ -13,8 +13,8 @@ class SEOTests(unittest.TestCase):
   block=m.MARK+'<section>ジャンル紹介</section>'+m.END
   raw='<div class="grid"><article><div class="sf-hero">image</div>'+block+'<p>product</p></article></div>'
   fixed=m.replace_block(raw,block)
-  self.assertTrue(fixed.startswith(block))
-  self.assertEqual(fixed,block+'<div class="grid"><article><div class="sf-hero">image</div><p>product</p></article></div>')
+  self.assertTrue(fixed.endswith(block))
+  self.assertEqual(fixed,'<div class="grid"><article><div class="sf-hero">image</div><p>product</p></article></div>'+block)
   self.assertEqual(m.replace_block(fixed,block),fixed)
  def test_landing_is_crawlable_and_affiliate_links_preserved(self):
   item=dict(code='shop:a',title='シナモロール ポーチ',category='バッグ・ポーチ',image='https://image.rakuten.co.jp/a.jpg',affiliate='https://hb.afl.rakuten.co.jp/hgc/12345678.12345678/?pc=test',shop='店')
