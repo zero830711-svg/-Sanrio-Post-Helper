@@ -59,7 +59,7 @@ def publish_sitemap(wp,data):
  if gzip.decompress(download)!=data:raise RuntimeError('Public sitemap content mismatch')
  return url
 
-def run(wp=None):
+def run(wp=None,publish=False):
  wp=wp or c.WordPress();rows=[]
  for page in range(1,20):
   batch=wp.call('/wp/v2/pages?context=edit&status=publish&per_page=100&page='+str(page)+'&_fields=id,slug,link,content')
@@ -83,7 +83,8 @@ def run(wp=None):
  data,count=sitemap(maps)
  Path('catalog-image-sitemap.xml').write_bytes(data)
  url=None;upload_error=None
- try:url=publish_sitemap(wp,data)
+ try:
+  if publish:url=publish_sitemap(wp,data)
  except error.HTTPError as exc:
   try:
    body=json.loads(exc.read());upload_error={'httpStatus':exc.code,'code':body.get('code'),'message':body.get('message')}

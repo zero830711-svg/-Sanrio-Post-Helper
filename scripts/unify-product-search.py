@@ -1,5 +1,6 @@
 """Build /goods/ from live character catalogs and existing guide cards, via WP REST."""
 import collections
+import hashlib
 import base64
 import gzip
 import html
@@ -88,7 +89,7 @@ def build_index(pages, guides):
             if identity not in products:
                 products[identity] = {'id': identity, 'type': 'product', 'title': item['title'],
                                       'image': item['image'], 'rakuten': item['affiliate'],
-                                      'url': '', 'amazonQuery': queries.amazon_query(item['title']),
+                                      'url': c.SITE+'/'+slug+'/#sf-product-'+hashlib.sha256(item['code'].encode()).hexdigest()[:16], 'amazonQuery': queries.amazon_query(item['title']),
                                       'characters': [], 'kind': kind, 'shop': item['shop'],
                                       }
             if directory_key not in products[identity]['characters']:

@@ -1,0 +1,53 @@
+name: Refresh catalog features, positions and image sitemap
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/catalog-experiences.py
+      - scripts/catalog-positions.js
+      - scripts/deploy-catalog-image-sitemap.py
+      - .github/workflows/catalog-experiences.yml
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Import other character Rakuten photo catalogs
+      - Import Cinnamoroll Rakuten photo catalog
+      - Add bounded Rakuten Fashion catalog batch
+      - Improve catalog search entry pages
+    branches: [main]
+    types: [completed]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-other-character-rakuten-catalog
+  cancel-in-progress: false
+jobs:
+  refresh:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Verify direct links and feature selection
+        run: python3 -m unittest discover -s tests -p test_catalog_experiences.py -v
+      - name: Publish catalog positions and three use-case features through REST
+        run: python3 -u scripts/catalog-experiences.py
+      - name: Build current image sitemap through REST
+        run: python3 -u scripts/catalog-image-seo.py
+      - name: Update only the existing image sitemap through FTPS
+        run: python3 -u scripts/deploy-catalog-image-sitemap.py
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: catalog-image-sitemap
+          path: |
+            catalog-image-sitemap.xml
+            catalog-image-report.json
