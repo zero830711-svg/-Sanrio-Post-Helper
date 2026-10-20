@@ -301,6 +301,12 @@ function pf_match(array $data,array $identity,string $sourceTitle,array $setting
  $link=count($shops)>=2?$search:($exact[0]['affiliate']??'');
  return ['candidates'=>$rows,'shopCount'=>count($shops),'searchUrl'=>$destination,'searchAffiliate'=>$search,'itemAffiliate'=>$exact[0]['affiliate']??'','link'=>$link,'linkMode'=>count($shops)>=2?'search':($link?'item':'none'),'matchStatus'=>$link?'JAN・型番で照合済み':'商品一致の確認待ち','checkedAt'=>gmdate('c')];
 }
+function pf_affiliate_search_result(array $data,string $keyword,array $settings,int $page):array{
+ $match=pf_match($data,['jan'=>'','model'=>'','keyword'=>$keyword],$keyword,$settings);
+ $items=array_values(array_filter($match['candidates'],static fn($row)=>!empty($row['affiliate'])));
+ $count=max(0,(int)($data['count']??0));
+ return ['ok'=>true,'items'=>$items,'searchAffiliate'=>pf_affiliate(pf_search_url($keyword),$settings['affiliateId']??''),'page'=>$page,'hasMore'=>$page<100&&$page*30<$count];
+}
 function pf_eligible(array $item,int $now):bool{
  $date=strtotime((string)($item['date']??''));if(!$date||$date<$now-30*86400||$date>$now+86400)return false;
  if(!empty($item['prize'])||!empty($item['tipsOnly']))return false;
@@ -554,6 +560,12 @@ try{
  if(($_SERVER['REQUEST_METHOD']??'')!=='POST'||!in_array($origin,$config['allowed_origins']??[],true))pf_out(['ok'=>false,'error'=>'許可されたアプリから実行してください。'],403);
  $raw=(string)file_get_contents('php://input',false,null,0,32769);$input=json_decode($raw,true);
  if(strlen($raw)>32768||!is_array($input))pf_out(['ok'=>false,'error'=>'入力内容を確認してください。'],400);
+ if($action==='affiliate-search'){
+  $keyword=$input['keywords']??'';$page=$input['page']??1;
+  if(!is_string($keyword)||mb_strlen(trim($keyword))<2||mb_strlen(trim($keyword))>80||!is_int($page)||$page<1||$page>100)pf_out(['ok'=>false,'error'=>'検索語は2〜80文字、ページは1〜100で指定してください。'],400);
+  $keyword=trim($keyword);$settings=lw_settings();$data=pf_search($keyword,$settings,$page);
+  pf_out(pf_affiliate_search_result($data,$keyword,$settings,$page));
+ }
  $lock=fopen(pf_dir().'/prepare.lock','c+');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))pf_out(['ok'=>false,'error'=>'新商品の準備中です。少し待ってください。'],409);
  chmod(pf_dir().'/prepare.lock',0600);$state=pf_read('state');@set_time_limit(220);$result=[];
  try{
