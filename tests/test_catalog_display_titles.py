@@ -29,6 +29,9 @@ class DisplayTitleTests(unittest.TestCase):
   self.assertIn('クロミ ポーチ 10cm</strong>',updated)
   self.assertIn('sf-product-1234567890123456',updated)
   self.assertEqual(c.identity_keys(item),{*c.identity_keys(dict(item))})
+ def test_shipping_conditions_and_promo_decoration_leave_no_fragments(self):
+  self.assertEqual(c.display_title('【3,980円以上で送料無料】 タキシードサム ぬいぐるみ'),'タキシードサム ぬいぐるみ')
+  self.assertEqual(c.display_title('＼ネコポス送料無料／ クロミ ポーチ'),'クロミ ポーチ')
  def test_source_identity_uses_legacy_normalization(self):
   item={'code':'shop:a','title':'クロミ ポーチ ポイント5倍','image':'https://image.rakuten.co.jp/shop/cabinet/a.jpg'}
   self.assertIn('name:'+c.canonical_text(c.identity_title(item['title'])),c.identity_keys(item))
