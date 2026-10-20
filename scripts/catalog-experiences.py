@@ -37,9 +37,15 @@ def select(pool,category,pattern=None):
  buckets=collections.defaultdict(list);seen=set()
  for key,items in pool.items():
   for item in items:
-   if item['category']!=category or item['code'] in seen:continue
+   if item['category']!=category:continue
    if pattern and not re.search(pattern,item['title']):continue
-   seen.add(item['code']);buckets[key].append(item)
+   if pattern and category=='バッグ・ポーチ':
+    title=item['title']
+    if not re.search(r'ポーチ|バッグ|リュック|バックパック|デイパック',title):continue
+    if 'ポーチ' not in title and re.search(r'キーホルダー|マスコットホルダー|ブローチ|チャーム|キーリング',title):continue
+   identities=c.identity_keys(item)
+   if seen & identities:continue
+   seen.update(identities);buckets[key].append(item)
  chosen=[]
  while any(buckets.values()) and len(chosen)<24:
   for items in buckets.values():
@@ -62,7 +68,11 @@ def save(wp,page,updated):
 def run():
  wp=c.WordPress()
  # Rebuild the existing compressed search index, preserving first-seen dates.
- load('unified','unify-product-search.py').sync(wp)
+ unified=load('unified','unify-product-search.py')
+ goods=wp.call('/wp/v2/pages/804?context=edit&_fields=content')
+ index=unified.read_index(goods['content']['raw'])
+ if index is None or any(not x.get('url') for x in index['items'] if x['type']=='product'):
+  unified.sync(wp)
  ids=','.join(str(v[0]) for v in c.CHARACTERS.values())
  chars=wp.call('/wp/v2/pages?context=edit&per_page=100&include='+ids+'&_fields=id,slug,content')
  byid={p['id']:p for p in chars};pool={k:c.extract_existing_cards(byid[v[0]]['content']['raw']) for k,v in c.CHARACTERS.items()}
