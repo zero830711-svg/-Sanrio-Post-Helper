@@ -26,6 +26,8 @@ jobs:
       LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: main
       - name: Check exact product matching and append preservation
         run: |
           python3 -m pip install --quiet Pillow
