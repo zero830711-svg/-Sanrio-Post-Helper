@@ -74,6 +74,15 @@ jobs:
           foreach(array_merge($d["sources"]??[],$d["entries"]??[]) as $candidate)if(pf_blocked_shop($candidate))throw new RuntimeException("Excluded seller remained visible in live response");
           echo "Excluded seller absent from live sources and drafts\n";
           echo "Private product flow endpoint verified\n";
+          foreach($d["entries"]??[] as $saved){
+          if(!str_contains($saved["item"]["title"]??"","チームプリン")||empty($saved["item"]["images"][0]))continue;
+          $photo=["url"=>$saved["item"]["images"][0],"productUrl"=>$saved["item"]["url"]??""];
+          if(($saved["item"]["rakutenService"]??"")==="books"&&str_starts_with($saved["item"]["rakutenCode"]??"","books:"))$photo["isbn"]=substr($saved["item"]["rakutenCode"],6);
+          $dimensions="";$c=curl_init($base."?action=image");curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>90,CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($photo),CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"],"Origin: https://zero830711-svg.github.io","Content-Type: application/json"],CURLOPT_HEADERFUNCTION=>static function($c,$header)use(&$dimensions){if(stripos($header,"X-Image-Dimensions:")===0)$dimensions=trim(substr($header,19));return strlen($header);}]);$bytes=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
+          if($status!==200||!$bytes||!@getimagesizefromstring($bytes))throw new RuntimeException("Reported product photo could not be downloaded");
+          echo "Reported product photo downloaded successfully: ".$dimensions."px\n";break;
+          }
+
           $c=curl_init($base."?action=affiliate-search");curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>65,CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode(["keywords"=>"タキシードサム","page"=>1]),CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$config["sync_key"],"Origin: https://zero830711-svg.github.io","Content-Type: application/json"]]);$searchBody=curl_exec($c);$searchStatus=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);$search=json_decode((string)$searchBody,true);
           if($searchStatus!==200||empty($search["ok"])||!is_array($search["items"]??null)||!pf_safe_affiliate($search["searchAffiliate"]??""))throw new RuntimeException("Inline affiliate search verification failed");
           foreach($search["items"] as $offer)if(pf_blocked_shop($offer)||!pf_safe_affiliate($offer["affiliate"]??""))throw new RuntimeException("Invalid inline search offer");
