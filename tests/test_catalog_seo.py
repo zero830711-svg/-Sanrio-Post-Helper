@@ -22,3 +22,16 @@ class SEOTests(unittest.TestCase):
   self.assertIn('シナモロール ポーチ',content);self.assertIn('シナモロールのバッグ・ポーチ',content);self.assertIn('href="https://sanrio-fan.site/cinnamoroll-plush-goods/"',content);self.assertEqual(content.count('data-code='),10)
  def test_descriptions_do_not_use_css_or_scripts(self):
   p=m.seo_payload(m.describe('クロミ'));self.assertEqual(p['excerpt'],p['aioseo_meta_data']['description']);self.assertNotIn('<',p['excerpt']);self.assertIn('クロミ',p['excerpt'])
+
+ def test_concurrent_nonproduct_edit_is_preserved(self):
+  item=dict(code='shop:a',title='シナモロール ポーチ',category='バッグ・ポーチ',image='https://image.rakuten.co.jp/a.jpg',affiliate='https://hb.afl.rakuten.co.jp/hgc/12345678.12345678/?pc=test',shop='店')
+  raw=m.c.photo_card(item);current=raw+'<p>最新の外部説明</p>';block=m.MARK+'<section>紹介</section>'+m.END
+  updated=m.character_update(raw,current,block,m.c.extract_existing_cards(raw))
+  self.assertIn('<p>最新の外部説明</p>',updated)
+  with self.assertRaises(RuntimeError):m.character_update(raw,current.replace('data-code="shop:a"','data-code="shop:b"'),block,m.c.extract_existing_cards(raw))
+ def test_positions_do_not_force_landing_rewrites_or_intro_reordering(self):
+  raw='<article>photo</article>';extra='<!-- sf-product-positions:v1 --><style>position</style><!-- /sf-product-positions:v1 -->'
+  block=m.MARK+'<section>紹介</section>'+m.END
+  self.assertEqual(m.replace_block(raw+block+extra,block),raw+block+extra)
+  self.assertTrue(m.landing_equivalent(raw+extra,raw))
+  self.assertFalse(m.landing_equivalent(raw+extra,raw+'<p>new product</p>'))

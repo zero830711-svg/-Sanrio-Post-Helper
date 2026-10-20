@@ -1,0 +1,39 @@
+name: Finalize imported Lovely Fancy batch
+on:
+  push:
+    branches: [main]
+    paths: [scripts/finalize-lovely-batch.py, .github/workflows/finalize-lovely-batch.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sanrio-other-character-rakuten-catalog
+  cancel-in-progress: false
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v5
+        with:
+          github-token: ${{ github.token }}
+          run-id: 39442290486
+          name: lovely-catalog-import-report
+          path: recovery
+      - name: Verify managed-description merge
+        run: python3 -m unittest discover -s tests -p test_catalog_seo.py -v
+      - name: Finalize existing products, direct links, sitemap and checkpoint
+        run: python3 -u scripts/finalize-lovely-batch.py
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: lovely-finalization-report
+          path: catalog-image-report.json
