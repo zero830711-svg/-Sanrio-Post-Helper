@@ -15,6 +15,7 @@ on:
       - Add bounded Rakuten Fashion catalog batch
       - Improve catalog search entry pages
       - Unify photo catalogs and product guide search
+      - Import verified Lovely Fancy discovery backlog
     branches: [main]
     types: [completed]
 permissions:
