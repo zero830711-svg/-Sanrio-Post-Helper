@@ -2,7 +2,7 @@ name: Improve catalog search entry pages
 on:
   push:
     branches: [main]
-    paths: [.github/workflows/catalog-seo.yml, scripts/catalog-seo.py]
+    paths: [.github/workflows/catalog-seo.yml, scripts/catalog-seo.py, tests/test_catalog_seo.py]
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,13 +18,10 @@ jobs:
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
     steps:
       - uses: actions/checkout@v6
-      - name: Inspect editable SEO fields via standard REST
+      - name: Verify descriptions, static products and existing character content
         run: |
-          python3 - <<'PY'
-          import importlib.util,json
-          s=importlib.util.spec_from_file_location('c','scripts/import-rakuten-character-catalog.py');c=importlib.util.module_from_spec(s);s.loader.exec_module(c);w=c.WordPress()
-          p=w.call('/wp/v2/pages/804?context=edit')
-          print('PAGE FIELDS',sorted(p));print('META',list(p.get('meta',{})));print('AIOSEO',json.dumps(p.get('aioseo_meta_data',{}),ensure_ascii=False)[:3500])
-          settings=w.call('/wp/v2/settings')
-          print('SETTINGS KEYS',sorted(settings))
-          PY
+          python3 -m unittest discover -s tests -p test_catalog_seo.py -v
+          python3 -m unittest discover -s tests -p test_unified_product_search.py -v
+      - name: Publish SEO entry pages and descriptions via standard REST
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[catalog-seo]')
+        run: python3 -u scripts/catalog-seo.py
