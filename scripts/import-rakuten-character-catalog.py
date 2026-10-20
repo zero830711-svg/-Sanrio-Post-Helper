@@ -411,6 +411,7 @@ def marketplace_urls(title):
 
 def photo_card(item):
     title = html.escape(item["title"], quote=True)
+    image_alt = html.escape(display_title(item["title"]), quote=True)
     short_title = html.escape(display_title(item["title"])[:64] + ("…" if len(display_title(item["title"])) > 64 else ""), quote=True)
     labels = "".join('<small class="sf-product-label">' + html.escape(label) + '</small>' for label in item_labels(item["title"]))
     code = html.escape(item["code"], quote=True)
@@ -425,7 +426,7 @@ def photo_card(item):
         + '" data-category="' + category
         + '" style="min-width:0;overflow:hidden;border:1px solid #eadde5;border-radius:14px;background:#fff">'
         '<span style="display:grid;place-items:center;aspect-ratio:1/1;padding:5px;background:#fff">'
-        '<img src="' + image + '" alt="' + title + '" loading="lazy" decoding="async" '
+        '<img src="' + image + '" alt="' + image_alt + '" loading="lazy" decoding="async" '
         'style="display:block;width:100%;height:100%;object-fit:contain"></span>'
         '<div style="display:flex;min-height:124px;flex-direction:column;gap:6px;padding:8px">'
         '<strong style="display:-webkit-box;overflow:hidden;font-size:clamp(11px,2.8vw,14px);line-height:1.45;overflow-wrap:anywhere;-webkit-box-orient:vertical;-webkit-line-clamp:3">'

@@ -2,7 +2,7 @@ name: Improve catalog search entry pages
 on:
   push:
     branches: [main]
-    paths: [.github/workflows/catalog-seo.yml, scripts/catalog-seo.py, tests/test_catalog_seo.py]
+    paths: [.github/workflows/catalog-seo.yml, scripts/catalog-seo.py, scripts/catalog-image-seo.py, tests/test_catalog_seo.py]
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,3 +25,13 @@ jobs:
       - name: Publish SEO entry pages and descriptions via standard REST
         if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[catalog-seo]')
         run: python3 -u scripts/catalog-seo.py
+      - name: Improve catalog image descriptions via standard REST
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[catalog-seo]')
+        run: python3 -u scripts/catalog-image-seo.py
+      - name: Retain image sitemap ready for publication and audit summary
+        uses: actions/upload-artifact@v5
+        with:
+          name: catalog-image-sitemap
+          path: |
+            catalog-image-sitemap.xml
+            catalog-image-report.json
