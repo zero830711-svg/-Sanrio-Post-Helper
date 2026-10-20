@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import os
+import ssl
 from pathlib import Path
 from urllib import request, parse
 
@@ -14,7 +15,7 @@ def main():
  data=Path(NAME).read_bytes()
  with request.urlopen(URL,timeout=60) as r:old=r.read()
  host=os.environ['LOLIPOP_FTP_HOST'];parts=parse.urlsplit(host if '://' in host else 'ftp://'+host)
- with ftplib.FTP_TLS(timeout=30) as ftp:
+ with ftplib.FTP_TLS(timeout=30,context=ssl.create_default_context()) as ftp:
   ftp.connect(parts.hostname,parts.port or 21)
   ftp.login(os.environ['LOLIPOP_FTP_USER'],os.environ['LOLIPOP_FTP_PASSWORD']);ftp.prot_p()
   base=ftp.pwd();queue=[(base,0)];found=None;seen=set()

@@ -20,7 +20,7 @@ permissions:
   contents: read
 concurrency:
   group: sanrio-other-character-rakuten-catalog
-  cancel-in-progress: false
+  cancel-in-progress: ${{ contains(github.event.head_commit.message, '[catalog-restart]') }}
 jobs:
   refresh:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
