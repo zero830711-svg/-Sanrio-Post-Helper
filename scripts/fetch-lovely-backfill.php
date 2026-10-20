@@ -6,8 +6,8 @@ function lf_keyword(string $title):string{
  $title=preg_replace('/[【\[][^】\]]*[】\]]/u',' ',$title);
  $title=preg_replace('/[^\p{L}\p{N}\sー]/u',' ',$title);
  $parts=preg_split('/\s+/u',trim($title),-1,PREG_SPLIT_NO_EMPTY);
- $parts=array_values(array_filter($parts,static fn($x)=>!in_array(mb_strtolower($x),['x','sanrio','sanrioキャラクターズ'],true)));
- return mb_substr(implode(' ',array_slice($parts,0,4)),0,100);
+ $parts=array_values(array_filter($parts,static fn($x)=>!in_array(mb_strtolower($x),['x','sanrio','sanrioキャラクターズ'],true)&&(mb_strlen($x)>=2||preg_match('/^\p{Han}$/u',$x))));
+ return trim(mb_strcut(implode(' ',array_slice($parts,0,4)),0,120,'UTF-8'));
 }
 if(defined('LF_BACKFILL_TEST'))return;
 if(!in_array($argc,[5,6],true)){fwrite(STDERR,"Usage: fetch-lovely-backfill.php SETTINGS STATE CANDIDATES NEXT_STATE [--discover-only|--verify-only]\n");exit(2);}
@@ -64,6 +64,11 @@ try{
    $body=curl_exec($curl);$status=(int)curl_getinfo($curl,CURLINFO_RESPONSE_CODE);curl_close($curl);
    if($status===200&&is_string($body)){$data=json_decode($body,true);break;}
    if(!in_array($status,[0,429,500,502,503,504],true))break;
+  }
+  if(!is_array($data)&&$status===404)$data=['items'=>[]];
+  if(!is_array($data)&&$status===400){
+   $problem=json_decode(is_string($body)?$body:'',true);$description=(string)($problem['error_description']??$problem['message']??'');
+   if(preg_match('/keyword|shop.?code/i',$description)&&!preg_match('/application|affiliate|access.?key/i',$description))$data=['items'=>[]];
   }
   if(!is_array($data))throw new RuntimeException('Rakuten verification stopped (HTTP '.$status.'): '.lw_rakuten_error($status,is_string($body)?$body:''));
   $data=lw_rakuten_search_data($data);$matched=null;
