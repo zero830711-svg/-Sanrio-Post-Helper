@@ -20,9 +20,17 @@ def replace_block(raw,block):
  # end inside a product card. Keep the detailed introduction after the entire
  # existing document fragment, outside every card/grid/container.
  clean=re.sub(re.escape(MARK)+'.*?'+re.escape(END),'',raw,flags=re.S)
- positions=re.search(r'<!-- sf-product-positions:v1 -->.*?<!-- /sf-product-positions:v1 -->def character_update(raw,current,block,products):
- # Preserve concurrent edits outside our managed description. Product edits
- # require a fresh plan; never merge them using an older product snapshot.
+ positions=re.search(r'<!-- sf-product-positions:v1 -->.*?<!-- /sf-product-positions:v1 -->$',clean,flags=re.S)
+ if positions:return clean[:positions.start()]+block+positions.group()
+ return clean+block
+def landing_equivalent(old,new):
+ def clean(raw):
+  raw=re.sub(r'<!-- sf-product-positions:v1 -->.*?<!-- /sf-product-positions:v1 -->','',raw,flags=re.S)
+  raw=re.sub(r' id="sf-product-[a-f0-9]{16}"','',raw)
+  return re.sub(r'<a class="sf-product-position"[^>]*>.*?</a>','',raw,flags=re.S)
+ return clean(old)==clean(new)
+def character_update(raw,current,block,products):
+ # Merge newer annotations only when product data and order still match.
  if current!=raw and c.extract_existing_cards(current)!=products:
   raise RuntimeError('Concurrent product edit; refresh the catalog plan')
  return replace_block(current,block)
@@ -79,101 +87,6 @@ def run(wp=None,index=None):
   if old and MARK not in old['content']['raw']:raise RuntimeError('Unmanaged existing slug: '+slug)
   if old:
    if landing_equivalent(old['content']['raw'],raw) and old.get('aioseo_meta_data',{}).get('description')==description:published.append((old['id'],slug));continue
-   saved=wp.call('/wp/v2/pages/'+str(old['id']),payload)
-  else:saved=wp.call('/wp/v2/pages',payload)
-  if saved['slug']!=slug or saved['status']!='publish':raise RuntimeError('Landing publish mismatch')
-  if saved.get('aioseo_meta_data',{}).get('description')!=description:raise RuntimeError('Landing description not saved')
-  published.append((saved['id'],slug));print('SEO LANDING',slug,'matched',len(pool),'shown',min(24,len(pool)),flush=True)
- for key,(pid,slug,name) in c.CHARACTERS.items():
-  old=byid[pid];raw=old['content']['raw'];products=catalog[key];counts=collections.Counter(x['category'] for x in products)
-  intro=f'<p>{esc(name)}のグッズを用途・ジャンルから探せるページです。ぬいぐるみやバッグ、文具などの写真付き商品をまとめ、Amazon・楽天市場の購入先へご案内します。</p>'
-  chips=''.join('<a href="'+esc(url)+'">'+esc(name+'の'+text)+'</a>' for text,url in links[key])
-  summary='、'.join(esc(k)+' '+str(v)+'件' for k,v in counts.items() if v)
-  block=MARK+CSS+'<section class="sf-seo-entry"><h2>'+esc(name)+'のグッズをジャンルから探す</h2>'+intro+'<p>掲載中の写真付き商品：'+str(len(products))+'件（'+summary+'）。</p><div class="sf-seo-links">'+chips+'</div><p>持ち歩き用・お部屋用・プレゼントなど、使う場面から選んでみてください。購入前に商品サイズ、色や種類、付属品、販売元、送料をご確認ください。</p></section>'+END
-  updated=replace_block(raw,block)
-  description=describe(name);payload=seo_payload(description);payload['content']=updated
-  # A clean manual excerpt also prevents the theme from deriving descriptions from inline CSS.
-  if updated!=raw or old.get('aioseo_meta_data',{}).get('description')!=description:
-   current=wp.call('/wp/v2/pages/'+str(pid)+'?context=edit&_fields=content')
-   payload['content']=character_update(raw,current['content']['raw'],block,products)
-   saved=wp.call('/wp/v2/pages/'+str(pid),payload)
-   if [x['code'] for x in c.extract_existing_cards(saved['content']['raw'])]!=[x['code'] for x in products]:raise RuntimeError('Existing products changed')
-   if saved.get('aioseo_meta_data',{}).get('description')!=description:raise RuntimeError('Character description not saved')
-  print('SEO CHARACTER',slug,'preserved',len(products),flush=True)
- for pid,description in [(805,'サンリオグッズをキャラクターや用途から探せる非公式ファンサイト。写真付きの商品カタログ、バッグ・ぬいぐるみ・ファッションのジャンル別ガイド、韓国カフェの訪問記を掲載しています。'),(804,'サンリオ関連商品をキャラクター・ジャンル・商品名から検索できる写真付きカタログ。バッグ、ぬいぐるみ、文具、ファッションなどを探し、Amazon・楽天市場で最新の価格や在庫をご確認いただけます。')]:
-  wp.call('/wp/v2/pages/'+str(pid),seo_payload(description))
- report={'landings':len(published),'characters':len(catalog),'skippedSparsePairs':skipped,'photosPreserved':sum(len(x) for x in catalog.values()),'pages':published}
- print('SEO SUMMARY',json.dumps(report,ensure_ascii=False),flush=True)
- return report
-if __name__=='__main__':run()
-,clean,flags=re.S)
- if positions:return clean[:positions.start()]+block+positions.group()
- return clean+block
-def landing_equivalent(old,new):
- def clean(raw):
-  raw=re.sub(r'<!-- sf-product-positions:v1 -->.*?<!-- /sf-product-positions:v1 -->','',raw,flags=re.S)
-  raw=re.sub(r' id="sf-product-[a-f0-9]{16}"','',raw)
-  return re.sub(r'<a class="sf-product-position"[^>]*>.*?</a>','',raw,flags=re.S)
- return clean(old)==clean(new)
-def character_update(raw,current,block,products):
- # Preserve concurrent edits outside our managed description. Product edits
- # require a fresh plan; never merge them using an older product snapshot.
- if current!=raw and c.extract_existing_cards(current)!=products:
-  raise RuntimeError('Concurrent product edit; refresh the catalog plan')
- return replace_block(current,block)
-def describe(name):return f'{name}のグッズを写真付きで探せる非公式ファンガイド。ぬいぐるみ、バッグ・ポーチ、文具、ファッションなどを用途から探し、Amazon・楽天市場で種類やサイズ、最新の価格・在庫を確認できます。'
-def seo_payload(description):return {'excerpt':description,'aioseo_meta_data':{'description':description,'og_description':description,'twitter_description':description}}
-def landing(name,key,g,products,related):
- category,label,intro,check=GENRES[g]
- # Pick across shops before repeating a shop, with stable source order.
- buckets=collections.defaultdict(list)
- for x in products:buckets[x.get('shop','')].append(x)
- selected=[]
- while any(buckets.values()) and len(selected)<24:
-  for bucket in buckets.values():
-   if bucket and len(selected)<24:selected.append(bucket.pop(0))
- back=c.SITE+'/'+c.CHARACTERS[key][1]+'/'
- links=''.join('<a href="'+esc(url)+'">'+esc(text)+'</a>' for text,url in related)
- text=(f'<p>{esc(name)}の{esc(label)}を探している方向けに、当サイトの写真付き商品カタログから該当する商品をまとめました。掲載中の{len(products)}件から最大24件を表示しています。</p>'
-       f'<h2>{esc(name)}の{esc(label)}を選ぶときの確認ポイント</h2><p>{intro}</p><p>{check}</p>'
-       '<p class="sf-seo-note">非公式ファンサイトです。アフィリエイト広告を含みます。新発売順・人気順ではありません。価格・在庫・販売元・送料は購入先でご確認ください。Amazonのボタンは商品名などによる検索です。</p>'
-       '<h2>写真から商品を探す</h2><div class="sf-seo-grid">'+''.join(c.photo_card(x) for x in selected)+'</div>'
-       '<p><a href="'+esc(back)+'">'+esc(name)+'の全ジャンルの商品を見る →</a></p>'
-       '<h2>ほかのジャンルから探す</h2><nav class="sf-seo-links">'+links+'</nav>')
- return MARK+CSS+'<div class="sf-seo-entry">'+text+'</div>'+END
-
-def run(wp=None,index=None):
- wp=wp or c.WordPress();ids=','.join(str(v[0]) for v in c.CHARACTERS.values())
- pages=wp.call('/wp/v2/pages?context=edit&per_page=100&include='+ids+'&_fields=id,slug,title,content,excerpt,aioseo_meta_data')
- byid={p['id']:p for p in pages};catalog={}
- for key,(pid,slug,name) in c.CHARACTERS.items():
-  page=byid[pid]
-  if page['slug']!=slug:raise RuntimeError('Character identity mismatch')
-  catalog[key]=c.extract_existing_cards(page['content']['raw'])
-  if not catalog[key]:raise RuntimeError('Missing photos: '+key)
- plans=[];skipped=0
- for key,products in catalog.items():
-  for g,(category,label,_,_) in GENRES.items():
-   pool=[x for x in products if x['category']==category]
-   if len(pool)<8:skipped+=1;continue
-   plans.append((key,g,pool))
- slugs=[f'{key}-{g}-goods' for key,g,_ in plans]
- existing={}
- for n in range(0,len(slugs),60):
-  rows=wp.call('/wp/v2/pages?context=edit&per_page=100&slug='+','.join(slugs[n:n+60])+'&_fields=id,slug,content,title,status,excerpt,aioseo_meta_data')
-  existing.update({p['slug']:p for p in rows})
- links=collections.defaultdict(list)
- for key,g,_ in plans:
-  links[key].append((GENRES[g][1],c.SITE+'/'+f'{key}-{g}-goods/'))
- published=[]
- for key,g,pool in plans:
-  name=c.CHARACTERS[key][2];slug=f'{key}-{g}-goods';label=GENRES[g][1]
-  raw=landing(name,key,g,pool,links[key]);description=f'{name}の{label}を写真で比較できるグッズ一覧。使い方やサイズを確認するポイントと、Amazon・楽天市場の購入先をまとめました。最新の価格・在庫・種類は販売ページでご確認ください。'
-  payload=seo_payload(description);payload.update(title=f'{name}の{label}｜写真で探すグッズ・通販ガイド',slug=slug,content=raw,status='publish')
-  old=existing.get(slug)
-  if old and MARK not in old['content']['raw']:raise RuntimeError('Unmanaged existing slug: '+slug)
-  if old:
-   if old['content']['raw']==raw and old.get('aioseo_meta_data',{}).get('description')==description:published.append((old['id'],slug));continue
    saved=wp.call('/wp/v2/pages/'+str(old['id']),payload)
   else:saved=wp.call('/wp/v2/pages',payload)
   if saved['slug']!=slug or saved['status']!='publish':raise RuntimeError('Landing publish mismatch')
