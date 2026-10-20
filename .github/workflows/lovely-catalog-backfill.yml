@@ -30,6 +30,7 @@ jobs:
         run: |
           python3 -m pip install --quiet Pillow
           php -l scripts/fetch-lovely-backfill.php
+          php tests/lovely-backfill.php
           python3 -m unittest discover -s tests -p test_discovery_import.py -v
           sudo apt-get update -qq
           sudo apt-get install --yes lftp
@@ -52,7 +53,9 @@ jobs:
           bye
           LFTP
           python3 -u scripts/lovely-backfill-state.py prepare "$discovery_tmp/state.json"
-          php scripts/fetch-lovely-backfill.php "$discovery_tmp/settings.php" "$discovery_tmp/state.json" "$discovery_tmp/candidates.json" "$discovery_tmp/next.json"
+          php scripts/fetch-lovely-backfill.php "$discovery_tmp/settings.php" "$discovery_tmp/state.json" "$discovery_tmp/candidates.json" "$discovery_tmp/discovered.json" --discover-only
+          python3 -u scripts/lovely-backfill-state.py commit "$discovery_tmp/discovered.json"
+          php scripts/fetch-lovely-backfill.php "$discovery_tmp/settings.php" "$discovery_tmp/discovered.json" "$discovery_tmp/candidates.json" "$discovery_tmp/next.json" --verify-only
           cp "$discovery_tmp/candidates.json" lovely-verified-candidates.json
           python3 -u scripts/import-discovered-products.py --candidates "$discovery_tmp/candidates.json" --limit 10000
           python3 -u scripts/lovely-backfill-state.py commit "$discovery_tmp/next.json"

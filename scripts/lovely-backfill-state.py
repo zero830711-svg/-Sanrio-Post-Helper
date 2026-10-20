@@ -22,7 +22,7 @@ def main():
   state=json.loads(Path(sys.argv[2]).read_text());assert 'existingCodes' not in state
   payload={'slug':SLUG,'title':'Catalog discovery checkpoint (internal)','status':'draft','content':MARK+'<pre>'+html.escape(json.dumps(state,ensure_ascii=False))+'</pre>'}
   saved=wp.call('/wp/v2/pages'+('/'+str(page['id']) if page else ''),payload)
-  if saved['status']!='draft':raise RuntimeError('State must remain a draft')
+  if saved['status']!='draft' or saved['slug']!=SLUG:raise RuntimeError('State must retain its managed slug and draft status')
   check=json.loads(html.unescape(re.search(r'<pre>(.*?)</pre>',saved['content']['raw'],re.S)[1]))
   if check!=state:raise RuntimeError('Checkpoint mismatch')
   print('CHECKPOINT',json.dumps(state['lastBatch'],ensure_ascii=False),flush=True)
