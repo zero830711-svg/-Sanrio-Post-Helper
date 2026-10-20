@@ -14,6 +14,7 @@ on:
       - Import Cinnamoroll Rakuten photo catalog
       - Add bounded Rakuten Fashion catalog batch
       - Improve catalog search entry pages
+      - Unify photo catalogs and product guide search
     branches: [main]
     types: [completed]
 permissions:
