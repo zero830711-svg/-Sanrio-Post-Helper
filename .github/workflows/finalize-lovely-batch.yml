@@ -22,6 +22,8 @@ jobs:
       LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: main
       - uses: actions/download-artifact@v5
         with:
           github-token: ${{ github.token }}
