@@ -80,6 +80,10 @@ def run(wp=None,publish=False):
    changed+=1
   placements+=len(oldcards);maps.append((p['link'],updated))
   print('IMAGE PAGE',p['slug'],'photos',len(oldcards),'updated',updated!=raw,flush=True)
+ # Include the individually indexable pilot pages without changing catalog products.
+ for p in rows:
+  if '<section class="sf-detail">' in p['content']['raw'] and '<!-- sf-product-detail-pilot:v1 -->' in p['content']['raw']:
+   maps.append((p['link'],p['content']['raw']))
  data,count=sitemap(maps)
  Path('catalog-image-sitemap.xml').write_bytes(data)
  url=None;upload_error=None
@@ -95,3 +99,4 @@ def run(wp=None,publish=False):
  print('IMAGE SUMMARY',json.dumps(report),flush=True)
  return report
 if __name__=='__main__':run()
+

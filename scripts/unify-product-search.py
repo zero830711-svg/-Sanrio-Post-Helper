@@ -189,6 +189,10 @@ def sync(wp=None, previous_index=None, guide_source=None):
     pages = wp.call('/wp/v2/pages?context=edit&per_page=100&include='+ids+'&_fields=id,slug,content')
     index = build_index(pages, guides)
     index = retain_first_seen(index, previous_index if previous_index is not None else read_index(raw))
+    # Preserve the fixed product-detail pilot when the catalog is refreshed.
+    details = load('search_product_details', 'product-detail-pilot.py')
+    detail_records, _ = details.read_state(wp)
+    details.apply_index(index, detail_records)
     start = raw.find(MARKER)
     end = raw.find('</section>', start)
     if start < 0 or end < 0:
@@ -213,3 +217,4 @@ def sync(wp=None, previous_index=None, guide_source=None):
 
 if __name__ == '__main__':
     sync()
+

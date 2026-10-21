@@ -71,6 +71,8 @@ def save(wp,page,updated):
 
 def run():
  wp=c.WordPress()
+ details=load('experience_product_details','product-detail-pilot.py')
+ detail_records,_=details.read_state(wp)
  # Rebuild the existing compressed search index, preserving first-seen dates.
  unified=load('unified','unify-product-search.py')
  goods=wp.call('/wp/v2/pages/804?context=edit&_fields=content')
@@ -102,7 +104,7 @@ def run():
  for page in pages:
   raw=page['content']['raw']
   if 'sf-rakuten-product-card' not in raw:continue
-  save(wp,page,direct_links(raw));count+=1;photos+=len(c.extract_existing_cards(raw))
+  save(wp,page,details.link_cards(direct_links(raw),detail_records));count+=1;photos+=len(c.extract_existing_cards(raw))
  home=wp.call('/wp/v2/pages/805?context=edit&_fields=id,slug,content')
  if home['slug']!='shopping-home':raise RuntimeError('Home identity mismatch')
  raw=home['content']['raw'];clean=re.sub(re.escape(FEATURE_MARK)+'.*?'+re.escape(FEATURE_END),'',raw,flags=re.S)
@@ -117,3 +119,4 @@ def run():
  save(wp,home,updated)
  print('EXPERIENCE VERIFIED',count,'static catalogs;',photos,'photo placements;',len(feature_links),'features',flush=True)
 if __name__=='__main__':run()
+
