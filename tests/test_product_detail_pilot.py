@@ -46,4 +46,9 @@ class DetailTests(unittest.TestCase):
   self.assertIn('綿60%',facts['素材・材質'])
   self.assertEqual(facts['生産国'],'中国')
 
+ def test_preserve_official_size_exclusion_and_material_spaces(self):
+  facts=d.specifications('■サイズ約幅12×奥行8×高さ17cm（※持ち手含まず）■主な素材、原料アクリル、MDF、ステンレス 鋼■詳細●商品説明■原産国中国')
+  self.assertEqual(facts['サイズ'],'約幅12×奥行8×高さ17cm(持ち手含まず)')
+  self.assertEqual(facts['素材・材質'],'アクリル、MDF、ステンレス 鋼')
+
 if __name__=='__main__':unittest.main()

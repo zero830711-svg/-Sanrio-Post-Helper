@@ -32,6 +32,8 @@ LABEL_PATTERN='|'.join(map(re.escape,sorted(list(LABELS)+BOUNDARIES,key=len,reve
 def specifications(caption):
  parser=Caption();parser.feed(str(caption or ''))
  text=unicodedata.normalize('NFKC',html.unescape(''.join(parser.parts)))
+ structured=bool(re.search(r'■\s*主な(?:素材|材料)',text))
+ text=text.replace('(※','(')
  text=re.sub(r'■\s*('+LABEL_PATTERN+r')',lambda m:'\n'+m[1]+': ',text)
  text=re.sub(r'(:\s*)【([^】]+)】',r'\1(\2)',text)
  pattern=re.compile(r'(?:[【\[■●◆□◎]\s*)?('+LABEL_PATTERN+r')(?:\s*[】\]:：]\s*|\s*\n\s*|[ \t　]+)')
@@ -44,7 +46,8 @@ def specifications(caption):
   label=LABELS[m[1]]
   value=re.split(r'。|\s+(?:梱包|同シリーズ|ケープ|注意|耐熱|名前シール|使用抗菌剤|ランチグッズ|商品に|製造元|メーカー希望|特徴|仕様)',value)[0].strip()
   value=re.sub(r'\s*[・]?商品$','',value).strip()
-  if label=='素材・材質':value=re.split(r'\s+(?![0-9%])',value)[0]
+  if label=='素材・材質' and not structured:value=re.split(r'\s+(?![0-9%])',value)[0]
+  if value.endswith('('):value=value[:-1].rstrip()
   if label=='生産国':
    country=re.search(r'日本|中国|台湾|ベトナム|タイ|韓国|インドネシア|インド|フィリピン|マレーシア',value)
    if country:value=country[0]
@@ -254,9 +257,52 @@ def publish(wp,input_path):
  report={'published':len(records),'eligible':len(eligible),'selectionSkipped':len(source)-len(records),'linkedCatalogPages':linked,'catalogPlacementsPreserved':placements,'searchProductsPreserved':sum(x['type']=='product' for x in saved['items']),'publicationDatesPreserved':True,'hubUrl':c.SITE+'/'+HUB+'/','records':[{'url':x['url'],'title':x['title'],'facts':x['facts']} for x in records]}
  Path('product-detail-pilot-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL PILOT VERIFIED',json.dumps(report,ensure_ascii=False),flush=True)
 
+
+def maintain(wp):
+ records,state_id=read_state(wp)
+ if not records:return False
+ if not 30<=len(records)<=50:raise RuntimeError('Unexpected fixed cohort size')
+ state=wp.call('/wp/v2/pages/'+str(state_id)+'?context=edit&_fields=content')['content']['raw']
+ payload=json.loads(base64.b64decode(c.text_from(state)))
+ rows=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
+ if not rows:raise RuntimeError('Verified source cache missing')
+ cached=json.loads(gzip.decompress(base64.b64decode(c.text_from(rows[0]['content']['raw']))))
+ sources={x['existing']['code']:x['api'] for x in cached}
+ repaired=[];changes=[]
+ for x in records:
+  row=sources[x['code']]
+  if row.get('itemCode')!=x['code']:raise RuntimeError('Source identity changed')
+  facts=specifications(row.get('itemCaption',''))
+  if len(facts)<2 or '素材・材質' not in facts or not any(k in facts for k in ['サイズ','容量','重さ']):raise RuntimeError('Existing facts no longer supported: '+x['code'])
+  if any(v.endswith('(') for v in facts.values()):raise RuntimeError('Unfinished specification')
+  new=dict(x,facts=facts);repaired.append(new)
+  if facts!=x['facts']:changes.append({'url':x['url'],'before':x['facts'],'after':facts})
+ # Validate all source facts before changing any page; retain the same product cohort and URLs.
+ for old,new in zip(records,repaired):
+  if old['facts']==new['facts']:continue
+  path='/wp/v2/pages/'+str(old['pageId'])
+  current=wp.call(path+'?context=edit&_fields=content')['content']['raw']
+  expected=render(old,records);updated=render(new,repaired)
+  if current not in (expected,updated):raise RuntimeError('Concurrent detail edit: '+old['url'])
+  if current!=updated:
+   if wp.call(path+'?context=edit&_fields=content')['content']['raw']!=current:raise RuntimeError('Concurrent detail edit')
+   if wp.call(path,{'content':updated})['content']['raw']!=updated:raise RuntimeError('Detail repair not saved')
+  verify_public(new)
+ payload['records']=repaired
+ if wp.call('/wp/v2/pages/'+str(state_id)+'?context=edit&_fields=content')['content']['raw']!=state:raise RuntimeError('Concurrent state edit')
+ updated='<pre>'+base64.b64encode(json.dumps(payload,ensure_ascii=False).encode()).decode()+'</pre>'
+ wp.call('/wp/v2/pages/'+str(state_id),{'content':updated})
+ saved,_=read_state(wp)
+ if saved!=repaired or [x['code'] for x in saved]!=[x['code'] for x in records]:raise RuntimeError('Fixed cohort changed')
+ report={'fixedProducts':len(records),'repairedPages':len(changes),'newApiRequests':0,'changes':changes}
+ Path('product-detail-maintenance-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+ print('DETAIL MAINTENANCE VERIFIED',json.dumps(report,ensure_ascii=False),flush=True)
+ return True
+
 if __name__=='__main__':
- ap=argparse.ArgumentParser();ap.add_argument('--prepare');ap.add_argument('--publish');ap.add_argument('--cached');args=ap.parse_args();wp=c.WordPress()
- if args.prepare:prepare(wp,args.prepare)
+ ap=argparse.ArgumentParser();ap.add_argument('--prepare');ap.add_argument('--publish');ap.add_argument('--cached');ap.add_argument('--maintain',action='store_true');args=ap.parse_args();wp=c.WordPress()
+ if args.maintain:raise SystemExit(0 if maintain(wp) else 3)
+ elif args.prepare:prepare(wp,args.prepare)
  elif args.publish:publish(wp,args.publish)
  elif args.cached:
   rows=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')

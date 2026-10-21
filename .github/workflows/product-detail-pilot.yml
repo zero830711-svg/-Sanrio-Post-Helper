@@ -41,6 +41,12 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          if python3 -u scripts/product-detail-pilot.py --maintain; then
+            exit 0
+          else
+            detail_status=$?
+            if [ "$detail_status" != 3 ]; then exit "$detail_status"; fi
+          fi
           detail_tmp=$(mktemp -d)
           trap 'rm -rf "$detail_tmp"' EXIT
           if [ "$DETAIL_NEW_CANDIDATES" != true ] && python3 -u scripts/product-detail-pilot.py --cached "$detail_tmp/verified.json"; then
@@ -74,6 +80,7 @@ jobs:
         with:
           name: product-detail-pilot-report
           path: |
+            product-detail-maintenance-report.json
             product-detail-selection.json
             product-detail-pilot-report.json
             product-detail-discovery-report.json
