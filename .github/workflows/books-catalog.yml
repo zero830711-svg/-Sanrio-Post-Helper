@@ -1,0 +1,65 @@
+name: Import separate Rakuten Books shelves
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/books-catalog.py
+      - scripts/books-catalog.css
+      - scripts/books-catalog.js
+      - scripts/fetch-books-catalog.php
+      - .github/workflows/books-catalog.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-other-character-rakuten-catalog
+  cancel-in-progress: false
+jobs:
+  books:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Check separate shelves and preserved goods
+        run: |
+          python3 -m pip install --quiet Pillow
+          php -l scripts/fetch-books-catalog.php
+          node --check scripts/books-catalog.js
+          python3 -m unittest discover -s tests -p test_books_catalog.py -v
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp
+      - name: Fetch Books API and publish separate shelves via WordPress REST
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          books_tmp=$(mktemp -d)
+          trap 'rm -rf "$books_tmp"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get .rakuten-settings.php -o "$books_tmp/settings.php"
+          bye
+          LFTP
+          python3 scripts/books-catalog.py --queries "$books_tmp/queries.json"
+          php scripts/fetch-books-catalog.php "$books_tmp/settings.php" "$books_tmp/queries.json" "$books_tmp/books.json"
+          python3 -u scripts/books-catalog.py --input "$books_tmp/books.json"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: books-catalog-report
+          path: books-catalog-report.json
