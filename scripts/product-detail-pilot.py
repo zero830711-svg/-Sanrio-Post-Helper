@@ -194,7 +194,10 @@ def publish(wp,input_path):
  eligible=[x for x in enriched if x];records=choose(eligible)
  audit={'apiMatched':len(source),'eligible':len(eligible),'selected':len(records),'skipped':len(source)-len(records),'examples':[{'title':x['title'],'facts':x['facts']} for x in records[:6]]}
  Path('product-detail-selection.json').write_text(json.dumps(audit,ensure_ascii=False,indent=2));print('DETAIL SELECTION',json.dumps(audit,ensure_ascii=False),flush=True)
- if len(records)<30:raise RuntimeError('Fewer than 30 specification-backed products; nothing published')
+ if len(records)<30:
+  for entry in source[-80:][:12]:
+   row=entry['api'];parser=Caption();parser.feed(row.get('itemCaption',''));print('DETAIL SOURCE',json.dumps({'code':row.get('itemCode'),'title':row.get('itemName'),'facts':specifications(row.get('itemCaption','')),'caption':''.join(parser.parts)[:2200]},ensure_ascii=False),flush=True)
+  raise RuntimeError('Fewer than 30 specification-backed products; nothing published')
  for x in records:x['cohort']='2026-10-product-detail-pilot'
  # All content is rendered and validated before the first publication.
  contents={x['code']:render(x,records) for x in records}
