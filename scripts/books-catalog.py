@@ -28,6 +28,7 @@ def normalize(row):
  return dict(id=code,title=title,url=url,affiliate=affiliate,image=image,characters=chars,kind='magazine' if genre.startswith('007') else 'book',salesDate=str(row.get('salesDate','')),availability=availability,publisher=str(row.get('publisherName','')))
 
 def image_ok(item):
+ if re.search(r'no[-_]?image|no[-_]?photo|nowprinting',parse.urlsplit(item['image']).path,re.I):return False
  try:
   req=request.Request(item['image'],headers={'User-Agent':'Mozilla/5.0 (SanrioBooksCatalog/1.0)'})
   with request.urlopen(req,timeout=20) as r:

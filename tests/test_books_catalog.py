@@ -23,4 +23,6 @@ class BooksTests(unittest.TestCase):
   self.assertIn('予約受付中',card);self.assertIn('発売日：2026年11月01日',card)
   self.assertNotIn('sf-rakuten-product-card',card)
   self.assertIn('楽天ブックスで見る',card)
+ def test_placeholder_is_not_a_product_photo(self):
+  self.assertFalse(b.image_ok({'image':'https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/noimage_01.gif?_ex=200x200'}))
 if __name__=='__main__':unittest.main()
