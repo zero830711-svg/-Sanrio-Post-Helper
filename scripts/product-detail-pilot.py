@@ -89,17 +89,23 @@ def prepare(wp,path):
  if hub and MARK not in hub[0]['content']['raw']:raise RuntimeError('Detail directory slug already in use')
  u=load_unified();goods=wp.call('/wp/v2/pages/804?context=edit&_fields=content')
  index=u.read_index(goods['content']['raw']);pool=[]
+ cached=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
+ known=set()
+ if cached:known={x['existing']['code'] for x in json.loads(gzip.decompress(base64.b64decode(c.text_from(cached[0]['content']['raw']))))}
  for item in index['items']:
   if item['type']!='product' or len(item['characters'])!=1:continue
   title=item['title'];code=item['id'].removeprefix('rakuten:')
+  if code in known or len(c.display_title(title))>140:continue
+  if sum(c.matches_character(title,k) for k in c.CHARACTERS)!=1:continue
   if re.search(r'中古|福袋|ランダム|全\d+種|選べる|選択|アソート',title):continue
   strength=len(re.findall(r'\d+(?:\.\d+)?\s*(?:cm|mm|ml|mL)|[A-Z]{2,}\d+|\d{6,13}',title))
-  strength+=3 if code.split(':')[0] in {'sanrio','skater','skater-official'} else 0
+  strength=min(strength,3)
+  strength+=8 if code.split(':')[0]=='sanrio' else (3 if code.split(':')[0] in {'skater','skater-official'} else 0)
   if strength<1:continue
   pool.append(dict(item,code=code,strength=strength))
  pool.sort(key=lambda x:(-x['strength'],x['id']))
  chosen=[];chars=collections.Counter();kinds=collections.Counter()
- while pool and len(chosen)<160:
+ while pool and len(chosen)<80:
   best=min(pool,key=lambda x:chars[x['characters'][0]]*2+kinds[x['kind']]*.5-x['strength'])
   pool.remove(best);chosen.append(best);chars[best['characters'][0]]+=1;kinds[best['kind']]+=1
  if len(chosen)<30:raise RuntimeError('Too few candidates for a meaningful pilot')
@@ -178,8 +184,12 @@ def publish(wp,input_path):
  if old:raise RuntimeError('Pilot already exists; refusing to expand or overwrite the fixed cohort')
  source=json.loads(Path(input_path).read_text())
  cache=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
+ if cache:
+  previous=json.loads(gzip.decompress(base64.b64decode(c.text_from(cache[0]['content']['raw']))))
+  merged={x['existing']['code']:x for x in previous+source};source=list(merged.values())
  payload=base64.b64encode(gzip.compress(json.dumps(source,ensure_ascii=False).encode(),mtime=0)).decode()
- if not cache:wp.call('/wp/v2/pages',{'slug':CACHE,'status':'draft','title':'Managed exact-item API cache for the fixed detail pilot','content':'<pre>'+payload+'</pre>'})
+ if cache:wp.call('/wp/v2/pages/'+str(cache[0]['id']),{'content':'<pre>'+payload+'</pre>'})
+ else:wp.call('/wp/v2/pages',{'slug':CACHE,'status':'draft','title':'Managed exact-item API cache for the fixed detail pilot','content':'<pre>'+payload+'</pre>'})
  with ThreadPoolExecutor(max_workers=4) as pool:enriched=list(pool.map(enrich,source))
  eligible=[x for x in enriched if x];records=choose(eligible)
  audit={'apiMatched':len(source),'eligible':len(eligible),'selected':len(records),'skipped':len(source)-len(records),'examples':[{'title':x['title'],'facts':x['facts']} for x in records[:6]]}
@@ -246,6 +256,6 @@ if __name__=='__main__':
   rows=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
   if not rows:raise SystemExit(1)
   data=json.loads(gzip.decompress(base64.b64decode(c.text_from(rows[0]['content']['raw']))))
-  if not 30<=len(data)<=200:raise RuntimeError('Unexpected cached pilot size')
+  if not 30<=len(data)<=400:raise RuntimeError('Unexpected cached pilot size')
   Path(args.cached).write_text(json.dumps(data,ensure_ascii=False));print('DETAIL using existing verified API cache',len(data),flush=True)
  else:ap.error('Choose --prepare or --publish')

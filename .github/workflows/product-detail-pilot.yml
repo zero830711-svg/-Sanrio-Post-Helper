@@ -43,7 +43,7 @@ jobs:
           umask 077
           detail_tmp=$(mktemp -d)
           trap 'rm -rf "$detail_tmp"' EXIT
-          if python3 -u scripts/product-detail-pilot.py --cached "$detail_tmp/verified.json"; then
+          if [ "$DETAIL_NEW_CANDIDATES" != true ] && python3 -u scripts/product-detail-pilot.py --cached "$detail_tmp/verified.json"; then
             python3 -u scripts/product-detail-pilot.py --publish "$detail_tmp/verified.json"
             exit 0
           fi
@@ -61,6 +61,8 @@ jobs:
           LFTP
           php scripts/fetch-product-detail-pilot.php "$detail_tmp/settings.php" "$detail_tmp/candidates.json" "$detail_tmp/verified.json"
           python3 -u scripts/product-detail-pilot.py --publish "$detail_tmp/verified.json"
+        env:
+          DETAIL_NEW_CANDIDATES: ${{ contains(github.event.head_commit.message, '[detail-expand]') }}
       - name: Verify public indexability and sitemap discovery
         run: python3 -u scripts/verify-product-detail-pilot.py
       - name: Include detail photos in the existing image sitemap
