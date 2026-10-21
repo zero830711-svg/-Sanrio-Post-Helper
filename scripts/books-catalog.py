@@ -41,7 +41,7 @@ def image_ok(item):
    pixels=list(im.convert('RGB').resize((80,80)).getdata())
    colored=sum(max(p)-min(p)>35 for p in pixels)
    pale=sum(min(p)>225 for p in pixels)
-   if colored<12 and pale>len(pixels)*.80:return False
+   if colored<len(pixels)*.05 and pale>len(pixels)*.80:return False
   with Image.open(io.BytesIO(data)) as verified:verified.verify()
   return min(w,h)>=140 and max(w,h)>=190
  except Exception:return False
