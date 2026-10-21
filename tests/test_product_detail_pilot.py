@@ -39,4 +39,11 @@ class DetailTests(unittest.TestCase):
   self.assertIn('約10×8cm',out);self.assertIn('ポリエステル',out)
   self.assertNotIn('aggregateRating',out);self.assertNotIn('priceCurrency',out)
   self.assertNotIn('sf-rakuten-product-card',out)
+ def test_official_unseparated_sections_and_model_size(self):
+  facts=d.specifications('■サイズ【100cm】胸囲:約49-55cm■主な素材、原料本体:綿60%、ポリエステル40%■詳細●モデル着用サイズ:130cm■原産国中国■備考Sanrio Original')
+  self.assertIn('100cm',facts['サイズ'])
+  self.assertNotIn('130cm',facts['サイズ'])
+  self.assertIn('綿60%',facts['素材・材質'])
+  self.assertEqual(facts['生産国'],'中国')
+
 if __name__=='__main__':unittest.main()

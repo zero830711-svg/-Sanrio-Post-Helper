@@ -26,11 +26,14 @@ class Caption(HTMLParser):
 LABELS={'本体サイズ':'サイズ','商品サイズ':'サイズ','サイズ':'サイズ','寸法':'サイズ','主な素材・原料':'素材・材質','主な素材':'素材・材質','主素材':'素材・材質','材質':'素材・材質','素材':'素材・材質','容量':'容量','容積':'容量','重量':'重さ','重さ':'重さ','セット内容':'セット内容','内容量':'内容量','対象年齢':'対象年齢','メーカー品番':'品番・型番','品番':'品番・型番','型番':'品番・型番','JANコード':'JANコード','JAN':'JANコード','原産国':'生産国','生産国':'生産国','製造国':'生産国'}
 LABELS.update({'本体サイズ・重量':'サイズ','サイズ・重量':'サイズ','サイズ(約)':'サイズ','商品サイズ(約)':'サイズ','本体サイズ(約)':'サイズ','サイズ・寸法':'サイズ','素材・材質':'素材・材質','素材・成分':'素材・材質','素材・原料':'素材・材質','材質・素材':'素材・材質','セット内容・付属品':'セット内容'})
 LABELS.update({'主な材料・原料':'素材・材質','主な材料':'素材・材質','材料・原料':'素材・材質','材料':'素材・材質'})
-BOUNDARIES=['特徴','仕様','付属品','お手入れ','ブランド名','メーカー名','備考','耐熱温度','使用抗菌剤の種類','加工方法','加工部位','商品説明','商品詳細']
+LABELS.update({'主な素材、原料':'素材・材質'})
+BOUNDARIES=['詳細','洗濯方法','特徴','仕様','付属品','お手入れ','ブランド名','メーカー名','備考','耐熱温度','使用抗菌剤の種類','加工方法','加工部位','商品説明','商品詳細']
 LABEL_PATTERN='|'.join(map(re.escape,sorted(list(LABELS)+BOUNDARIES,key=len,reverse=True)))
 def specifications(caption):
  parser=Caption();parser.feed(str(caption or ''))
  text=unicodedata.normalize('NFKC',html.unescape(''.join(parser.parts)))
+ text=re.sub(r'■\s*('+LABEL_PATTERN+r')',lambda m:'\n'+m[1]+': ',text)
+ text=re.sub(r'(:\s*)【([^】]+)】',r'\1(\2)',text)
  pattern=re.compile(r'(?:[【\[■●◆□◎]\s*)?('+LABEL_PATTERN+r')(?:\s*[】\]:：]\s*|\s*\n\s*|[ \t　]+)')
  matches=list(pattern.finditer(text));facts={}
  for n,m in enumerate(matches):
