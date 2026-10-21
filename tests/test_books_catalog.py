@@ -1,4 +1,6 @@
-import importlib.util,unittest
+import importlib.util,unittest,io
+from unittest.mock import patch
+from PIL import Image,ImageDraw
 from pathlib import Path
 spec=importlib.util.spec_from_file_location('books',Path(__file__).parents[1]/'scripts/books-catalog.py')
 b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
@@ -25,4 +27,13 @@ class BooksTests(unittest.TestCase):
   self.assertIn('楽天ブックスで見る',card)
  def test_placeholder_is_not_a_product_photo(self):
   self.assertFalse(b.image_ok({'image':'https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/noimage_01.gif?_ex=200x200'}))
+ def test_title_only_cover_is_held_but_real_color_cover_is_kept(self):
+  url='https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/123/9781234567897.png'
+  for color,expected in [('#f7f7f7',False),('#ee77bb',True)]:
+   img=Image.new('RGB',(160,200),color);ImageDraw.Draw(img).text((12,60),'BOOK TITLE',fill='black')
+   data=io.BytesIO();img.save(data,format='PNG');payload=data.getvalue()
+   class Response(io.BytesIO):
+    def geturl(self):return url
+   with patch.object(b.request,'urlopen',return_value=Response(payload)):
+    self.assertEqual(b.image_ok({'image':url}),expected)
 if __name__=='__main__':unittest.main()

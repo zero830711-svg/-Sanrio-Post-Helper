@@ -36,7 +36,13 @@ def image_ok(item):
    data=r.read(3000001)
   if len(data)>3000000:return False
   with Image.open(io.BytesIO(data)) as im:
-   w,h=im.size;im.verify()
+   w,h=im.size
+   # Unannounced covers also use title-only gray placeholder images at normal ISBN URLs.
+   pixels=list(im.convert('RGB').resize((80,80)).getdata())
+   colored=sum(max(p)-min(p)>35 for p in pixels)
+   pale=sum(min(p)>225 for p in pixels)
+   if colored<12 and pale>len(pixels)*.80:return False
+  with Image.open(io.BytesIO(data)) as verified:verified.verify()
   return min(w,h)>=140 and max(w,h)>=190
  except Exception:return False
 
@@ -87,22 +93,22 @@ def public_check(url,expected):
  if body.count('class="sf-books-card"')!=expected:raise RuntimeError('Public shelf mismatch: '+url)
 
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--queries');ap.add_argument('--input');args=ap.parse_args()
+ ap=argparse.ArgumentParser();ap.add_argument('--queries');ap.add_argument('--input');ap.add_argument('--refresh-images',action='store_true');args=ap.parse_args()
  if args.queries:
   Path(args.queries).write_text(json.dumps(['サンリオ']+[x[2] for x in c.CHARACTERS.values()],ensure_ascii=False));return
- rows=json.loads(Path(args.input).read_text());unique={};rejected=0
+ wp=c.WordPress();states=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+STATE)
+ old=[]
+ if states:old=json.loads(base64.b64decode(c.text_from(states[0]['content']['raw'])))
+ rows=json.loads(Path(args.input).read_text()) if args.input else [];unique={};rejected=0
  for row in rows:
   x=normalize(row)
   if x:unique[x['id']]=x
   else:rejected+=1
- candidates=list(unique.values())
+ candidates=old if args.refresh_images else list(unique.values())
+ if not args.input and not args.refresh_images:raise RuntimeError('Input required')
  with ThreadPoolExecutor(max_workers=4) as pool:checks=list(pool.map(image_ok,candidates))
  items=[x for x,ok in zip(candidates,checks) if ok]
  if len(items)<6:raise RuntimeError('Fewer than 6 verified books; refusing empty publication')
- wp=c.WordPress();states=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+STATE)
- old=[]
- if states:
-  old=json.loads(base64.b64decode(c.text_from(states[0]['content']['raw'])))
  first={x['id']:x.get('addedAt') for x in old};now=datetime.now(timezone.utc).isoformat()
  for x in items:x['addedAt']=first.get(x['id']) or now
  # API output is already newest release first per query; keep deterministic date ordering.
@@ -119,17 +125,23 @@ def main():
  if home['slug']!='shopping-home':raise RuntimeError('Home identity mismatch')
  sync_page(wp,home,render(items),home=True)
  updated=[];skipped=[]
- for key,(pid,slug,name) in c.CHARACTERS.items():
+ def update_character(entry):
+  key,(pid,slug,name)=entry
   subset=[x for x in items if key in x['characters']]
-  if not subset:skipped.append(name);continue
+  if not subset and not any(key in x['characters'] for x in old):return None,name
   page=wp.call('/wp/v2/pages/'+str(pid)+'?context=edit')
   if page['slug']!=slug:raise RuntimeError('Character identity mismatch')
-  sync_page(wp,page,render(subset,name));updated.append({'character':name,'books':len(subset)})
+  sync_page(wp,page,render(subset,name) if subset else '')
   public_check(page['link'],min(len(subset),24))
+  return ({'character':name,'books':len(subset)},None) if subset else (None,name)
+ with ThreadPoolExecutor(max_workers=3) as pool:
+  for result,missing in pool.map(update_character,c.CHARACTERS.items()):
+   if result:updated.append(result)
+   if missing:skipped.append(missing)
  public_check(directory_url,len(items));public_check(home['link'],min(len(items),24))
  state={'content':'<pre>'+base64.b64encode(json.dumps(items,ensure_ascii=False).encode()).decode()+'</pre>','status':'draft','title':'Managed Rakuten Books catalog state'}
  if states:wp.call('/wp/v2/pages/'+str(states[0]['id']),state)
  else:wp.call('/wp/v2/pages',dict(state,slug=STATE))
- report={'books':len(items),'newBooks':sum(x['id'] not in first for x in items),'duplicateRows':len(rows)-rejected-len(candidates),'irrelevantOrUnsupported':rejected,'imageSkipped':len(candidates)-len(items),'characters':updated,'charactersWithoutBooks':skipped,'existingGoodsUnchanged':True}
+ report={'books':len(items),'newBooks':sum(x['id'] not in first for x in items),'duplicateRows':0 if args.refresh_images else len(rows)-rejected-len(candidates),'irrelevantOrUnsupported':rejected,'imageSkipped':len(candidates)-len(items),'characters':updated,'charactersWithoutBooks':skipped,'existingGoodsUnchanged':True}
  Path('books-catalog-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('BOOKS VERIFIED',json.dumps(report,ensure_ascii=False),flush=True)
 if __name__=='__main__':main()

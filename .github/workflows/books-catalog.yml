@@ -42,6 +42,10 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          if [ "$BOOKS_IMAGE_REFRESH" = true ]; then
+            python3 -u scripts/books-catalog.py --refresh-images
+            exit 0
+          fi
           books_tmp=$(mktemp -d)
           trap 'rm -rf "$books_tmp"' EXIT
           lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
@@ -58,6 +62,8 @@ jobs:
           python3 scripts/books-catalog.py --queries "$books_tmp/queries.json"
           php scripts/fetch-books-catalog.php "$books_tmp/settings.php" "$books_tmp/queries.json" "$books_tmp/books.json"
           python3 -u scripts/books-catalog.py --input "$books_tmp/books.json"
+        env:
+          BOOKS_IMAGE_REFRESH: ${{ contains(github.event.head_commit.message, '[books-images]') }}
       - uses: actions/upload-artifact@v5
         if: always()
         with:
