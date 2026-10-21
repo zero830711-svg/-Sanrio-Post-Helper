@@ -44,7 +44,7 @@ def card(x):
  status={'1':'','2':'','3':'','4':'取り寄せ','5':'予約受付中','6':'在庫確認が必要'}[x['availability']]
  meta=('発売日：'+x['salesDate'] if x['salesDate'] else '')
  if status:meta+=' ／ '+status
- return '<article class="sf-books-card" data-books-id="'+E(x['id'])+'" data-characters="'+E(' '.join(x['characters']))+'" data-kind="'+x['kind']+'"><a href="'+E(x['affiliate'])+'" target="_blank" rel="sponsored nofollow noopener"><img src="'+E(x['image'])+'" alt="'+E(x['title'])+'" loading="lazy" decoding="async" width="200" height="200"></a><h3 class="sf-books-title">'+E(x['title'])+'</h3><p class="sf-books-meta">'+E(meta)+'</p><a class="sf-books-buy" href="'+E(x['affiliate'])+'" target="_blank" rel="sponsored nofollow noopener">楽天ブックスで見る</a></article>\n'
+ return '<article class="sf-books-card" data-books-id="'+E(x['id'])+'" data-characters="'+E(' '.join(x['characters']))+'" data-kind="'+x['kind']+'"><a href="'+E(x['affiliate'])+'" target="_blank" rel="sponsored nofollow noopener"><img src="'+E(x['image'])+'" alt="'+E(x['title'])+'" loading="lazy" decoding="async" width="200" height="200"></a><strong class="sf-books-title">'+E(x['title'])+'</strong><p class="sf-books-meta">'+E(meta)+'</p><a class="sf-books-buy" href="'+E(x['affiliate'])+'" target="_blank" rel="sponsored nofollow noopener">楽天ブックスで見る</a></article>\n'
 
 def render(items,name='',directory=False):
  heading=(name+'の' if name else 'サンリオの')+'本・雑誌・付録'
