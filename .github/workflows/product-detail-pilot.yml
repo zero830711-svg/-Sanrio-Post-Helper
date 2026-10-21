@@ -43,6 +43,10 @@ jobs:
           umask 077
           detail_tmp=$(mktemp -d)
           trap 'rm -rf "$detail_tmp"' EXIT
+          if python3 -u scripts/product-detail-pilot.py --cached "$detail_tmp/verified.json"; then
+            python3 -u scripts/product-detail-pilot.py --publish "$detail_tmp/verified.json"
+            exit 0
+          fi
           python3 -u scripts/product-detail-pilot.py --prepare "$detail_tmp/candidates.json"
           lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
           set cmd:fail-exit yes

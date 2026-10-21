@@ -1,5 +1,5 @@
 """A capped, specification-backed product-page pilot using standard WordPress REST only."""
-import argparse,base64,collections,hashlib,html,importlib.util,json,re,unicodedata
+import argparse,base64,collections,gzip,hashlib,html,importlib.util,json,re,unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime,timezone
 from html.parser import HTMLParser
@@ -9,6 +9,7 @@ ROOT=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('detail_catalog',ROOT/'import-rakuten-character-catalog.py')
 c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)
 STATE='sf-product-detail-pilot-state';MARK='<!-- sf-product-detail-pilot:v1 -->';HUB='product-details'
+CACHE='sf-product-detail-pilot-api-cache'
 E=lambda x:html.escape(str(x),quote=True)
 def slug(code):return 'product-'+hashlib.sha256(code.encode()).hexdigest()[:16]
 def detail_url(code):return c.SITE+'/'+slug(code)+'/'
@@ -166,6 +167,11 @@ def publish(wp,input_path):
  old,state_id=read_state(wp)
  if old:raise RuntimeError('Pilot already exists; refusing to expand or overwrite the fixed cohort')
  source=json.loads(Path(input_path).read_text())
+ cache=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
+ payload=base64.b64encode(gzip.compress(json.dumps(source,ensure_ascii=False).encode(),mtime=0)).decode()
+ if not cache:wp.call('/wp/v2/pages',{'slug':CACHE,'status':'draft','title':'Managed exact-item API cache for the fixed detail pilot','content':'<pre>'+payload+'</pre>'})
+ for entry in source[:6]:
+  print('DETAIL SOURCE SAMPLE',json.dumps({'title':entry['api'].get('itemName'),'caption':entry['api'].get('itemCaption','')[:4000],'facts':specifications(entry['api'].get('itemCaption',''))},ensure_ascii=False),flush=True)
  with ThreadPoolExecutor(max_workers=4) as pool:enriched=list(pool.map(enrich,source))
  eligible=[x for x in enriched if x];records=choose(eligible)
  audit={'apiMatched':len(source),'eligible':len(eligible),'selected':len(records),'skipped':len(source)-len(records),'examples':[{'title':x['title'],'facts':x['facts']} for x in records[:6]]}
@@ -225,7 +231,13 @@ def publish(wp,input_path):
  Path('product-detail-pilot-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL PILOT VERIFIED',json.dumps(report,ensure_ascii=False),flush=True)
 
 if __name__=='__main__':
- ap=argparse.ArgumentParser();ap.add_argument('--prepare');ap.add_argument('--publish');args=ap.parse_args();wp=c.WordPress()
+ ap=argparse.ArgumentParser();ap.add_argument('--prepare');ap.add_argument('--publish');ap.add_argument('--cached');args=ap.parse_args();wp=c.WordPress()
  if args.prepare:prepare(wp,args.prepare)
  elif args.publish:publish(wp,args.publish)
+ elif args.cached:
+  rows=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
+  if not rows:raise SystemExit(1)
+  data=json.loads(gzip.decompress(base64.b64decode(c.text_from(rows[0]['content']['raw']))))
+  if not 30<=len(data)<=200:raise RuntimeError('Unexpected cached pilot size')
+  Path(args.cached).write_text(json.dumps(data,ensure_ascii=False));print('DETAIL using existing verified API cache',len(data),flush=True)
  else:ap.error('Choose --prepare or --publish')
