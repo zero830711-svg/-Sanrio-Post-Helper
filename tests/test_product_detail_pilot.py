@@ -12,6 +12,11 @@ class DetailTests(unittest.TestCase):
   facts=d.specifications('<table><tr><th>サイズ</th><td>幅10cm</td></tr><tr><th>素材</th><td>ABS樹脂</td></tr></table>')
   self.assertEqual(facts,{'サイズ':'幅10cm','素材・材質':'ABS樹脂'})
   self.assertNotIn('容量',d.specifications('【容量】商品によります'))
+ def test_combined_labels_and_non_specification_boundaries(self):
+  self.assertEqual(d.specifications('【本体サイズ・重量】約12×8×5cm【素材・成分】ポリエステル【備考】送料無料'),{'サイズ':'約12×8×5cm','素材・材質':'ポリエステル'})
+  self.assertEqual(d.specifications('容量:500ml 特徴:電子レンジ対応 サイズ(約):幅17.8×奥行11.9×高さ5.5cm セット内容・付属品:2個セット 素材・材質:プラスチック お手入れ:手洗い'),{'容量':'500ml','サイズ':'幅17.8×奥行11.9×高さ5.5cm','セット内容':'2個セット','素材・材質':'プラスチック'})
+ def test_actual_sanrio_material_label(self):
+  self.assertEqual(d.specifications('本体サイズ:約幅11×奥行5×高さ10cm※チェーン含まず。主な材料・原料:ポリエステル、スチール ケープ着脱可(面ファスナー式開閉)。同シリーズのキーホルダーを付けられる。'),{'サイズ':'約幅11×奥行5×高さ10cm','素材・材質':'ポリエステル、スチール'})
  def record(self,code='sanrio:123456'):
   return {'code':code,'url':d.detail_url(code),'title':'シナモロール ミニポーチ','facts':{'サイズ':'約10×8cm','素材・材質':'ポリエステル'},'images':['https://image.rakuten.co.jp/sanrio/a.jpg'],'affiliate':'https://hb.afl.rakuten.co.jp/hgc/12345678/','shop':'公式ショップ','checkedAt':'2026-10-21T00:00:00Z','character':'cinnamoroll','kind':'バッグ・ポーチ'}
  def test_fixed_url_and_preserved_cards(self):

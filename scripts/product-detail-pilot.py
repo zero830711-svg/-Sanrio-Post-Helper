@@ -24,17 +24,27 @@ class Caption(HTMLParser):
  def handle_data(self,data):self.parts.append(data)
 
 LABELS={'本体サイズ':'サイズ','商品サイズ':'サイズ','サイズ':'サイズ','寸法':'サイズ','主な素材・原料':'素材・材質','主な素材':'素材・材質','主素材':'素材・材質','材質':'素材・材質','素材':'素材・材質','容量':'容量','容積':'容量','重量':'重さ','重さ':'重さ','セット内容':'セット内容','内容量':'内容量','対象年齢':'対象年齢','メーカー品番':'品番・型番','品番':'品番・型番','型番':'品番・型番','JANコード':'JANコード','JAN':'JANコード','原産国':'生産国','生産国':'生産国','製造国':'生産国'}
-LABEL_PATTERN='|'.join(map(re.escape,sorted(LABELS,key=len,reverse=True)))
+LABELS.update({'本体サイズ・重量':'サイズ','サイズ・重量':'サイズ','サイズ(約)':'サイズ','商品サイズ(約)':'サイズ','本体サイズ(約)':'サイズ','サイズ・寸法':'サイズ','素材・材質':'素材・材質','素材・成分':'素材・材質','素材・原料':'素材・材質','材質・素材':'素材・材質','セット内容・付属品':'セット内容'})
+LABELS.update({'主な材料・原料':'素材・材質','主な材料':'素材・材質','材料・原料':'素材・材質','材料':'素材・材質'})
+BOUNDARIES=['特徴','仕様','付属品','お手入れ','ブランド名','メーカー名','備考','耐熱温度','使用抗菌剤の種類','加工方法','加工部位','商品説明','商品詳細']
+LABEL_PATTERN='|'.join(map(re.escape,sorted(list(LABELS)+BOUNDARIES,key=len,reverse=True)))
 def specifications(caption):
  parser=Caption();parser.feed(str(caption or ''))
  text=unicodedata.normalize('NFKC',html.unescape(''.join(parser.parts)))
  pattern=re.compile(r'(?:[【\[■●◆□◎]\s*)?('+LABEL_PATTERN+r')(?:\s*[】\]:：]\s*|\s*\n\s*|[ \t　]+)')
  matches=list(pattern.finditer(text));facts={}
  for n,m in enumerate(matches):
+  if m[1] not in LABELS:continue
   value=text[m.end():matches[n+1].start() if n+1<len(matches) else len(text)]
-  value=re.split(r'\n|[■●◆□◎]|【|※|ご注意|注意事項|関連商品|検索用|キーワード|おすすめ|お客様|商品説明|商品詳細',value)[0]
+  value=re.split(r'\n|[■●◆□◎]|【|※|ご注意|注意事項|関連商品|検索用|キーワード|おすすめ|お客様|商品説明|商品詳細|\(c\)|\(C\)|©|備考',value)[0]
   value=re.sub(r'\s+',' ',value).strip(' :：/|・。】[]')
   label=LABELS[m[1]]
+  value=re.split(r'。|\s+(?:梱包|同シリーズ|ケープ|注意|耐熱|名前シール|使用抗菌剤|ランチグッズ|商品に|製造元|メーカー希望|特徴|仕様)',value)[0].strip()
+  value=re.sub(r'\s*[・]?商品$','',value).strip()
+  if label=='素材・材質':value=re.split(r'\s+(?![0-9%])',value)[0]
+  if label=='生産国':
+   country=re.search(r'日本|中国|台湾|ベトナム|タイ|韓国|インドネシア|インド|フィリピン|マレーシア',value)
+   if country:value=country[0]
   if not 1<len(value)<=150 or re.search(r'https?://|送料無料|クーポン|ポイント|楽天|レビュー|%OFF|割引',value,re.I):continue
   valid={'サイズ':r'\d.*(?:cm|mm|×|[xX]|高さ|幅|奥行|直径)|(?:高さ|幅|直径).*\d','素材・材質':r'綿|ポリ|ナイロン|ABS|PP|PET|PVC|樹脂|紙|ステンレス|アルミ|陶|磁器|ガラス|アクリル|鉄|木|レーヨン|合皮|革|レジン|シリコ|プラスチック|ゴム','容量':r'\d.*(?:ml|mL|L|リットル)','重さ':r'\d.*(?:g|グラム|kg)','対象年齢':r'\d.*(?:歳|才|か月|ヶ月)','内容量':r'\d','品番・型番':r'[A-Za-z0-9][A-Za-z0-9_-]{2,}','JANコード':r'^\d{13}$','生産国':r'日本|中国|台湾|ベトナム|タイ|韓国|インド|フィリピン|マレーシア','セット内容':r'.{3,}'}[label]
   if re.search(valid,value,re.I):facts.setdefault(label,value)
@@ -98,7 +108,7 @@ def prepare(wp,path):
 def enrich(entry):
  old,row=entry['existing'],entry['api'];code=old['code']
  if row.get('itemCode')!=code or not row.get('availability'):return None
- title=c.display_title(row.get('itemName',''))
+ title=re.sub(r'^【[0-9,]+円】\s*','',c.display_title(row.get('itemName','')))
  chars=[k for k,v in c.CHARACTERS.items() if c.matches_character(title,k)]
  if len(chars)!=1:return None
  facts=specifications(row.get('itemCaption',''))
@@ -170,8 +180,6 @@ def publish(wp,input_path):
  cache=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
  payload=base64.b64encode(gzip.compress(json.dumps(source,ensure_ascii=False).encode(),mtime=0)).decode()
  if not cache:wp.call('/wp/v2/pages',{'slug':CACHE,'status':'draft','title':'Managed exact-item API cache for the fixed detail pilot','content':'<pre>'+payload+'</pre>'})
- for entry in source[:6]:
-  print('DETAIL SOURCE SAMPLE',json.dumps({'title':entry['api'].get('itemName'),'caption':entry['api'].get('itemCaption','')[:4000],'facts':specifications(entry['api'].get('itemCaption',''))},ensure_ascii=False),flush=True)
  with ThreadPoolExecutor(max_workers=4) as pool:enriched=list(pool.map(enrich,source))
  eligible=[x for x in enriched if x];records=choose(eligible)
  audit={'apiMatched':len(source),'eligible':len(eligible),'selected':len(records),'skipped':len(source)-len(records),'examples':[{'title':x['title'],'facts':x['facts']} for x in records[:6]]}
