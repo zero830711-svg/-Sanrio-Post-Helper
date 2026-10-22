@@ -337,6 +337,7 @@ def expand500(wp,settings_path):
  records,state_id=read_state(wp)
  if not records or not state_id:raise RuntimeError('The existing managed detail cohort is missing')
  if len(records)>500:raise RuntimeError('The detail target exceeds 500')
+ initial_count=len(records);run_target=min(500,initial_count+50)
  state_path='/wp/v2/pages/'+str(state_id)
  state_raw=wp.call(state_path+'?context=edit&_fields=content')['content']['raw'];manifest=json.loads(base64.b64decode(c.text_from(state_raw)))
  u=load_unified();goods=wp.call('/wp/v2/pages/804?context=edit&_fields=content');index=u.read_index(goods['content']['raw'])
@@ -355,8 +356,8 @@ def expand500(wp,settings_path):
  lookup={x['code']:x for x in candidates}
  if not candidates and len(records)<500:raise RuntimeError('No qualifying catalog candidates remain')
  cache_rows=[];new_total=0
- while len(records)<500 and progress['cursor']<len(codes):
-  start=progress['cursor'];batch=[lookup[code] for code in codes[start:start+100]]
+ while len(records)<run_target and progress['cursor']<len(codes):
+  start=progress['cursor'];batch=[lookup[code] for code in codes[start:start+min(100,run_target-len(records))]]
   with tempfile.TemporaryDirectory(prefix='sf-detail-500-') as tmp:
    source=Path(tmp)/'candidates.json';verified=Path(tmp)/'verified.json';source.write_text(json.dumps(batch,ensure_ascii=False))
    import subprocess
@@ -364,7 +365,7 @@ def expand500(wp,settings_path):
    matched=json.loads(verified.read_text())
   with ThreadPoolExecutor(max_workers=4) as pool:enriched=list(pool.map(enrich,matched))
   eligible=[x for x in enriched if x and clear_candidate(x['title']) and not any(v.count('(')!=v.count(')') for v in x['facts'].values()) and not re.search(r'[、,:][A-Za-z]$',x['facts'].get('素材・材質',''))]
-  additions=choose(eligible,limit=min(50,500-len(records)),existing=records);next_records=records+additions
+  additions=choose(eligible,limit=run_target-len(records),existing=records);next_records=records+additions
   contents={x['code']:render(x,next_records) for x in additions}
   def save_one(x):
    raw=contents[x['code']];desc=x['title']+'。'+'／'.join(k+'：'+v for k,v in x['facts'].items())
@@ -381,15 +382,15 @@ def expand500(wp,settings_path):
   hub=MARK+'<style>'+(ROOT/'product-detail-pilot.css').read_text()+'</style><section><p>サイズ・素材などを購入先の商品情報で確認できた商品をご紹介します。アフィリエイト広告を含みます。</p><div class="sf-detail-hub">'+''.join('<a href="'+E(x['url'])+'"><img src="'+E(x['images'][0])+'" alt="'+E(x['title'])+'" loading="lazy"><strong>'+E(x['title'])+'</strong></a>\n' for x in records)+'</div></section>'
   save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
   print('DETAIL 500 CHECKPOINT',json.dumps({'total':len(records),'newThisRun':new_total,'checked':progress['checked'],'matched':progress['matched'],'eligible':progress['eligible'],'skipped':progress['skipped'],'remainingCandidates':len(codes)-progress['cursor']},ensure_ascii=False),flush=True)
- if len(records)<500:
+ if len(records)<run_target:
   result=sync_catalogs(wp,records)
   report={'published':len(records),'newPages':len(records)-100,'existingPagesPreserved':100,'apiChecked':progress['checked'],'apiMatched':progress['matched'],'qualityEligible':progress['eligible'],'skipped':progress['skipped'],'candidatePool':len(codes),**result,'qualityThresholdRetained':True,'hubUrl':c.SITE+'/'+HUB+'/'}
   Path('product-detail-pilot-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
   print('DETAIL 500 CANDIDATES EXHAUSTED',json.dumps(report,ensure_ascii=False),flush=True)
   raise RuntimeError('Candidate pool exhausted before 500; quality threshold retained. Published '+str(len(records)))
  result=sync_catalogs(wp,records)
- report={'published':len(records),'newPages':len(records)-100,'existingPagesPreserved':100,'apiChecked':progress['checked'],'apiMatched':progress['matched'],'qualityEligible':progress['eligible'],'skipped':progress['skipped'],'candidatePool':len(codes),**result,'publicationDatesPreserved':True,'hubUrl':c.SITE+'/'+HUB+'/'}
- Path('product-detail-pilot-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL 500 COMPLETE',json.dumps(report,ensure_ascii=False),flush=True)
+ report={'published':len(records),'newPages':len(records)-100,'existingPagesPreserved':100,'apiChecked':progress['checked'],'apiMatched':progress['matched'],'qualityEligible':progress['eligible'],'skipped':progress['skipped'],'candidatePool':len(codes),**result,'publicationDatesPreserved':True,'newThisRun':len(records)-initial_count,'batchTarget':run_target,'remainingTo500':500-len(records),'hubUrl':c.SITE+'/'+HUB+'/'}
+ Path('product-detail-pilot-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL 500 COMPLETE' if len(records)==500 else 'DETAIL 50 BATCH COMPLETE',json.dumps(report,ensure_ascii=False),flush=True)
 
 def sync_catalogs(wp,records):
  states=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+STATE+'&_fields=content')

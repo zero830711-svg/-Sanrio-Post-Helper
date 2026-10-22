@@ -1,4 +1,4 @@
-name: Expand verified product details to 500
+name: Add 50 verified product detail pages
 on:
   push:
     branches: [main]
@@ -11,7 +11,7 @@ permissions:
   contents: read
 concurrency:
   group: sanrio-other-character-rakuten-catalog
-  cancel-in-progress: false
+  cancel-in-progress: ${{ contains(github.event.head_commit.message, '[detail-batch-50]') }}
 jobs:
   expand:
     runs-on: ubuntu-latest
@@ -52,7 +52,7 @@ jobs:
           get .rakuten-settings.php -o "$detail_tmp/settings.php"
           bye
           LFTP
-      - name: Add qualifying pages in resumable batches until 500
+      - name: Add up to 50 qualifying pages and save progress
         run: python3 -u scripts/product-detail-pilot.py --expand500 "$DETAIL_TMP/settings.php"
       - name: Verify all public pages and sitemap discovery
         run: python3 -u scripts/verify-product-detail-pilot.py
