@@ -70,3 +70,13 @@ test('前回確認後に追加と情報元の条件を同時に適用する',asy
  await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveAttribute('data-lovely-select',fresh.lovely.url);
  await expect(page.locator('#lovelyRecentHelp')).toBeVisible();
 });
+
+test('楽天市場の商品画面をアプリで開くリンクを投稿準備に表示する',async({page})=>{
+ fresh.lovely.products=[{store:'楽天',url:'https://item.rakuten.co.jp/shop/kitty/'}];
+ await setup(page);
+ await page.locator('#lovelySourceFilter').selectOption('lovely');
+ await page.locator('#lovelyList [data-lovely-select]').first().click();
+ await expect(page.locator('#lovelyRakutenAppOpen')).toBeVisible();
+ await expect(page.locator('#lovelyRakutenAppOpen')).toHaveAttribute('href','https://item.rakuten.co.jp/shop/kitty/');
+ await expect(page.locator('#lovelyRakutenAffiliateOpen')).toContainText(/楽天アフィリエイトを(?:Chromeで)?開く/);
+});
