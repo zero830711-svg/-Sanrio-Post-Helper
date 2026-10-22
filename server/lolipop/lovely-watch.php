@@ -640,7 +640,7 @@ function lw_fashion_url(string $url): string {
 }
 function lw_fashion_item(array $row,array $settings): array {
     $p=lw_product((string)($row['itemUrl']??''));$code=(string)($row['itemCode']??'');$name=trim(strip_tags((string)($row['itemName']??'')));
-    if(!$p||!lw_fashion_url($p['url'])||!preg_match('/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D',$code)||$name===''||!preg_match('/Rakuten\s*Fashion/i',$name.' '.($row['itemCaption']??'')))throw new RuntimeException('楽天ファッション店の商品一致を確認できませんでした。');
+    if(!$p||!lw_fashion_url($p['url'])||!preg_match('/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D',$code)||$name===''||(!preg_match('/Rakuten\s*Fashion/i',$name.' '.($row['itemCaption']??''))&&!in_array(explode(':',$code)[0],['stylife','stylifemen','stylife-kids'],true)))throw new RuntimeException('楽天ファッション店の商品一致を確認できませんでした。');
     $images=[];foreach($row['mediumImageUrls']??[] as $r){$image=lw_image_url(is_array($r)?(string)($r['imageUrl']??''):(string)$r);if($image)$images[]=preg_replace('/([?&])_ex=[^&]+/','$1_ex=1200x1200',$image);}
     $checked=gmdate('c');$item=['source'=>'楽天ファッション','url'=>$p['url'],'title'=>$name,'date'=>'','thumbnail'=>$images[0]??'','products'=>[$p],'productIds'=>[$p['id']],'needsReview'=>false,'catalogUpdate'=>true,
       'retailerStatus'=>'楽天ファッションのAPI掲載商品です。更新順で取得しています。新発売・発売日・現在の在庫は未確認です。',
@@ -651,7 +651,7 @@ function lw_fashion_item(array $row,array $settings): array {
 }
 function lw_fashion_data(array $data,array $settings,int $page,string $expectedUrl='',string $expectedCode=''): array {
     $data=lw_rakuten_search_data($data);if(!isset($data['items'])||!is_array($data['items']))throw new RuntimeException('楽天ファッションのAPI応答を確認できませんでした。');$items=[];
-    foreach($data['items']??[] as $row){$item=lw_fashion_item($row,$settings);if($expectedUrl!==''&&($item['url']!==$expectedUrl||($expectedCode!==''&&$item['productInfo']['itemCode']!==$expectedCode)))throw new RuntimeException('指定した楽天ファッション商品と一致しません。');$items[$item['url']]=$item;}
+    foreach($data['items']??[] as $row){try{$item=lw_fashion_item($row,$settings);}catch(RuntimeException $e){if($expectedUrl!=='')throw $e;continue;}if($expectedUrl!==''&&($item['url']!==$expectedUrl||($expectedCode!==''&&$item['productInfo']['itemCode']!==$expectedCode)))throw new RuntimeException('指定した楽天ファッション商品と一致しません。');$items[$item['url']]=$item;}
     if($expectedUrl!==''){if(count($items)!==1)throw new RuntimeException('楽天ファッションの商品情報を確認できませんでした。');return ['item'=>array_values($items)[0]];}
     $pages=filter_var($data['pageCount']??0,FILTER_VALIDATE_INT);
     return ['items'=>array_values($items),'nextPage'=>$items&&$pages!==false&&$page<min(20,$pages)?$page+1:null,'page'=>$page,'order'=>'API更新順（発売順ではありません）'];
