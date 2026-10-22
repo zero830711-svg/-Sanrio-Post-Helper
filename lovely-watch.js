@@ -293,6 +293,9 @@ const lovelyWatch = (()=>{
     const productUrl=item.productInfo?.url||(item.products||[]).find(p=>p.store==='楽天')?.url||'';
     const productBox=el('lovelyRakutenProductBox');
     if(productBox){productBox.hidden=!productUrl;el('lovelyRakutenProductUrl').value=productUrl;el('lovelyRakutenProductCopyStatus').textContent='';}
+    const rakutenAppOpen=el('lovelyRakutenAppOpen');
+    const isRakutenMarketItem=/^https:\/\/item\.rakuten\.co\.jp\//i.test(productUrl);
+    if(rakutenAppOpen){rakutenAppOpen.href=productUrl||'https://www.rakuten.co.jp/';rakutenAppOpen.hidden=!isRakutenMarketItem;}
     renderProduct(item);
     el('lovelyRetailerRetry').hidden=!['グルマンディーズ','スケーター'].includes(item.source);
     if(item.source==='楽天API')el('lovelyReview').textContent='楽天APIで発見した候補です。新発売とは限りません。販売ページで商品・種類・セット内容を確認し、利用できる写真を添付してください。';
