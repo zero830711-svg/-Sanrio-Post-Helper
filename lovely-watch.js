@@ -280,6 +280,7 @@ const lovelyWatch = (()=>{
     externalEditor={...options,home:el('lovelyEditor').parentElement};
     options.host.classList.add('lovely-editor-host');options.host.append(el('lovelyEditor'));
     chooseSequence++;detailLoading=false;
+    el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;el('lovelyRetailerRetry').disabled=false;
     const saved=state(),draft=saved.drafts?.[item.url];
     if(!draft){
       saved.drafts=saved.drafts||{};saved.drafts[item.url]={...item,photoSignature:photoSignature(item)};
@@ -498,6 +499,7 @@ const lovelyWatch = (()=>{
     el('lovelyStatus').textContent='商品情報を取得中…';
     try{
       const data=await request('detail',url,null,null,'lovely',force);
+      if(sequence!==chooseSequence)return;
       domesticCandidates.ingest([data.item]);domesticCandidates.editor(data.item,'lovelyEvidenceEditor');rememberIdentity(data.item);
       detailCache.delete(url);detailCache.set(url,{time:Date.now(),item:data.item});
       if(detailCache.size>20)detailCache.delete(detailCache.keys().next().value);

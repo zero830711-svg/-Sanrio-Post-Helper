@@ -59,7 +59,7 @@ test('共通画面の投稿済み・見送りを楽天検索側へ記録する',
  await expect(page.locator('#flowCount')).toHaveText('0件の楽天在庫下書き');
  await page.locator('#flowFilter').selectOption('done');
  await page.getByRole('button',{name:'確認・共有',exact:true}).click();await page.locator('#lovelySkip').click();
- expect(calls.filter(c=>c.action==='mark').map(c=>c.data.mark)).toEqual(['done','skip']);
+ await expect.poll(()=>calls.filter(c=>c.action==='mark').map(c=>c.data.mark)).toEqual(['done','skip']);
 });
 test('楽天検索の写真を共通画面で選びリンク付き本文を共有する',async({page})=>{
  const row=entry();row.item.images=['https://image.rakuten.co.jp/test/image.png'];
@@ -88,4 +88,19 @@ test('AIはボタンでのみ生成し入力済みのリンクと本文を保持
  await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostText')).toHaveValue(generated);expect(calls).toBe(1);
  await page.locator('#lovelyBackBottom').click();await page.getByRole('button',{name:'確認・共有',exact:true}).click();
  await expect(page.locator('#lovelyPostText')).toHaveValue(generated);
+});
+test('新着商品の詳細取得中に楽天検索へ切り替えても操作を継続できる',async({page})=>{
+ const row=entry();await setup(page,row);let release;
+ const pending={url:'https://lovely-fancy.net/pending/',title:'取得待ちの商品',source:'Lovely Fancy',products:[]};
+ await page.route('**/lovely-watch.php?**',async r=>{
+  if(new URL(r.request().url()).searchParams.get('action')==='detail'){
+   await new Promise(resolve=>release=resolve);return r.fulfill({json:{ok:true,item:pending}});
+  }
+  return r.fulfill({json:{ok:true,items:[pending],nextPage:null}});
+ });
+ await page.locator('#homeNewTab').click();await page.locator('[data-lovely-select="'+pending.url+'"]').click();
+ await expect(page.locator('#lovelyConfirmed')).toBeDisabled();await expect.poll(()=>!!release).toBe(true);
+ await page.locator('#homeProductFlowTab').click();await page.getByRole('button',{name:'確認・共有',exact:true}).click();
+ await expect(page.locator('#lovelyConfirmed')).toBeEnabled();await expect(page.locator('#lovelyPhotos')).toBeEnabled();
+ release();await expect(page.locator('#lovelyTitle')).toHaveText(row.item.title);
 });
