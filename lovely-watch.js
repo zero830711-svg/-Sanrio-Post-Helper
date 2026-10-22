@@ -44,7 +44,7 @@ const lovelyWatch = (()=>{
   function savedRakuten(item){const key=productKey(item);return key?shortUrl(state().shortLinks?.[key]?.url||''):'';}
   function linkControls(){
     const short=shortUrl(el('lovelyRakuten').value.trim()),box=el('lovelyRakutenProductBox');
-    if(box)box.open=!short;
+    if(box)box.open=true;
 
     const summary=el('lovelyLinkSummary');if(summary)summary.textContent='紹介リンク：'+[el('lovelyAmazon').value.trim()?'Amazon設定済み':'',el('lovelyRakuten').value.trim()?'楽天設定済み':''].filter(Boolean).join('・')+(!(el('lovelyAmazon').value.trim()||el('lovelyRakuten').value.trim())?'未設定':'（変更）');
     const retry=el('rakutenRetry');if(retry)retry.hidden=!!short||!!selected?.overseas;
@@ -103,7 +103,7 @@ const lovelyWatch = (()=>{
       if(selected!==item||revision!==settingsRevision)return;
       if(data.affiliate?.itemCode!==item.productInfo.itemCode)throw new Error('商品コードが一致しないため自動入力しませんでした。');
       const url=ownLink(data.affiliate.url,'楽天');
-      if(!el('lovelyRakuten').value.trim()){el('lovelyRakuten').value=url;el('lovelyConfirmed').checked=false;persist();el('lovelyLinkTools').open=false;el('rakutenAutoStatus').textContent='商品コードが一致する自分の楽天リンクを入力しました。商品・写真の一致を確認してください。'}else el('rakutenAutoStatus').textContent='入力済みの楽天リンクを使用します。';
+      if(!el('lovelyRakuten').value.trim()){el('lovelyRakuten').value=url;el('lovelyConfirmed').checked=false;persist();el('lovelyLinkTools').open=true;el('rakutenAutoStatus').textContent='商品コードが一致する自分の楽天リンクを入力しました。商品・写真の一致を確認してください。'}else el('rakutenAutoStatus').textContent='入力済みの楽天リンクを使用します。';
     }catch(e){if(selected===item)el('rakutenAutoStatus').textContent=e.message}finally{affiliateBusy=false;button.disabled=false;if(selected&&(selected!==item||revision!==settingsRevision)&&!el('lovelyRakuten').value.trim())autoRakuten(selected)}
   }
   function janIds(item){
@@ -306,7 +306,7 @@ const lovelyWatch = (()=>{
     if(item.source==='スケーター')el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.productInfo?.jan||item.jan||item.title)+'/?sid=206803';
     postEdited=!!item.postEdited;postLinks=item.postLinks||linkSignature();postStale=false;
     el('lovelyPostText').value=postEdited?String(item.postText||''):'';el('lovelyPostStatus').textContent='';el('lovelyPostAiStatus').textContent='';
-    el('lovelyShareStatus').textContent='';restorePreparation(item);persist();el('lovelyLinkTools').open=!item.overseas&&!(el('lovelyAmazon').value.trim()||el('lovelyRakuten').value.trim());
+    el('lovelyShareStatus').textContent='';restorePreparation(item);persist();el('lovelyLinkTools').open=true;
   }
   function linkSignature(){return JSON.stringify([el('lovelyAmazon').value.trim(),el('lovelyRakuten').value.trim()]);}
   function postLength(text){
@@ -578,7 +578,7 @@ const lovelyWatch = (()=>{
     if(!url)throw new Error('リンクをコピーしてから貼り付けてください。');
     ownLink(url,'楽天');
     input.value=url;input.removeAttribute('aria-invalid');el('lovelyConfirmed').checked=false;persist();
-    input.blur();el('lovelyLinkTools').open=false;
+    input.blur();el('lovelyLinkTools').open=true;
     el('lovelyPostStatus').textContent=postStale?'楽天リンクを保存しました。紹介リンクが変わったため「作り直す」で本文を更新してください。':'楽天リンクを保存しました。投稿文・写真を確認してください。';
     el('lovelyPostText').scrollIntoView({block:'nearest',behavior:'smooth'});
     el('rakutenAutoStatus').textContent='楽天リンクを保存しました。';
