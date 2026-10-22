@@ -4,7 +4,7 @@ import base64
 import gzip
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 spec = importlib.util.spec_from_file_location('unified', Path(__file__).resolve().parents[1] / 'scripts/unify-product-search.py')
 u = importlib.util.module_from_spec(spec)
@@ -31,9 +31,11 @@ class UnifiedSearchTests(unittest.TestCase):
                     return {'id':804,'slug':'goods','content':{'raw':self.raw,'rendered':self.raw}}
             wp=FakeWP()
             guide='<article class="sf-directory-card" data-character="cinnamoroll" data-kind="bags"><a href="https://sanrio-fan.site/new-guide/"><strong>ポーチの仕様</strong></a></article>'
-            with patch.object(u, "load") as home_loader:
+            details, home, seo = MagicMock(), MagicMock(), MagicMock()
+            details.read_state.return_value = ([], None)
+            with patch.object(u, "load", side_effect=lambda name, file: details if file == "product-detail-pilot.py" else home if file == "home-catalog.py" else seo):
                 saved=u.sync(wp,previous_index=previous,guide_source=guide)
-                home_loader.return_value.sync.assert_called_once_with(wp, saved)
+                home.sync.assert_called_once_with(wp, saved)
         self.assertEqual(len(wp.writes),1)
         self.assertIn(u.DATA_ID,wp.writes[0])
         self.assertEqual(saved['firstSeenHistory']['rakuten:shop:a'],'2026-10-18T00:00:00+00:00')
