@@ -41,19 +41,23 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          if python3 -u scripts/product-detail-pilot.py --maintain; then
-            exit 0
-          else
-            detail_status=$?
-            if [ "$detail_status" != 3 ]; then exit "$detail_status"; fi
-          fi
           detail_tmp=$(mktemp -d)
           trap 'rm -rf "$detail_tmp"' EXIT
-          if [ "$DETAIL_NEW_CANDIDATES" != true ] && python3 -u scripts/product-detail-pilot.py --cached "$detail_tmp/verified.json"; then
-            python3 -u scripts/product-detail-pilot.py --publish "$detail_tmp/verified.json"
-            exit 0
+          if [ "$DETAIL_TO_100" = true ]; then
+            python3 -u scripts/product-detail-pilot.py --prepare100 "$detail_tmp/candidates.json"
+          else
+            if python3 -u scripts/product-detail-pilot.py --maintain; then
+              exit 0
+            else
+              detail_status=$?
+              if [ "$detail_status" != 3 ]; then exit "$detail_status"; fi
+            fi
+            if python3 -u scripts/product-detail-pilot.py --cached "$detail_tmp/verified.json"; then
+              python3 -u scripts/product-detail-pilot.py --publish "$detail_tmp/verified.json"
+              exit 0
+            fi
+            python3 -u scripts/product-detail-pilot.py --prepare "$detail_tmp/candidates.json"
           fi
-          python3 -u scripts/product-detail-pilot.py --prepare "$detail_tmp/candidates.json"
           lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
           set cmd:fail-exit yes
           set net:timeout 20
@@ -66,9 +70,13 @@ jobs:
           bye
           LFTP
           php scripts/fetch-product-detail-pilot.php "$detail_tmp/settings.php" "$detail_tmp/candidates.json" "$detail_tmp/verified.json"
-          python3 -u scripts/product-detail-pilot.py --publish "$detail_tmp/verified.json"
+          if [ "$DETAIL_TO_100" = true ]; then
+            python3 -u scripts/product-detail-pilot.py --expand100 "$detail_tmp/verified.json"
+          else
+            python3 -u scripts/product-detail-pilot.py --publish "$detail_tmp/verified.json"
+          fi
         env:
-          DETAIL_NEW_CANDIDATES: ${{ contains(github.event.head_commit.message, '[detail-expand]') }}
+          DETAIL_TO_100: ${{ contains(github.event.head_commit.message, '[detail-to-100]') }}
       - name: Verify public indexability and sitemap discovery
         run: python3 -u scripts/verify-product-detail-pilot.py
       - name: Include detail photos in the existing image sitemap
@@ -85,3 +93,4 @@ jobs:
             product-detail-pilot-report.json
             product-detail-discovery-report.json
             catalog-image-report.json
+

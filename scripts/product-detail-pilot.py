@@ -62,7 +62,7 @@ def read_state(wp):
  if rows[0]['slug']!=STATE:raise RuntimeError('Pilot state identity mismatch')
  payload=json.loads(base64.b64decode(c.text_from(rows[0]['content']['raw'])))
  records=payload['records']
- if len(records)>50:raise RuntimeError('Pilot cap exceeded')
+ if len(records)>100:raise RuntimeError('Product detail cap exceeded')
  for x in records:
   if x['url']!=detail_url(x['code']) or not x.get('pageId'):raise RuntimeError('Invalid managed detail URL')
  return records,rows[0]['id']
@@ -117,6 +117,29 @@ def prepare(wp,path):
  if len(chosen)<30:raise RuntimeError('Too few candidates for a meaningful pilot')
  Path(path).write_text(json.dumps(chosen,ensure_ascii=False));print('DETAIL PREPARED',len(chosen),'existing products',flush=True)
 
+def clear_candidate(title):
+ return len(title)<=100 and not re.search(r'中古|福袋|ランダム|全\d+種|選べる|選択|アソート|[/／]|<|>',title) and sum(c.matches_character(title,k) for k in c.CHARACTERS)==1
+
+def prepare_expansion(wp,path):
+ records,_=read_state(wp)
+ if len(records)==100:
+  Path(path).write_text('[]');return
+ if len(records)!=40:raise RuntimeError('Expected 40 existing details before expansion')
+ rows=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
+ if not rows:raise RuntimeError('Verified source cache missing')
+ cache=json.loads(gzip.decompress(base64.b64decode(c.text_from(rows[0]['content']['raw']))))
+ pool=[];existing_codes={x['code'] for x in records}
+ for entry in cache:
+  old,row=entry['existing'],entry['api'];title=c.display_title(row.get('itemName',''));facts=specifications(row.get('itemCaption',''))
+  if old['code'] in existing_codes or not clear_candidate(title):continue
+  if len(facts)<2 or '素材・材質' not in facts or not any(k in facts for k in ['サイズ','容量','重さ']):continue
+  pool.append(dict(old,title=title,facts=facts,images=[old['image']],character=old['characters'][0]))
+ # At most 100 exact-item API calls, all from existing catalog products.
+ chosen=choose(pool,limit=100,existing=records)
+ if len(chosen)<60:raise RuntimeError('Too few clear cached candidates for 60 additions')
+ Path(path).write_text(json.dumps(chosen,ensure_ascii=False))
+ print('DETAIL EXPANSION PREPARED',len(chosen),'candidates; existing',len(records),flush=True)
+
 def enrich(entry):
  old,row=entry['existing'],entry['api'];code=old['code']
  if row.get('itemCode')!=code or not row.get('availability'):return None
@@ -141,13 +164,21 @@ def enrich(entry):
  if p.scheme!='https' or p.hostname!='item.rakuten.co.jp':return None
  return {'code':code,'title':title,'facts':facts,'images':images,'affiliate':affiliate,'source':dest,'shop':str(row.get('shopName') or old['shop']),'character':chars[0],'kind':old['kind'],'url':detail_url(code),'checkedAt':datetime.now(timezone.utc).isoformat(timespec='seconds')}
 
-def choose(entries):
+def identity_keys(x):
+ title=c.canonical_text(x['title'])
+ # Treat clothing size variants and duplicate shop listings as the same pilot product.
+ title=re.sub(r'\d+(?:[-〜~]\d+)?\s*cm','',title,flags=re.I)
+ keys={'code:'+x['code'],'title:'+title,'image:'+parse.urlsplit(x['images'][0]).path}
+ if x['facts'].get('JANコード'):keys.add('jan:'+x['facts']['JANコード'])
+ return keys
+
+def choose(entries,limit=40,existing=()):
  pool=sorted(entries,key=lambda x:(-len(x['facts']),-len(x['images']),x['code']));chosen=[];seen=set();chars=collections.Counter();kinds=collections.Counter()
- while pool and len(chosen)<40:
+ for x in existing:seen.update(identity_keys(x));chars[x['character']]+=1;kinds[x['kind']]+=1
+ while pool and len(chosen)<limit:
   best=min(pool,key=lambda x:chars[x['character']]*3+kinds[x['kind']]-len(x['facts'])-len(x['images'])*.5)
   pool.remove(best)
-  keys={'title:'+c.canonical_text(best['title']),'image:'+parse.urlsplit(best['images'][0]).path}
-  if best['facts'].get('JANコード'):keys.add('jan:'+best['facts']['JANコード'])
+  keys=identity_keys(best)
   if keys&seen:continue
   chosen.append(best);seen.update(keys);chars[best['character']]+=1;kinds[best['kind']]+=1
  return chosen
@@ -185,10 +216,14 @@ def verify_public(record):
  canonical=re.search(r'<link\b[^>]*rel=["\']canonical["\'][^>]*href=["\']([^"\']+)',body,re.I)
  if canonical and html.unescape(canonical[1]).rstrip('/')!=record['url'].rstrip('/'):raise RuntimeError('Canonical URL mismatch')
 
-def publish(wp,input_path):
+def publish(wp,input_path,target=40):
  old,state_id=read_state(wp)
- if old:raise RuntimeError('Pilot already exists; refusing to expand or overwrite the fixed cohort')
- source=json.loads(Path(input_path).read_text())
+ if target not in (40,100):raise RuntimeError('Unsupported detail target')
+ if target==100 and len(old)==100:
+  result=sync_catalogs(wp,old);print('DETAIL TOTAL VERIFIED',json.dumps({'total':100,'newPages':0,**result}),flush=True);return
+ if old and target==40:raise RuntimeError('Pilot already exists')
+ if target==100 and len(old)!=40:raise RuntimeError('Expansion requires the original 40-product cohort')
+ source=json.loads(Path(input_path).read_text());incoming=list(source)
  cache=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
  if cache:
   previous=json.loads(gzip.decompress(base64.b64decode(c.text_from(cache[0]['content']['raw']))))
@@ -196,28 +231,43 @@ def publish(wp,input_path):
  payload=base64.b64encode(gzip.compress(json.dumps(source,ensure_ascii=False).encode(),mtime=0)).decode()
  if cache:wp.call('/wp/v2/pages/'+str(cache[0]['id']),{'content':'<pre>'+payload+'</pre>'})
  else:wp.call('/wp/v2/pages',{'slug':CACHE,'status':'draft','title':'Managed exact-item API cache for the fixed detail pilot','content':'<pre>'+payload+'</pre>'})
- with ThreadPoolExecutor(max_workers=4) as pool:enriched=list(pool.map(enrich,source))
- eligible=[x for x in enriched if x];records=choose(eligible)
+ selection_source=incoming if target==100 else source
+ with ThreadPoolExecutor(max_workers=4) as pool:enriched=list(pool.map(enrich,selection_source))
+ eligible=[x for x in enriched if x]
+ if target==100:eligible=[x for x in eligible if clear_candidate(x['title']) and not any(v.count('(')!=v.count(')') for v in x['facts'].values()) and not re.search(r'[、,:][A-Za-z]$',x['facts']['素材・材質'])]
+ additions=choose(eligible,limit=target-len(old),existing=old);records=old+additions
  audit={'apiMatched':len(source),'eligible':len(eligible),'selected':len(records),'skipped':len(source)-len(records),'examples':[{'title':x['title'],'facts':x['facts']} for x in records[:6]]}
  Path('product-detail-selection.json').write_text(json.dumps(audit,ensure_ascii=False,indent=2));print('DETAIL SELECTION',json.dumps(audit,ensure_ascii=False),flush=True)
- if len(records)<30:
+ if (target==100 and len(records)!=100) or len(records)<30:
   for entry in source[-80:][:12]:
    row=entry['api'];parser=Caption();parser.feed(row.get('itemCaption',''));print('DETAIL SOURCE',json.dumps({'code':row.get('itemCode'),'title':row.get('itemName'),'facts':specifications(row.get('itemCaption','')),'caption':''.join(parser.parts)[:2200]},ensure_ascii=False),flush=True)
-  raise RuntimeError('Fewer than 30 specification-backed products; nothing published')
- for x in records:x['cohort']='2026-10-product-detail-pilot'
+  raise RuntimeError('Not enough unique specification-backed products for target; nothing published')
+ for x in additions:x['cohort']='2026-10-product-detail-'+str(target)
  # All content is rendered and validated before the first publication.
- contents={x['code']:render(x,records) for x in records}
+ contents={x['code']:render(x,records) for x in additions}
  def publish_one(x):
   raw=contents[x['code']];description=x['title']+'。'+ '／'.join(k+'：'+v for k,v in x['facts'].items())
   saved=save_page(wp,slug(x['code']),x['title']+'｜サイズ・素材・購入先',raw,description[:250]);x['pageId']=saved['id']
   if saved['link']!=x['url']:raise RuntimeError('Unexpected product URL')
   verify_public(x);print('DETAIL PAGE VERIFIED',x['url'],flush=True);return x
- with ThreadPoolExecutor(max_workers=3) as pool:records=list(pool.map(publish_one,records))
+ with ThreadPoolExecutor(max_workers=3) as pool:records=old+list(pool.map(publish_one,additions))
  manifest={'version':1,'records':records,'createdAt':datetime.now(timezone.utc).isoformat(timespec='seconds')}
- saved=wp.call('/wp/v2/pages',{'slug':STATE,'status':'draft','title':'Managed product detail pilot state','content':'<pre>'+base64.b64encode(json.dumps(manifest,ensure_ascii=False).encode()).decode()+'</pre>'})
+ if state_id:
+  state=wp.call('/wp/v2/pages/'+str(state_id)+'?context=edit&_fields=content')['content']['raw']
+  original=json.loads(base64.b64decode(c.text_from(state)))
+  if original['records']!=old:raise RuntimeError('Concurrent detail state edit')
+  manifest['createdAt']=original['createdAt']
+ state_path='/wp/v2/pages/'+str(state_id) if state_id else '/wp/v2/pages'
+ saved=wp.call(state_path,{'slug':STATE,'status':'draft','title':'Managed product detail pilot state','content':'<pre>'+base64.b64encode(json.dumps(manifest,ensure_ascii=False).encode()).decode()+'</pre>'})
  if saved['slug']!=STATE:raise RuntimeError('State slug collision')
  loaded,_=read_state(wp)
  if loaded!=records:raise RuntimeError('Pilot state verification failed')
+ result=sync_catalogs(wp,records)
+ report={'published':len(records),'newPages':len(additions),'existingPagesPreserved':len(old),'eligible':len(eligible),'selectionSkipped':len(source)-len(records),**result,'publicationDatesPreserved':True,'hubUrl':c.SITE+'/'+HUB+'/','records':[{'url':x['url'],'title':x['title'],'facts':x['facts']} for x in records]}
+ Path('product-detail-pilot-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL PILOT VERIFIED',json.dumps(report,ensure_ascii=False),flush=True)
+
+
+def sync_catalogs(wp,records):
  hub=MARK+'<style>'+(ROOT/'product-detail-pilot.css').read_text()+'</style><section><p>サイズ・素材などを購入先の商品情報で確認できた商品をご紹介します。アフィリエイト広告を含みます。</p><div class="sf-detail-hub">'+''.join('<a href="'+E(x['url'])+'"><img src="'+E(x['images'][0])+'" alt="'+E(x['title'])+'" loading="lazy"><strong>'+E(x['title'])+'</strong></a>\n' for x in records)+'</div></section>'
  save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
  # Only add internal detail links; product data and the existing card order are invariant.
@@ -254,14 +304,12 @@ def publish(wp,input_path):
   updated=raw.replace(marker,marker+tag,1)
   if wp.call('/wp/v2/pages/805?context=edit&_fields=content')['content']['raw']!=raw:raise RuntimeError('Concurrent home edit')
   if wp.call('/wp/v2/pages/805',{'content':updated})['content']['raw']!=updated:raise RuntimeError('Home link not saved')
- report={'published':len(records),'eligible':len(eligible),'selectionSkipped':len(source)-len(records),'linkedCatalogPages':linked,'catalogPlacementsPreserved':placements,'searchProductsPreserved':sum(x['type']=='product' for x in saved['items']),'publicationDatesPreserved':True,'hubUrl':c.SITE+'/'+HUB+'/','records':[{'url':x['url'],'title':x['title'],'facts':x['facts']} for x in records]}
- Path('product-detail-pilot-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL PILOT VERIFIED',json.dumps(report,ensure_ascii=False),flush=True)
-
+ return {'linkedCatalogPages':linked,'catalogPlacementsPreserved':placements,'searchProductsPreserved':sum(x['type']=='product' for x in saved['items'])}
 
 def maintain(wp):
  records,state_id=read_state(wp)
  if not records:return False
- if not 30<=len(records)<=50:raise RuntimeError('Unexpected fixed cohort size')
+ if not 30<=len(records)<=100:raise RuntimeError('Unexpected fixed cohort size')
  state=wp.call('/wp/v2/pages/'+str(state_id)+'?context=edit&_fields=content')['content']['raw']
  payload=json.loads(base64.b64decode(c.text_from(state)))
  rows=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
@@ -300,8 +348,10 @@ def maintain(wp):
  return True
 
 if __name__=='__main__':
- ap=argparse.ArgumentParser();ap.add_argument('--prepare');ap.add_argument('--publish');ap.add_argument('--cached');ap.add_argument('--maintain',action='store_true');args=ap.parse_args();wp=c.WordPress()
- if args.maintain:raise SystemExit(0 if maintain(wp) else 3)
+ ap=argparse.ArgumentParser();ap.add_argument('--prepare');ap.add_argument('--publish');ap.add_argument('--cached');ap.add_argument('--maintain',action='store_true');ap.add_argument('--prepare100');ap.add_argument('--expand100');args=ap.parse_args();wp=c.WordPress()
+ if args.prepare100:prepare_expansion(wp,args.prepare100)
+ elif args.expand100:publish(wp,args.expand100,target=100)
+ elif args.maintain:raise SystemExit(0 if maintain(wp) else 3)
  elif args.prepare:prepare(wp,args.prepare)
  elif args.publish:publish(wp,args.publish)
  elif args.cached:
@@ -311,3 +361,4 @@ if __name__=='__main__':
   if not 30<=len(data)<=400:raise RuntimeError('Unexpected cached pilot size')
   Path(args.cached).write_text(json.dumps(data,ensure_ascii=False));print('DETAIL using existing verified API cache',len(data),flush=True)
  else:ap.error('Choose --prepare or --publish')
+

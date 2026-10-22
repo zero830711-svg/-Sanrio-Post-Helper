@@ -51,4 +51,19 @@ class DetailTests(unittest.TestCase):
   self.assertEqual(facts['サイズ'],'約幅12×奥行8×高さ17cm(持ち手含まず)')
   self.assertEqual(facts['素材・材質'],'アクリル、MDF、ステンレス 鋼')
 
+ def test_expand_sixty_preserves_existing_and_excludes_duplicate_variants(self):
+  import copy
+  rows=[]
+  for i in range(140):
+   x=self.record('sanrio:'+str(i));x['title']='シナモロール 商品'+str(i);x['images']=['https://image.rakuten.co.jp/sanrio/'+str(i)+'.jpg'];rows.append(x)
+  existing=rows[:40];before=copy.deepcopy(existing)
+  duplicate=dict(rows[0],code='another:123',images=['https://image.rakuten.co.jp/other/a.jpg'])
+  additions=d.choose(rows+[duplicate],limit=60,existing=existing)
+  self.assertEqual(len(additions),60)
+  self.assertEqual(existing,before)
+  self.assertFalse({x['code'] for x in additions}&{x['code'] for x in existing})
+  self.assertNotIn('another:123',{x['code'] for x in additions})
+  self.assertFalse(d.clear_candidate('サンリオ SANRIO マスコット JOCHUM RURU / まめちぃ'))
+
 if __name__=='__main__':unittest.main()
+

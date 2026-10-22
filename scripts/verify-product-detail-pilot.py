@@ -11,7 +11,7 @@ def read(url):
  with request.urlopen(request.Request(url,headers={'User-Agent':'SanrioProductPilotVerification/1.0'}),timeout=60) as response:return response.read()
 def main():
  records,_=d.read_state(d.c.WordPress())
- if not 30<=len(records)<=50:raise RuntimeError('Pilot size invalid')
+ if len(records) not in (40,100):raise RuntimeError('Pilot size invalid')
  with ThreadPoolExecutor(max_workers=3) as pool:list(pool.map(d.verify_public,records))
  robots=read(d.c.SITE+'/robots.txt').decode('utf-8');rp=robotparser.RobotFileParser();rp.parse(robots.splitlines())
  for x in records:
@@ -32,3 +32,4 @@ def main():
  report={'publicPages':len(records),'googlebotAllowed':True,'selfCanonicalChecked':True,'sitemapPagesFound':len(records),'sitemapsChecked':visited}
  Path('product-detail-discovery-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL DISCOVERY VERIFIED',json.dumps(report),flush=True)
 if __name__=='__main__':main()
+
