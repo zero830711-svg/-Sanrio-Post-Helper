@@ -161,7 +161,7 @@ async function open(id){
  el('flowOriginal').textContent=(row.item.paragraphs||[]).join('\n\n');
  el('flowItemUrl').value=row.item.url||'';
  const rakutenAppOpen=el('flowRakutenAppOpen');
- if(rakutenAppOpen){rakutenAppOpen.href=row.item.url||'https://www.rakuten.co.jp/';rakutenAppOpen.hidden=row.item.rakutenService!=='market'||!/^https:\/\/item\.rakuten\.co\.jp\//i.test(row.item.url||'');}
+ if(rakutenAppOpen){rakutenAppOpen.href=row.item.url||'https://www.rakuten.co.jp/';rakutenAppOpen.hidden=!/^https:\/\/item\.rakuten\.co\.jp\//i.test(row.item.url||'');}
  el('flowShortUrlStatus').textContent=flowShort(row)?'この候補に保存済みの短縮URLがあります。':'';
  const affiliateOpen=el('flowRakutenAffiliateOpen');
  if(/iPad|iPhone|iPod/.test(navigator.userAgent||'')){affiliateOpen.href='googlechromes://affiliate.rakuten.co.jp/';affiliateOpen.removeAttribute('target');affiliateOpen.textContent='楽天アフィリエイトをChromeで開く';}
