@@ -392,6 +392,21 @@ def expand500(wp,settings_path):
  report={'published':len(records),'newPages':len(records)-100,'existingPagesPreserved':100,'apiChecked':progress['checked'],'apiMatched':progress['matched'],'qualityEligible':progress['eligible'],'skipped':progress['skipped'],'candidatePool':len(codes),**result,'publicationDatesPreserved':True,'newThisRun':len(records)-initial_count,'batchTarget':run_target,'remainingTo500':500-len(records),'hubUrl':c.SITE+'/'+HUB+'/'}
  Path('product-detail-pilot-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL 500 COMPLETE' if len(records)==500 else 'DETAIL 50 BATCH COMPLETE',json.dumps(report,ensure_ascii=False),flush=True)
 
+def update_existing_content(wp,path,original,updated):
+ import time
+ for attempt in range(3):
+  current=wp.call(path+'?context=edit&_fields=content')['content']['raw']
+  if current==updated:return
+  if current!=original:raise RuntimeError('Concurrent catalog edit')
+  try:
+   saved=wp.call(path,{'content':updated})
+   if saved['content']['raw']!=updated:raise RuntimeError('Catalog links not saved')
+   return
+  except RuntimeError as exc:
+   if str(exc) not in ('WordPress REST returned HTTP 500.','WordPress REST returned HTTP 502.','WordPress REST returned HTTP 503.','WordPress REST returned HTTP 504.') or attempt==2:raise
+   print('RETRY existing content update',path,'attempt',attempt+1,flush=True)
+   time.sleep(2*(attempt+1))
+
 def sync_catalogs(wp,records):
  states=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+STATE+'&_fields=content')
  retired=json.loads(base64.b64decode(c.text_from(states[0]['content']['raw']))).get('retiredProducts',[]) if states else []
@@ -415,12 +430,10 @@ def sync_catalogs(wp,records):
   if raw==updated:return 0
   if c.extract_existing_cards(raw)!=c.extract_existing_cards(updated):raise RuntimeError('Catalog products changed')
   path='/wp/v2/pages/'+str(page['id'])
-  if wp.call(path+'?context=edit&_fields=content')['content']['raw']!=raw:raise RuntimeError('Concurrent catalog edit')
-  saved=wp.call(path,{'content':updated})
-  if saved['content']['raw']!=updated:raise RuntimeError('Catalog links not saved')
+  update_existing_content(wp,path,raw,updated)
   return 1
  static=[p for p in pages if 'sf-rakuten-product-card' in p['content']['raw']]
- with ThreadPoolExecutor(max_workers=3) as pool:linked=sum(pool.map(link_page,static))
+ linked=sum(link_page(page) for page in static)
  placements=sum(len(c.extract_existing_cards(p['content']['raw'])) for p in static)
  u=load_unified();goods=wp.call('/wp/v2/pages/804?context=edit&_fields=id,slug,content');raw=goods['content']['raw'];index=u.read_index(raw)
  before={x['id']:x.get('addedAt') for x in index['items']};count=len(index['items'])
@@ -434,8 +447,7 @@ def sync_catalogs(wp,records):
  pattern=r'(<script\b[^>]*id="sf-unified-search-data"[^>]*>).*?(</script>)'
  updated,n=re.subn(pattern,lambda m:m[1]+payload+m[2],raw,flags=re.S)
  if n!=1:raise RuntimeError('Search index boundary missing')
- if wp.call('/wp/v2/pages/804?context=edit&_fields=content')['content']['raw']!=raw:raise RuntimeError('Concurrent search edit')
- wp.call('/wp/v2/pages/804',{'content':updated});saved=u.read_index(wp.call('/wp/v2/pages/804?context=edit&_fields=content')['content']['raw'])
+ update_existing_content(wp,'/wp/v2/pages/804',raw,updated);saved=u.read_index(wp.call('/wp/v2/pages/804?context=edit&_fields=content')['content']['raw'])
  if saved!=index or len(saved['items'])!=count or {x['id']:x.get('addedAt') for x in saved['items']}!=before:raise RuntimeError('Search products/dates changed')
  home=wp.call('/wp/v2/pages/805?context=edit&_fields=content');raw=home['content']['raw'];tag='<p id="sf-product-detail-pilot-link"><a href="/'+HUB+'/">サイズ・素材を確認できる商品情報を見る →</a></p>'
  if 'id="sf-product-detail-pilot-link"' not in raw:

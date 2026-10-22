@@ -4,6 +4,22 @@ from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('detail',Path(__file__).parents[1]/'scripts/product-detail-pilot.py')
 d=importlib.util.module_from_spec(spec);spec.loader.exec_module(d)
 class DetailTests(unittest.TestCase):
+ def test_retry_reconciles_write_that_returned_server_error(self):
+  class WP:
+   content='old';writes=0
+   def call(self,path,data=None):
+    if data is None:return {'content':{'raw':self.content}}
+    self.writes+=1;self.content=data['content']
+    raise RuntimeError('WordPress REST returned HTTP 500.')
+  wp=WP()
+  with patch('time.sleep'):d.update_existing_content(wp,'/wp/v2/pages/1','old','new')
+  self.assertEqual(wp.content,'new');self.assertEqual(wp.writes,1)
+ def test_retry_does_not_overwrite_concurrent_edit(self):
+  class WP:
+   def call(self,path,data=None):
+    if data is not None:raise AssertionError('Unexpected write')
+    return {'content':{'raw':'another edit'}}
+  with self.assertRaisesRegex(RuntimeError,'Concurrent catalog edit'):d.update_existing_content(WP(),'/wp/v2/pages/1','old','new')
  def test_only_labelled_facts_and_no_promotional_tail(self):
   text='【本体サイズ】約12×5×8cm【主な素材・原料】ポリエステル【原産国】中国 ※クーポン対象'
   self.assertEqual(d.specifications(text),{'サイズ':'約12×5×8cm','素材・材質':'ポリエステル','生産国':'中国'})
