@@ -134,9 +134,10 @@
 <details id="flowShortUrlBox">
 <summary>楽天の短縮URLを作成・変更</summary>
 <label>楽天の商品URL（短縮URL作成用）<input id="flowItemUrl" type="url" readonly aria-label="楽天の商品URL"></label>
-<div class="lovely-url-actions"><button id="flowItemUrlCopy" type="button" class="small-btn">商品URLをコピー</button>
+<div class="lovely-url-actions"><a class="small-btn link-btn" id="flowRakutenAppOpen" href="https://www.rakuten.co.jp/" target="_blank" rel="noopener noreferrer" hidden>楽天市場アプリで商品を開く</a>
+<button id="flowItemUrlCopy" type="button" class="small-btn">商品URLをコピー</button>
 <a class="small-btn link-btn" id="flowRakutenAffiliateOpen" href="https://affiliate.rakuten.co.jp/" target="_blank" rel="noopener noreferrer">楽天アフィリエイトを開く</a></div>
-<p class="backup-note">楽天アフィリエイトで短縮URLを作成した後、「短縮URLを貼り付けて反映」を押してください。楽天市場・楽天ブックスの短縮URL（a.r10.to）が下書きに反映されます。</p>
+<p class="backup-note">「楽天市場アプリで商品を開く」から商品画面を確認できます。「アフィリエイトリンクの取得」がない場合は、Chromeで楽天アフィリエイトを開いて短縮URLを作成してください。作成後、「短縮URLを貼り付けて反映」を押してください。楽天市場・楽天ブックスの短縮URL（a.r10.to）が下書きに反映されます。</p>
 </details>
 <p class="backup-note">商品情報とアフィリエイトリンクは楽天APIから自動取得しています。</p>
 <details><summary>原文を確認</summary><p id="flowOriginal"></p></details>
@@ -248,8 +249,10 @@
 <details id="lovelyRakutenProductBox" hidden open>
 <summary>楽天の短縮URLを作成・変更</summary>
 <label>楽天の商品URL（短縮URL作成用）<input id="lovelyRakutenProductUrl" type="url" readonly aria-label="楽天の通常の商品URL"></label>
-<div class="lovely-url-actions"><button id="lovelyRakutenProductCopy" type="button" class="small-btn">商品URLをコピー</button>
+<div class="lovely-url-actions"><a class="small-btn link-btn" id="lovelyRakutenAppOpen" href="https://www.rakuten.co.jp/" target="_blank" rel="noopener noreferrer" hidden>楽天市場アプリで商品を開く</a>
+<button id="lovelyRakutenProductCopy" type="button" class="small-btn">商品URLをコピー</button>
 <a class="small-btn link-btn" id="lovelyRakutenAffiliateOpen" href="https://affiliate.rakuten.co.jp/" target="_blank" rel="noopener noreferrer">楽天アフィリエイトを開く</a></div>
+<p class="backup-note">「楽天市場アプリで商品を開く」から商品画面を確認できます。「アフィリエイトリンクの取得」がない場合は、Chromeで楽天アフィリエイトを開いて短縮URLを作成してください。</p>
 <p id="lovelyRakutenProductCopyStatus" class="backup-note" aria-live="polite"></p>
 </details>
 <label>楽天の紹介リンク<input id="lovelyRakuten" type="text" inputmode="url" placeholder="下のボタンでリンクを置き換え" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="lovelyPasteHelp"></label><p id="lovelyPasteHelp" class="backup-note">削除せず、そのまま貼り付けて置き換えできます。</p>
