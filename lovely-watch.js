@@ -66,7 +66,7 @@ const lovelyWatch = (()=>{
   async function request(action,url='',payload=null,page=null,source='lovely',force=false){
     const key=cloudSettings().key;if(!key)throw new Error('管理画面で同期キーを設定してください。');
     const target=endpoint(source==='overseas'||(url&&isOverseasUrl(url)));target.searchParams.set('action',action);if(url)target.searchParams.set('url',url);if(force)target.searchParams.set('refresh','1');if(page!==null)target.searchParams.set('page',String(page));if(action==='list'&&source!=='lovely')target.searchParams.set('source',source);
-    if(url&&/^https:\/\/item\.rakuten\.co\.jp\/sanrio\//.test(url)){const item=rows.find(i=>i.url===url)||(selected?.url===url?selected:null)||Object.values(state().drafts||{}).find(i=>i.url===url);if(item?.productInfo?.itemCode)target.searchParams.set('code',item.productInfo.itemCode);}
+    if(url&&/^https:\/\/item\.rakuten\.co\.jp\//.test(url)){const item=rows.find(i=>i.url===url)||(selected?.url===url?selected:null)||Object.values(state().drafts||{}).find(i=>i.url===url);if(item?.productInfo?.itemCode)target.searchParams.set('code',item.productInfo.itemCode);if(item?.source==='楽天ファッション')target.searchParams.set('source','fashion');}
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),source==='overseas'?12000:55000);
     try{
       const res=await fetch(target,{method:payload?'POST':'GET',body:payload?JSON.stringify(payload):undefined,headers:{Authorization:'Bearer '+key,...(payload?{'Content-Type':'application/json'}:{})},cache:'no-store',signal:controller.signal});
@@ -142,7 +142,7 @@ const lovelyWatch = (()=>{
   }
   function visibleItems(items,ids,hidden){return groupedItems(items,ids,hidden).filter(x=>x.status!=='used').map(x=>x.item);}
   function thumbnailUrl(value){
-    try{const u=new URL(value);const allowed=(['image.rakuten.co.jp','shop.r10s.jp','tshop.r10s.jp'].includes(u.hostname)&&/^\/sanrio\/cabinet\/[a-zA-Z0-9_/-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?_ex=[0-9]{1,4}x[0-9]{1,4})?$/.test(u.search)&&!u.hash)||(u.hostname==='www.skater-onlineshop.com'&&/^\/img\/goods\/(?:[SL]|[0-9])\/[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&!u.search&&!u.hash)||(u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname))||(u.hostname==='www.hatakeyamashoji.jp'&&/^\/wp\/wp-content\/uploads\/(?:[0-9]{4}\/[0-9]{2}\/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/.test(u.pathname))||(u.hostname==='makeshop-multi-images.akamaized.net'&&/^\/gourmandise\/itemimages\/[0-9]{12}[0-9]*_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?[0-9]+)?$/.test(u.search)&&!u.hash);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&allowed?u.href:''}catch(_){return ''}
+    try{const u=new URL(value);const allowed=(['image.rakuten.co.jp','shop.r10s.jp','tshop.r10s.jp'].includes(u.hostname)&&/^\/[a-zA-Z0-9_-]+\/cabinet\/[a-zA-Z0-9_/-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?_ex=[0-9]{1,4}x[0-9]{1,4})?$/.test(u.search)&&!u.hash)||(u.hostname==='www.skater-onlineshop.com'&&/^\/img\/goods\/(?:[SL]|[0-9])\/[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&!u.search&&!u.hash)||(u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname))||(u.hostname==='www.hatakeyamashoji.jp'&&/^\/wp\/wp-content\/uploads\/(?:[0-9]{4}\/[0-9]{2}\/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/.test(u.pathname))||(u.hostname==='makeshop-multi-images.akamaized.net'&&/^\/gourmandise\/itemimages\/[0-9]{12}[0-9]*_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?[0-9]+)?$/.test(u.search)&&!u.hash);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&allowed?u.href:''}catch(_){return ''}
   }
   function thumbnailHtml(item){
     const url=thumbnailUrl(item.thumbnail)||(item.overseas?overseasThumbnailUrl(item.thumbnail):'');
@@ -203,11 +203,11 @@ const lovelyWatch = (()=>{
     el('lovelyRefresh').disabled=activeBusy;el('lovelyRefresh').textContent=sectionMode==='overseas'?'海外商品を確認':'新着商品を確認';
     const button=el('lovelyMore');if(button){button.hidden=!Object.keys(selectedPages()).length;button.disabled=activeBusy;button.textContent=activeBusy?'読み込み中…':'もっと見る';}
   }
-  const sourceOf=item=>item.domesticNews?'news':item.overseas?'overseas':item.source==='サンリオ公式 楽天市場店'?'sanrio':item.source==='スケーター'?'skater':item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
-  const sourceName=source=>({overseas:'海外公式',sanrio:'サンリオ公式 楽天市場店',skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ',news:'公式ニュース'}[source]||source);
+  const sourceOf=item=>item.domesticNews?'news':item.overseas?'overseas':item.source==='楽天ファッション'?'fashion':item.source==='サンリオ公式 楽天市場店'?'sanrio':item.source==='スケーター'?'skater':item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
+  const sourceName=source=>({overseas:'海外公式',fashion:'楽天ファッション',sanrio:'サンリオ公式 楽天市場店',skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ',news:'公式ニュース'}[source]||source);
   function compareItems(a,b,seen){
     const stamp=item=>{const date=/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(item.date||'')?Date.parse(item.date):NaN;return Number.isFinite(date)?date:Date.parse(item.firstSeenAt||seen[item.url]||'1970-01-01');};
-    return stamp(b)-stamp(a)||({lovely:0,hatakeyama:1,gourmandise:2,skater:3,sanrio:4,news:5,overseas:6}[sourceOf(a)]-{lovely:0,hatakeyama:1,gourmandise:2,skater:3,sanrio:4,news:5,overseas:6}[sourceOf(b)])||(a.discoveryOrder||0)-(b.discoveryOrder||0)||String(a.url).localeCompare(String(b.url),'en');
+    return stamp(b)-stamp(a)||({lovely:0,hatakeyama:1,gourmandise:2,skater:3,sanrio:4,fashion:5,news:6,overseas:6}[sourceOf(a)]-{lovely:0,hatakeyama:1,gourmandise:2,skater:3,sanrio:4,fashion:5,news:6,overseas:6}[sourceOf(b)])||(a.discoveryOrder||0)-(b.discoveryOrder||0)||String(a.url).localeCompare(String(b.url),'en');
   }
   async function loadSources(pages,replace){
     const errors=[],partial=[],observedAt=discoveryBatchAt||new Date().toISOString();
@@ -225,14 +225,15 @@ const lovelyWatch = (()=>{
         loaded=true;render();
       }catch(e){nextPages[source]=page;errors.push(sourceName(source)+'：'+e.message);}
     }));
-    const status=el('lovelyStatus');status.textContent='ブログ・メーカー・サンリオ公式楽天店の候補を確認しました。公式楽天店はAPI更新順で、新発売順ではありません。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
+    const status=el('lovelyStatus');status.textContent='ブログ・メーカー・サンリオ公式楽天店・楽天ファッションの候補を確認しました。公式楽天店はAPI更新順で、新発売順ではありません。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
   }
   async function refresh(){
     if(busy)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
       await updateHistory();nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
-      const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater','sanrio'].map(source=>[source,checks[source]?.initialized===true]));
+      const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater','sanrio','fashion'].map(source=>[source,checks[source]?.initialized===true]));
       await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1,sanrio:1},true);
+      await new Promise(resolve=>setTimeout(resolve,1100));await loadSources({fashion:1},true);
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;pagingControls()}
   }
   function setSection(mode){
@@ -281,7 +282,7 @@ const lovelyWatch = (()=>{
     el('lovelyRelatedArticles').innerHTML=group&&group.articles.length>1?'<details><summary>同じ商品のほかの記事</summary>'+group.articles.filter(a=>a.url!==item.url).map(a=>'<p><a target="_blank" rel="noopener noreferrer" href="'+escape(a.url)+'">'+escape(a.title)+'</a></p>').join('')+'</details>':'';
     el('lovelyConfirmationText').textContent=item.overseas?'商品と写真の一致、画像の利用可否、海外の掲載地域を確認しました（紹介リンクは任意）':'商品・セット内容と写真の一致、画像の利用可否、自分の紹介リンクを確認しました';
     el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='';el('lovelyPhotoCount').hidden=true;el('lovelyImageRetry').hidden=true;el('lovelyConfirmed').checked=false;
-    el('lovelySource').textContent=item.overseas?'海外の公式ページを確認':['楽天API','サンリオ公式 楽天市場店'].includes(item.source)?'楽天の販売ページを確認':['グルマンディーズ','スケーター'].includes(item.source)?'メーカーの商品ページを確認':item.source==='畑山商事'?'メーカーの記事を確認':'元記事を確認';
+    el('lovelySource').textContent=item.overseas?'海外の公式ページを確認':['楽天API','サンリオ公式 楽天市場店','楽天ファッション'].includes(item.source)?'楽天の販売ページを確認':['グルマンディーズ','スケーター'].includes(item.source)?'メーカーの商品ページを確認':item.source==='畑山商事'?'メーカーの記事を確認':'元記事を確認';
     el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=savedRakuten(item)||item.ownRakuten||'';el('lovelyNote').value=item.note||'';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
     el('lovelyReview').textContent=item.needsReview?'主商品リンクは要確認です。自分で商品を特定してから進めてください。':'記事の主商品リンク候補です。販売ページで商品・セット内容を確認してください。';
@@ -430,7 +431,7 @@ const lovelyWatch = (()=>{
     const item=selected,generation=editorGeneration;imageActive.add(index);imageBusy++;
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),40000);
     try{
-      const target=endpoint(!!item.overseas);target.searchParams.set('action','image');target.searchParams.set('url',item.url);target.searchParams.set('index',index);if(item.source==='サンリオ公式 楽天市場店'&&item.productInfo?.itemCode)target.searchParams.set('code',item.productInfo.itemCode);
+      const target=endpoint(!!item.overseas);target.searchParams.set('action','image');target.searchParams.set('url',item.url);target.searchParams.set('index',index);if(['サンリオ公式 楽天市場店','楽天ファッション'].includes(item.source)&&item.productInfo?.itemCode)target.searchParams.set('code',item.productInfo.itemCode);if(item.source==='楽天ファッション')target.searchParams.set('source','fashion');
       const res=await fetch(target,{headers:{Authorization:'Bearer '+cloudSettings().key},cache:'no-store',signal:controller.signal});
       if(!res.ok)throw new Error('取得失敗。再試行するか、この写真のチェックを外してください。');
       let blob=await res.blob();
@@ -537,11 +538,14 @@ const lovelyWatch = (()=>{
   el('lovelyBack')?.addEventListener('click',backToList);
   el('lovelyBackBottom')?.addEventListener('click',backToList);
   const sourceSelect=el('lovelySourceFilter');
+  const sourceButtons=el('lovelySourceButtons');
+  function syncSourceButtons(){if(sourceButtons)for(const button of sourceButtons.querySelectorAll('button'))button.setAttribute('aria-pressed',String(button.dataset.source===sourceSelect.value));}
+  if(sourceButtons&&sourceSelect){for(const option of sourceSelect.options){const button=document.createElement('button');button.type='button';button.className='small-btn';button.dataset.source=option.value;button.textContent=option.textContent;sourceButtons.append(button);}sourceButtons.addEventListener('click',event=>{const button=event.target.closest('[data-source]');if(!button)return;sourceSelect.value=button.dataset.source;sourceSelect.dispatchEvent(new Event('change'));});}
   const savedSource=state().sourceFilter;
-  sourceMode=['all','lovely','hatakeyama','gourmandise','skater','sanrio','news'].includes(savedSource)?savedSource:'all';
-  if(sourceSelect)sourceSelect.value=sourceMode;
-  sourceSelect?.addEventListener('change',e=>{
-    sourceMode=['all','lovely','hatakeyama','gourmandise','skater','sanrio','news'].includes(e.target.value)?e.target.value:'all';
+  sourceMode=['all','lovely','hatakeyama','gourmandise','skater','sanrio','fashion','news'].includes(savedSource)?savedSource:'all';
+  if(sourceSelect)sourceSelect.value=sourceMode;syncSourceButtons();
+  sourceSelect?.addEventListener('change',e=>{syncSourceButtons();
+    sourceMode=['all','lovely','hatakeyama','gourmandise','skater','sanrio','fashion','news'].includes(e.target.value)?e.target.value:'all';
     const saved=state();saved.sourceFilter=sourceMode;
     try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
     render();pagingControls();

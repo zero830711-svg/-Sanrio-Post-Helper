@@ -477,8 +477,8 @@ function lw_gour_match(array $data,array $variants): ?array {
     return count($matches)===1?array_values($matches)[0]:null;
 }
 function lw_gour_search(string $keyword,array $settings,string $shopCode='gourmandise',int $page=1,string $code=''): array {
-    if(!in_array($shopCode,['gourmandise','casmin','sanrio'],true))throw new RuntimeException('対象外の楽天ショップです。');
-    if($page<1||$page>20||($code!==''&&($shopCode!=='sanrio'||!preg_match('/^sanrio:[a-zA-Z0-9_-]+$/D',$code))))throw new RuntimeException('楽天の商品指定が不正です。');
+    if(!in_array($shopCode,['gourmandise','casmin','sanrio','fashion'],true))throw new RuntimeException('対象外の楽天ショップです。');
+    if($page<1||$page>20||($code!==''&&(!in_array($shopCode,['sanrio','fashion'],true)||!preg_match('/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D',$code))))throw new RuntimeException('楽天の商品指定が不正です。');
     $settings=lw_validate_settings($settings);
     $base=sys_get_temp_dir().'/sph-rakuten-'.hash('sha256',__DIR__.'|resolve-v2|'.json_encode($settings));
     $lock=fopen($base.'.lock','c+');if(!$lock)throw new RuntimeException('楽天APIを準備できませんでした。');chmod($base.'.lock',0600);
@@ -488,7 +488,8 @@ function lw_gour_search(string $keyword,array $settings,string $shopCode='gourma
         ftruncate($lock,0);rewind($lock);fwrite($lock,(string)microtime(true));fflush($lock);
         $params=['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'shopCode'=>$shopCode,'availability'=>0,'hits'=>30,'formatVersion'=>2,'elements'=>'count,pageCount,itemCode,itemName,itemUrl,itemCaption,itemPrice,availability,mediumImageUrls,affiliateUrl'];
         if($keyword!=='')$params['keyword']=$keyword;
-        if($shopCode==='sanrio'){$params['page']=$page;$params['sort']='-updateTimestamp';if($code!=='')$params['itemCode']=$code;}
+        if($shopCode==='fashion')unset($params['shopCode']);
+        if(in_array($shopCode,['sanrio','fashion'],true)){$params['page']=$page;$params['sort']='-updateTimestamp';if($code!=='')$params['itemCode']=$code;}
         $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query($params);
         $ch=curl_init($url);$body='';
         curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/',CURLOPT_WRITEFUNCTION=>function($ch,$bytes)use(&$body){if(strlen($body)+strlen($bytes)>500000)return 0;$body.=$bytes;return strlen($bytes);}]);
@@ -634,6 +635,28 @@ function lw_sanrio_data(array $data,array $settings,int $page,string $expectedUr
     return ['items'=>array_values($items),'nextPage'=>$items&&$pages!==false&&$page<min(20,$pages)?$page+1:null,'page'=>$page,'order'=>'API更新順（発売順ではありません）'];
 }
 
+function lw_fashion_url(string $url): string {
+    $p=lw_product($url);return $p&&$p['store']==='楽天'&&$p['url']===$url?$url:'';
+}
+function lw_fashion_item(array $row,array $settings): array {
+    $p=lw_product((string)($row['itemUrl']??''));$code=(string)($row['itemCode']??'');$name=trim(strip_tags((string)($row['itemName']??'')));
+    if(!$p||!lw_fashion_url($p['url'])||!preg_match('/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D',$code)||$name===''||!preg_match('/Rakuten\s*Fashion/i',$name.' '.($row['itemCaption']??'')))throw new RuntimeException('楽天ファッション店の商品一致を確認できませんでした。');
+    $images=[];foreach($row['mediumImageUrls']??[] as $r){$image=lw_image_url(is_array($r)?(string)($r['imageUrl']??''):(string)$r);if($image)$images[]=preg_replace('/([?&])_ex=[^&]+/','$1_ex=1200x1200',$image);}
+    $checked=gmdate('c');$item=['source'=>'楽天ファッション','url'=>$p['url'],'title'=>$name,'date'=>'','thumbnail'=>$images[0]??'','products'=>[$p],'productIds'=>[$p['id']],'needsReview'=>false,'catalogUpdate'=>true,
+      'retailerStatus'=>'楽天ファッションのAPI掲載商品です。更新順で取得しています。新発売・発売日・現在の在庫は未確認です。',
+      'productInfo'=>['title'=>$name,'url'=>$p['url'],'productId'=>$p['id'],'itemCode'=>$code,'jan'=>'','specs'=>[],'contents'=>[],'images'=>array_values(array_unique($images)),'checkedAt'=>$checked]];
+    if(isset($row['itemPrice'])&&is_numeric($row['itemPrice'])&&(int)$row['itemPrice']>=0)$item['priceAtFetch']=(int)$row['itemPrice'];
+    try{$item['matchedAffiliate']=lw_affiliate_result(['items'=>[$row]],$code,$settings['affiliateId']);}catch(Throwable $e){}
+    return $item;
+}
+function lw_fashion_data(array $data,array $settings,int $page,string $expectedUrl='',string $expectedCode=''): array {
+    $data=lw_rakuten_search_data($data);if(!isset($data['items'])||!is_array($data['items']))throw new RuntimeException('楽天ファッションのAPI応答を確認できませんでした。');$items=[];
+    foreach($data['items']??[] as $row){$item=lw_fashion_item($row,$settings);if($expectedUrl!==''&&($item['url']!==$expectedUrl||($expectedCode!==''&&$item['productInfo']['itemCode']!==$expectedCode)))throw new RuntimeException('指定した楽天ファッション商品と一致しません。');$items[$item['url']]=$item;}
+    if($expectedUrl!==''){if(count($items)!==1)throw new RuntimeException('楽天ファッションの商品情報を確認できませんでした。');return ['item'=>array_values($items)[0]];}
+    $pages=filter_var($data['pageCount']??0,FILTER_VALIDATE_INT);
+    return ['items'=>array_values($items),'nextPage'=>$items&&$pages!==false&&$page<min(20,$pages)?$page+1:null,'page'=>$page,'order'=>'API更新順（発売順ではありません）'];
+}
+
 // Fail explicitly if a payload cannot be encoded; never send or cache an empty body.
 function lw_json(array $data): string {return json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
 
@@ -667,15 +690,16 @@ try {
     if ($action==='list') {
         $page=$cron?1:filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
         if($page===false||$page<1||$page>20)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
-        $source=(string)($_GET['source']??'lovely');if(!in_array($source,['lovely','hatakeyama','gourmandise','skater','sanrio'],true))lw_out(['ok'=>false,'error'=>'情報元が不正です。'],400);
-        $url=$source==='sanrio'?'https://www.rakuten.co.jp/sanrio/?page='.$page:($source==='skater'?lw_skater_page_url($page):($source==='gourmandise'?lw_gour_page_url($page):($source==='hatakeyama'?lw_hat_page_url($page):lw_page_url($page))));
+        $source=(string)($_GET['source']??'lovely');if(!in_array($source,['lovely','hatakeyama','gourmandise','skater','sanrio','fashion'],true))lw_out(['ok'=>false,'error'=>'情報元が不正です。'],400);
+        $url=$source==='fashion'?'https://www.rakuten.co.jp/?fashion-page='.$page:($source==='sanrio'?'https://www.rakuten.co.jp/sanrio/?page='.$page:($source==='skater'?lw_skater_page_url($page):($source==='gourmandise'?lw_gour_page_url($page):($source==='hatakeyama'?lw_hat_page_url($page):lw_page_url($page)))));
     }
-    elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=lw_sanrio_url((string)($_GET['url']??''))?:lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
+    elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=(($_GET['source']??'')==='fashion'?lw_fashion_url((string)($_GET['url']??'')):'')?:lw_sanrio_url((string)($_GET['url']??''))?:lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
-    $sanrio=($action==='list'&&$source==='sanrio')||lw_sanrio_url($url)!=='';
+    $fashion=($_GET['source']??'')==='fashion';
+    $sanrio=$fashion||($action==='list'&&$source==='sanrio')||lw_sanrio_url($url)!=='';
     $sanrioSettings=$sanrio?lw_settings():[];$sanrioCode=$sanrio&&$action!=='list'?(string)($_GET['code']??''):'';
     if($sanrio&&!$sanrioSettings)throw new RuntimeException('サンリオ公式店の取得には「使い方・API設定」で楽天API設定を保存してください。既存の下書きは保持しています。');
-    if($sanrio&&$action!=='list'&&!preg_match('/^sanrio:[a-zA-Z0-9_-]+$/D',$sanrioCode))lw_out(['ok'=>false,'error'=>'公式店の商品コードを確認できません。新着一覧から選び直してください。'],400);
+    if($sanrio&&$action!=='list'&&!preg_match($fashion?'/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D':'/^sanrio:[a-zA-Z0-9_-]+$/D',$sanrioCode))lw_out(['ok'=>false,'error'=>'公式店の商品コードを確認できません。新着一覧から選び直してください。'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
     $cacheRevision=(lw_skater_article_url($url)||lw_gour_article_url($url))?'3439-api-product-url':(lw_skater_list_url($url)?'3430-utf8-titles':(lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer'));
     $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|'.$cacheRevision.'|'.$url.'|'.$sanrioCode.'|'.($sanrio?hash('sha256',json_encode($sanrioSettings)):'').'|'.(lw_gour_article_url($url)||lw_skater_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';
@@ -686,7 +710,9 @@ try {
     if(is_array($result)&&!empty($result['partial'])&&filemtime($cache)<=time()-60)$result=null;
     if(is_array($result)&&!empty($result['item']['retryRetailer'])&&filemtime($cache)<=time()-5)$result=null;
     if (!is_array($result)) {
-        if($sanrio){
+        if($fashion){
+            $result=array_merge(['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>'楽天ファッション'],lw_fashion_data(lw_gour_search($action==='list'?'サンリオ Rakuten Fashion':'',$sanrioSettings,'fashion',$action==='list'?$page:1,$sanrioCode),$sanrioSettings,$action==='list'?$page:1,$action==='list'?'':$url,$sanrioCode));
+        }elseif($sanrio){
             $result=array_merge(['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>'サンリオ公式 楽天市場店'],lw_sanrio_data(lw_gour_search('',$sanrioSettings,'sanrio',$action==='list'?$page:1,$sanrioCode),$sanrioSettings,$action==='list'?$page:1,$action==='list'?'':$url,$sanrioCode));
         }else{
         $html=lw_fetch($url);

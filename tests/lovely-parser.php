@@ -21,3 +21,14 @@ lw_check(lw_list($unsupported.$search.$missing,true)===[]);
 lw_check(lw_next_page($unsupported.'<a class="next" href="/page/2/">次へ</a>',1)===2);
 $rejected=false;try{lw_list('<p>構造が変わりました</p>',true);}catch(RuntimeException $e){$rejected=true;}lw_check($rejected);
 echo "Amazon/Rakuten candidate filtering and empty-page pagination passed\n";
+
+// Fashion discovery spans brands; no invented release date or replacement of affiliate URLs.
+$fashionRow=['itemCode'=>'studioclip:rk4656','itemName'=>'サンリオ コーム [Rakuten Fashion]','itemUrl'=>'https://item.rakuten.co.jp/studioclip/rk4656/','mediumImageUrls'=>[['imageUrl'=>'https://image.rakuten.co.jp/stylife/cabinet/photo.jpg']]];
+$fashion=lw_fashion_data(['items'=>[$fashionRow,$fashionRow],'pageCount'=>2],[],1);
+lw_check(count($fashion['items'])===1&&$fashion['nextPage']===2);
+lw_check($fashion['items'][0]['source']==='楽天ファッション'&&$fashion['items'][0]['date']==='');
+lw_check(count($fashion['items'][0]['productInfo']['images'])===1);
+lw_check(lw_fashion_data(['items'=>[$fashionRow]],[],1,$fashionRow['itemUrl'],$fashionRow['itemCode'])['item']['url']===$fashionRow['itemUrl']);
+$bad=$fashionRow;$bad['itemName']='別の商品';
+$rejected=false;try{lw_fashion_item($bad,[]);}catch(RuntimeException $e){$rejected=true;}lw_check($rejected);
+echo "Fashion cross-brand discovery, deduplication, photos and exact identity passed\n";

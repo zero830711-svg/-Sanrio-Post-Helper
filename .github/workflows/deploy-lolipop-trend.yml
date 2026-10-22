@@ -164,6 +164,9 @@ jobs:
           get config.php -o "$furyu_tmp/config.php"
           bye
           LFTP
+          echo '::group::Verify Rakuten Fashion'
+          php scripts/verify-sanrio-shop.php "$furyu_tmp/config.php" fashion
+          echo '::endgroup::'
           failed=()
           for script in verify-sanrio-shop.php verify-product-ai.php verify-competitor.php verify-furyu-news.php verify-deployed-news-extra.php verify-bandai-news.php verify-gashapon-news.php verify-thankyou-news.php; do
             source="${script#verify-}"
