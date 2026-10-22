@@ -78,5 +78,5 @@ test('楽天市場の商品画面をアプリで開くリンクを投稿準備�
  await page.locator('#lovelyList [data-lovely-select]').first().click();
  await expect(page.locator('#lovelyRakutenAppOpen')).toBeVisible();
  await expect(page.locator('#lovelyRakutenAppOpen')).toHaveAttribute('href','https://item.rakuten.co.jp/shop/kitty/');
- await expect(page.locator('#lovelyRakutenAffiliateOpen')).toContainText('楽天アフィリエイトを開く');
+ await expect(page.locator('#lovelyRakutenAffiliateOpen')).toContainText(/楽天アフィリエイトを(?:Chromeで)?開く/);
 });
