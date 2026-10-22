@@ -20,7 +20,7 @@ test('公式楽天店は更新候補として表示し、APIコードを渡し�
   return r.fulfill({json:{ok:true,item}});
  });
  await page.goto('/');expect(calls.length).toBe(0);await page.getByRole('tab',{name:'新着商品',exact:true}).click();
- await page.locator('#lovelySourceFilter').selectOption('sanrio');await expect(page.locator('#lovelyList')).toContainText('公式楽天店の更新商品（新発売は未確認）');
+ await page.locator('#lovelySourceButtons [data-source="sanrio"]').click();await expect(page.locator('#lovelyList')).toContainText('公式楽天店の更新商品（新発売は未確認）');
  await expect(page.locator('#lovelyList')).toContainText('発売：未確認');await expect(page.locator('#lovelyList img')).toHaveAttribute('src',image);
  await page.locator('#lovelyList button').click();await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
  await expect(page.locator('#lovelyProductInfo')).toContainText('2,200円');await expect(page.locator('#lovelyPostText')).toHaveValue(new RegExp('ハローキティ ポーチ'));expect(await page.locator('#lovelyPostText').inputValue()).not.toMatch(/新発売|在庫あり|2200|2,200/);
@@ -34,6 +34,6 @@ test('公式楽天店の追加取得は絞り込み元だけを読み、失敗�
   if(fail)return r.fulfill({status:502,json:{ok:false,error:'楽天APIに接続できませんでした。'}});
   const next=q.get('page')==='1';return r.fulfill({json:{ok:true,items:next?[item]:[item,{...item,url:url.replace('000000','000001'),title:'マイメロディ ポーチ',productIds:['rakuten:sanrio:4550337000010'],productInfo:{...item.productInfo,url:url.replace('000000','000001'),itemCode:'sanrio:10012346'}}],nextPage:next?2:null}});
  });
- await page.goto('/');await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();await page.locator('#lovelySourceFilter').selectOption('sanrio');await page.locator('#lovelyMore').click();await expect(page.locator('#lovelyList button')).toHaveCount(2);expect(pages).toEqual(['1','2']);
+ await page.goto('/');await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();await page.locator('#lovelySourceButtons [data-source="sanrio"]').click();await page.locator('#lovelyMore').click();await expect(page.locator('#lovelyList button')).toHaveCount(2);expect(pages).toEqual(['1','2']);
  fail=true;await page.locator('#lovelyRefresh').click();await expect(page.locator('#lovelyStatus')).toContainText('接続できません');await expect(page.locator('#lovelyList button')).toHaveCount(2);
 });
