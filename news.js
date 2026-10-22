@@ -193,7 +193,7 @@ function newsSetHomeView(view){
  const instagram=view==='instagram';
  $('newsBrowseTitle').textContent=instagram?'Instagram':'新作ニュース';
  $('newsBrowseDescription').textContent=instagram?'サンリオ関連のみ・約30分ごとに最大5アカウントを確認（お気に入りを優先）':'公式ニュース・メーカー新作から投稿を準備';
- $('newsSourceFilter').closest('label').hidden=instagram;
+ $('newsSourceControls').hidden=instagram;
  $('instagramAccountFilter').closest('label').hidden=!instagram;
  $('instagramTools').hidden=!instagram;
  if(instagram){$('newsSourceFilter').value='all';instagramLoadAccounts();}
