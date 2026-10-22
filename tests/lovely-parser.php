@@ -24,11 +24,11 @@ echo "Amazon/Rakuten candidate filtering and empty-page pagination passed\n";
 
 // Fashion discovery spans brands; no invented release date or replacement of affiliate URLs.
 $fashionRow=['itemCode'=>'studioclip:rk4656','itemName'=>'サンリオ コーム [Rakuten Fashion]','itemUrl'=>'https://item.rakuten.co.jp/studioclip/rk4656/','mediumImageUrls'=>[['imageUrl'=>'https://image.rakuten.co.jp/stylife/cabinet/photo.jpg']]];
-$fashion=lw_fashion_data(['items'=>[$fashionRow,$fashionRow],'pageCount'=>2],[],1);
+$fashion=lw_fashion_data(['items'=>[$fashionRow,$fashionRow],'pageCount'=>2],['affiliateId'=>'fixture'],1);
 lw_check(count($fashion['items'])===1&&$fashion['nextPage']===2);
 lw_check($fashion['items'][0]['source']==='楽天ファッション'&&$fashion['items'][0]['date']==='');
 lw_check(count($fashion['items'][0]['productInfo']['images'])===1);
-lw_check(lw_fashion_data(['items'=>[$fashionRow]],[],1,$fashionRow['itemUrl'],$fashionRow['itemCode'])['item']['url']===$fashionRow['itemUrl']);
+lw_check(lw_fashion_data(['items'=>[$fashionRow]],['affiliateId'=>'fixture'],1,$fashionRow['itemUrl'],$fashionRow['itemCode'])['item']['url']===$fashionRow['itemUrl']);
 $bad=$fashionRow;$bad['itemName']='別の商品';
-$rejected=false;try{lw_fashion_item($bad,[]);}catch(RuntimeException $e){$rejected=true;}lw_check($rejected);
+$rejected=false;try{lw_fashion_item($bad,['affiliateId'=>'fixture']);}catch(RuntimeException $e){$rejected=true;}lw_check($rejected);
 echo "Fashion cross-brand discovery, deduplication, photos and exact identity passed\n";
