@@ -11,6 +11,7 @@ const lovelyWatch = (()=>{
   const preparations=new Map();
   const detailCache=new Map();let chooseSequence=0,detailLoading=false;
   let postEdited=false,postLinks='',postStale=false,postAiPending=false;
+  let externalEditor=null;
   const el=id=>document.getElementById(id);
   const affiliateOpen=el('lovelyRakutenAffiliateOpen');
   const iosChrome=/iPad|iPhone|iPod/.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -252,13 +253,48 @@ const lovelyWatch = (()=>{
     el('lovelyBrowse').hidden=true;el('lovelyRestoreBox').hidden=true;el('lovelyEditor').hidden=false;
     el('lovelyEditor').scrollIntoView({block:'start'});el('lovelyBack').focus({preventScroll:true});
   }
-  function backToList(){
+  async function backToList(){
     if(selected)persist();
+    if(externalEditor){
+      const session=externalEditor;if(session.pending)return;session.pending=true;
+      try{await session.onBack?.(state().draft);if(externalEditor===session)releaseExternalEditor();}catch(error){session.pending=false;el('lovelyPostStatus').textContent='保存できませんでした：'+error.message;}
+      return;
+    }
     el('lovelyEditor').hidden=true;el('lovelyBrowse').hidden=false;el('lovelyRestoreBox').hidden=false;
     window.scrollTo({top:listScroll,behavior:'instant'});
     const button=Array.from(el('lovelyList').querySelectorAll('[data-lovely-select]')).find(b=>b.dataset.lovelySelect===listItemUrl);
     if(button)button.focus({preventScroll:true});
   }
+  function releaseExternalEditor(){
+    if(!externalEditor)return;
+    const session=externalEditor;externalEditor=null;
+    editorGeneration++;chooseSequence++;detailLoading=false;selected=null;files=[];
+    el('lovelyEditor').hidden=true;session.home.append(el('lovelyEditor'));
+    session.host.classList.remove('lovely-editor-host');
+    el('lovelyBrowse').hidden=false;el('lovelyRestoreBox').hidden=false;
+    session.onClose?.();
+  }
+  function openProduct(item,options){
+    if(selected)persist();
+    if(externalEditor)releaseExternalEditor();
+    externalEditor={...options,home:el('lovelyEditor').parentElement};
+    options.host.classList.add('lovely-editor-host');options.host.append(el('lovelyEditor'));
+    chooseSequence++;detailLoading=false;
+    const saved=state(),draft=saved.drafts?.[item.url];
+    if(!draft){
+      saved.drafts=saved.drafts||{};saved.drafts[item.url]={...item,photoSignature:photoSignature(item)};
+      try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
+    }
+    const edits=draft?Object.fromEntries(['ownAmazon','ownRakuten','note','postText','postEdited','postLinks'].filter(key=>Object.hasOwn(draft,key)).map(key=>[key,draft[key]])):{};
+    edit({...item,...edits,origin:'product-search'});
+    el('lovelyEditor').hidden=false;
+    domesticCandidates.editor(selected,'lovelyEvidenceEditor');
+    el('lovelyEditor').scrollIntoView({block:'start',behavior:'instant'});
+    el('lovelyBack').focus({preventScroll:true});
+  }
+  document.addEventListener('sph-product-tab',()=>{
+    if(externalEditor){persist();releaseExternalEditor();}
+  });
   function photoSignature(item){return JSON.stringify([item?.url,item?.title,item?.productInfo?.itemCode||'',item?.productInfo?.jan||item?.jan||'',item?.productInfo?.images||[],item?.manufacturerInfo?.facts||{},item?.productInfo?.specs||{},item?.productInfo?.contents||[]]);}
   function rememberPreparation(){
     if(!selected)return;
@@ -281,7 +317,7 @@ const lovelyWatch = (()=>{
     el('lovelyConfirmationText').textContent=item.overseas?'商品と写真の一致、画像の利用可否、海外の掲載地域を確認しました（紹介リンクは任意）':'商品・セット内容と写真の一致、画像の利用可否、自分の紹介リンクを確認しました';
     el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='';el('lovelyPhotoCount').hidden=true;el('lovelyImageRetry').hidden=true;el('lovelyConfirmed').checked=false;
     el('lovelySource').textContent=item.overseas?'海外の公式ページを確認':['楽天API','サンリオ公式 楽天市場店','楽天ファッション'].includes(item.source)?'楽天の販売ページを確認':['グルマンディーズ','スケーター'].includes(item.source)?'メーカーの商品ページを確認':item.source==='畑山商事'?'メーカーの記事を確認':'元記事を確認';
-    el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=savedRakuten(item)||item.ownRakuten||'';el('lovelyNote').value=item.note||'';
+    el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=item.origin==='product-search'?(item.ownRakuten||savedRakuten(item)||''):(savedRakuten(item)||item.ownRakuten||'');el('lovelyNote').value=item.note||'';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
     el('lovelyReview').textContent=item.needsReview?'主商品リンクは要確認です。自分で商品を特定してから進めてください。':'記事の主商品リンク候補です。販売ページで商品・セット内容を確認してください。';
     if(['グルマンディーズ','スケーター','サンリオ公式 楽天市場店'].includes(item.source)){
@@ -430,9 +466,13 @@ const lovelyWatch = (()=>{
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),40000);
     try{
       const target=endpoint(!!item.overseas);target.searchParams.set('action','image');target.searchParams.set('url',item.url);target.searchParams.set('index',index);if(['サンリオ公式 楽天市場店','楽天ファッション'].includes(item.source)&&item.productInfo?.itemCode)target.searchParams.set('code',item.productInfo.itemCode);if(item.source==='楽天ファッション')target.searchParams.set('source','fashion');
-      const res=await fetch(target,{headers:{Authorization:'Bearer '+cloudSettings().key},cache:'no-store',signal:controller.signal});
-      if(!res.ok)throw new Error('取得失敗。再試行するか、この写真のチェックを外してください。');
-      let blob=await res.blob();
+      let blob;
+      if(externalEditor?.fetchImage)blob=await externalEditor.fetchImage(index);
+      else{
+        const res=await fetch(target,{headers:{Authorization:'Bearer '+cloudSettings().key},cache:'no-store',signal:controller.signal});
+        if(!res.ok)throw new Error('取得失敗。再試行するか、この写真のチェックを外してください。');
+        blob=await res.blob();
+      }
       if(!['image/jpeg','image/png','image/webp'].includes(blob.type)||blob.size>6000000)throw new Error('この画像は共有に使えません。');
       blob=await sharePhotoPng(blob);
       if(generation!==editorGeneration||!imageChoices.has(index))return;
@@ -510,7 +550,13 @@ const lovelyWatch = (()=>{
       navigator.share({files:files.slice(),text}).then(()=>{status.textContent='共有画面を閉じました。投稿後は「投稿済み」を押してください。'}).catch(e=>{status.textContent=e.name==='AbortError'?'共有をキャンセルしました。':'共有できませんでした：'+e.message});
     }catch(e){status.textContent=e.message}
   }
-  function hide(reason){if(!selected)return;chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;const s=state();s.hidden=s.hidden||{};
+  async function hide(reason){if(!selected)return;
+    if(externalEditor){
+      persist();
+      const session=externalEditor;if(session.pending)return;session.pending=true;
+      try{await session.onMark?.(reason,state().draft);if(externalEditor===session)releaseExternalEditor();}catch(error){session.pending=false;el('lovelyPostStatus').textContent='記録できませんでした：'+error.message;}
+      return;
+    }chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;const s=state();s.hidden=s.hidden||{};
     const group=groupedItems(rows,historyIds,s.hidden,s.identities||{}).find(g=>g.articles.some(item=>item.url===selected.url));
     s.hidden[selected.url]=reason;
     if(group)for(const item of group.articles)s.hidden[item.url]=reason;
@@ -518,7 +564,7 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){el('lovelyShareStatus').textContent='記録を保存できませんでした。';return}
     editorGeneration++;imageBusy=0;uploadBusy=false;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();backToList();
   }
-  el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft&&!!draft.overseas===(sectionMode==='overseas'))edit(draft)}});
+  el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft&&draft.origin!=='product-search'&&!!draft.overseas===(sectionMode==='overseas'))edit(draft)}});
   el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
   el('rakutenSaveSettings')?.addEventListener('click',saveSettings);
   el('lovelyRakutenProductCopy')?.addEventListener('click',async()=>{
@@ -654,5 +700,5 @@ const lovelyWatch = (()=>{
     if(!files.length)throw new Error('共有する写真を選んでください。');
     return files.slice();
   }
-  return {overseasThumbnailUrl,thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,productDraft,postLength,productCharLength,savedRakuten,aiContext,aiFiles};
+  return {openProduct,overseasThumbnailUrl,thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,productDraft,postLength,productCharLength,savedRakuten,aiContext,aiFiles};
 })();

@@ -56,13 +56,13 @@ test('商品AI待機中の編集とリンク変更を保護し、失敗しても
   return route.fulfill({status:429,json:{ok:false,error:'Groqの利用上限です（429）。'}});
  });
  await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostAi').click();await expect.poll(()=>calls).toBe(1);await expect(page.locator('#lovelyPostAi')).toBeDisabled();
- await page.locator('#lovelyPostText').fill('手で編集した紹介文');await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyRakuten').fill('https://a.r10.to/hNEW123');release();await expect(page.locator('#lovelyPostAiStatus')).toContainText('編集中');await expect(page.locator('#lovelyPostText')).toHaveValue('手で編集した紹介文');
+ await page.locator('#lovelyPostText').fill('手で編集した紹介文');await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');await page.locator('#lovelyRakuten').fill('https://a.r10.to/hNEW123');release();await expect(page.locator('#lovelyPostAiStatus')).toContainText('編集中');await expect(page.locator('#lovelyPostText')).toHaveValue('手で編集した紹介文');
  await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostAiStatus')).toContainText('429');await expect(page.locator('#lovelyPostText')).toHaveValue('手で編集した紹介文');await expect(page.locator('#lovelyPostAi')).toBeEnabled();
 });
 test('手直しした文章を保持し、リンク変更後は作り直してから共有する',async({page})=>{
  await setup(page);const draft=page.locator('#lovelyPostText');
  const manual='🎀 私の紹介文 ✨\n'+link+'\n#サンリオ #pr';await draft.fill(manual);
- await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyRakuten').fill('https://a.r10.to/hNEW123');
+ await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');await page.locator('#lovelyRakuten').fill('https://a.r10.to/hNEW123');
  await expect(draft).toHaveValue(manual);await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostShare').click();
  await expect(page.locator('#lovelyPostStatus')).toContainText('作り直す');expect(await page.evaluate(()=>window.sharedDraft)).toBeUndefined();
  await page.locator('#lovelyPostReset').click();await expect(draft).toHaveValue(/hNEW123/);await expect(page.locator('#lovelyConfirmed')).not.toBeChecked();
@@ -70,7 +70,7 @@ test('手直しした文章を保持し、リンク変更後は作り直して�
 });
 
 test('Amazon短縮リンクと紹介ID付き検索URLを原文のままAIへ渡し、再読込後も保持する',async({page})=>{
- await setup(page);await page.locator('#lovelyLinkSummary').click();const calls=[];
+ await setup(page);await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');const calls=[];
  await page.route('**/news.php?**',r=>{
   if(new URL(r.request().url()).searchParams.get('action')!=='product-groq-draft')return r.fulfill({json:{ok:true,items:[]}});
   const input=r.request().postDataJSON();calls.push(input.links);
@@ -81,7 +81,7 @@ test('Amazon短縮リンクと紹介ID付き検索URLを原文のままAIへ渡�
  const saved=await page.locator('#lovelyPostText').inputValue();await page.reload();await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(page.locator('#lovelyPostText')).toHaveValue(saved);await expect(page.locator('#lovelyAmazon')).toHaveValue(urls.at(-1));
 });
 test('Amazonを装ったドメインや認証情報付きURLは拒否し、編集本文を保持する',async({page})=>{
- await setup(page);await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyPostText').fill('手動で編集した本文');let calls=0;
+ await setup(page);await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');await page.locator('#lovelyPostText').fill('手動で編集した本文');let calls=0;
  await page.route('**/news.php?**',r=>{if(new URL(r.request().url()).searchParams.get('action')==='product-groq-draft')calls++;return r.fulfill({json:{ok:true,items:[]}});});
  for(const url of ['https://link.amazon.evil.test/B00Yq3m5X','https://user:pass@link.amazon/B00Yq3m5X','https://www.amazon.co.jp/s?k=kitty']){await page.locator('#lovelyAmazon').fill(url);await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostAiStatus')).toContainText('リンク');await expect(page.locator('#lovelyPostText')).toHaveValue('手動で編集した本文');}
  expect(calls).toBe(0);

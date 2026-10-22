@@ -62,9 +62,9 @@ test('再照合で画像が変わったら古い写真選択と確認チェッ�
  await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);await page.locator('[data-lovely-image="0"]').check();await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyRetailerRetry').click();
  await expect(page.locator('#lovelyProductInfo img')).toHaveAttribute('src',/changed.jpg/);await expect(page.locator('[data-lovely-image="0"]')).not.toBeChecked();await expect(page.locator('#lovelyConfirmed')).not.toBeChecked();
 });
-test('リンク設定済みでは入力欄を折りたたみ変更中は勝手に閉じない',async({page})=>{
+test('リンク設定済みでも入力欄を開いたまま編集できる',async({page})=>{
  await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
- await expect(page.locator('#lovelyLinkTools')).not.toHaveAttribute('open','');await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyAmazon').fill('https://amzn.to/test');await expect(page.locator('#lovelyAmazon')).toBeVisible();
+ await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');await page.locator('#lovelyAmazon').fill('https://amzn.to/test');await expect(page.locator('#lovelyAmazon')).toBeVisible();
  await page.locator('#lovelyAmazon').fill('https://amzn.to/edited');await expect(page.locator('#lovelyAmazon')).toHaveValue('https://amzn.to/edited');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
 test('読み込み完了順が逆でも一覧順と初回取得日が変わらない',async({page})=>{
@@ -89,13 +89,13 @@ test('通常のペーストだけで楽天リンクを保存しキーボード�
  });
  await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
  await page.locator('#lovelyPostText').fill('🎀 編集済みの紹介文\n'+affiliate+'\n#pr');
- await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyRakuten').focus();
+ await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');await page.locator('#lovelyRakuten').focus();
  expect(await page.locator('#lovelyRakuten').evaluate(input=>parseFloat(getComputedStyle(input).fontSize))).toBeGreaterThanOrEqual(16);
  await expect(page.locator('#lovelyRakutenPaste')).toBeVisible();
  const link='https://a.r10.to/hNativePaste';
  await page.locator('#lovelyRakuten').evaluate((input,text)=>{const data=new DataTransfer();data.setData('text/plain',text);input.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));},link);
  await expect(page.locator('#lovelyRakuten')).toHaveValue(link);
- await expect(page.locator('#lovelyLinkTools')).not.toHaveAttribute('open','');
+ await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');
  await expect(page.locator('#lovelyPostStatus')).toContainText('作り直す');
  expect(await page.locator('#lovelyRakuten').evaluate(input=>document.activeElement===input)).toBeFalsy();
  expect(await page.evaluate(()=>window.clipboardReads)).toBe(0);
@@ -105,7 +105,7 @@ test('通常のペーストだけで楽天リンクを保存しキーボード�
 });
 test('通常のペーストで不正なURLを受け取っても入力済みリンクを壊さない',async({page})=>{
  await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
- await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyRakuten').focus();
+ await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');await page.locator('#lovelyRakuten').focus();
  await page.locator('#lovelyRakuten').evaluate(input=>{const data=new DataTransfer();data.setData('text/plain','https://example.com/another-product');input.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));});
  await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);await expect(page.locator('#lovelyRakuten')).toHaveAttribute('aria-invalid','true');
  await expect(page.locator('#rakutenAutoStatus')).toContainText('自分のアフィリエイトリンク');
@@ -115,7 +115,7 @@ test('通常のペーストで不正なURLを受け取っても入力済みリ�
 test('通常のペーストで未編集の投稿文へ自分のリンクを反映しPNG共有できる',async({page})=>{
  await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
  await page.locator('[data-lovely-image="0"]').check();await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');
- await page.locator('#lovelyLinkSummary').click();
+ await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');
  const link='https://hb.afl.rakuten.co.jp/hgc/native123/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2Fcasmin%2Fpnb1-kitty%2F';
  await page.locator('#lovelyRakuten').evaluate((input,text)=>{const data=new DataTransfer();data.setData('text/plain',text);input.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));},link);
  await expect(page.locator('#lovelyPostText')).toHaveValue(new RegExp('native123'));
@@ -126,20 +126,20 @@ test('通常のペーストで未編集の投稿文へ自分のリンクを反�
 test('貼り付けボタンだけで既存の長いリンクを丸ごと置き換え保存する',async({page})=>{
  await page.addInitScript(()=>{window.clipboardReads=0;Object.defineProperty(navigator,'clipboard',{configurable:true,value:{readText:async()=>{window.clipboardReads++;return 'https://a.r10.to/hButtonPaste';}}});});
  await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
- await page.locator('#lovelyLinkSummary').click();
+ await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');
  const button=page.locator('#lovelyRakutenPaste'),box=await button.boundingBox();expect(box.height).toBeGreaterThanOrEqual(48);
  expect(await button.evaluate(b=>parseFloat(getComputedStyle(b).fontSize))).toBeGreaterThanOrEqual(16);
  await button.click();
  await expect(page.locator('#lovelyRakuten')).toHaveValue('https://a.r10.to/hButtonPaste');
  await expect(page.locator('#lovelyPostText')).toHaveValue(/hButtonPaste/);
- await expect(page.locator('#lovelyLinkTools')).not.toHaveAttribute('open','');
+ await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');
  expect(await page.evaluate(()=>window.clipboardReads)).toBe(1);
  expect(await page.locator('#lovelyRakuten').evaluate(i=>document.activeElement===i)).toBeFalsy();
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('sphLovelyDiscoveryV1')).draft.ownRakuten)).toBe('https://a.r10.to/hButtonPaste');
 });
 test('読み取り拒否時も削除不要で全選択し通常のペーストで置き換える',async({page})=>{
  await page.addInitScript(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{readText:async()=>{throw new Error('NotAllowedError');}}});});
- await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);await page.locator('#lovelyLinkSummary').click();
+ await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');
  await page.locator('#lovelyRakutenPaste').click();await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
  expect(await page.locator('#lovelyRakuten').evaluate(i=>[i.selectionStart,i.selectionEnd])).toEqual([0,affiliate.length]);
  await expect(page.locator('#rakutenAutoStatus')).toContainText('削除は不要');
@@ -149,7 +149,7 @@ test('読み取り拒否時も削除不要で全選択し通常のペースト�
 test('ボタンで不正なリンクを読んでも既存リンクと本文を維持する',async({page})=>{
  await page.addInitScript(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{readText:async()=> 'https://example.com/invalid'}});});
  await routes(page,()=>matched);await open(page);await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);
- const body=await page.locator('#lovelyPostText').inputValue();await page.locator('#lovelyLinkSummary').click();await page.locator('#lovelyRakutenPaste').click();
+ const body=await page.locator('#lovelyPostText').inputValue();await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');await page.locator('#lovelyRakutenPaste').click();
  await expect(page.locator('#lovelyRakuten')).toHaveValue(affiliate);await expect(page.locator('#lovelyPostText')).toHaveValue(body);
  await expect(page.locator('#rakutenAutoStatus')).toContainText('自分のアフィリエイトリンク');await expect(page.locator('#lovelyRakutenPaste')).toBeEnabled();
 });

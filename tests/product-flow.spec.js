@@ -24,75 +24,68 @@ async function setup(page,row,{candidate=false}={}){
  await expect(page.locator('#flowCount')).toHaveText((candidate?'0':'1')+'件の楽天在庫下書き');
  return calls;
 }
-test('楽天在庫の下書きで検索アフィリエイト付き本文を編集・保存して復元する',async({page})=>{
- const row=entry();const calls=await setup(page,row);
+test('楽天検索も共通の投稿準備を開き編集・復元して検索一覧へ戻る',async({page})=>{
+ const row=entry(),calls=await setup(page,row);
  await page.getByRole('button',{name:'確認・共有',exact:true}).click();
- await expect(page.locator('#flowFinal')).toHaveValue(/#pr/);expect(await page.locator('#flowFinal').inputValue()).toContain(search);
- await page.locator('#flowBody').fill('🎀 編集した本文');await page.locator('#flowSave').click();
- await expect(page.locator('#flowStatus')).toContainText('保存しました');
- expect(calls.filter(c=>c.action==='save')[0].data.body).toBe('🎀 編集した本文');
- await page.locator('#flowBack').click();await page.getByRole('button',{name:'確認・共有',exact:true}).click();
- await expect(page.locator('#flowBody')).toHaveValue('🎀 編集した本文');
- await page.locator('#flowLinkMode').selectOption('none');await expect(page.locator('#flowFinal')).not.toHaveValue(/hb\.afl/);
- await expect(page.locator('#flowFinal')).not.toHaveValue(/#pr/);
+ await expect(page.locator('#productFlowPanel #lovelyEditor')).toBeVisible();
+ await expect(page.locator('#homeProductFlowTab')).toHaveAttribute('aria-selected','true');
+ await expect(page.locator('#lovelyRakuten')).toHaveValue(search);
+ await expect(page.locator('#lovelyLinkTools')).toHaveAttribute('open','');
+ const manual='🎀 編集した本文\n'+search+'\n#pr';
+ await page.locator('#lovelyPostText').fill(manual);await page.locator('#lovelyBack').click();
+ await expect(page.locator('#flowBrowse')).toBeVisible();
+ expect(calls.filter(c=>c.action==='save').at(-1).data.body).toBe(manual);
+ await page.getByRole('button',{name:'確認・共有',exact:true}).click();
+ await expect(page.locator('#lovelyPostText')).toHaveValue(manual);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+ await page.locator('#homeNewTab').click();
+ await expect(page.locator('#lovelyPanel #lovelyEditor')).toHaveCount(1);
 });
-test('楽天の在庫候補から入力せず下書きを準備する',async({page})=>{
+test('楽天候補から同じ写真・リンク・本文操作を開く',async({page})=>{
  const row=entry(false),calls=await setup(page,row,{candidate:true});
- await expect(page.locator('#flowSources')).toContainText('ハローキティのマスコット');
  await page.locator('#flowSources').getByRole('button',{name:'投稿準備'}).click();
- await expect(page.locator('#flowEditor')).toBeVisible();
- await expect(page.locator('#flowTitle')).toHaveText(row.item.title);
- await expect(page.locator('#flowLink')).toHaveValue('');
- await page.locator('#flowShortUrlBox summary').click();
- await expect(page.locator('#flowRakutenAppOpen')).toBeVisible();
- await expect(page.locator('#flowRakutenAppOpen')).toHaveAttribute('href',product);
- await expect(page.locator('#flowRakutenAffiliateOpen')).toContainText(/楽天アフィリエイトを(?:Chromeで)?開く/);
+ await expect(page.locator('#productFlowPanel #lovelyEditor')).toBeVisible();
+ await expect(page.locator('#lovelyTitle')).toHaveText(row.item.title);
+ await expect(page.locator('#lovelyRakuten')).toHaveValue('');
+ await expect(page.locator('#lovelyRakutenAppOpen')).toHaveAttribute('href',product);
+ await expect(page.locator('#lovelyPostAi')).toBeVisible();
  expect(calls.filter(c=>c.action==='prepare-stock').map(c=>c.data)).toEqual([{code:row.item.code}]);
 });
-test('自動準備の停止設定と投稿済み記録を保存する',async({page})=>{
+test('共通画面の投稿済み・見送りを楽天検索側へ記録する',async({page})=>{
  const calls=await setup(page,entry());await page.locator('#flowAuto').uncheck();
- await expect(page.locator('#flowAuto')).not.toBeChecked();expect(calls.find(c=>c.action==='settings').data.enabled).toBe(false);
- await page.getByRole('button',{name:'確認・共有',exact:true}).click();await page.locator('#flowDone').click();
+ expect(calls.find(c=>c.action==='settings').data.enabled).toBe(false);
+ await page.getByRole('button',{name:'確認・共有',exact:true}).click();await page.locator('#lovelyDone').click();
+ await expect(page.locator('#flowBrowse')).toBeVisible();
  await expect(page.locator('#flowCount')).toHaveText('0件の楽天在庫下書き');
- await page.locator('#flowFilter').selectOption('done');await expect(page.locator('#flowCount')).toHaveText('1件の楽天在庫下書き');
+ await page.locator('#flowFilter').selectOption('done');
+ await page.getByRole('button',{name:'確認・共有',exact:true}).click();await page.locator('#lovelySkip').click();
+ expect(calls.filter(c=>c.action==='mark').map(c=>c.data.mark)).toEqual(['done','skip']);
 });
-test('選択した写真4枚とリンク付き本文を共有する',async({page})=>{
- const row=entry();row.item.images=Array.from({length:5},(_,i)=>'https://thumbnail.image.rakuten.co.jp/test-'+i+'.png');row.selected=[0,1,2,3];
+test('楽天検索の写真を共通画面で選びリンク付き本文を共有する',async({page})=>{
+ const row=entry();row.item.images=['https://image.rakuten.co.jp/test/image.png'];
  await page.addInitScript(()=>{
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
   Object.defineProperty(navigator,'share',{value:async d=>{window.__shared={text:d.text,count:d.files.length};},configurable:true});
  });
- await setup(page,row);await page.getByRole('button',{name:'確認・共有',exact:true}).click();
- await page.locator('#flowConfirm').check();await expect(page.locator('#flowShare')).toBeEnabled();
- await page.locator('#flowPhotos input').nth(4).click();await expect(page.locator('#flowPhotos input').nth(4)).not.toBeChecked();
- await page.locator('#flowShare').click();expect(await page.evaluate(()=>window.__shared.count)).toBe(4);
- expect(await page.evaluate(()=>window.__shared.text)).toContain('#pr');
+ const calls=await setup(page,row);await page.getByRole('button',{name:'確認・共有',exact:true}).click();
+ await page.locator('[data-lovely-image="0"]').check();
+ await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');
+ await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostShare').click();
+ expect(await page.evaluate(()=>window.__shared.count)).toBe(1);
+ expect(await page.evaluate(()=>window.__shared.text)).toContain(search);
+ expect(calls.some(c=>c.action==='retry')).toBe(false);
 });
-
-test('商品検索はボタンでのみ生成し、通常URLを短縮アフィリエイトリンクに置き換える',async({page})=>{
- const row=entry();row.edited=false;row.body='以前の自動生成本文';await setup(page,row);let calls=0;
- await page.addInitScript(()=>localStorage.setItem('sphRakutenFlowShortLinksV1',JSON.stringify({'market:shop1:kitty':'https://a.r10.to/hPfTZE'})));
- await page.reload();await page.locator('#homeProductFlowTab').click();
- await page.route('**/product-flow.php?action=retry',r=>{
-  expect(r.request().postDataJSON()).toEqual({id:row.id,generateBody:true});calls++;
-  if(calls===2)return r.fulfill({status:502,json:{ok:false,error:'本文生成は保留：利用上限。現在の本文は保持しています。'}});
-  row.body='🎀💖 キティのマスコットをチェック\n\n🔎 詳細：\n'+product+'\n\n#サンリオ';row.generatedOnRequest=true;
-  return r.fulfill({json:{ok:true,entry:row,entries:[row]}});
+test('AIはボタンでのみ生成し入力済みのリンクと本文を保持する',async({page})=>{
+ const row=entry();row.edited=false;row.body='以前の自動生成';await setup(page,row);let calls=0;
+ const generated='🎀 キティのマスコット\n'+search+'\n#pr';
+ await page.route('**/news.php?**',r=>{
+  if(new URL(r.request().url()).searchParams.get('action')!=='product-groq-draft')return r.fulfill({json:{ok:true,items:[]}});
+  calls++;expect(r.request().postDataJSON().links).toEqual([{kind:'rakuten',url:search}]);
+  return r.fulfill({json:{ok:true,configured:true,text:generated}});
  });
- await page.getByRole('button',{name:'確認・共有',exact:true}).click();
- await expect(page.locator('#flowGenerate')).toHaveCount(1);
- await expect(page.locator('#flowBody')).toHaveValue('');expect(calls).toBe(0);
- await page.locator('#flowLinkMode').selectOption('item');
- await page.locator('#flowGenerate').click();
- await expect(page.locator('#flowBody')).toHaveValue(/https:\/\/a.r10.to\/hPfTZE/);
- const body=await page.locator('#flowBody').inputValue();expect(body).not.toContain(product);expect(body.match(/https:\/\//g)).toHaveLength(1);expect(body).toContain('#pr');
- await expect(page.locator('#flowFinal')).toHaveValue(body);
- await page.locator('#flowLinkMode').selectOption('search');
- await expect(page.locator('#flowBody')).toHaveValue(new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
- expect(await page.locator('#flowBody').inputValue()).not.toContain('hPfTZE');
- await page.locator('#flowSave').click();const saved=await page.locator('#flowBody').inputValue();
- await page.locator('#flowGenerate').click();await expect(page.locator('#flowStatus')).toContainText('現在の本文は保持');
- await expect(page.locator('#flowBody')).toHaveValue(saved);await expect(page.locator('#flowGenerate')).toBeEnabled();
- await page.locator('#flowBack').click();await page.getByRole('button',{name:'確認・共有',exact:true}).click();await expect(page.locator('#flowBody')).toHaveValue(saved);expect(calls).toBe(2);
+ await page.getByRole('button',{name:'確認・共有',exact:true}).click();expect(calls).toBe(0);
+ await expect(page.locator('#lovelyPostText')).not.toHaveValue(/以前の自動生成/);
+ await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostText')).toHaveValue(generated);expect(calls).toBe(1);
+ await page.locator('#lovelyBackBottom').click();await page.getByRole('button',{name:'確認・共有',exact:true}).click();
+ await expect(page.locator('#lovelyPostText')).toHaveValue(generated);
 });

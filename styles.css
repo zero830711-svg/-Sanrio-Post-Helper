@@ -372,52 +372,52 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #lovelyProductInfo .lovely-product-images input[type=checkbox]{width:18px;height:18px;margin:0;flex-shrink:0}
 
 /* Reduce vertical gaps in new-product preparation while keeping touch targets. */
-#lovelyPanel #lovelyEditor{margin-top:8px;padding-top:8px}
-#lovelyPanel #lovelyEditor h3{margin:6px 0;font-size:15px;line-height:1.4}
-#lovelyPanel #lovelyEditor>.backup-note{margin:4px 0;font-size:11px;line-height:1.45}
-#lovelyPanel #lovelyEditor>label{margin:8px 0}
-#lovelyPanel #lovelyEditor .cloud-sync-actions{gap:6px}
-#lovelyPanel #lovelyEditor .small-btn,#lovelyPanel #lovelyEditor .link-btn{padding:5px 9px;min-height:44px;font-size:12px}
-#lovelyPanel #lovelyEditor .lovely-source-links{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
-#lovelyPanel #lovelySource{display:inline-flex;align-items:center;min-height:44px;font-size:12px;margin:0;padding:0 4px}
-#lovelyPanel #lovelyProducts{margin:0}
-#lovelyPanel #lovelyReview{margin:3px 0 5px}
-#lovelyPanel #lovelyRelatedArticles:empty{display:none}
-#lovelyPanel #lovelyProductInfo .lovely-product-facts{margin:6px 0 8px;padding:8px 10px}
-#lovelyPanel #lovelyProductInfo .lovely-product-checked{margin:0 0 4px;font-size:10px}
-#lovelyPanel #lovelyProductInfo .lovely-facts-grid>div{padding:3px 0}
-#lovelyPanel #lovelyProductInfo .lovely-product-details{margin-top:2px}
-#lovelyPanel #lovelyProductInfo .lovely-product-details>summary{min-height:32px}
-#lovelyPanel #lovelyProductInfo .lovely-product-facts .backup-note{margin:3px 0 0;font-size:10px;line-height:1.4}
-#lovelyPanel #lovelyProductInfo .lovely-product-images{gap:8px}
-#lovelyPanel #lovelyProductInfo .lovely-product-images label{margin:4px 0;min-height:32px}
-#lovelyPanel #lovelyProductInfo>.backup-note{margin:4px 0 6px;font-size:10px;line-height:1.45}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor{margin-top:8px;padding-top:8px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor h3{margin:6px 0;font-size:15px;line-height:1.4}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor>.backup-note{margin:4px 0;font-size:11px;line-height:1.45}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor>label{margin:8px 0}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .cloud-sync-actions{gap:6px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .small-btn,:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .link-btn{padding:5px 9px;min-height:44px;font-size:12px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-source-links{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
+:is(#lovelyPanel,.lovely-editor-host) #lovelySource{display:inline-flex;align-items:center;min-height:44px;font-size:12px;margin:0;padding:0 4px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyProducts{margin:0}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyReview{margin:3px 0 5px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyRelatedArticles:empty{display:none}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyProductInfo .lovely-product-facts{margin:6px 0 8px;padding:8px 10px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyProductInfo .lovely-product-checked{margin:0 0 4px;font-size:10px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyProductInfo .lovely-facts-grid>div{padding:3px 0}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyProductInfo .lovely-product-details{margin-top:2px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyProductInfo .lovely-product-details>summary{min-height:32px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyProductInfo .lovely-product-facts .backup-note{margin:3px 0 0;font-size:10px;line-height:1.4}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyProductInfo .lovely-product-images{gap:8px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyProductInfo .lovely-product-images label{margin:4px 0;min-height:32px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyProductInfo>.backup-note{margin:4px 0 6px;font-size:10px;line-height:1.45}
 
 #lovelyProductInfo .lovely-product-facts>summary{font-size:14px;font-weight:700;line-height:1.5;cursor:pointer}
 #lovelyProductInfo .lovely-product-facts[open]>summary{margin-bottom:4px}
 
 /* Compact secondary actions, with one clear primary share action. */
-#lovelyPanel #lovelyEditor .small-btn,#lovelyPanel #lovelyEditor .link-btn{min-height:36px;padding:6px 10px;border-radius:9px;font-size:12px;line-height:1.35;margin:0}
-#lovelyPanel #lovelyBack{background:transparent;color:var(--muted);border:1px solid var(--line)}
-#lovelyPanel #lovelyEditor .cloud-sync-actions,#lovelyPanel #lovelyEditor .lovely-url-actions{margin:6px 0;gap:6px}
-#lovelyPanel #lovelyEditor .lovely-search-actions,#lovelyPanel #lovelyEditor .lovely-url-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
-#lovelyPanel #lovelyEditor .lovely-search-actions a,#lovelyPanel #lovelyEditor .lovely-url-actions>*{display:flex;justify-content:center;align-items:center;text-align:center;min-width:0}
-#lovelyPanel #lovelySource{min-height:36px}
-#lovelyPanel #lovelyEditor .lovely-source-links{align-items:center;gap:8px}
-#lovelyPanel #lovelyEditor .lovely-confirmation{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5;margin:10px 0}
-#lovelyPanel #lovelyEditor .lovely-confirmation input{flex:0 0 auto;width:22px;height:22px;margin:0}
-#lovelyPanel #lovelyEditor .lovely-share-actions{display:block;margin:8px 0 6px}
-#lovelyPanel #lovelyEditor #lovelyShare{width:100%;min-height:44px;background:#302735;color:#fff;border-color:#302735;font-size:13px}
-#lovelyPanel #lovelyEditor .lovely-finish-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:6px 0}
-#lovelyPanel #lovelyEditor #lovelySkip,#lovelyPanel #lovelyEditor #lovelyBackBottom{background:#fff;border:1px solid var(--line);color:var(--muted)}
-#lovelyPanel #lovelyEditor input[type=url]{padding:8px 10px;min-height:40px;box-sizing:border-box;border-radius:10px}
-#lovelyPanel #lovelyEditor>label{font-size:12px;line-height:1.5}
-#lovelyPanel #lovelyEditor+ a{display:inline-block;margin-top:4px;font-size:11px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .small-btn,:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .link-btn{min-height:36px;padding:6px 10px;border-radius:9px;font-size:12px;line-height:1.35;margin:0}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyBack{background:transparent;color:var(--muted);border:1px solid var(--line)}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .cloud-sync-actions,:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-url-actions{margin:6px 0;gap:6px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-search-actions,:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-url-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-search-actions a,:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-url-actions>*{display:flex;justify-content:center;align-items:center;text-align:center;min-width:0}
+:is(#lovelyPanel,.lovely-editor-host) #lovelySource{min-height:36px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-source-links{align-items:center;gap:8px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-confirmation{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5;margin:10px 0}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-confirmation input{flex:0 0 auto;width:22px;height:22px;margin:0}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-share-actions{display:block;margin:8px 0 6px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor #lovelyShare{width:100%;min-height:44px;background:#302735;color:#fff;border-color:#302735;font-size:13px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-finish-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:6px 0}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor #lovelySkip,:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor #lovelyBackBottom{background:#fff;border:1px solid var(--line);color:var(--muted)}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor input[type=url]{padding:8px 10px;min-height:40px;box-sizing:border-box;border-radius:10px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor>label{font-size:12px;line-height:1.5}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor+ a{display:inline-block;margin-top:4px;font-size:11px}
 .lovely-post-draft{margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fff}
 #lovelyEditor .lovely-post-draft label{display:block;margin:0 0 6px;font-size:13px}
 #lovelyPostText{width:100%;box-sizing:border-box;min-height:160px;padding:10px;font-size:14px;font-weight:400;line-height:1.6;resize:vertical}
 #lovelyEditor .lovely-post-draft .backup-note{margin:4px 0}
-#lovelyPanel #lovelyEditor #lovelyPostShare{grid-column:1/-1;min-height:44px;background:#302735;border-color:#302735;color:#fff;font-size:13px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor #lovelyPostShare{grid-column:1/-1;min-height:44px;background:#302735;border-color:#302735;color:#fff;font-size:13px}
 
 /* Shared preparation action hierarchy across the three tabs. */
 #newsPanel #newsEditor .small-btn{min-height:36px;padding:6px 10px;border-radius:9px;font-size:12px;line-height:1.35;margin:0}
@@ -445,17 +445,17 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #lovelyEditor #lovelyPostAi{min-height:40px;margin:4px 0;background:#f8dceb}
 #lovelyEditor #lovelyPostText{min-height:130px;font-size:16px}
 #lovelyEditor .lovely-confirmation input{width:20px;height:20px;flex-shrink:0}
-#lovelyPanel #lovelyEditor #lovelyShare{min-height:36px;background:#fff;color:var(--muted);border:1px solid var(--line);font-size:12px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor #lovelyShare{min-height:36px;background:#fff;color:var(--muted);border:1px solid var(--line);font-size:12px}
 
 /* iPhone Safari: 16px controls prevent focus zoom without disabling pinch zoom. */
-#lovelyPanel #lovelyEditor input[type=url],#lovelyPanel #lovelyEditor textarea,#lovelyPanel #lovelyEditor select{font-size:16px}
-#lovelyPanel #lovelyEditor #lovelyPasteHelp{margin:4px 0;font-size:11px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor input[type=url],:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor textarea,:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor select{font-size:16px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor #lovelyPasteHelp{margin:4px 0;font-size:11px}
 
 /* A single thumb-sized action replaces the existing link without editing it. */
-#lovelyPanel #lovelyEditor .lovely-paste-actions{display:grid;grid-template-columns:1fr;gap:6px}
-#lovelyPanel #lovelyEditor #lovelyRakutenPaste{width:100%;min-height:48px;padding:12px;font-size:16px;line-height:1.4}
-#lovelyPanel #lovelyEditor .lovely-paste-actions #rakutenRetry{min-height:40px;font-size:12px;background:#fff;border:1px solid var(--line)}
-#lovelyPanel #lovelyEditor #lovelyRakuten{width:100%;font-size:16px;min-height:44px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-paste-actions{display:grid;grid-template-columns:1fr;gap:6px}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor #lovelyRakutenPaste{width:100%;min-height:48px;padding:12px;font-size:16px;line-height:1.4}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-paste-actions #rakutenRetry{min-height:40px;font-size:12px;background:#fff;border:1px solid var(--line)}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor #lovelyRakuten{width:100%;font-size:16px;min-height:44px}
 
 /* Independent source and introduction-status filters, with native iPhone menus. */
 #lovelyPanel .lovely-filters{display:flex;flex-wrap:wrap;gap:6px 12px;margin:6px 0}

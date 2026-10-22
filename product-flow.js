@@ -154,23 +154,29 @@ async function open(id){
   try{const data=await api('gallery',{id});apply(data);row=entries.find(r=>r.id===id)||row;}
   catch(e){status('追加写真を確認できませんでした：'+e.message);}
  }
- resetPhotoPreviews();preparingPhotos=false;photoPreparationSeq++;current=structuredClone(row);dirty=false;files=[];const seq=++requestSeq;
- el('flowBrowse').hidden=true;el('flowEditor').hidden=false;el('flowTitle').textContent=row.item.title;
- el('flowBody').value=row.edited===false&&!row.generatedOnRequest?'':row.body;
- el('flowConfirm').checked=false;
- el('flowOriginal').textContent=(row.item.paragraphs||[]).join('\n\n');
- el('flowItemUrl').value=row.item.url||'';
- const rakutenAppOpen=el('flowRakutenAppOpen');
- if(rakutenAppOpen){rakutenAppOpen.href=row.item.url||'https://www.rakuten.co.jp/';rakutenAppOpen.hidden=!/^https:\/\/item\.rakuten\.co\.jp\//i.test(row.item.url||'');}
- el('flowShortUrlStatus').textContent=flowShort(row)?'この候補に保存済みの短縮URLがあります。':'';
- const affiliateOpen=el('flowRakutenAffiliateOpen');
- if(/iPad|iPhone|iPod/.test(navigator.userAgent||'')){affiliateOpen.href='googlechromes://affiliate.rakuten.co.jp/';affiliateOpen.removeAttribute('target');affiliateOpen.textContent='楽天アフィリエイトをChromeで開く';}
- el('flowEvidence').textContent=[row.identity.jan?'JAN：'+row.identity.jan:'',row.identity.model?'型番：'+row.identity.model:'',row.match.matchStatus,row.match.shopCount?'一致したショップ：'+row.match.shopCount+'店':'',...(row.warnings||[])].filter(Boolean).join('\n');
- el('flowSourceLink').href=row.item.url;
- el('flowLinkMode').value=row.match.linkMode;for(const o of el('flowLinkMode').options)o.disabled=o.value!=='none'&&!row.match[o.value==='search'?'searchAffiliate':'itemAffiliate'];
- renderPhotos();updateFinal();syncAffiliateBody();document.dispatchEvent(new CustomEvent('sph-blog-product',{detail:{getProduct:()=>structuredClone(current)}}));el('flowEditor').scrollIntoView({block:'start',behavior:'instant'});
- await prepareSelectedPhotos();
+ let savedBody=row.edited===false&&!row.generatedOnRequest?'':row.body||'';
+ const link=row.match.linkMode==='item'?(flowShort(row)||row.match.itemAffiliate||row.match.link||''):(row.match.link||'');
+ if(savedBody&&link&&!savedBody.includes(link))savedBody=savedBody.replace(/(?:\s*#pr)+\s*$/i,'')+'\n\n楽天：'+link+'\n\n#pr';
+ const product={url:row.item.url,title:row.item.title,source:'楽天API',origin:'product-search',
+  ownRakuten:link,postText:savedBody,postEdited:!!savedBody,selectedPhotos:row.selected||[],
+  products:[{store:'楽天',url:row.item.url}],
+  productInfo:{url:row.item.url,title:row.item.title,itemCode:row.item.rakutenCode||row.item.code||'',
+   jan:row.identity?.jan||'',images:row.item.images||[],specs:{},contents:[],checkedAt:new Date(row.updatedAt*1000||Date.now()).toISOString()}};
+ const scroll=window.scrollY;
+ async function saveShared(draft){
+  if(!draft)return;
+  const selected=draft.selectedPhotos||[];
+  const result=await api('save',{id:row.id,body:draft.postText||'',selected,linkMode:row.match.linkMode});apply(result);
+ }
+ el('flowBrowse').hidden=true;el('flowEditor').hidden=true;
+ lovelyWatch.openProduct(product,{
+  host:el('flowRakutenArea'),fetchImage:index=>getProductPhoto(row,index),
+  onBack:saveShared,
+  onMark:async(reason,draft)=>{await saveShared(draft);apply(await api('mark',{id:row.id,mark:reason==='used'?'done':'skip'}));},
+  onClose:()=>{el('flowBrowse').hidden=false;render();window.scrollTo({top:scroll,behavior:'instant'});}
+ });
 }
+
 async function prepareSelectedPhotos(){
  if(!current)return false;
  const missing=current.selected.filter(i=>!files[i]);if(!missing.length)return true;
