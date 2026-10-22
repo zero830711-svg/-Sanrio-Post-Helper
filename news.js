@@ -311,10 +311,11 @@ function newsPhotosRender(){
 }
 function newsInstallFilterButtons(selectId,containerId){
  const select=$(selectId),container=$(containerId);if(!select||!container)return;
- const sync=()=>{for(const button of container.querySelectorAll('button'))button.setAttribute('aria-pressed',String(button.dataset.value===select.value));};
+ const sync=()=>newsSyncFilterButtons(selectId,containerId);
  for(const option of select.options){const button=document.createElement('button');button.type='button';button.className='news-filter-button';button.textContent=option.textContent;button.dataset.value=option.value;button.setAttribute('aria-pressed',String(option.value===select.value));button.addEventListener('click',()=>{if(select.value===option.value)return;select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));sync();});container.append(button);}
  select.addEventListener('change',sync);
 }
+function newsSyncFilterButtons(selectId,containerId){const value=$(selectId)?.value;for(const button of $(containerId)?.querySelectorAll('button')||[])button.setAttribute('aria-pressed',String(button.dataset.value===value));}
 newsInstallFilterButtons('newsSourceFilter','newsSourceButtons');
 newsInstallFilterButtons('newsFilter','newsFilterButtons');
 function newsSourceStatusLabel(){
@@ -323,6 +324,7 @@ function newsSourceStatusLabel(){
  return labels.length?' ・ '+labels.join(' ／ '):Object.keys(newsState.sourceStatuses||{}).length?'':newsState.warnings.length?' ・ 一部の取得に失敗しました':'';
 }
 function newsRender(){
+ newsSyncFilterButtons('newsSourceFilter','newsSourceButtons');newsSyncFilterButtons('newsFilter','newsFilterButtons');
  instagramRenderStatuses();instagramRenderCollection();
  instagramRenderAccounts();
  const filter=$('newsFilter').value;const sourceFilter=$('newsSourceFilter')?.value||'all';const rows=newsGroups().filter(i=>(sourceFilter==='all'||i.members.some(m=>m.source===sourceFilter))).filter(i=>filter==='draft'?newsGroupDraft(i)&&!newsGroupMark(i):filter==='all'||(filter==='hidden'?!!newsGroupMark(i):!newsGroupMark(i)));
