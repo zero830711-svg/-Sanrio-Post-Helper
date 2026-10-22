@@ -1,0 +1,35 @@
+name: Strengthen WordPress product detail links
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/strengthen-product-links.py
+      - .github/workflows/strengthen-product-links.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-other-character-rakuten-catalog
+  cancel-in-progress: false
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 -m pip install --quiet Pillow
+      - name: Check product navigation
+        run: |
+          node --check scripts/unified-product-search.js
+          python3 -m unittest discover -s tests -p test_home_catalog.py -v
+          python3 -m unittest discover -s tests -p test_product_links.py -v
+      - name: Publish and verify product links through WordPress REST
+        run: python3 -u scripts/strengthen-product-links.py
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: product-links-report
+          path: product-links-report.json

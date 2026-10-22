@@ -22,7 +22,7 @@ async function init(){
   var title=node('strong',displayTitle.length>80?displayTitle.slice(0,80)+'…':displayTitle);title.title=displayTitle;el.appendChild(title);
   if(item.shop)el.appendChild(node('small',item.shop));
   if(item.addedAt){var added=node('small','当サイト掲載日：'+new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(item.addedAt)));el.appendChild(added);}
-  if(item.url){var detail=node('a',item.type==='product'?'この商品の掲載位置へ →':'商品ガイド・仕様を見る →');detail.href=item.url;el.appendChild(detail);}
+  if(item.url){var detail=node('a',item.type==='product'?(new URL(item.url,location.origin).pathname.match(/^\/product-[0-9a-f]{16}\/$/)?'サイズ・素材など詳しく見る →':'この商品の掲載位置へ →'):'商品ガイド・仕様を見る →');detail.href=item.url;el.appendChild(detail);}
   var amazon=item.amazon;if(item.type==='product'){var target=new URL('https://www.amazon.co.jp/s');target.searchParams.set('k',item.amazonQuery||item.title);target.searchParams.set('tag',data.amazonTag);amazon=target.href;}
   var buy=node('div','','sf-search-buy');if(amazon)buy.appendChild(button('Amazonで探す',amazon,'sf-search-amazon'));if(item.rakuten)buy.appendChild(button(item.type==='product'?'楽天で見る':'楽天で探す',item.rakuten,'sf-search-rakuten'));el.appendChild(buy);return el;
  }
