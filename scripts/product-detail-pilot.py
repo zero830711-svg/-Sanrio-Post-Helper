@@ -326,11 +326,11 @@ def build_500_candidates(index,records):
  grouped=collections.defaultdict(list)
  for x in pool:grouped[(x['character'],x['kind'])].append(x)
  for values in grouped.values():values.sort(key=lambda x:(-x['strength'],x['code']))
- result=[]
+ result=[];group_counts=collections.Counter()
  while any(grouped.values()):
   keys=[k for k,v in grouped.items() if v]
-  best=max(keys,key=lambda k:(-len([x for x in result if (x['character'],x['kind'])==k]),grouped[k][0]['strength'],k))
-  result.append(grouped[best].pop(0))
+  best=max(keys,key=lambda k:(-group_counts[k],grouped[k][0]['strength'],k))
+  result.append(grouped[best].pop(0));group_counts[best]+=1
  return result
 
 def expand500(wp,settings_path):
@@ -342,8 +342,12 @@ def expand500(wp,settings_path):
  u=load_unified();goods=wp.call('/wp/v2/pages/804?context=edit&_fields=content');index=u.read_index(goods['content']['raw'])
  progress=manifest.get('expansion500')
  if progress:
-  candidates=build_500_candidates(index,records[:100]);codes=[x['code'] for x in candidates]
-  if progress.get('candidateCodes')!=codes:raise RuntimeError('Catalog candidate set changed during resumable expansion')
+  by_code={x['id'].removeprefix('rakuten:'):x for x in index['items'] if x.get('type')=='product'}
+  codes=progress.get('candidateCodes',[])
+  if any(code not in by_code for code in codes):raise RuntimeError('Catalog candidate set changed during resumable expansion')
+  candidates=[]
+  for code in codes:
+   item=by_code[code];old=dict(item);old.update({'code':code,'title':c.display_title(item.get('title','')),'character':item['characters'][0],'kind':item.get('kind','サンリオグッズ')});candidates.append(old)
  else:
   candidates=build_500_candidates(index,records);codes=[x['code'] for x in candidates]
   progress={'candidateCodes':codes,'cursor':0,'checked':0,'matched':0,'eligible':0,'skipped':0,'target':500}
