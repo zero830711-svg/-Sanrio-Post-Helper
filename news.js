@@ -309,6 +309,14 @@ function newsPhotosRender(){
  card.append(img,label,controls,status,retry);box.append(card);
  });
 }
+function newsInstallFilterButtons(selectId,containerId){
+ const select=$(selectId),container=$(containerId);if(!select||!container)return;
+ const sync=()=>{for(const button of container.querySelectorAll('button'))button.setAttribute('aria-pressed',String(button.dataset.value===select.value));};
+ for(const option of select.options){const button=document.createElement('button');button.type='button';button.className='news-filter-button';button.textContent=option.textContent;button.dataset.value=option.value;button.setAttribute('aria-pressed',String(option.value===select.value));button.addEventListener('click',()=>{if(select.value===option.value)return;select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));sync();});container.append(button);}
+ select.addEventListener('change',sync);
+}
+newsInstallFilterButtons('newsSourceFilter','newsSourceButtons');
+newsInstallFilterButtons('newsFilter','newsFilterButtons');
 function newsSourceStatusLabel(){
  const source=$('newsSourceFilter')?.value||'all';
  const labels=Object.entries(newsState.sourceStatuses||{}).filter(([name,value])=>(source==='all'||name===source)&&['partial','failed'].includes(value?.state)).map(([name,value])=>name+'：'+(value.state==='partial'?'一部更新待ち':'更新待ち'));

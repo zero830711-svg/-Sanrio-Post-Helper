@@ -136,7 +136,7 @@ test('楽天をニュース内で検索し5件ずつ表示、短縮リンクと�
  await page.locator('#newsInlineSearchLink').click();await expect(page.locator('#newsAffiliateRakuten')).toHaveValue(search);await expect(page.locator('#newsAffiliateAmazon')).toHaveValue('https://amzn.to/keep');
  await expect(page.locator('#newsText')).toHaveValue('写真と一緒に残す手直し本文');expect(await page.evaluate(()=>newsState.selected)).toEqual(selected);await expect(page.locator('#newsReplyText')).toHaveValue(new RegExp('test%2520query'));await expect(page.locator('#productFlowPanel')).toBeHidden();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
- await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsFilter').selectOption('draft');await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();await page.getByText('楽天・Amazonリンクを追加',{exact:true}).click();await expect(page.locator('#newsAffiliateRakuten')).toHaveValue(search);expect(await page.evaluate(()=>newsState.selected)).toEqual(selected);
+ await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsFilterButtons').getByRole('button',{name:'準備中',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();await page.getByText('楽天・Amazonリンクを追加',{exact:true}).click();await expect(page.locator('#newsAffiliateRakuten')).toHaveValue(search);expect(await page.evaluate(()=>newsState.selected)).toEqual(selected);
 });
 test('Amazon検索語の修正・検索紹介リンク・エラーと遅い応答を別のニュースへ反映しない',async({page})=>{
  await openInlineNews(page);let calls=0,release;

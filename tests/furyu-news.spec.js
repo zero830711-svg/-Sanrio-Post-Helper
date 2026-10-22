@@ -14,7 +14,7 @@ test('フリューを新作ニュースで絞り込み、URLなしの本文・PN
  });
  await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
  await expect(page.locator('#newsList .news-row')).toHaveCount(2);
- await page.locator('#newsSourceFilter').selectOption('フリュー');await expect(page.locator('#newsList .news-row')).toHaveCount(1);
+ await page.locator('#newsSourceButtons').getByRole('button',{name:'フリュー',exact:true}).click();await expect(page.locator('#newsList .news-row')).toHaveCount(1);
  await expect(page.locator('#newsList')).toContainText('2026年10月2週登場予定');await expect(page.locator('#newsList')).not.toContainText('発表日未確認');
  await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  await expect(page.locator('#newsText')).toHaveValue(/店舗により時期が前後/);
@@ -22,6 +22,6 @@ test('フリューを新作ニュースで絞り込み、URLなしの本文・PN
  await expect(page.locator('#newsSource')).toHaveAttribute('href',prize.url);await expect(page.locator('#newsShare')).toBeEnabled();expect(aiCalls).toBe(0);
  await page.locator('#newsShare').click();const shared=await page.evaluate(()=>window.furyuShared);expect(shared.text).not.toContain('https://');expect(shared.files).toEqual(['image/png']);
  await page.locator('#newsAiRetry').click();await expect(page.locator('#newsText')).toHaveValue(/店舗により前後します/);expect(await page.locator('#newsText').inputValue()).not.toMatch(/https?:|詳細はこちら|#pr\b/);expect(aiCalls).toBe(1);
- await page.locator('#newsDone').click();await expect(page.locator('#newsList .news-row')).toHaveCount(0);await page.locator('#newsFilter').selectOption('hidden');await expect(page.locator('#newsList .news-row')).toHaveCount(1);
+ await page.locator('#newsDone').click();await expect(page.locator('#newsList .news-row')).toHaveCount(0);await page.locator('#newsFilterButtons').getByRole('button',{name:'投稿済み・見送り',exact:true}).click();await expect(page.locator('#newsList .news-row')).toHaveCount(1);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });

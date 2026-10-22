@@ -39,7 +39,7 @@ function news_image_url(string $u): string {
  return '';
 }
 function news_fetch(string $u,int $limit=2000000):string {
- $c=curl_init($u);$body='';curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>15,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_USERAGENT=>'SanrioPostHelper News/1.0',CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$body,$limit){if(strlen($body)+strlen($chunk)>$limit)return 0;$body.=$chunk;return strlen($chunk);}]);
+ $c=curl_init($u);$body='';curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>true,CURLOPT_MAXREDIRS=>4,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>20,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_USERAGENT=>'SanrioPostHelper News/1.0',CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$body,$limit){if(strlen($body)+strlen($chunk)>$limit)return 0;$body.=$chunk;return strlen($chunk);}]);
  $ok=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);if($ok===false||$status!==200)throw new RuntimeException('ニュースを取得できませんでした。時間をおいて再試行してください。');return $body;
 }
 function news_doc(string $s):DOMXPath{$d=new DOMDocument();libxml_use_internal_errors(true);$d->loadHTML('<?xml encoding="UTF-8">'.str_replace("\0",'',$s),LIBXML_NONET);libxml_clear_errors();return new DOMXPath($d);}
@@ -132,7 +132,7 @@ function news_feeds():array{
 }
 function news_fetch_feeds(array $feeds):array{
  $multi=curl_multi_init();$requests=[];
- foreach($feeds as $feed){$state=(object)['body'=>''];$c=curl_init($feed['url']);curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>3,CURLOPT_TIMEOUT=>8,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_USERAGENT=>'SanrioPostHelper News/1.0',CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use($state){if(strlen($state->body)+strlen($chunk)>2000000)return 0;$state->body.=$chunk;return strlen($chunk);}]);if(isset($feed['post']))curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$feed['post']]);curl_multi_add_handle($multi,$c);$requests[]=[$c,$state];}
+ foreach($feeds as $feed){$state=(object)['body'=>''];$c=curl_init($feed['url']);curl_setopt_array($c,[CURLOPT_FOLLOWLOCATION=>true,CURLOPT_MAXREDIRS=>4,CURLOPT_CONNECTTIMEOUT=>3,CURLOPT_TIMEOUT=>10,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_USERAGENT=>'SanrioPostHelper News/1.0',CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use($state){if(strlen($state->body)+strlen($chunk)>2000000)return 0;$state->body.=$chunk;return strlen($chunk);}]);if(isset($feed['post']))curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$feed['post']]);curl_multi_add_handle($multi,$c);$requests[]=[$c,$state];}
  do{$status=curl_multi_exec($multi,$running);if($running)curl_multi_select($multi,0.2);}while($running&&$status===CURLM_OK);
  $results=[];foreach($requests as [$c,$state]){$results[]=curl_errno($c)===0&&curl_getinfo($c,CURLINFO_RESPONSE_CODE)===200?$state->body:null;curl_multi_remove_handle($multi,$c);curl_close($c);}curl_multi_close($multi);return $results;
 }
