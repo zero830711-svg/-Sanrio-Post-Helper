@@ -271,6 +271,29 @@ function pf_books_rows(array $data,array $state):array{
   $rows[]=['code'=>$code,'dedupeKey'=>$dedupeKey,'service'=>'books','sourceLabel'=>'楽天ブックス・在庫あり','title'=>mb_substr($title,0,300),'url'=>$url,'affiliate'=>$affiliate,'image'=>$image,'images'=>[$image],'shop'=>'楽天ブックス','price'=>(int)($r['itemPrice']??0),'caption'=>mb_substr(strip_tags($caption),0,1200),'sourceAt'=>time()];
  }return $rows;
 }
+function pf_travel_page_count(array $data):int{
+ $count=$data['pagingInfo']['pageCount']??$data['pageCount']??1;
+ return is_numeric($count)?max(1,min(100,(int)$count)):1;
+}
+function pf_travel_next_page(int $page,array $data):int{
+ $page=max(1,min(100,$page));
+ return $page>=pf_travel_page_count($data)?1:$page+1;
+}
+function pf_travel_is_not_found(Throwable $error):bool{
+ return preg_match('/HTTP 404\b/',$error->getMessage())===1;
+}
+function pf_travel_search(array $settings,int $page):array{
+ try{return ['data'=>pf_external_search('travel','サンリオ',$settings,$page),'page'=>$page];}
+ catch(Throwable $error){
+  if(!pf_travel_is_not_found($error))throw $error;
+  if($page<=1)return ['data'=>null,'page'=>1];
+  try{return ['data'=>pf_external_search('travel','サンリオ',$settings,1),'page'=>1];}
+  catch(Throwable $retry){
+   if(pf_travel_is_not_found($retry))return ['data'=>null,'page'=>1];
+   throw $retry;
+  }
+ }
+}
 function pf_travel_rows(array $data,array $state):array{
  $rows=[];$hotels=$data['hotels']??[];if(isset($hotels['hotel']))$hotels=[$hotels];
  foreach(array_slice($hotels,0,30) as $group){
@@ -412,11 +435,13 @@ function pf_stock_discover(array &$state):array{
  }catch(Throwable $e){$errors[]='楽天ブックス（'.$bookQuery.'）：'.$e->getMessage();$bqi=($bqi+1)%count($bookQueries);}
  $state['booksQueryIndex']=$bqi;$state['booksQueryPages']=$bookPages;
  try{
-  $data=pf_external_search('travel','サンリオ',$settings,$travelPage);
-  $rows=array_merge($rows,pf_travel_rows($data,$state));
-  $travelPageCount=max(1,min(100,(int)($data['pageCount']??100)));
-  $travelPage=$travelPage>=$travelPageCount?1:$travelPage+1;
- }catch(Throwable $e){$errors[]='楽天トラベル：'.$e->getMessage();$travelPage=$travelPage>=100?1:$travelPage+1;}
+  $travelSearch=pf_travel_search($settings,$travelPage);
+  if(is_array($travelSearch['data'])){
+   $data=$travelSearch['data'];
+   $rows=array_merge($rows,pf_travel_rows($data,$state));
+   $travelPage=pf_travel_next_page((int)$travelSearch['page'],$data);
+  }else $travelPage=1;
+ }catch(Throwable $e){$errors[]='楽天トラベル：'.$e->getMessage();}
  $state['travelPage']=$travelPage;
  $unique=[];foreach(array_merge($existing,$rows) as $r)$unique[$r['code']]=$r;
  $poolRows=pf_stock_expire_prices(array_values($unique));usort($poolRows,static fn($a,$b)=>(int)($b['sourceAt']??0)<=>(int)($a['sourceAt']??0));
