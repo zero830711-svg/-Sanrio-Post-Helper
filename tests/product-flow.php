@@ -58,6 +58,10 @@ pf_check(!pf_eligible(['title'=>'キティ発売','date'=>gmdate('Y-m-d'),'prize
 $bookRows=pf_books_rows(['Items'=>[['Item'=>['title'=>'ハローキティ ぬいぐるみ絵本','itemCaption'=>'サンリオキャラクターの絵本','itemUrl'=>'https://books.rakuten.co.jp/rb/12345/','affiliateUrl'=>'https://hb.afl.rakuten.co.jp/hgc/'.$aid.'/?pc=book','largeImageUrl'=>'https://shop.r10s.jp/books/cabinet/kitty.jpg','isbn'=>'9781234567890','itemPrice'=>1320]]]],[]);
 pf_check(count($bookRows)===1&&$bookRows[0]['service']==='books'&&$bookRows[0]['price']===1320,'Rakuten Books candidates were not normalized');
 $hotel=['hotelNo'=>'123456','hotelName'=>'サンリオキャラクターホテル','hotelSpecial'=>'サンリオキャラクターの客室あり','hotelInformationUrl'=>'https://hb.afl.rakuten.co.jp/hgc/'.$aid.'/?pc=hotel','hotelThumbnailUrl'=>'https://img.travel.rakuten.co.jp/images/hotel/kitty.jpg','hotelMinCharge'=>12000];
+pf_check(pf_travel_page_count(['pagingInfo'=>['pageCount'=>7]])===7,'Rakuten Travel pagingInfo.pageCount was ignored');
+pf_check(pf_travel_page_count(['pageCount'=>3])===3&&pf_travel_page_count([])===1,'Rakuten Travel page-count fallback was not bounded');
+pf_check(pf_travel_next_page(2,['pagingInfo'=>['pageCount'=>3]])===3&&pf_travel_next_page(3,['pagingInfo'=>['pageCount'=>3]])===1,'Rakuten Travel page sequence did not stop at the reported last page');
+pf_check(pf_travel_is_not_found(new RuntimeException('楽天APIエラー（HTTP 404）。送信項目を確認できませんでした。'))&&!pf_travel_is_not_found(new RuntimeException('楽天APIエラー（HTTP 500）。')),'Rakuten Travel 404 was not classified as an empty-page response');
 $travelRows=pf_travel_rows(['hotels'=>[['hotel'=>[['hotelBasicInfo'=>$hotel]]]]],[]);
 pf_check(count($travelRows)===1&&$travelRows[0]['service']==='travel'&&str_contains($travelRows[0]['sourceLabel'],'空室未確認'),'Rakuten Travel candidates were not normalized');
 
