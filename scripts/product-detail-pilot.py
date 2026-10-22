@@ -230,8 +230,23 @@ def verify_public(record):
  with request.urlopen(req,timeout=60) as response:body=response.read().decode('utf-8')
  if MARK not in body or 'サイズ・素材などの商品情報' not in body:raise RuntimeError('Blank detail page: '+record['url'])
  if re.search(r'<meta\b[^>]*name=["\']robots["\'][^>]*content=["\'][^"\']*noindex',body,re.I):raise RuntimeError('Detail page is noindex')
- canonical=re.search(r'<link\b[^>]*rel=["\']canonical["\'][^>]*href=["\']([^"\']+)',body,re.I)
- if canonical and html.unescape(canonical[1]).rstrip('/')!=record['url'].rstrip('/'):raise RuntimeError('Canonical URL mismatch')
+ verify_self_canonical(body,record['url'])
+
+class CanonicalLinkParser(HTMLParser):
+ def __init__(self):super().__init__();self.urls=[]
+ def handle_starttag(self,tag,attrs):
+  if tag.lower()!='link':return
+  values={key.lower():value for key,value in attrs if key}
+  if 'canonical' in (values.get('rel') or '').lower().split() and values.get('href'):
+   self.urls.append(values['href'])
+
+def verify_self_canonical(body,expected_url):
+ parser=CanonicalLinkParser();parser.feed(body);parser.close()
+ if len(parser.urls)!=1:raise RuntimeError('Expected exactly one canonical URL; found '+str(len(parser.urls)))
+ actual=parse.urljoin(expected_url,parser.urls[0])
+ if actual.rstrip('/')!=expected_url.rstrip('/'):
+  raise RuntimeError('Canonical URL mismatch: '+actual)
+ return actual
 
 def publish(wp,input_path,target=40):
  old,state_id=read_state(wp);prior=list(old);retired=[]

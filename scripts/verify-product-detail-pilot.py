@@ -29,7 +29,7 @@ def main():
   if all(x['url'] in urls for x in records):break
  missing=[x['url'] for x in records if x['url'] not in urls]
  if missing:raise RuntimeError('Published details not yet in sitemap: '+str(len(missing)))
- report={'publicPages':len(records),'googlebotAllowed':True,'selfCanonicalChecked':True,'sitemapPagesFound':len(records),'sitemapsChecked':visited}
+ report={'publicPages':len(records),'googlebotAllowed':True,'selfCanonicalChecked':True,'selfCanonicalPagesChecked':len(records),'sitemapPagesFound':len(records),'sitemapsChecked':visited}
  Path('product-detail-discovery-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL DISCOVERY VERIFIED',json.dumps(report),flush=True)
 if __name__=='__main__':main()
 
