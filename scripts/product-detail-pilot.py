@@ -123,8 +123,9 @@ def clear_candidate(title):
 def prepare_expansion(wp,path):
  records,_=read_state(wp)
  if len(records)==100:
-  Path(path).write_text('[]');return
- if len(records)!=40:raise RuntimeError('Expected 40 existing details before expansion')
+  _,retired=unique_expansion(records)
+  if not retired:Path(path).write_text('[]');return
+ elif len(records)!=40:raise RuntimeError('Expected 40 existing details before expansion')
  rows=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
  if not rows:raise RuntimeError('Verified source cache missing')
  cache=json.loads(gzip.decompress(base64.b64decode(c.text_from(rows[0]['content']['raw']))))
@@ -135,8 +136,8 @@ def prepare_expansion(wp,path):
   if len(facts)<2 or '素材・材質' not in facts or not any(k in facts for k in ['サイズ','容量','重さ']):continue
   pool.append(dict(old,title=title,facts=facts,images=[old['image']],character=old['characters'][0]))
  # At most 100 exact-item API calls, all from existing catalog products.
- chosen=choose(pool,limit=100,existing=records)
- if len(chosen)<60:raise RuntimeError('Too few clear cached candidates for 60 additions')
+ chosen=choose(pool,limit=len(retired) if len(records)==100 else 100,existing=records)
+ if len(chosen)<(len(retired) if len(records)==100 else 60):raise RuntimeError('Too few clear cached candidates for additions')
  Path(path).write_text(json.dumps(chosen,ensure_ascii=False))
  print('DETAIL EXPANSION PREPARED',len(chosen),'candidates; existing',len(records),flush=True)
 
@@ -172,6 +173,22 @@ def identity_keys(x):
  if x['facts'].get('JANコード'):keys.add('jan:'+x['facts']['JANコード'])
  return keys
 
+def duplicate_with(x,others):
+ name=c.canonical_text(x['title'])
+ for y in others:
+  other=c.canonical_text(y['title'])
+  if identity_keys(x)&identity_keys(y):return True
+  # Retailer SEO suffixes can hide the same official product title.
+  if min(len(name),len(other))>=12 and (name.startswith(other) or other.startswith(name)):return True
+ return False
+
+def unique_expansion(records):
+ kept=list(records[:40]);retired=[]
+ for x in records[40:]:
+  if duplicate_with(x,kept):retired.append(x)
+  else:kept.append(x)
+ return kept,retired
+
 def choose(entries,limit=40,existing=()):
  pool=sorted(entries,key=lambda x:(-len(x['facts']),-len(x['images']),x['code']));chosen=[];seen=set();chars=collections.Counter();kinds=collections.Counter()
  for x in existing:seen.update(identity_keys(x));chars[x['character']]+=1;kinds[x['kind']]+=1
@@ -179,7 +196,7 @@ def choose(entries,limit=40,existing=()):
   best=min(pool,key=lambda x:chars[x['character']]*3+kinds[x['kind']]-len(x['facts'])-len(x['images'])*.5)
   pool.remove(best)
   keys=identity_keys(best)
-  if keys&seen:continue
+  if keys&seen or duplicate_with(best,list(existing)+chosen):continue
   chosen.append(best);seen.update(keys);chars[best['character']]+=1;kinds[best['kind']]+=1
  return chosen
 
@@ -217,12 +234,14 @@ def verify_public(record):
  if canonical and html.unescape(canonical[1]).rstrip('/')!=record['url'].rstrip('/'):raise RuntimeError('Canonical URL mismatch')
 
 def publish(wp,input_path,target=40):
- old,state_id=read_state(wp)
+ old,state_id=read_state(wp);prior=list(old);retired=[]
  if target not in (40,100):raise RuntimeError('Unsupported detail target')
  if target==100 and len(old)==100:
-  result=sync_catalogs(wp,old);print('DETAIL TOTAL VERIFIED',json.dumps({'total':100,'newPages':0,**result}),flush=True);return
+  old,retired=unique_expansion(old)
+  if not retired:
+   result=sync_catalogs(wp,old);print('DETAIL TOTAL VERIFIED',json.dumps({'total':100,'newPages':0,**result}),flush=True);return
  if old and target==40:raise RuntimeError('Pilot already exists')
- if target==100 and len(old)!=40:raise RuntimeError('Expansion requires the original 40-product cohort')
+ if target==100 and len(prior) not in (40,100):raise RuntimeError('Expansion requires the original 40-product cohort')
  source=json.loads(Path(input_path).read_text());incoming=list(source)
  cache=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')
  if cache:
@@ -255,8 +274,11 @@ def publish(wp,input_path,target=40):
  if state_id:
   state=wp.call('/wp/v2/pages/'+str(state_id)+'?context=edit&_fields=content')['content']['raw']
   original=json.loads(base64.b64decode(c.text_from(state)))
-  if original['records']!=old:raise RuntimeError('Concurrent detail state edit')
+  if original['records']!=prior:raise RuntimeError('Concurrent detail state edit')
   manifest['createdAt']=original['createdAt']
+  manifest['retiredProducts']=original.get('retiredProducts',[])
+  by_code={x['existing']['code']:x['existing'] for x in source}
+  for x in retired:manifest['retiredProducts'].append({'code':x['code'],'pageId':x['pageId'],'originalUrl':by_code[x['code']]['url']})
  state_path='/wp/v2/pages/'+str(state_id) if state_id else '/wp/v2/pages'
  saved=wp.call(state_path,{'slug':STATE,'status':'draft','title':'Managed product detail pilot state','content':'<pre>'+base64.b64encode(json.dumps(manifest,ensure_ascii=False).encode()).decode()+'</pre>'})
  if saved['slug']!=STATE:raise RuntimeError('State slug collision')
@@ -268,6 +290,15 @@ def publish(wp,input_path,target=40):
 
 
 def sync_catalogs(wp,records):
+ states=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+STATE+'&_fields=content')
+ retired=json.loads(base64.b64decode(c.text_from(states[0]['content']['raw']))).get('retiredProducts',[]) if states else []
+ retired_codes={x['code'] for x in retired}
+ def clean_retired(raw):
+  def clean(m):
+   found=re.search(r'data-code="([^"]+)"',m[1])
+   if not found or html.unescape(found[1]) not in retired_codes:return m[0]
+   return m[1]+re.sub(r'<a\b[^>]*class="sf-detail-link"[^>]*>.*?</a>','',m[2],flags=re.S)+'</article>'
+  return re.sub(r'(<article\b[^>]*class="[^"]*sf-rakuten-product-card[^"]*"[^>]*>)(.*?)(</article>)',clean,raw,flags=re.S)
  hub=MARK+'<style>'+(ROOT/'product-detail-pilot.css').read_text()+'</style><section><p>サイズ・素材などを購入先の商品情報で確認できた商品をご紹介します。アフィリエイト広告を含みます。</p><div class="sf-detail-hub">'+''.join('<a href="'+E(x['url'])+'"><img src="'+E(x['images'][0])+'" alt="'+E(x['title'])+'" loading="lazy"><strong>'+E(x['title'])+'</strong></a>\n' for x in records)+'</div></section>'
  save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
  # Only add internal detail links; product data and the existing card order are invariant.
@@ -277,7 +308,7 @@ def sync_catalogs(wp,records):
   if len(batch)<100:break
  linked=0;placements=0
  def link_page(page):
-  raw=page['content']['raw'];updated=link_cards(raw,records)
+  raw=page['content']['raw'];updated=link_cards(clean_retired(raw),records)
   if raw==updated:return 0
   if c.extract_existing_cards(raw)!=c.extract_existing_cards(updated):raise RuntimeError('Catalog products changed')
   path='/wp/v2/pages/'+str(page['id'])
@@ -289,7 +320,13 @@ def sync_catalogs(wp,records):
  with ThreadPoolExecutor(max_workers=3) as pool:linked=sum(pool.map(link_page,static))
  placements=sum(len(c.extract_existing_cards(p['content']['raw'])) for p in static)
  u=load_unified();goods=wp.call('/wp/v2/pages/804?context=edit&_fields=id,slug,content');raw=goods['content']['raw'];index=u.read_index(raw)
- before={x['id']:x.get('addedAt') for x in index['items']};count=len(index['items']);apply_index(index,records)
+ before={x['id']:x.get('addedAt') for x in index['items']};count=len(index['items'])
+ # Restore a duplicate retailer listing to its original catalog position.
+ retired_urls={x['code']:x['originalUrl'] for x in retired}
+ for item in index['items']:
+  code=item['id'].removeprefix('rakuten:')
+  if item['type']=='product' and code in retired_urls:item['url']=retired_urls[code]
+ apply_index(index,records)
  payload=base64.b64encode(__import__('gzip').compress(u.safe_json(index).encode(),mtime=0)).decode()
  pattern=r'(<script\b[^>]*id="sf-unified-search-data"[^>]*>).*?(</script>)'
  updated,n=re.subn(pattern,lambda m:m[1]+payload+m[2],raw,flags=re.S)
@@ -304,7 +341,11 @@ def sync_catalogs(wp,records):
   updated=raw.replace(marker,marker+tag,1)
   if wp.call('/wp/v2/pages/805?context=edit&_fields=content')['content']['raw']!=raw:raise RuntimeError('Concurrent home edit')
   if wp.call('/wp/v2/pages/805',{'content':updated})['content']['raw']!=updated:raise RuntimeError('Home link not saved')
- return {'linkedCatalogPages':linked,'catalogPlacementsPreserved':placements,'searchProductsPreserved':sum(x['type']=='product' for x in saved['items'])}
+ for x in retired:
+  path='/wp/v2/pages/'+str(x['pageId']);page=wp.call(path+'?context=edit&_fields=content,status')
+  if MARK not in page['content']['raw']:raise RuntimeError('Retired duplicate is not managed')
+  if page['status']!='draft':wp.call(path,{'status':'draft'})
+ return {'retiredDuplicates':len(retired),'linkedCatalogPages':linked,'catalogPlacementsPreserved':placements,'searchProductsPreserved':sum(x['type']=='product' for x in saved['items'])}
 
 def maintain(wp):
  records,state_id=read_state(wp)

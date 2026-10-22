@@ -65,5 +65,11 @@ class DetailTests(unittest.TestCase):
   self.assertNotIn('another:123',{x['code'] for x in additions})
   self.assertFalse(d.clear_candidate('サンリオ SANRIO マスコット JOCHUM RURU / まめちぃ'))
 
+ def test_duplicate_official_title_hidden_by_shop_keywords(self):
+  original=self.record('shop:1');original['title']='ジュエルペット ミニマスコットホルダー サンリオ ぬいぐるみ キーホルダー 4550624175517'
+  duplicate=self.record('sanrio:2');duplicate['title']='ジュエルペット ミニマスコットホルダー';duplicate['images']=['https://image.rakuten.co.jp/sanrio/other.jpg']
+  self.assertTrue(d.duplicate_with(duplicate,[original]))
+  self.assertEqual(d.choose([duplicate],limit=1,existing=[original]),[])
+
 if __name__=='__main__':unittest.main()
 
