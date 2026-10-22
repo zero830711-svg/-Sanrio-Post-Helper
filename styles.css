@@ -489,4 +489,4 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 .news-filter-button:focus-visible{outline:2px solid #8c4964;outline-offset:2px}
 
 /* Compact source and product-period controls on the new-products panel. */
-#lovelyPanel .evidence-buttons button{min-height:36px;padding:5px 9px;font-size:14px;line-height:1.25;border-radius:10px}
+#lovelyPanel .evidence-buttons button{min-height:32px;padding:4px 8px;font-size:12px;line-height:1.2;border-radius:9px}
