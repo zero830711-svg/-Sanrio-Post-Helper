@@ -44,6 +44,7 @@ test('楽天の在庫候補から入力せず下書きを準備する',async({pa
  await expect(page.locator('#flowEditor')).toBeVisible();
  await expect(page.locator('#flowTitle')).toHaveText(row.item.title);
  await expect(page.locator('#flowLink')).toHaveValue('');
+ await page.locator('#flowShortUrlBox summary').click();
  await expect(page.locator('#flowRakutenAppOpen')).toBeVisible();
  await expect(page.locator('#flowRakutenAppOpen')).toHaveAttribute('href',product);
  await expect(page.locator('#flowRakutenAffiliateOpen')).toContainText(/楽天アフィリエイトを(?:Chromeで)?開く/);
