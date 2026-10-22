@@ -4,7 +4,6 @@ const lovelyWatch = (()=>{
   let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',sourceMode='all',countryMode='all',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
   let discoveryBatchAt='',batchEligible={};
   const sectionMode='new';
-  let kindMode='all';
   let rankingModel=new Map(),sortMode=state().sortMode==='date'?'date':'recommended';
   async function updateHistory(){const history=await dbGetAll();historyIds=usedIds(history);rankingModel=newProductRanking.build(history,CHARACTER_DEFS);}
   let editorGeneration=0,imageBusy=0,uploadBusy=false;
@@ -177,7 +176,6 @@ const lovelyWatch = (()=>{
     const recentGroup=g=>g.status!=='used'&&g.articles.every(item=>recentUrls.has(item.url));
     let visible=sourceGroups.filter(x=>filterMode==='all'||(filterMode==='recent'?recentGroup(x):filterMode==='used'?x.status==='used':x.status!=='used'));
     if(sortMode==='recommended'&&filterMode!=='used')visible=domesticCandidates.rank(newProductRanking.rank(visible,rankingModel,CHARACTER_DEFS));
-    visible=visible.filter(g=>kindMode==='all'||domesticCandidates.classify(domesticCandidates.get(g.item)).kind===kindMode);
     const rankingHelp=el('lovelyRankingHelp');if(rankingHelp)rankingHelp.textContent=sortMode==='date'?'掲載日・初回取得が新しい順です。':rankingModel.size?'予約開始・発売間近→新着発表→くじ・カプセル→更新情報の順。各区分では過去の反応も考慮します。':'確認できた予約・発売時期と商品テーマを優先します。過去実績がない商品も表示します。';
     const recentHelp=el('lovelyRecentHelp');
     if(recentHelp){
@@ -557,7 +555,6 @@ const lovelyWatch = (()=>{
     try{await updateHistory();render()}catch(_){el('lovelyStatus').textContent='過去投稿の照合を更新できませんでした。新着を確認して再試行してください。'}
   });
   document.addEventListener('sph-domestic-evidence',()=>{if(loaded)render();});
-  el('domesticKindButtons')?.addEventListener('click',e=>{const b=e.target.closest('[data-kind]');if(!b)return;kindMode=b.dataset.kind;for(const button of el('domesticKindButtons').querySelectorAll('button'))button.setAttribute('aria-pressed',String(button===b));render();});
   el('domesticNewsLoad')?.addEventListener('click',async()=>{const button=el('domesticNewsLoad');button.disabled=true;try{const ok=await newsLoad();el('domesticNewsStatus').textContent=ok===false?el('newsStatus').textContent:newsState.items.length+'件のニュース資料を一覧に追加しました。'+newsSourceStatusLabel()+' 情報源ごとの取得状況は新作ニュースで確認できます。';render();}finally{button.disabled=false;}});
   el('lovelyList')?.addEventListener('error',e=>{const img=e.target;if(img.tagName==='IMG'&&img.closest('.lovely-thumb')){img.hidden=true;const fallback=img.nextElementSibling;if(fallback)fallback.hidden=false;}},true);
   el('lovelyList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-select]');if(b)choose(b.dataset.lovelySelect)});
