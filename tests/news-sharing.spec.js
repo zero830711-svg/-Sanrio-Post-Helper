@@ -66,14 +66,14 @@ test('ニュースの写真を先に取得し、編集した本文と一緒に�
  expect(shared.files.map(f=>f.name)).toEqual(['news-2.png','news-3.png','news-4.png','news-5.png']);
  await page.locator('#newsDone').click();
  await expect(page.locator('#newsList article')).toHaveCount(0);
- await page.locator('#newsFilter').selectOption('hidden');
+ await page.locator('#newsFilterButtons').getByRole('button',{name:'投稿済み・見送り',exact:true}).click();
  await expect(page.locator('#newsList')).toContainText('投稿済み');
  await page.reload();
  await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
  await expect(page.locator('#newsList article')).toHaveCount(0);
- await page.locator('#newsFilter').selectOption('hidden');
+ await page.locator('#newsFilterButtons').getByRole('button',{name:'投稿済み・見送り',exact:true}).click();
  await page.locator('#newsList').getByRole('button',{name:'戻す',exact:true}).click();
- await page.locator('#newsFilter').selectOption('new');
+ await page.locator('#newsFilterButtons').getByRole('button',{name:'未投稿',exact:true}).click();
  await expect(page.locator('#newsList article')).toHaveCount(1);
  await expect(page.locator('#newsList')).toContainText('発表 10/1');
  await expect(page.locator('#newsList img')).toHaveAttribute('src','https://example.invalid/thumb.png');
@@ -106,7 +106,7 @@ test('ニュースを5件ずつ表示し、戻った時も表示件数を維持�
  await page.locator('#newsList article').nth(6).getByRole('button',{name:'投稿準備'}).click();await expect(page.locator('#newsShare')).toBeEnabled();
  await page.locator('#newsBack').click();await expect(page.locator('#newsList article')).toHaveCount(10);
  await page.locator('#newsMore').click();await expect(page.locator('#newsList article')).toHaveCount(12);await expect(page.locator('#newsMore')).not.toBeVisible();
- await page.locator('#newsFilter').selectOption('all');await expect(page.locator('#newsList article')).toHaveCount(5);
+ await page.locator('#newsFilterButtons').getByRole('button',{name:'すべて',exact:true}).click();await expect(page.locator('#newsList article')).toHaveCount(5);
 });
 
 test('写真ファイルの取得中に本文とプレビューを確認し、編集した状態で開き直せる',async({page})=>{
@@ -186,10 +186,10 @@ test('公式とPR TIMESの同じ商品ニュースをまとめ、両方の記事
  await page.locator('#newsDone').click();
  await expect(page.locator('#newsList article')).toHaveCount(1);
  expect(await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('sanrioNewsMarks'))))).toEqual(expect.arrayContaining([official.url,press.url,press2.url,press3.url]));
- await page.locator('#newsFilter').selectOption('hidden');
+ await page.locator('#newsFilterButtons').getByRole('button',{name:'投稿済み・見送り',exact:true}).click();
  await expect(page.locator('#newsList article')).toHaveCount(1);
  await page.locator('#newsList').getByRole('button',{name:'戻す'}).click();
- await page.locator('#newsFilter').selectOption('new');await expect(page.locator('#newsList article')).toHaveCount(2);
+ await page.locator('#newsFilterButtons').getByRole('button',{name:'未投稿',exact:true}).click();await expect(page.locator('#newsList article')).toHaveCount(2);
  const safe=await page.evaluate(()=>{const a={source:'サンリオ公式',title:'「クロミ当りくじ」',date:'2026-10-01'};const b={...a,source:'PR TIMES'};return [
   newsSameStory(a,{...b,title:'「ハローキティ当りくじ」'}),
   newsSameStory(a,{...b,date:'2025-10-01'}),

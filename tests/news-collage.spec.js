@@ -20,7 +20,7 @@ test('選んだ4枚のまとめ画像と3枚の個別写真だけをPNGで共有
 });
 test('混在した写真の選択と順番を再起動後も復元し、設定が縦に伸びない',async({page})=>{
  await setup(page);await page.locator('#newsCollageMode').check();for(let n=5;n<=7;n++)await usePhoto(page,n,'single');await expect(page.locator('#newsShare')).toBeEnabled();await page.getByRole('button',{name:'写真2を前へ',exact:true}).click();await expect(page.locator('#newsShare')).toBeEnabled();
- await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsFilter').selectOption('draft');await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();await expect(page.locator('#newsCollageMode')).toBeChecked();await expect(page.locator('#newsShare')).toBeEnabled();expect(await page.evaluate(()=>newsState.selected)).toEqual([1,0,2,3,4,5,6]);expect(await page.evaluate(()=>newsCollageIndices())).toEqual([1,0,2,3]);await expect(page.locator('#newsCollagePreview img')).toHaveCount(4);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsFilterButtons').getByRole('button',{name:'準備中',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();await expect(page.locator('#newsCollageMode')).toBeChecked();await expect(page.locator('#newsShare')).toBeEnabled();expect(await page.evaluate(()=>newsState.selected)).toEqual([1,0,2,3,4,5,6]);expect(await page.evaluate(()=>newsCollageIndices())).toEqual([1,0,2,3]);await expect(page.locator('#newsCollagePreview img')).toHaveCount(4);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  const control=await page.locator('#newsCollageControls').boundingBox(),check=await page.locator('#newsCollageMode').boundingBox();expect(control.height).toBeLessThan(65);expect(check.width).toBe(20);expect(check.height).toBe(20);
 });
 test('縦横比と写真の順番を保ち、切り取りせず2×2に配置する',async({page})=>{
@@ -43,7 +43,7 @@ test('8枚を二つのまとめ画像に振り分け、9枚目以降とグルー
  for(let n=17;n<=20;n++)await usePhoto(page,n,'collage3');
  await expect(page.locator('#newsShare')).toBeEnabled();await expect(page.locator('#newsCollagePreview img')).toHaveCount(3);
  await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
- await page.locator('#newsFilter').selectOption('draft');await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
+ await page.locator('#newsFilterButtons').getByRole('button',{name:'準備中',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  await expect(page.locator('#newsImages .news-photo')).toHaveCount(20);await expect(page.locator('#newsShare')).toBeEnabled();await expect(page.locator('#newsCollagePreview img')).toHaveCount(3);
  expect(await page.evaluate(()=>newsCollageIndices(1))).toEqual([4,5,6,7]);expect(await page.evaluate(()=>newsCollageIndices(2))).toEqual([16,17,18,19]);
  await usePhoto(page,20,'none');await expect(page.locator('#newsShare')).toBeDisabled();await expect(page.locator('#newsCollagePreview')).toBeHidden();

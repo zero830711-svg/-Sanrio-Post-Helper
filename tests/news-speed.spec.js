@@ -32,13 +32,13 @@ test('一覧から見送りと復元ができ、詳細や写真を取得しな�
  let detailCalls=0;
  await setup(page,r=>{const action=new URL(r.request().url()).searchParams.get('action');if(action!=='list')detailCalls++;return r.fulfill({json:{ok:true,items:[item]}});});
  await page.locator('#newsList').getByRole('button',{name:'見送り',exact:true}).click();await expect(page.locator('#newsList article')).toHaveCount(0);
- await page.locator('#newsFilter').selectOption('hidden');await expect(page.locator('#newsList')).toContainText('見送り');
- await page.locator('#newsList').getByRole('button',{name:'戻す',exact:true}).click();await page.locator('#newsFilter').selectOption('new');await expect(page.locator('#newsList article')).toHaveCount(1);expect(detailCalls).toBe(0);
+ await page.locator('#newsFilterButtons').getByRole('button',{name:'投稿済み・見送り',exact:true}).click();await expect(page.locator('#newsList')).toContainText('見送り');
+ await page.locator('#newsList').getByRole('button',{name:'戻す',exact:true}).click();await page.locator('#newsFilterButtons').getByRole('button',{name:'未投稿',exact:true}).click();await expect(page.locator('#newsList article')).toHaveCount(1);expect(detailCalls).toBe(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 test('情報元ごとの更新待ちを表示し、取得できたニュースを残す',async({page})=>{
  await setup(page,r=>r.fulfill({json:{ok:true,items:[item],warnings:['内部エラー詳細'],sourceStatuses:{'サンリオ公式':{state:'ok',count:0},'PR TIMES':{state:'partial',count:1},'サンキューマート':{state:'failed',count:0}}}}));
  await expect(page.locator('#newsList article')).toHaveCount(1);await expect(page.locator('#newsStatus')).toContainText('PR TIMES：一部更新待ち');await expect(page.locator('#newsStatus')).toContainText('サンキューマート：更新待ち');await expect(page.locator('#newsStatus')).not.toContainText('内部エラー');
- await page.locator('#newsSourceFilter').selectOption('サンキューマート');await expect(page.locator('#newsList article')).toHaveCount(0);await expect(page.locator('#newsStatus')).toContainText('サンキューマート：更新待ち');await expect(page.locator('#newsStatus')).not.toContainText('PR TIMES');
- await page.locator('#newsSourceFilter').selectOption('all');await expect(page.locator('#newsList article')).toHaveCount(1);
+ await expect(page.locator('#newsSourceFilter')).toBeHidden();await expect(page.locator('#newsSourceButtons').getByRole('button',{name:'すべて',exact:true})).toHaveAttribute('aria-pressed','true');await page.locator('#newsSourceButtons').getByRole('button',{name:'サンキューマート',exact:true}).click();await expect(page.locator('#newsSourceButtons').getByRole('button',{name:'サンキューマート',exact:true})).toHaveAttribute('aria-pressed','true');await expect(page.locator('#newsList article')).toHaveCount(0);await expect(page.locator('#newsStatus')).toContainText('サンキューマート：更新待ち');await expect(page.locator('#newsStatus')).not.toContainText('PR TIMES');
+ await page.locator('#newsSourceButtons').getByRole('button',{name:'すべて',exact:true}).click();await expect(page.locator('#newsList article')).toHaveCount(1);
 });

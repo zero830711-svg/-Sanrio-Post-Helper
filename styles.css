@@ -482,3 +482,8 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 
 #newsReturnBar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:90;width:min(680px,100%);box-sizing:border-box;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#fff7fb;border:1px solid var(--line);border-radius:14px 14px 0 0;box-shadow:0 -3px 18px #3b183322;max-height:50dvh;overflow:auto}
 #newsReturnBar[hidden],#newsReturnManual[hidden]{display:none!important}#newsReturnBar p{margin:0 0 6px;font-size:13px;line-height:1.5}#newsReturnBar .small-btn{min-height:44px;white-space:normal}#newsReturnBar input{width:100%;box-sizing:border-box;font-size:16px}#newsEditor.news-return-active{padding-bottom:220px}#newsAdvancedSearch{margin:12px 0}#newsExternalQuery{width:100%;box-sizing:border-box}
+#newsPanel .news-filter{display:block;margin:10px 0;font-size:13px;font-weight:700;color:var(--muted)}
+.news-filter-buttons{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.news-filter-button{min-height:34px;padding:5px 9px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--text);font-size:12px;font-weight:700;line-height:1.2}
+.news-filter-button[aria-pressed="true"]{background:var(--pink2);border-color:var(--pink);color:#74384f}
+.news-filter-button:focus-visible{outline:2px solid #8c4964;outline-offset:2px}
