@@ -71,5 +71,27 @@ class DetailTests(unittest.TestCase):
   self.assertTrue(d.duplicate_with(duplicate,[original]))
   self.assertEqual(d.choose([duplicate],limit=1,existing=[original]),[])
 
+ def test_500_candidate_pool_keeps_existing_and_rejects_ambiguous_titles(self):
+  rows=[
+   {'id':'rakuten:shop:101','type':'product','title':'シナモロール 500ml ステンレスボトル','image':'https://image.rakuten.co.jp/shop/a.jpg','characters':['cinnamoroll'],'kind':'食器・キッチン'},
+   {'id':'rakuten:shop:102','type':'product','title':'シナモロール ぬいぐるみ 全5種から選べる','image':'https://image.rakuten.co.jp/shop/b.jpg','characters':['cinnamoroll'],'kind':'ぬいぐるみ'},
+   {'id':'rakuten:shop:103','type':'product','title':'シナモロール クロミ コラボポーチ','image':'https://image.rakuten.co.jp/shop/c.jpg','characters':['cinnamoroll'],'kind':'バッグ・ポーチ'},
+   {'id':'rakuten:shop:104','type':'product','title':'シナモロール ミニタオル','image':'https://image.rakuten.co.jp/shop/d.jpg','characters':['cinnamoroll','hello-kitty'],'kind':'タオル'},
+  ]
+  existing=[self.record('shop:100')]
+  pool=d.build_500_candidates({'items':rows},existing)
+  self.assertEqual([x['code'] for x in pool],['shop:101'])
+
+ def test_resumable_detail_state_accepts_the_500_page_target(self):
+  record=self.record()
+  records=[dict(record,code='shop:'+str(i),url=d.detail_url('shop:'+str(i)),pageId=i+1) for i in range(500)]
+  class FakeWP:
+   def call(self,path):
+    import base64,json
+    return [{'slug':d.STATE,'id':10,'content':{'raw':'<pre>'+base64.b64encode(json.dumps({'records':records}).encode()).decode()+'</pre>'}}]
+  loaded,state_id=d.read_state(FakeWP())
+  self.assertEqual(len(loaded),500)
+  self.assertEqual(state_id,10)
+
 if __name__=='__main__':unittest.main()
 

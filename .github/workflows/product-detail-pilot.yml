@@ -37,6 +37,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install --yes lftp
       - name: Verify existing products with Rakuten and publish the fixed cohort
+        if: ${{ !contains(github.event.head_commit.message, '[detail-to-500]') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -78,8 +79,10 @@ jobs:
         env:
           DETAIL_TO_100: ${{ contains(github.event.head_commit.message, '[detail-to-100]') }}
       - name: Verify public indexability and sitemap discovery
+        if: ${{ !contains(github.event.head_commit.message, '[detail-to-500]') }}
         run: python3 -u scripts/verify-product-detail-pilot.py
       - name: Include detail photos in the existing image sitemap
+        if: ${{ !contains(github.event.head_commit.message, '[detail-to-500]') }}
         run: |
           python3 -u scripts/catalog-image-seo.py
           python3 -u scripts/deploy-catalog-image-sitemap.py

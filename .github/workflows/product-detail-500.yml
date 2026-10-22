@@ -1,0 +1,70 @@
+name: Expand verified product details to 500
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/product-detail-pilot.py
+      - scripts/verify-product-detail-pilot.py
+      - .github/workflows/product-detail-500.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-other-character-rakuten-catalog
+  cancel-in-progress: false
+jobs:
+  expand:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Check scripts and tests
+        run: |
+          python3 -m pip install --quiet Pillow
+          php -l scripts/fetch-product-detail-pilot.php
+          python3 -m unittest discover -s tests -p test_product_detail_pilot.py -v
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp
+      - name: Read the existing Rakuten settings file over FTPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          detail_tmp=$(mktemp -d)
+          echo "DETAIL_TMP=$detail_tmp" >> "$GITHUB_ENV"
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get .rakuten-settings.php -o "$detail_tmp/settings.php"
+          bye
+          LFTP
+      - name: Add qualifying pages in resumable batches until 500
+        run: python3 -u scripts/product-detail-pilot.py --expand500 "$DETAIL_TMP/settings.php"
+      - name: Verify all public pages and sitemap discovery
+        run: python3 -u scripts/verify-product-detail-pilot.py
+      - name: Refresh the existing image sitemap
+        run: |
+          python3 -u scripts/catalog-image-seo.py
+          python3 -u scripts/deploy-catalog-image-sitemap.py
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: product-detail-500-report
+          path: |
+            product-detail-pilot-report.json
+            product-detail-discovery-report.json
+            catalog-image-report.json
