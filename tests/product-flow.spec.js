@@ -46,7 +46,7 @@ test('楽天の在庫候補から入力せず下書きを準備する',async({pa
  await expect(page.locator('#flowLink')).toHaveValue('');
  await expect(page.locator('#flowRakutenAppOpen')).toBeVisible();
  await expect(page.locator('#flowRakutenAppOpen')).toHaveAttribute('href',product);
- await expect(page.locator('#flowRakutenAffiliateOpen')).toContainText('楽天アフィリエイトを開く');
+ await expect(page.locator('#flowRakutenAffiliateOpen')).toContainText(/楽天アフィリエイトを(?:Chromeで)?開く/);
  expect(calls.filter(c=>c.action==='prepare-stock').map(c=>c.data)).toEqual([{code:row.item.code}]);
 });
 test('自動準備の停止設定と投稿済み記録を保存する',async({page})=>{
