@@ -35,16 +35,17 @@ class DetailTests(unittest.TestCase):
   self.assertEqual(d.specifications('本体サイズ:約幅11×奥行5×高さ10cm※チェーン含まず。主な材料・原料:ポリエステル、スチール ケープ着脱可(面ファスナー式開閉)。同シリーズのキーホルダーを付けられる。'),{'サイズ':'約幅11×奥行5×高さ10cm','素材・材質':'ポリエステル、スチール'})
  def record(self,code='sanrio:123456'):
   return {'code':code,'url':d.detail_url(code),'title':'シナモロール ミニポーチ','facts':{'サイズ':'約10×8cm','素材・材質':'ポリエステル'},'images':['https://image.rakuten.co.jp/sanrio/a.jpg'],'affiliate':'https://hb.afl.rakuten.co.jp/hgc/12345678/','shop':'公式ショップ','checkedAt':'2026-10-21T00:00:00Z','character':'cinnamoroll','kind':'バッグ・ポーチ'}
- def test_canonical_must_exist_exactly_once_and_match_page_url(self):
+ def test_canonical_must_exist_and_every_canonical_must_match_page_url(self):
   expected='https://sanrio-fan.site/product-abc123/'
-  self.assertEqual(d.verify_self_canonical('<link href="'+expected+'" rel="canonical">',expected),expected)
-  self.assertEqual(d.verify_self_canonical('<link rel="canonical" href="/product-abc123/">',expected),expected)
-  with self.assertRaisesRegex(RuntimeError,'exactly one canonical'):
+  self.assertEqual(d.verify_self_canonical('<link href="'+expected+'" rel="canonical">',expected),1)
+  self.assertEqual(d.verify_self_canonical('<link rel="canonical" href="/product-abc123/">',expected),1)
+  self.assertEqual(d.verify_self_canonical('<link rel="canonical" href="'+expected+'"><link rel="canonical" href="'+expected+'">',expected),2)
+  with self.assertRaisesRegex(RuntimeError,'Missing canonical'):
    d.verify_self_canonical('<title>商品</title>',expected)
   with self.assertRaisesRegex(RuntimeError,'Canonical URL mismatch'):
    d.verify_self_canonical('<link rel="canonical" href="https://sanrio-fan.site/another-page/">',expected)
-  with self.assertRaisesRegex(RuntimeError,'exactly one canonical'):
-   d.verify_self_canonical('<link rel="canonical" href="'+expected+'"><link rel="canonical" href="'+expected+'">',expected)
+  with self.assertRaisesRegex(RuntimeError,'Canonical URL mismatch'):
+   d.verify_self_canonical('<link rel="canonical" href="'+expected+'"><link rel="canonical" href="https://sanrio-fan.site/another-page/">',expected)
  def test_fixed_url_and_preserved_cards(self):
   x=self.record();raw='<article class="sf-rakuten-product-card" data-code="sanrio:123456" data-title="商品" data-image="image" data-affiliate="original" data-shop="shop"><a href="original">楽天</a></article>'
   new=d.link_cards(raw,[x]);self.assertIn('href="original"',new)

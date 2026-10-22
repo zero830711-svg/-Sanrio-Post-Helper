@@ -12,7 +12,7 @@ def read(url):
 def main():
  records,_=d.read_state(d.c.WordPress())
  if not 40<=len(records)<=500:raise RuntimeError('Product detail count outside the approved 40–500 range')
- with ThreadPoolExecutor(max_workers=3) as pool:list(pool.map(d.verify_public,records))
+ with ThreadPoolExecutor(max_workers=3) as pool:canonical_counts=list(pool.map(d.verify_public,records))
  robots=read(d.c.SITE+'/robots.txt').decode('utf-8');rp=robotparser.RobotFileParser();rp.parse(robots.splitlines())
  for x in records:
   if not rp.can_fetch('Googlebot',x['url']):raise RuntimeError('Robots blocks detail: '+x['url'])
@@ -29,7 +29,7 @@ def main():
   if all(x['url'] in urls for x in records):break
  missing=[x['url'] for x in records if x['url'] not in urls]
  if missing:raise RuntimeError('Published details not yet in sitemap: '+str(len(missing)))
- report={'publicPages':len(records),'googlebotAllowed':True,'selfCanonicalChecked':True,'selfCanonicalPagesChecked':len(records),'sitemapPagesFound':len(records),'sitemapsChecked':visited}
+ report={'publicPages':len(records),'googlebotAllowed':True,'selfCanonicalChecked':True,'selfCanonicalPagesChecked':len(canonical_counts),'pagesWithMultipleSelfCanonicals':sum(count>1 for count in canonical_counts),'extraSelfCanonicalTags':sum(max(0,count-1) for count in canonical_counts),'sitemapPagesFound':len(records),'sitemapsChecked':visited}
  Path('product-detail-discovery-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL DISCOVERY VERIFIED',json.dumps(report),flush=True)
 if __name__=='__main__':main()
 
