@@ -18,5 +18,9 @@ jobs:
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
     steps:
       - uses: actions/checkout@v6
-      - name: Publish article and featured illustration through WordPress REST API
-        run: python3 scripts/publish-editorial-article.py blog/editorial/publish-plush-pouch-guide.json
+      - name: Publish queued editorial articles through WordPress REST API
+        run: |
+          set -euo pipefail
+          for article in blog/editorial/publish-*.json; do
+            python3 scripts/publish-editorial-article.py "$article"
+          done
