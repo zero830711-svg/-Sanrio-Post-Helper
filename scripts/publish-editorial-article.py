@@ -42,6 +42,67 @@ class WordPress:
             raise RuntimeError(f'WordPress returned HTTP {exc.code}. Check account permissions and application password.') from None
 
 
+
+def upload_media(wp, slug, filename, alt_text, encoded_image):
+    rows = wp.call('/wp/v2/media?' + parse.urlencode({'slug': slug, '_fields': 'id,source_url'}))
+    if rows:
+        media = rows[0]
+        wp.call('/wp/v2/media/' + str(media['id']), data={'alt_text': alt_text})
+        return media
+    try:
+        image_bytes = base64.b64decode(encoded_image, validate=True)
+    except (ValueError, TypeError):
+        raise RuntimeError('An uploaded image is invalid.') from None
+    if not image_bytes.startswith(b'\xff\xd8\xff'):
+        raise RuntimeError('An uploaded image must be a JPEG.')
+    if len(image_bytes) > 4 * 1024 * 1024:
+        raise RuntimeError('An uploaded image exceeds 4 MB.')
+    media = wp.call('/wp/v2/media', binary=image_bytes, headers={
+        'Content-Type': 'image/jpeg',
+        'Content-Disposition': f'attachment; filename="{filename}"',
+    })
+    wp.call('/wp/v2/media/' + str(media['id']), data={'slug': slug, 'alt_text': alt_text})
+    return media
+
+
+def replace_existing_media(article, wp, existing):
+    if article['slug'] != 'toptoy-sanrio-spinning-hot-spring' or existing[0]['status'] != 'publish':
+        raise RuntimeError('Refusing to replace media outside the published TOPTOY article.')
+    post_path = '/wp/v2/posts/' + str(existing[0]['id'])
+    media_specs = [article] + article.get('gallery_images', [])
+    if len(media_specs) != 8:
+        raise RuntimeError('Expected one cover photo and seven character photos.')
+    media_rows = []
+    for index, spec in enumerate(media_specs):
+        suffix = 'toptoy-photo-cover' if index == 0 else f'toptoy-photo-{index}'
+        media_rows.append(upload_media(
+            wp, article['slug'] + '-' + suffix, spec['image_filename'],
+            spec['alt_text'], spec['image_base64']))
+    content = article['content']
+    for index, media in enumerate(media_rows):
+        token = '{{image_url}}' if index == 0 else f'{{{{image_{index}_url}}}}'
+        if token not in content:
+            raise RuntimeError('Article content is missing a product-photo placeholder.')
+        content = content.replace(token, media['source_url'])
+    if '{{image_' in content:
+        raise RuntimeError('A product-photo placeholder was not replaced.')
+    affiliate_url = 'https://link.amazon/B06ogR7Zt'
+    if content.count(affiliate_url) != 2:
+        raise RuntimeError('The expected Amazon affiliate links are missing from the article.')
+    wp.call(post_path, data={
+        'content': content,
+        'excerpt': article['excerpt'],
+        'featured_media': media_rows[0]['id'],
+    })
+    verified = wp.call(post_path + '?context=edit')
+    saved_content = verified['content']['raw']
+    if (verified['status'] != 'publish' or verified['featured_media'] != media_rows[0]['id']
+            or any(media['source_url'] not in saved_content for media in media_rows)
+            or saved_content.count(affiliate_url) != 2):
+        raise RuntimeError('The product-photo update did not pass verification.')
+    print('UPDATED product photos:', verified['link'])
+
+
 def publish(article, wp):
     required = ('title', 'slug', 'excerpt', 'content', 'image_base64', 'image_filename', 'alt_text', 'category_slug')
     if any(not article.get(key) for key in required):
@@ -55,6 +116,9 @@ def publish(article, wp):
     slug_query = parse.urlencode({'slug': article['slug'], 'context': 'edit', '_fields': 'id,slug,status,link'})
     existing = wp.call('/wp/v2/posts?' + slug_query)
     if existing:
+        if article.get('replace_existing_media'):
+            replace_existing_media(article, wp, existing)
+            return
         replacement = article.get('replace_existing_link')
         if replacement:
             if existing[0]['slug'] != article['slug'] or existing[0]['status'] != 'publish':
