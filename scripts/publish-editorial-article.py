@@ -1,0 +1,117 @@
+"""Publish one prepared editorial article through the standard WordPress REST API."""
+import argparse
+import base64
+import json
+import os
+import re
+import sys
+from pathlib import Path
+from urllib import error, parse, request
+
+SITE = 'https://sanrio-fan.site'
+
+
+class NoRedirect(request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise RuntimeError('Redirect refused; check the configured URL.')
+
+
+class WordPress:
+    def __init__(self):
+        user = os.environ.get('SANRIO_WP_USER', '')
+        password = os.environ.get('SANRIO_WP_APP_PASSWORD', '')
+        if not user or not password:
+            raise RuntimeError('Set SANRIO_WP_USER and SANRIO_WP_APP_PASSWORD in GitHub Actions secrets.')
+        self.auth = 'Basic ' + base64.b64encode((user + ':' + password).encode()).decode()
+        self.opener = request.build_opener(NoRedirect)
+
+    def call(self, path, data=None, binary=None, headers=None):
+        if not path.startswith('/wp/v2/'):
+            raise ValueError('Only standard WordPress REST routes are allowed.')
+        body = binary if binary is not None else (json.dumps(data).encode() if data is not None else None)
+        req = request.Request(SITE + '/wp-json' + path, data=body, headers={
+            'Authorization': self.auth,
+            'User-Agent': 'SanrioEditorialPublisher/1.0',
+            **({'Content-Type': 'application/json'} if data is not None else {}),
+            **(headers or {}),
+        })
+        try:
+            with self.opener.open(req, timeout=45) as response:
+                return json.load(response)
+        except error.HTTPError as exc:
+            raise RuntimeError(f'WordPress returned HTTP {exc.code}. Check account permissions and application password.') from None
+
+
+def publish(article, wp):
+    required = ('title', 'slug', 'excerpt', 'content', 'image_base64', 'image_filename', 'alt_text', 'category_slug')
+    if any(not article.get(key) for key in required):
+        raise RuntimeError('Article data is incomplete.')
+    if not re.fullmatch(r'[a-z0-9-]{3,80}', article['slug']):
+        raise RuntimeError('Article slug has an invalid format.')
+    if article.get('status') not in ('draft', 'publish'):
+        raise RuntimeError('Article status must be draft or publish.')
+
+    wp.call('/wp/v2/users/me?context=edit&_fields=id')
+    slug_query = parse.urlencode({'slug': article['slug'], 'context': 'edit', '_fields': 'id,slug,status,link'})
+    existing = wp.call('/wp/v2/posts?' + slug_query)
+    if existing:
+        print('SKIP existing article:', existing[0]['link'])
+        return
+
+    categories = wp.call('/wp/v2/categories?' + parse.urlencode({'slug': article['category_slug'], '_fields': 'id'}))
+    if not categories:
+        raise RuntimeError('The requested WordPress category was not found.')
+
+    media_slug = article['slug'] + '-cover'
+    media_rows = wp.call('/wp/v2/media?' + parse.urlencode({'slug': media_slug, '_fields': 'id,source_url'}))
+    if media_rows:
+        media = media_rows[0]
+    else:
+        try:
+            image_bytes = base64.b64decode(article['image_base64'], validate=True)
+        except (ValueError, TypeError):
+            raise RuntimeError('The featured image data is invalid.') from None
+        if not image_bytes.startswith(b'\xff\xd8\xff'):
+            raise RuntimeError('The featured image must be a JPEG.')
+        if len(image_bytes) > 4 * 1024 * 1024:
+            raise RuntimeError('The featured image exceeds 4 MB.')
+        media = wp.call('/wp/v2/media', binary=image_bytes, headers={
+            'Content-Type': 'image/jpeg',
+            'Content-Disposition': f'attachment; filename="{article["image_filename"]}"',
+        })
+        wp.call('/wp/v2/media/' + str(media['id']), data={
+            'slug': media_slug,
+            'alt_text': article['alt_text'],
+        })
+
+    if '{{image_url}}' not in article['content']:
+        raise RuntimeError('Article content is missing the image placeholder.')
+    content = article['content'].replace('{{image_url}}', media['source_url'])
+    if '{{image_url}}' in content:
+        raise RuntimeError('Article image URL replacement failed.')
+    saved = wp.call('/wp/v2/posts', data={
+        'title': article['title'],
+        'slug': article['slug'],
+        'status': article['status'],
+        'content': content,
+        'excerpt': article['excerpt'],
+        'categories': [categories[0]['id']],
+        'featured_media': media['id'],
+    })
+    verified = wp.call('/wp/v2/posts/' + str(saved['id']) + '?context=edit')
+    if (verified['status'] != article['status'] or verified['featured_media'] != media['id']
+            or media['source_url'] not in verified['content']['raw']):
+        raise RuntimeError('Saved article did not pass verification.')
+    print('PUBLISHED:' if verified['status'] == 'publish' else 'DRAFT:', verified['link'])
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('article_json')
+    args = parser.parse_args()
+    try:
+        article = json.loads(Path(args.article_json).read_text(encoding='utf-8'))
+        publish(article, WordPress())
+    except (RuntimeError, error.URLError, ValueError, KeyError, OSError) as exc:
+        print(str(exc) if isinstance(exc, RuntimeError) else 'Operation failed; inspect configuration and article data.', file=sys.stderr)
+        sys.exit(1)
