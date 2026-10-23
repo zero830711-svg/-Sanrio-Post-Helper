@@ -55,6 +55,35 @@ def publish(article, wp):
     slug_query = parse.urlencode({'slug': article['slug'], 'context': 'edit', '_fields': 'id,slug,status,link'})
     existing = wp.call('/wp/v2/posts?' + slug_query)
     if existing:
+        replacement = article.get('replace_existing_link')
+        if replacement:
+            if existing[0]['slug'] != article['slug'] or existing[0]['status'] != 'publish':
+                raise RuntimeError('Refusing to update an article with a different identity or status.')
+            old_url = replacement.get('old')
+            new_url = replacement.get('new')
+            old_parts = parse.urlsplit(old_url or '')
+            new_parts = parse.urlsplit(new_url or '')
+            if (old_parts.scheme != 'https' or old_parts.hostname != 'www.amazon.co.jp'
+                    or new_parts.scheme != 'https' or new_parts.hostname != 'link.amazon'
+                    or new_url not in article['content']):
+                raise RuntimeError('Affiliate link replacement is not valid for this article.')
+            post_path = '/wp/v2/posts/' + str(existing[0]['id'])
+            current = wp.call(post_path + '?context=edit')['content']['raw']
+            old_count = current.count(old_url)
+            if old_count == 0 and current.count(new_url) == 2:
+                print('ALREADY updated article links:', existing[0]['link'])
+                return
+            if old_count != 2:
+                raise RuntimeError('Expected exactly two original product links before replacement.')
+            updated = current.replace(old_url, new_url)
+            wp.call(post_path, data={'content': updated})
+            verified = wp.call(post_path + '?context=edit')
+            saved_content = verified['content']['raw']
+            if (verified['status'] != 'publish' or verified['link'] != existing[0]['link']
+                    or old_url in saved_content or saved_content.count(new_url) != 2):
+                raise RuntimeError('Updated affiliate links did not pass verification.')
+            print('UPDATED article links:', verified['link'])
+            return
         print('SKIP existing article:', existing[0]['link'])
         return
 
