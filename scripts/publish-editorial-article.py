@@ -70,8 +70,8 @@ def replace_existing_media(article, wp, existing):
         raise RuntimeError('Refusing to replace media outside the published TOPTOY article.')
     post_path = '/wp/v2/posts/' + str(existing[0]['id'])
     media_specs = [article] + article.get('gallery_images', [])
-    if len(media_specs) != 8:
-        raise RuntimeError('Expected one cover photo and seven character photos.')
+    if len(media_specs) < 2 or len(media_specs) > 20:
+        raise RuntimeError('Expected between one and nineteen article photos plus a cover photo.')
     media_rows = []
     for index, spec in enumerate(media_specs):
         suffix = 'toptoy-photo-cover' if index == 0 else f'toptoy-photo-{index}'
