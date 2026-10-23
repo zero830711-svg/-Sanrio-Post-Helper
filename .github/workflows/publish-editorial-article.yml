@@ -1,0 +1,22 @@
+name: Publish WordPress editorial article
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/editorial/publish-*.json'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-editorial-publisher
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish article and featured illustration through WordPress REST API
+        run: python3 scripts/publish-editorial-article.py blog/editorial/publish-plush-pouch-guide.json
