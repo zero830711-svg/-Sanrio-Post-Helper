@@ -104,9 +104,11 @@ def replace_existing_media(article, wp, existing):
 
 
 def publish(article, wp):
-    required = ('title', 'slug', 'excerpt', 'content', 'image_base64', 'image_filename', 'alt_text', 'category_slug')
+    required = ('title', 'slug', 'excerpt', 'content', 'image_filename', 'alt_text', 'category_slug')
     if any(not article.get(key) for key in required):
         raise RuntimeError('Article data is incomplete.')
+    if not article.get('replace_existing_media') and not article.get('image_base64'):
+        raise RuntimeError('A featured image is required for a new article.')
     if not re.fullmatch(r'[a-z0-9-]{3,80}', article['slug']):
         raise RuntimeError('Article slug has an invalid format.')
     if article.get('status') not in ('draft', 'publish'):
