@@ -1,4 +1,4 @@
-name: Publish next 200 English product detail pages
+name: Publish final 100 English product detail pages
 on:
   push:
     branches: [main]
@@ -24,10 +24,10 @@ jobs:
           ref: main
       - name: Check Python syntax
         run: python3 -m py_compile scripts/product-detail-english.py scripts/product-detail-pilot.py
-      - name: Publish and verify the next 200 English product details
-        run: python3 -u scripts/product-detail-english.py --append-next-200-after 700
+      - name: Publish and verify the final 100 English product details
+        run: python3 -u scripts/product-detail-english.py --append-next-200-after 900
       - uses: actions/upload-artifact@v5
         if: always()
         with:
-          name: english-product-details-next-200-report
+          name: english-product-details-final-100-report
           path: product-detail-english-report.json
