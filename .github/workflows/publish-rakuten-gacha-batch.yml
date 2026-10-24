@@ -3,61 +3,61 @@ on:
   push:
     branches: [main]
     paths:
-      - 'blog/gacha-rakuten-batch.json'
-  permissions:
+    - 'blog/gacha-rakuten-batch.json'
+permissions:
     contents: read
-  concurrency:
+concurrency:
     group: sanrio-rakuten-gacha-batch
     cancel-in-progress: false
-  jobs:
-    publish:
-      runs-on: ubuntu-latest
-      timeout-minutes: 45
-      env:
-        SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
-        SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
-        LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
-        LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
-        LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
-        LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
-      steps:
-        - uses: actions/checkout@v6
-        - name: Validate publisher and install dependencies
-          run: |
-            set -euo pipefail
-            sudo apt-get update -qq
-            sudo apt-get install --yes lftp php-cli php-curl
-            python3 -m pip install --quiet Pillow
-            php -l scripts/fetch-rakuten-gacha-candidates.php
-            python3 -m py_compile scripts/publish-rakuten-gacha-batch.py scripts/publish-editorial-article.py scripts/update-home-gacha-shelf.py
-            python3 scripts/publish-rakuten-gacha-batch.py --self-test
-            python3 -m json.tool blog/gacha-rakuten-batch.json >/dev/null
-        - name: Download private Rakuten configuration
-          run: |
-            set -euo pipefail
-            umask 077
-            gacha_tmp=$(mktemp -d "$RUNNER_TEMP/sanrio-rakuten-gacha.XXXXXX")
-            lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
-            set cmd:fail-exit yes
-            set net:timeout 20
-            set net:max-retries 1
-            set ftp:ssl-force true
-            set ftp:ssl-protect-data true
-            set ssl:verify-certificate yes
-            cd "$LOLIPOP_TREND_DIR"
-            get config.php -o "$gacha_tmp/config.php"
-            bye
-            LFTP
-            echo "RAKUTEN_GACHA_TMP=$gacha_tmp" >> "$GITHUB_ENV"
-        - name: Fetch Sanrio capsule-toy products from the Rakuten API
-          run: php scripts/fetch-rakuten-gacha-candidates.php "$RAKUTEN_GACHA_TMP/config.php" blog/gacha-rakuten-batch.json "$RAKUTEN_GACHA_TMP/candidates.json"
-        - name: Publish one WordPress article per verified product
-          run: python3 scripts/publish-rakuten-gacha-batch.py --candidates "$RAKUTEN_GACHA_TMP/candidates.json" --limit 50
-        - name: Refresh the 3-column homepage gacha shelf through WordPress REST API
-          run: python3 scripts/update-home-gacha-shelf.py
-        - name: Remove private temporary files
-          if: always()
-          run: |
-            if [[ -n "${RAKUTEN_GACHA_TMP:-}" && -d "$RAKUTEN_GACHA_TMP" ]]; then
-              rm -rf -- "$RAKUTEN_GACHA_TMP"
-            fi
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate publisher and install dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp php-cli php-curl
+          python3 -m pip install --quiet Pillow
+          php -l scripts/fetch-rakuten-gacha-candidates.php
+          python3 -m py_compile scripts/publish-rakuten-gacha-batch.py scripts/publish-editorial-article.py scripts/update-home-gacha-shelf.py
+          python3 scripts/publish-rakuten-gacha-batch.py --self-test
+          python3 -m json.tool blog/gacha-rakuten-batch.json >/dev/null
+      - name: Download private Rakuten configuration
+        run: |
+          set -euo pipefail
+          umask 077
+          gacha_tmp=$(mktemp -d "$RUNNER_TEMP/sanrio-rakuten-gacha.XXXXXX")
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get config.php -o "$gacha_tmp/config.php"
+          bye
+          LFTP
+          echo "RAKUTEN_GACHA_TMP=$gacha_tmp" >> "$GITHUB_ENV"
+      - name: Fetch Sanrio capsule-toy products from the Rakuten API
+        run: php scripts/fetch-rakuten-gacha-candidates.php "$RAKUTEN_GACHA_TMP/config.php" blog/gacha-rakuten-batch.json "$RAKUTEN_GACHA_TMP/candidates.json"
+      - name: Publish one WordPress article per verified product
+        run: python3 scripts/publish-rakuten-gacha-batch.py --candidates "$RAKUTEN_GACHA_TMP/candidates.json" --limit 50
+      - name: Refresh the 3-column homepage gacha shelf through WordPress REST API
+        run: python3 scripts/update-home-gacha-shelf.py
+      - name: Remove private temporary files
+        if: always()
+        run: |
+          if [[ -n "${RAKUTEN_GACHA_TMP:-}" && -d "$RAKUTEN_GACHA_TMP" ]]; then
+            rm -rf -- "$RAKUTEN_GACHA_TMP"
+          fi
