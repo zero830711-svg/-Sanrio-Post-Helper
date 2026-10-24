@@ -119,6 +119,7 @@ class DetailTests(unittest.TestCase):
   loaded,state_id=d.read_state(FakeWP())
   self.assertEqual(len(loaded),600)
   self.assertEqual(state_id,10)
+  import base64,json
   records.append(dict(record,code='shop:600',url=d.detail_url('shop:600'),pageId=601))
   FakeWP.call=lambda self,path:[{'slug':d.STATE,'id':10,'content':{'raw':'<pre>'+base64.b64encode(json.dumps({'records':records}).encode()).decode()+'</pre>'}}]
   with self.assertRaisesRegex(RuntimeError,'Product detail cap exceeded'):d.read_state(FakeWP())
