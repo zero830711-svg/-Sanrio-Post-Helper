@@ -27,7 +27,7 @@ jobs:
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
       RUN_MODE: ${{ contains(github.event.head_commit.message, '[apply-marketplace-buttons]') && 'apply' || inputs.mode || 'check' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Validate the REST updater
         run: |
           python3 -m py_compile scripts/style-marketplace-buttons.py
