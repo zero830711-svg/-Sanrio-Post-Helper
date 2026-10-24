@@ -256,13 +256,6 @@ def get_or_save_page(wp, slug, parent, marker, title, content, excerpt, status="
     return saved
 
 
-def trash_failed_landing_duplicate(wp):
-    # An earlier interrupted run may have created this marked draft when the REST query omitted draft status.
-    for row in pages_by_slug(wp, "en-2"):
-        if int(row.get("parent", 0)) == 0 and row.get("status") == "draft" and LANDING_MARK in row["content"]["raw"]:
-            wp.call("/wp/v2/pages/%d" % row["id"], {"status": "trash"})
-
-
 def page_url(entry):
     return SITE + "/en/product-details/" + entry["pageSlug"] + "/"
 
@@ -476,7 +469,6 @@ def run():
     if len(records) != 1000:
         raise RuntimeError("English launch expects the verified 1,000-page Japanese cohort; found %d." % len(records))
     records_by_code = {item["code"]: item for item in records}
-    trash_failed_landing_duplicate(wp)
     state = read_english_state(wp)
     new_pages_upserted = 0
     if state:
