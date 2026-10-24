@@ -77,6 +77,75 @@ function sanrio_title(string $title): bool {
     return (bool)preg_match('/サンリオ|ハローキティ|ハロー・キティ|マイメロディ|クロミ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|けろけろけろっぴ|タキシードサム|あひるのペックル|バッドばつ丸|こぎみゅん|はなまるおばけ|ウサハナ|ぐでたま|キキララ|キキ＆ララ|リトルツインスターズ|ジュエルペット|ウィッシュミーメル|ぼんぼんりぼん|チョコキャット|マロンクリーム|がおぱわるぅ|まるもふびより|おさるのもんきち|みんなのたあ坊|JOCHUM|Jochum|jochum/u', $title);
 }
 
+
+function request_catalog_batch(string $endpoint, string $syncKey, string $character, int $batch): ?array {
+    $body = '';
+    $curl = curl_init($endpoint);
+    $payload = json_encode(['character' => $character, 'expand' => true, 'batch' => $batch], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+    curl_setopt_array($curl, [
+        CURLOPT_RETURNTRANSFER => false,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 120,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $syncKey,
+            'Origin: https://zero830711-svg.github.io',
+            'Content-Type: application/json',
+            'Accept: application/json',
+        ],
+        CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$body): int {
+            if (strlen($body) + strlen($chunk) > 2000000) return 0;
+            $body .= $chunk;
+            return strlen($chunk);
+        },
+    ]);
+    $ok = curl_exec($curl);
+    $status = (int)curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+    curl_close($curl);
+    if ($ok === false || $status !== 200) return null;
+    $response = json_decode($body, true);
+    if (!is_array($response) || empty($response['ok'])
+        || ($response['character'] ?? '') !== $character
+        || ($response['expansionVersion'] ?? 0) !== 1
+        || ($response['batch'] ?? -1) !== $batch
+        || !is_array($response['catalogItems'] ?? null)) return null;
+    return $response;
+}
+
+function append_catalog_candidates(array $catalogItems, array $productNames, array &$items, array &$seenCodes, int &$rawRows, int &$matches): void {
+    foreach ($catalogItems as $candidate) {
+        if (!is_array($candidate)) continue;
+        $rawRows++;
+        $code = trim((string)($candidate['code'] ?? ''));
+        $title = trim((string)($candidate['title'] ?? ''));
+        $seed = '';
+        foreach ($productNames as $productName) {
+            if (!is_string($productName) || !product_name_matches($productName, $title)) continue;
+            if ($seed === '' || mb_strlen($productName, 'UTF-8') > mb_strlen($seed, 'UTF-8')) $seed = $productName;
+        }
+        if ($seed === '' || $code === '' || !preg_match('/^([a-zA-Z0-9_-]+):([a-zA-Z0-9_-]+)$/D', $code, $parts)) continue;
+        if (isset($seenCodes[$code])) continue;
+        $image = trim((string)($candidate['image'] ?? ''));
+        $affiliate = trim((string)($candidate['affiliate'] ?? ''));
+        $url = 'https://item.rakuten.co.jp/' . $parts[1] . '/' . $parts[2] . '/';
+        if ($title === '' || !safe_image_url($image) || !safe_affiliate_url($affiliate) || !safe_product_url($url)) continue;
+        $seenCodes[$code] = true;
+        $items[] = [
+            'code' => $code,
+            'title' => mb_substr($title, 0, 500, 'UTF-8'),
+            'image' => $image,
+            'affiliate' => $affiliate,
+            'url' => $url,
+            'shop' => mb_substr(trim((string)($candidate['shop'] ?? '')), 0, 120, 'UTF-8'),
+            'source_product_name' => mb_substr($seed, 0, 160, 'UTF-8'),
+        ];
+        $matches++;
+    }
+}
+
 try {
     $config = require $argv[1];
     $syncKey = is_array($config) ? trim((string)($config['sync_key'] ?? '')) : '';
@@ -226,6 +295,41 @@ try {
             if (empty($response['hasMore'])) break;
         }
         usleep(150000);
+    }
+
+
+    $targetLimit = max(1, min(50, (int)($queryData['limit'] ?? 50)));
+    $catalogRequests = 0;
+    $catalogRows = 0;
+    $catalogMatches = 0;
+    $catalogFailures = 0;
+    if ($productNameSearch && count($items) < $targetLimit) {
+        $catalogEndpoint = 'https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/product-flow.php?action=catalog-search';
+        $characters = [
+            'hellokitty', 'kuromi', 'mymelody', 'cinnamoroll', 'pompompurin', 'pochacco',
+            'hangyodon', 'little-twin-stars', 'jewelpet', 'sugar-bunnies', 'hanamaru-obake',
+            'jochum', 'usahana', 'bad-badtz-maru', 'kerokerokeroppi', 'tuxedo-sam',
+            'gudetama', 'wish-me-mell', 'bonbonribbon', 'ahiru-no-pekkle', 'cogimyun',
+            'chococat', 'marroncream', 'minna-no-taabou', 'gaopoweru', 'kirimi-chan',
+            'osaru-no-monkichi', 'corocorokuririn', 'goropikadon', 'charmmy-kitty',
+            'dear-daniel', 'marumofubiyori', 'ruroromannic', 'little-forest-fellow',
+            'marshmallow-fuwafuwa-nyanko', 'my-sweet-piano',
+        ];
+        foreach ($characters as $character) {
+            for ($batch = 0; $batch < 4; $batch++) {
+                $response = request_catalog_batch($catalogEndpoint, $syncKey, $character, $batch);
+                $catalogRequests++;
+                if ($response === null) {
+                    $catalogFailures++;
+                    fwrite(STDERR, 'Rakuten catalog fallback was unavailable for one character batch (HTTP or response validation failed).' . "\n");
+                    break;
+                }
+                append_catalog_candidates($response['catalogItems'], $queries, $items, $seenCodes, $catalogRows, $catalogMatches);
+                if (count($items) >= $targetLimit) break 2;
+                usleep(150000);
+            }
+        }
+        fwrite(STDOUT, 'Rakuten catalog fallback finished: ' . $catalogMatches . ' product-name matches from ' . $catalogRows . ' catalog rows across ' . $catalogRequests . ' batches; ' . $catalogFailures . " batches failed.\n");
     }
 
     $output = json_encode([
