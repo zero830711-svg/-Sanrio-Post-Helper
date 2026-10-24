@@ -43,6 +43,10 @@ class BilingualProductDiscoveryTests(unittest.TestCase):
             ["a1", "b1", "a2", "b2"],
         )
 
+    def test_missing_character_guide_starts_as_a_draft(self):
+        self.assertEqual(discovery.managed_page_status(None), "draft")
+        self.assertEqual(discovery.managed_page_status({"status": "publish"}), "publish")
+
 
 if __name__ == "__main__":
     unittest.main()
