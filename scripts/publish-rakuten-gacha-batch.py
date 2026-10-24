@@ -255,6 +255,7 @@ def self_test():
     valid = {
         "code": "shop:sku",
         "title": "サンリオキャラクターズ ガチャ カプセルトイ",
+        "capsule_evidence": "カプセルトイの販売情報",
         "image": "https://image.rakuten.co.jp/shop/cabinet/item.jpg",
         "affiliate": "https://hb.afl.rakuten.co.jp/hgc/12345678.12345678.12345678.12345678/?pc=x",
         "url": "https://item.rakuten.co.jp/shop/item/",
