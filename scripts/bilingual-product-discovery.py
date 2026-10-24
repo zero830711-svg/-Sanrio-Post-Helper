@@ -411,16 +411,21 @@ def run(pilot_size=PILOT_SIZE):
             "Photos and product details for selected " + character_label(character) + " goods, with Japanese source information.",
             guide_status,
         )
-        expected_url = character_english_url(character)
-        if page.get("link", "").rstrip("/") != expected_url.rstrip("/"):
-            raise RuntimeError("Unexpected English character guide URL: " + str(page.get("link")))
         guide_pages[character] = page
 
-    # Make the destinations live before adding public links that point to them.
+    # Publish the parent first; WordPress returns preview URLs for draft children.
+    directory = publish_managed_page(wp, directory)
+    expected_directory_url = SITE + "/en/characters/"
+    if directory.get("link", "").rstrip("/") != expected_directory_url.rstrip("/"):
+        raise RuntimeError("Unexpected English character directory URL: " + str(directory.get("link")))
+
+    # Make every guide live before adding public links that point to it.
     published_guides = {}
     for character in characters:
         published_guides[character] = publish_managed_page(wp, guide_pages[character])
-    directory = publish_managed_page(wp, directory)
+        expected_url = character_english_url(character)
+        if published_guides[character].get("link", "").rstrip("/") != expected_url.rstrip("/"):
+            raise RuntimeError("Unexpected English character guide URL: " + str(published_guides[character].get("link")))
 
     changed_character_pages = 0
     japanese_character_pages = {}
