@@ -27,7 +27,7 @@ function safe_image_url(string $url): bool {
     return ($parts['scheme'] ?? '') === 'https'
         && in_array(strtolower((string)($parts['host'] ?? '')), ['image.rakuten.co.jp', 'shop.r10s.jp', 'tshop.r10s.jp'], true)
         && str_starts_with((string)($parts['path'] ?? ''), '/')
-        && !isset($parts['user'], $parts['pass'], $parts['port']);
+        && !isset($parts['user']) && !isset($parts['pass']) && !isset($parts['port']) && !isset($parts['fragment']);
 }
 
 function capsule_title(string $title): bool {
