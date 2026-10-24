@@ -1,9 +1,15 @@
 name: Publish Rakuten Sanrio gacha articles
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
+      - '.github/workflows/publish-rakuten-gacha-batch.yml'
       - 'blog/gacha-rakuten-batch.json'
+      - 'scripts/fetch-rakuten-gacha-candidates.php'
+      - 'scripts/publish-rakuten-gacha-batch.py'
+      - 'scripts/publish-editorial-article.py'
+      - 'scripts/update-home-gacha-shelf.py'
 permissions:
   contents: read
 concurrency:
