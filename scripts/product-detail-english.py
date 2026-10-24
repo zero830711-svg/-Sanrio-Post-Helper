@@ -374,9 +374,10 @@ def save_directory_pages(wp, entries, records_by_code):
 
 def add_japanese_hub_link(wp):
     rows = wp.call("/wp/v2/pages?context=edit&slug=product-details&_fields=id,slug,parent,content")
-    if not rows or d.MARK not in rows[0]["content"]["raw"]:
+    row = next((item for item in rows if item.get("slug") == "product-details"
+                and int(item.get("parent", 0)) == 0 and d.MARK in item["content"]["raw"]), None)
+    if not row:
         raise RuntimeError("Managed Japanese product detail directory was not found.")
-    row = rows[0]
     raw = row["content"]["raw"]
     block = JA_LINK_START + '<p><a href="/en/product-details/">English product details →</a></p>' + JA_LINK_END
     if JA_LINK_START in raw:
