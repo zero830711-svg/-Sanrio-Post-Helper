@@ -404,7 +404,7 @@ def expand500(wp,settings_path):
   state_raw=write_state_payload(wp,state_id,manifest,state_raw);records=next_records
   hub=MARK+'<style>'+(ROOT/'product-detail-pilot.css').read_text()+'</style><section><p>サイズ・素材などを購入先の商品情報で確認できた商品をご紹介します。アフィリエイト広告を含みます。</p><div class="sf-detail-hub">'+''.join('<a href="'+E(x['url'])+'"><img src="'+E(x['images'][0])+'" alt="'+E(x['title'])+'" loading="lazy"><strong>'+E(x['title'])+'</strong></a>\n' for x in records)+'</div></section>'
   hub=with_english_directory_link(hub)
-save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
+  save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
   print('DETAIL 500 CHECKPOINT',json.dumps({'total':len(records),'newThisRun':new_total,'checked':progress['checked'],'matched':progress['matched'],'eligible':progress['eligible'],'skipped':progress['skipped'],'remainingCandidates':len(codes)-progress['cursor']},ensure_ascii=False),flush=True)
  if len(records)<run_target:
   result=sync_catalogs(wp,records)
@@ -443,7 +443,7 @@ def sync_catalogs(wp,records):
   return re.sub(r'(<article\b[^>]*class="[^"]*sf-rakuten-product-card[^"]*"[^>]*>)(.*?)(</article>)',clean,raw,flags=re.S)
  hub=MARK+'<style>'+(ROOT/'product-detail-pilot.css').read_text()+'</style><section><p>サイズ・素材などを購入先の商品情報で確認できた商品をご紹介します。アフィリエイト広告を含みます。</p><div class="sf-detail-hub">'+''.join('<a href="'+E(x['url'])+'"><img src="'+E(x['images'][0])+'" alt="'+E(x['title'])+'" loading="lazy"><strong>'+E(x['title'])+'</strong></a>\n' for x in records)+'</div></section>'
  hub=with_english_directory_link(hub)
-save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
+ save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
  # Only add internal detail links; product data and the existing card order are invariant.
  pages=[]
  for n in range(1,20):
