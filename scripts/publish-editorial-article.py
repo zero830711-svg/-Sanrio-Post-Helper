@@ -121,6 +121,22 @@ def publish(article, wp):
         if article.get('replace_existing_media'):
             replace_existing_media(article, wp, existing)
             return
+        if article.get('category_update_only'):
+            if existing[0]['slug'] != article['slug'] or existing[0]['status'] != 'publish':
+                raise RuntimeError('Refusing to change the category of a different or unpublished article.')
+            categories = wp.call('/wp/v2/categories?' + parse.urlencode({
+                'slug': article['category_slug'], '_fields': 'id'
+            }))
+            if not categories:
+                raise RuntimeError('The requested WordPress category was not found.')
+            post_path = '/wp/v2/posts/' + str(existing[0]['id'])
+            wp.call(post_path, data={'categories': [categories[0]['id']]})
+            verified = wp.call(post_path + '?context=edit&_fields=id,slug,status,categories,link')
+            if (verified['slug'] != article['slug'] or verified['status'] != 'publish'
+                    or verified['categories'] != [categories[0]['id']]):
+                raise RuntimeError('The article category update did not pass verification.')
+            print('UPDATED article category:', verified['link'], article['category_slug'])
+            return
         replacement = article.get('replace_existing_link')
         if replacement:
             if existing[0]['slug'] != article['slug'] or existing[0]['status'] != 'publish':
