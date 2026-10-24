@@ -55,6 +55,9 @@ try {
     $items = [];
     $seenCodes = [];
     $requests = 0;
+    $rawRows = 0;
+    $sampleSummary = '';
+    $rejected = ['missing_code' => 0, 'missing_title' => 0, 'not_capsule' => 0, 'not_sanrio' => 0, 'bad_image' => 0, 'bad_affiliate' => 0, 'bad_product_url' => 0, 'duplicate' => 0];
     $endpoint = 'https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/product-flow.php?action=affiliate-search';
 
     foreach ($queries as $query) {
@@ -103,14 +106,30 @@ try {
 
             foreach ($response['items'] as $item) {
                 if (!is_array($item)) continue;
-                // The affiliate-search endpoint returns Rakuten's native item fields.
-                // Keep normalized aliases as fallbacks for compatible cached responses.
-                $code = trim((string)($item['code'] ?? $item['itemCode'] ?? $item['item_code'] ?? ''));
-                $title = trim((string)($item['title'] ?? $item['itemName'] ?? ''));
-                $image = trim((string)($item['image'] ?? $item['imageUrl'] ?? ''));
+                $rawRows++;
+                // Rakuten API formatVersion=1 wraps each result under "item";
+                // formatVersion=2 and normalized caches return the fields directly.
+                $nativeItem = $item['item'] ?? $item['Item'] ?? $item;
+                if (!is_array($nativeItem)) continue;
+
+                $code = trim((string)($nativeItem['code'] ?? $nativeItem['itemCode'] ?? $nativeItem['item_code'] ?? ''));
+                $title = trim((string)($nativeItem['title'] ?? $nativeItem['itemName'] ?? ''));
+                $discoveryText = html_entity_decode(strip_tags(
+                    (string)($nativeItem['itemName'] ?? '') . ' '
+                    . (string)($nativeItem['catchcopy'] ?? '') . ' '
+                    . (string)($nativeItem['itemCaption'] ?? '')
+                ), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                if ($sampleSummary === '') {
+                    $sampleSummary = 'fields=' . implode(',', array_slice(array_map('strval', array_keys($nativeItem)), 0, 30))
+                        . '; title=' . mb_substr($title, 0, 100)
+                        . '; itemUrl=' . (isset($nativeItem['itemUrl']) ? 'yes' : 'no')
+                        . '; affiliateUrl=' . (isset($nativeItem['affiliateUrl']) ? 'yes' : 'no')
+                        . '; imageField=' . (isset($nativeItem['mediumImageUrls']) ? 'mediumImageUrls' : (isset($nativeItem['image']) ? 'image' : 'none'));
+                }
+                $image = trim((string)($nativeItem['image'] ?? $nativeItem['imageUrl'] ?? ''));
                 if ($image === '') {
                     foreach (['mediumImageUrls', 'largeImageUrls', 'smallImageUrls'] as $imageKey) {
-                        $imageRows = $item[$imageKey] ?? [];
+                        $imageRows = $nativeItem[$imageKey] ?? [];
                         if (!is_array($imageRows)) continue;
                         foreach ($imageRows as $imageRow) {
                             $candidateImage = is_array($imageRow)
@@ -123,8 +142,8 @@ try {
                         }
                     }
                 }
-                $affiliate = trim((string)($item['affiliate'] ?? $item['affiliateUrl'] ?? ''));
-                $url = trim((string)($item['url'] ?? $item['itemUrl'] ?? ''));
+                $affiliate = trim((string)($nativeItem['affiliate'] ?? $nativeItem['affiliateUrl'] ?? ''));
+                $url = trim((string)($nativeItem['url'] ?? $nativeItem['itemUrl'] ?? ''));
                 if (!safe_product_url($url) && safe_affiliate_url($affiliate)) {
                     $affiliateParts = parse_url($affiliate);
                     parse_str((string)($affiliateParts['query'] ?? ''), $affiliateQuery);
@@ -136,10 +155,17 @@ try {
                         }
                     }
                 }
-                $shop = trim((string)($item['shop'] ?? $item['shopName'] ?? ''));
-                if ($code === '' || isset($seenCodes[$code]) || $title === ''
-                    || !capsule_title($title) || !sanrio_title($title)
-                    || !safe_image_url($image) || !safe_affiliate_url($affiliate) || !safe_product_url($url)) continue;
+                $shop = trim((string)($nativeItem['shop'] ?? $nativeItem['shopName'] ?? ''));
+
+                if ($code === '') { $rejected['missing_code']++; continue; }
+                if ($title === '') { $rejected['missing_title']++; continue; }
+                if (!capsule_title($discoveryText)) { $rejected['not_capsule']++; continue; }
+                if (!sanrio_title($discoveryText)) { $rejected['not_sanrio']++; continue; }
+                if (!safe_image_url($image)) { $rejected['bad_image']++; continue; }
+                if (!safe_affiliate_url($affiliate)) { $rejected['bad_affiliate']++; continue; }
+                if (!safe_product_url($url)) { $rejected['bad_product_url']++; continue; }
+                if (isset($seenCodes[$code])) { $rejected['duplicate']++; continue; }
+
                 $seenCodes[$code] = true;
                 $items[] = [
                     'code' => $code,
@@ -161,7 +187,9 @@ try {
     ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     if (file_put_contents($argv[3], $output, LOCK_EX) === false) throw new RuntimeException('Could not save the candidate file.');
     chmod($argv[3], 0600);
-    fwrite(STDOUT, 'Rakuten API search finished: ' . count($items) . ' filtered candidates from ' . $requests . " requests.\n");
+    fwrite(STDOUT, 'Rakuten API search finished: ' . $rawRows . ' raw rows, ' . count($items) . ' filtered candidates from ' . $requests . " requests.\n");
+    if ($sampleSummary !== '') fwrite(STDOUT, 'Rakuten API sample (sanitized): ' . $sampleSummary . "\n");
+    fwrite(STDOUT, 'Rakuten API rejected rows: ' . json_encode($rejected, JSON_UNESCAPED_UNICODE) . "\n");
 } catch (Throwable $error) {
     fwrite(STDERR, $error instanceof RuntimeException ? $error->getMessage() : 'Rakuten gacha candidate search failed.');
     fwrite(STDERR, "\n");
