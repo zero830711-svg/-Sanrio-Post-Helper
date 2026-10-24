@@ -1,4 +1,4 @@
-name: Add 200 verified product detail pages (up to 800)
+name: Add 200 verified product detail pages (up to 1000)
 on:
   push:
     branches: [main]
@@ -63,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@v5
         if: always()
         with:
-          name: product-detail-800-report
+          name: product-detail-1000-report
           path: |
             product-detail-pilot-report.json
             product-detail-discovery-report.json

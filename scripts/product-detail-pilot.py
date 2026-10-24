@@ -62,7 +62,7 @@ def read_state(wp):
  if rows[0]['slug']!=STATE:raise RuntimeError('Pilot state identity mismatch')
  payload=json.loads(base64.b64decode(c.text_from(rows[0]['content']['raw'])))
  records=payload['records']
- if len(records)>800:raise RuntimeError('Product detail cap exceeded')
+ if len(records)>1000:raise RuntimeError('Product detail cap exceeded')
  for x in records:
   if x['url']!=detail_url(x['code']) or not x.get('pageId'):raise RuntimeError('Invalid managed detail URL')
  return records,rows[0]['id']
@@ -351,8 +351,8 @@ def build_500_candidates(index,records):
 def expand500(wp,settings_path):
  records,state_id=read_state(wp)
  if not records or not state_id:raise RuntimeError('The existing managed detail cohort is missing')
- if len(records)>800:raise RuntimeError('The detail target exceeds 800')
- initial_count=len(records);run_target=min(800,initial_count+200)
+ if len(records)>1000:raise RuntimeError('The detail target exceeds 1000')
+ initial_count=len(records);run_target=min(1000,initial_count+200)
  state_path='/wp/v2/pages/'+str(state_id)
  state_raw=wp.call(state_path+'?context=edit&_fields=content')['content']['raw'];manifest=json.loads(base64.b64decode(c.text_from(state_raw)))
  u=load_unified();goods=wp.call('/wp/v2/pages/804?context=edit&_fields=content');index=u.read_index(goods['content']['raw'])
@@ -366,14 +366,14 @@ def expand500(wp,settings_path):
    item=by_code[code];old=dict(item);old.update({'code':code,'title':c.display_title(item.get('title','')),'character':item['characters'][0],'kind':item.get('kind','サンリオグッズ')});candidates.append(old)
  else:
   candidates=build_500_candidates(index,records);codes=[x['code'] for x in candidates]
-  progress={'candidateCodes':codes,'cursor':0,'checked':0,'matched':0,'eligible':0,'skipped':0,'target':800}
+  progress={'candidateCodes':codes,'cursor':0,'checked':0,'matched':0,'eligible':0,'skipped':0,'target':1000}
   manifest['expansion500']=progress;state_raw=write_state_payload(wp,state_id,manifest,state_raw)
  lookup={x['code']:x for x in candidates}
- if not candidates and len(records)<800:raise RuntimeError('No qualifying catalog candidates remain')
+ if not candidates and len(records)<1000:raise RuntimeError('No qualifying catalog candidates remain')
  cache_rows=[];new_total=0
  while len(records)<run_target and progress['cursor']<len(codes):
   start=progress['cursor'];batch=[lookup[code] for code in codes[start:start+min(100,run_target-len(records))]]
-  with tempfile.TemporaryDirectory(prefix='sf-detail-800-') as tmp:
+  with tempfile.TemporaryDirectory(prefix='sf-detail-1000-') as tmp:
    source=Path(tmp)/'candidates.json';verified=Path(tmp)/'verified.json';source.write_text(json.dumps(batch,ensure_ascii=False))
    import subprocess
    subprocess.run(['php',str(ROOT/'fetch-product-detail-pilot.php'),str(settings_path),str(source),str(verified)],check=True)
@@ -404,8 +404,8 @@ def expand500(wp,settings_path):
   print('DETAIL 500 CANDIDATES EXHAUSTED',json.dumps(report,ensure_ascii=False),flush=True)
   raise RuntimeError('Candidate pool exhausted before 500; quality threshold retained. Published '+str(len(records)))
  result=sync_catalogs(wp,records)
- report={'published':len(records),'newPages':len(records)-100,'existingPagesPreserved':100,'apiChecked':progress['checked'],'apiMatched':progress['matched'],'qualityEligible':progress['eligible'],'skipped':progress['skipped'],'candidatePool':len(codes),**result,'publicationDatesPreserved':True,'newThisRun':len(records)-initial_count,'batchTarget':run_target,'remainingTo800':800-len(records),'hubUrl':c.SITE+'/'+HUB+'/'}
- Path('product-detail-pilot-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL 800 COMPLETE' if len(records)==800 else 'DETAIL 200 BATCH COMPLETE',json.dumps(report,ensure_ascii=False),flush=True)
+ report={'published':len(records),'newPages':len(records)-100,'existingPagesPreserved':100,'apiChecked':progress['checked'],'apiMatched':progress['matched'],'qualityEligible':progress['eligible'],'skipped':progress['skipped'],'candidatePool':len(codes),**result,'publicationDatesPreserved':True,'newThisRun':len(records)-initial_count,'batchTarget':run_target,'remainingTo1000':1000-len(records),'hubUrl':c.SITE+'/'+HUB+'/'}
+ Path('product-detail-pilot-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2));print('DETAIL 1000 COMPLETE' if len(records)==1000 else 'DETAIL 200 BATCH COMPLETE',json.dumps(report,ensure_ascii=False),flush=True)
 
 def update_existing_content(wp,path,original,updated):
  import time
@@ -480,7 +480,7 @@ def sync_catalogs(wp,records):
 def maintain(wp):
  records,state_id=read_state(wp)
  if not records:return False
- if not 30<=len(records)<=800:raise RuntimeError('Unexpected fixed cohort size')
+ if not 30<=len(records)<=1000:raise RuntimeError('Unexpected fixed cohort size')
  state=wp.call('/wp/v2/pages/'+str(state_id)+'?context=edit&_fields=content')['content']['raw']
  payload=json.loads(base64.b64decode(c.text_from(state)))
  rows=wp.call('/wp/v2/pages?context=edit&status=draft&slug='+CACHE+'&_fields=id,content')

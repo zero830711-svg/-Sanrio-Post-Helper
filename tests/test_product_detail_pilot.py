@@ -109,18 +109,18 @@ class DetailTests(unittest.TestCase):
   pool=d.build_500_candidates({'items':rows},existing)
   self.assertEqual([x['code'] for x in pool],['shop:101'])
 
- def test_resumable_detail_state_accepts_the_800_page_target(self):
+ def test_resumable_detail_state_accepts_the_1000_page_target(self):
   record=self.record()
-  records=[dict(record,code='shop:'+str(i),url=d.detail_url('shop:'+str(i)),pageId=i+1) for i in range(800)]
+  records=[dict(record,code='shop:'+str(i),url=d.detail_url('shop:'+str(i)),pageId=i+1) for i in range(1000)]
   class FakeWP:
    def call(self,path):
     import base64,json
     return [{'slug':d.STATE,'id':10,'content':{'raw':'<pre>'+base64.b64encode(json.dumps({'records':records}).encode()).decode()+'</pre>'}}]
   loaded,state_id=d.read_state(FakeWP())
-  self.assertEqual(len(loaded),800)
+  self.assertEqual(len(loaded),1000)
   self.assertEqual(state_id,10)
   import base64,json
-  records.append(dict(record,code='shop:800',url=d.detail_url('shop:800'),pageId=801))
+  records.append(dict(record,code='shop:1000',url=d.detail_url('shop:1000'),pageId=1001))
   FakeWP.call=lambda self,path:[{'slug':d.STATE,'id':10,'content':{'raw':'<pre>'+base64.b64encode(json.dumps({'records':records}).encode()).decode()+'</pre>'}}]
   with self.assertRaisesRegex(RuntimeError,'Product detail cap exceeded'):d.read_state(FakeWP())
 
