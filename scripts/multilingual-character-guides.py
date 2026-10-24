@@ -376,7 +376,6 @@ def run():
     for character in PILOT_CHARACTERS:
         common_sources.append(PROFILES[character]["summary"])
         common_sources.extend(PROFILES[character]["facts"])
-        for item in selected[character]:
     translated_by_locale = {}
     for language in LANGUAGES:
         translated_by_locale[language["slug"]] = translate_many(common_sources, language)
