@@ -56,11 +56,6 @@ CHARACTER_NAMES = {
     "hellokitty": {"zh-hans": "Hello Kitty", "zh-hant": "Hello Kitty", "ko": "헬로키티", "es": "Hello Kitty"},
     "hanamaru-obake": {"zh-hans": "Hanamaruobake", "zh-hant": "Hanamaruobake", "ko": "하나마루오바케", "es": "Hanamaruobake"},
 }
-PROTECTED_NAMES = {
-    "mymelody": {"マイメロディ": CHARACTER_NAMES["mymelody"]},
-    "hellokitty": {"ハローキティ": CHARACTER_NAMES["hellokitty"]},
-    "hanamaru-obake": {"はなまるおばけ": CHARACTER_NAMES["hanamaru-obake"], "まるまる": {"zh-hans": "Marumaru", "zh-hant": "Marumaru", "ko": "마루마루", "es": "Marumaru"}},
-}
 SOURCE_PAGES = {
     "mymelody": ("https://www.sanrio.co.jp/characters/mymelody/",),
     "hellokitty": ("https://www.sanrio.co.jp/characters/hellokitty/",),
@@ -79,7 +74,7 @@ PROFILES = {
         "facts": ["誕生日：11月1日", "デビュー年：1974年", "身長：りんご5個分", "体重：りんご3個分"],
     },
     "hanamaru-obake": {
-        "summary": "「まるまる」は、がんばったあなたにハナマルをくれる、はずかしがりやで不思議なおばけです。気づかれないうちに現れて、毎日の努力をそっとほめてくれます。正体は、夜空の星になった大切な人や思い出かもしれません。",
+        "summary": "がんばったあなたにハナマルをくれる、はずかしがりやで不思議なおばけです。気づかれないうちに現れて、毎日の努力をそっとほめてくれます。正体は、夜空の星になった大切な人や思い出かもしれません。",
         "facts": ["誕生日：8月7日", "デビュー年：2023年", "性格：はずかしがりや", "特技：かくれんぼ", "好きな食べ物：あまいもの", "趣味：お昼寝"],
     },
 }
@@ -129,23 +124,11 @@ def managed_block(raw, start, end, body):
     return raw.rstrip() + "\n" + block + "\n"
 
 
-def protected_source(source, locale, character):
-    result = source
-    replacements = {}
-    names = PROTECTED_NAMES.get(character, {})
-    for index, (japanese, localized) in enumerate(sorted(names.items(), key=lambda x: -len(x[0]))):
-        token = "ZZQCHAR%03dQXZ" % index
-        result = result.replace(japanese, token)
-        replacements[token] = localized[locale]
-    return result, replacements
-
-
-def translate_one(source, language, character=None):
-    key = (language["slug"], source, character)
+def translate_one(source, language):
+    key = (language["slug"], source)
     if key in _translation_cache:
         return _translation_cache[key]
-    safe_source, replacements = protected_source(source, language["slug"], character) if character else (source, {})
-    query = urllib.parse.urlencode({"client": "gtx", "sl": "ja", "tl": language["target"], "dt": "t", "q": safe_source})
+    query = urllib.parse.urlencode({"client": "gtx", "sl": "ja", "tl": language["target"], "dt": "t", "q": source})
     request = urllib.request.Request(
         "https://translate.googleapis.com/translate_a/single?" + query,
         headers={"User-Agent": "SanrioMultilingualCharacterGuides/1.0"},
@@ -162,10 +145,6 @@ def translate_one(source, language, character=None):
             with urllib.request.urlopen(request, timeout=30) as response:
                 data = json.loads(response.read().decode("utf-8"))
             value = "".join(part[0] for part in data[0] if part and isinstance(part[0], str)).strip()
-            for token, localized in replacements.items():
-                if token not in value:
-                    raise RuntimeError("Translation service changed a protected character-name token.")
-                value = value.replace(token, localized)
             if not value:
                 raise RuntimeError("Translation service returned an empty translation.")
             _translation_cache[key] = value
@@ -177,11 +156,10 @@ def translate_one(source, language, character=None):
     raise RuntimeError("Translation failed for " + language["slug"] + ": " + str(last_error))
 
 
-def translate_many(values, language, character_by_value=None):
-    character_by_value = character_by_value or {}
+def translate_many(values, language):
     unique = sorted(set(str(value).strip() for value in values if str(value).strip()))
     def translate(value):
-        return value, translate_one(value, language, character_by_value.get(value))
+        return value, translate_one(value, language)
     with ThreadPoolExecutor(max_workers=3) as pool:
         return dict(pool.map(translate, unique))
 
@@ -300,7 +278,7 @@ def render_guide(character, language, translated, selected, entries_by_code):
     products = []
     for item in selected[character]:
         entry = entries_by_code[item["code"]]
-        title = translated[item["title"]]
+        title = entry["titleEn"]
         products.append(
             '<a href="' + html.escape(e.page_url(entry), quote=True) + '">'
             '<img src="' + html.escape(item["images"][0], quote=True) + '" alt="' + html.escape(char_name + " " + title, quote=True) + '" loading="lazy" decoding="async">'
@@ -399,15 +377,9 @@ def run():
         common_sources.append(PROFILES[character]["summary"])
         common_sources.extend(PROFILES[character]["facts"])
         for item in selected[character]:
-            common_sources.append(item["title"])
     translated_by_locale = {}
     for language in LANGUAGES:
-        char_for_value = {}
-        for character in PILOT_CHARACTERS:
-            char_for_value[PROFILES[character]["summary"]] = character
-            for item in selected[character]:
-                char_for_value[item["title"]] = character
-        translated_by_locale[language["slug"]] = translate_many(common_sources, language, char_for_value)
+        translated_by_locale[language["slug"]] = translate_many(common_sources, language)
 
     index_pages = {}
     guide_pages = {}
@@ -420,7 +392,7 @@ def run():
         old_index = existing_indexes[locale]
         index_page = e.get_or_save_page(
             wp, locale, 0, INDEX_MARK,
-            CHARACTER_NAMES["mymelody"][locale] + " | Sanrio Character Guides",
+            language["label"] + " | " + translated[COMMON_TEXT[4]],
             index_body, translated[COMMON_TEXT[11]],
             old_index.get("status", "draft") if old_index else "draft",
         )

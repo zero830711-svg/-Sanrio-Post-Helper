@@ -18,13 +18,10 @@ class MultilingualCharacterGuideTests(unittest.TestCase):
         self.assertEqual(guides.PILOT_CHARACTERS, ("mymelody", "hellokitty", "hanamaru-obake"))
         self.assertEqual(set(guides.PROFILES), set(guides.PILOT_CHARACTERS))
 
-    def test_protected_character_names_are_localized_without_translation(self):
-        safe, replacements = guides.protected_source("マイメロディ グッズ", "ko", "mymelody")
-        self.assertNotIn("マイメロディ", safe)
-        self.assertEqual(len(replacements), 1)
-        token, name = next(iter(replacements.items()))
-        self.assertIn(token, safe)
-        self.assertEqual(name, "마이멜로디")
+    def test_profile_summaries_do_not_use_names_that_need_token_protection(self):
+        names = ("マイメロディ", "ハローキティ", "はなまるおばけ", "まるまる")
+        for profile in guides.PROFILES.values():
+            self.assertFalse(any(name in profile["summary"] for name in names))
 
     def test_managed_block_updates_in_place_and_rejects_duplicates(self):
         raw = "<p>before</p><p>after</p>"
