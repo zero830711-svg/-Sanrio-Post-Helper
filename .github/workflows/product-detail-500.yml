@@ -1,4 +1,4 @@
-name: Add 50 verified product detail pages
+name: Add 100 verified product detail pages (up to 600)
 on:
   push:
     branches: [main]
@@ -52,7 +52,7 @@ jobs:
           get .rakuten-settings.php -o "$detail_tmp/settings.php"
           bye
           LFTP
-      - name: Add up to 50 qualifying pages and save progress
+      - name: Add up to 100 qualifying pages and save progress
         run: python3 -u scripts/product-detail-pilot.py --expand500 "$DETAIL_TMP/settings.php"
       - name: Verify all public pages and sitemap discovery
         run: python3 -u scripts/verify-product-detail-pilot.py
@@ -63,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@v5
         if: always()
         with:
-          name: product-detail-500-report
+          name: product-detail-600-report
           path: |
             product-detail-pilot-report.json
             product-detail-discovery-report.json

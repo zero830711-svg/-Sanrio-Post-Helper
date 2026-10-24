@@ -111,14 +111,17 @@ class DetailTests(unittest.TestCase):
 
  def test_resumable_detail_state_accepts_the_500_page_target(self):
   record=self.record()
-  records=[dict(record,code='shop:'+str(i),url=d.detail_url('shop:'+str(i)),pageId=i+1) for i in range(500)]
+  records=[dict(record,code='shop:'+str(i),url=d.detail_url('shop:'+str(i)),pageId=i+1) for i in range(600)]
   class FakeWP:
    def call(self,path):
     import base64,json
     return [{'slug':d.STATE,'id':10,'content':{'raw':'<pre>'+base64.b64encode(json.dumps({'records':records}).encode()).decode()+'</pre>'}}]
   loaded,state_id=d.read_state(FakeWP())
-  self.assertEqual(len(loaded),500)
+  self.assertEqual(len(loaded),600)
   self.assertEqual(state_id,10)
+  records.append(dict(record,code='shop:600',url=d.detail_url('shop:600'),pageId=601))
+  FakeWP.call=lambda self,path:[{'slug':d.STATE,'id':10,'content':{'raw':'<pre>'+base64.b64encode(json.dumps({'records':records}).encode()).decode()+'</pre>'}}]
+  with self.assertRaisesRegex(RuntimeError,'Product detail cap exceeded'):d.read_state(FakeWP())
 
 if __name__=='__main__':unittest.main()
 

@@ -11,7 +11,7 @@ def read(url):
  with request.urlopen(request.Request(url,headers={'User-Agent':'SanrioProductPilotVerification/1.0'}),timeout=60) as response:return response.read()
 def main():
  records,_=d.read_state(d.c.WordPress())
- if not 40<=len(records)<=500:raise RuntimeError('Product detail count outside the approved 40–500 range')
+ if not 40<=len(records)<=600:raise RuntimeError('Product detail count outside the approved 40–600 range')
  with ThreadPoolExecutor(max_workers=3) as pool:canonical_counts=list(pool.map(d.verify_public,records))
  robots=read(d.c.SITE+'/robots.txt').decode('utf-8');rp=robotparser.RobotFileParser();rp.parse(robots.splitlines())
  for x in records:
