@@ -243,6 +243,10 @@ def find_child_by_slug(wp, slug, parent_id):
     return next((row for row in rows if int(row.get("parent", 0)) == int(parent_id)), None)
 
 
+def managed_page_status(existing_page):
+    return (existing_page or {}).get("status", "draft")
+
+
 def publish_managed_page(wp, page):
     if page.get("status") == "publish":
         return page
@@ -403,7 +407,7 @@ def run(pilot_size=PILOT_SIZE):
 
     guide_pages = {}
     for character in characters:
-        guide_status = existing_guides.get(character, {}).get("status", "draft")
+        guide_status = managed_page_status(existing_guides.get(character))
         page = e.get_or_save_page(
             wp, character_english_slug(character), directory["id"], GUIDE_MARK,
             character_label(character) + " Sanrio Products | Sanrio fan info JP",
