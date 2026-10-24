@@ -122,30 +122,37 @@ def normalized_product_name(value, strip_characters=False):
 
 
 def product_name_matches(seed, title):
-    # Require the product-specific phrase after removing Sanrio character names.
-    # Broad character overlap and fuzzy bigram matches admitted unrelated goods.
-    left = normalized_product_name(seed, strip_characters=True)
-    right = normalized_product_name(title, strip_characters=True)
+    # Preserve character names and require the full product-specific seed in the listing title.
+    brand_terms = ("サンリオキャラクターズ", "sanriocharacters", "サンリオ", "sanrio")
+    left = normalized_product_name(seed)
+    right = normalized_product_name(title)
+    for term in brand_terms:
+        left = left.replace(term, "")
+        right = right.replace(term, "")
     if len(left) < 8 or len(right) < 8:
         return False
-    return left == right or left in right or right in left
+    return left == right or left in right
+
+
+def has_capsule_evidence(item):
+    evidence = plain_text(item.get("capsule_evidence", ""))
+    return bool(CAPSULE_RE.search(evidence)) and not EXCLUDED_RE.search(evidence)
 
 
 def eligible(item):
     title = plain_text(item.get("title", ""))
     seed = plain_text(item.get("source_product_name", ""))
+    capsule_match = has_capsule_evidence(item)
     if seed:
-        product_category_match = product_name_matches(seed, title)
+        product_category_match = capsule_match and product_name_matches(seed, title)
     else:
-        product_category_match = (bool(CAPSULE_RE.search(title))
-                                  and not EXCLUDED_RE.search(title)
-                                  and any(name in title for name in SANRIO_NAMES))
+        product_category_match = (capsule_match
+                                  and any(name.casefold() in title.casefold() for name in SANRIO_NAMES))
     return (bool(title) and product_category_match
             and valid_affiliate(item.get("affiliate"))
             and valid_product_url(item.get("url"))
             and valid_image_url(item.get("image"))
             and bool(str(item.get("code", "")).strip()))
-
 
 def unique_candidates(rows):
     result = []
@@ -260,6 +267,7 @@ def self_test():
     seeded = {
         **valid,
         "title": "サンリオキャラクターズ チアリステイルズ マスコット 全4種",
+        "capsule_evidence": "カプセルトイの販売商品",
         "source_product_name": "チアリステイルズ マスコット",
     }
     assert eligible(seeded)
@@ -293,9 +301,12 @@ def main():
         raise RuntimeError("The Rakuten candidate list is invalid.")
     candidates = unique_candidates(rows)
     if args.dry_run:
-        print("DRY RUN: %d product-name-matched candidates (limit %d)." % (len(candidates), args.limit))
+        print("DRY RUN: %d capsule-and-product-name-verified candidates (limit %d)." % (len(candidates), args.limit))
         for item in candidates[:args.limit]:
-            print("CANDIDATE: " + plain_text(item.get("title", "")))
+            source_name = plain_text(item.get("source_product_name", ""))
+            title = plain_text(item.get("title", ""))
+            evidence = plain_text(item.get("capsule_evidence", ""))
+            print("CANDIDATE: %s => %s [evidence: %s]" % (source_name, title, evidence))
         if not candidates:
             print("No verified candidates; nothing was published.")
         return
