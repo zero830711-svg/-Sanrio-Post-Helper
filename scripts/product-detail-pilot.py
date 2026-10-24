@@ -9,6 +9,14 @@ ROOT=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('detail_catalog',ROOT/'import-rakuten-character-catalog.py')
 c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)
 STATE='sf-product-detail-pilot-state';MARK='<!-- sf-product-detail-pilot:v1 -->';HUB='product-details'
+ENGLISH_LINK_START='<!-- sf-product-detail-english-link:v1 -->'
+ENGLISH_LINK_END='<!-- /sf-product-detail-english-link:v1 -->'
+def with_english_directory_link(content):
+ block=ENGLISH_LINK_START+'<p><a href="/en/product-details/">English product details →</a></p>'+ENGLISH_LINK_END
+ if ENGLISH_LINK_START in content:
+  return re.sub(re.escape(ENGLISH_LINK_START)+r'.*?'+re.escape(ENGLISH_LINK_END),block,content,count=1,flags=re.S)
+ if content.count('</section>')!=1:raise RuntimeError('Japanese product detail directory boundary changed')
+ return content.replace('</section>',block+'</section>',1)
 CACHE='sf-product-detail-pilot-api-cache'
 E=lambda x:html.escape(str(x),quote=True)
 def slug(code):return 'product-'+hashlib.sha256(code.encode()).hexdigest()[:16]
@@ -395,7 +403,8 @@ def expand500(wp,settings_path):
   manifest['records']=next_records;manifest['expansion500']=progress
   state_raw=write_state_payload(wp,state_id,manifest,state_raw);records=next_records
   hub=MARK+'<style>'+(ROOT/'product-detail-pilot.css').read_text()+'</style><section><p>サイズ・素材などを購入先の商品情報で確認できた商品をご紹介します。アフィリエイト広告を含みます。</p><div class="sf-detail-hub">'+''.join('<a href="'+E(x['url'])+'"><img src="'+E(x['images'][0])+'" alt="'+E(x['title'])+'" loading="lazy"><strong>'+E(x['title'])+'</strong></a>\n' for x in records)+'</div></section>'
-  save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
+  hub=with_english_directory_link(hub)
+save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
   print('DETAIL 500 CHECKPOINT',json.dumps({'total':len(records),'newThisRun':new_total,'checked':progress['checked'],'matched':progress['matched'],'eligible':progress['eligible'],'skipped':progress['skipped'],'remainingCandidates':len(codes)-progress['cursor']},ensure_ascii=False),flush=True)
  if len(records)<run_target:
   result=sync_catalogs(wp,records)
@@ -433,7 +442,8 @@ def sync_catalogs(wp,records):
    return m[1]+re.sub(r'<a\b[^>]*class="sf-detail-link"[^>]*>.*?</a>','',m[2],flags=re.S)+'</article>'
   return re.sub(r'(<article\b[^>]*class="[^"]*sf-rakuten-product-card[^"]*"[^>]*>)(.*?)(</article>)',clean,raw,flags=re.S)
  hub=MARK+'<style>'+(ROOT/'product-detail-pilot.css').read_text()+'</style><section><p>サイズ・素材などを購入先の商品情報で確認できた商品をご紹介します。アフィリエイト広告を含みます。</p><div class="sf-detail-hub">'+''.join('<a href="'+E(x['url'])+'"><img src="'+E(x['images'][0])+'" alt="'+E(x['title'])+'" loading="lazy"><strong>'+E(x['title'])+'</strong></a>\n' for x in records)+'</div></section>'
- save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
+ hub=with_english_directory_link(hub)
+save_page(wp,HUB,'サンリオグッズの商品情報｜サイズ・素材から確認する',hub,'写真付きサンリオグッズのサイズ・素材などを確認できる商品詳細の一覧。')
  # Only add internal detail links; product data and the existing card order are invariant.
  pages=[]
  for n in range(1,20):
