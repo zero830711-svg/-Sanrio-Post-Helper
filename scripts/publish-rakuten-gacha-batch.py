@@ -20,6 +20,9 @@ from PIL import Image, ImageOps
 SITE = "https://sanrio-fan.site"
 PUBLISHER = Path(__file__).with_name("publish-editorial-article.py")
 AMAZON_TAG = "ononbrothers2-22"
+RAKUTEN_ATTRIBUTION = """<!-- Rakuten Web Services Attribution Snippet FROM HERE -->
+<a href="https://webservice.rakuten.co.jp/" target="_blank"><img src="https://webservice.rakuten.co.jp/img/credit/200709/credit_22121.gif" border="0" alt="Rakuten Web Service Center" title="Rakuten Web Service Center" width="221" height="21"/></a>
+<!-- Rakuten Web Services Attribution Snippet TO HERE -->"""
 MAX_DOWNLOAD_BYTES = 12 * 1024 * 1024
 MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 IMAGE_HOSTS = {"image.rakuten.co.jp", "shop.r10s.jp", "tshop.r10s.jp"}
@@ -200,7 +203,8 @@ def article_for(item, image_base64):
 <a href="{safe_amazon}" target="_blank" rel="sponsored nofollow noopener noreferrer" style="display:flex;align-items:center;justify-content:center;min-height:50px;padding:10px 8px;border-radius:10px;background:#ffbd35;color:#202124;font-weight:700;text-align:center;text-decoration:none">Amazonで商品名を検索</a>
 </div>
 <p><a href="https://sanrio-fan.site/category/gacha/">ほかのサンリオのガチャ・カプセルトイ記事を見る</a></p>
-<p><small>商品名・画像は楽天市場の商品掲載情報をもとにしています。価格、送料、在庫、販売形態は変更される場合があります。購入前に販売ページの最新情報をご確認ください。</small></p>"""
+<p><small>商品名・画像は楽天市場の商品掲載情報をもとにしています。価格、送料、在庫、販売形態は変更される場合があります。購入前に販売ページの最新情報をご確認ください。</small></p>
+{RAKUTEN_ATTRIBUTION}"""
     return {
         "title": title,
         "slug": slug,
@@ -231,6 +235,7 @@ def self_test():
     assert text.count("{{image_url}}") == 1
     assert 'rel="sponsored nofollow noopener noreferrer"' in text
     assert "ononbrothers2-22" in text
+    assert RAKUTEN_ATTRIBUTION in text
     print("Rakuten gacha article self-test passed.")
 
 
