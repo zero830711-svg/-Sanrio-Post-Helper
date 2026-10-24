@@ -48,6 +48,22 @@ class BilingualProductDiscoveryTests(unittest.TestCase):
             self.assertEqual(discovery.section_count_without_managed_block(linked, start, end), 1)
             self.assertEqual(discovery.section_count_without_managed_block(relinked, start, end), 1)
 
+    def test_nested_legacy_hub_markers_can_be_repaired(self):
+        start, end = discovery.HUB_NAV_START, discovery.HUB_NAV_END
+        legacy = start + start + "<section>nav</section>" + end + end
+        repaired = discovery.collapse_nested_managed_markers(legacy, start, end)
+        self.assertEqual(repaired, start + "<section>nav</section>" + end)
+        updated = discovery.managed_block(repaired, start, end, "<section>updated nav</section>")
+        self.assertEqual(updated, start + "<section>updated nav</section>" + end)
+
+    def test_hub_navigation_does_not_duplicate_managed_markers(self):
+        key = next(iter(discovery.c.CHARACTERS))
+        item = {"code": "sample", "images": ["https://example.invalid/product.jpg"]}
+        rendered = discovery.render_hub_nav([key], {key: [item]}, {"sample": {}})
+        self.assertNotIn(discovery.HUB_NAV_START, rendered)
+        self.assertNotIn(discovery.HUB_NAV_END, rendered)
+        self.assertIn("Browse by character", rendered)
+
     def test_product_sampling_round_robins_categories_without_reordering_them(self):
         records = [
             {"code": "a1", "kind": "plush"},

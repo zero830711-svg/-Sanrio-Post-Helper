@@ -107,6 +107,17 @@ def managed_block(raw, start, end, body, insert_before=None):
         raise RuntimeError("Expected bilingual insertion point was not unique.")
     return raw.replace(insert_before, block + insert_before, 1)
 
+def collapse_nested_managed_markers(raw, start, end):
+    starts = [match.start() for match in re.finditer(re.escape(start), raw)]
+    ends = [match.start() for match in re.finditer(re.escape(end), raw)]
+    if not starts and not ends:
+        return raw
+    if len(starts) == 1 and len(ends) == 1:
+        return raw
+    if len(starts) == 2 and len(ends) == 2 and starts[0] < starts[1] < ends[0] < ends[1]:
+        return raw[:starts[1]] + raw[starts[1] + len(start):ends[0]] + raw[ends[0] + len(end):]
+    raise RuntimeError("Bilingual content marker is duplicated.")
+
 
 def product_cards(character, records, entries_by_code):
     rows = diversified_records([x for x in records if x["character"] == character])
@@ -183,10 +194,9 @@ def render_hub_nav(characters, character_rows, entries_by_code):
             + '</span></a>'
         )
     return (
-        HUB_NAV_START + '<style>' + LANGUAGE_LINK_CSS + '</style>'
+        '<style>' + LANGUAGE_LINK_CSS + '</style>'
         '<section lang="en"><h2>Browse by character</h2><div class="sf-bilingual-grid">'
         + "".join(cards) + '</div><p><a href="/en/characters/">View all character guides →</a></p></section>'
-        + HUB_NAV_END
     )
 
 
@@ -463,9 +473,10 @@ def run(pilot_size=PILOT_SIZE):
 
     hub = rest_page(wp, e.managed_directory(wp)[1]["id"])
     hub_raw = hub["content"]["raw"]
+    hub_base = collapse_nested_managed_markers(hub_raw, HUB_NAV_START, HUB_NAV_END)
     nav = render_hub_nav(characters, rows_by_character, entries_by_code)
     hub_updated = managed_block(
-        hub_raw, HUB_NAV_START, HUB_NAV_END, nav, '<div class="sf-en-product-grid">'
+        hub_base, HUB_NAV_START, HUB_NAV_END, nav, '<div class="sf-en-product-grid">'
     )
     if hub_updated != hub_raw:
         d.update_existing_content(wp, "/wp/v2/pages/" + str(hub["id"]), hub_raw, hub_updated)
