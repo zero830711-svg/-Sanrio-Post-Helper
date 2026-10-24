@@ -14,12 +14,15 @@ class MultilingualCharacterGuideTests(unittest.TestCase):
         self.assertEqual([x["lang"] for x in guides.LANGUAGES], ["zh-Hans", "zh-Hant", "ko", "es"])
         self.assertEqual(guides.locale_guide_url("zh-hans", "mymelody"), guides.SITE + "/zh-hans/mymelody/")
 
-    def test_character_batch_has_verified_profiles_for_seven_characters(self):
-        expected = ("mymelody", "hellokitty", "hanamaru-obake", "cinnamoroll", "kuromi", "pompompurin", "pochacco")
-        self.assertEqual(guides.CHARACTER_BATCH, expected)
-        self.assertEqual(set(guides.PROFILES), set(expected))
-        self.assertEqual(set(guides.SOURCE_PAGES), set(expected))
-        self.assertEqual(set(guides.CHARACTER_NAMES), set(expected))
+    def test_character_batch_has_profiles_and_sources_for_all_36_characters(self):
+        self.assertEqual(len(guides.CHARACTER_BATCH), 36)
+        self.assertEqual(guides.CHARACTER_BATCH[:7], ("mymelody", "hellokitty", "hanamaru-obake", "cinnamoroll", "kuromi", "pompompurin", "pochacco"))
+        expected = set(guides.c.CHARACTERS)
+        self.assertEqual(set(guides.CHARACTER_BATCH), expected)
+        self.assertEqual(set(guides.PROFILES), expected)
+        self.assertEqual(set(guides.SOURCE_PAGES), expected)
+        self.assertEqual(set(guides.CHARACTER_NAMES), expected)
+        self.assertTrue(all(set(names) == {"zh-hans", "zh-hant", "ko", "es"} for names in guides.CHARACTER_NAMES.values()))
 
     def test_profile_summaries_do_not_use_names_that_need_token_protection(self):
         names = ("マイメロディ", "ハローキティ", "はなまるおばけ", "シナモロール", "クロミ", "ポムポムプリン", "ポチャッコ")
@@ -49,6 +52,23 @@ class MultilingualCharacterGuideTests(unittest.TestCase):
         self.assertIn(guides.locale_guide_url("ko", "mymelody"), markup)
         self.assertIn("https://sanrio-fan.site/en/product-details/sample-item/", markup)
         self.assertIn("My Melody Item", markup)
+        self.assertIn("https://sanrio-fan.site/en/characters/", markup)
+
+    def test_rendered_index_and_guide_support_characters_without_product_details(self):
+        language = guides.LANGUAGES[0]
+        translations = {x: "translated " + x for x in guides.COMMON_TEXT}
+        translations[guides.PROFILES["tuxedo-sam"]["summary"]] = "profile text"
+        for fact in guides.PROFILES["tuxedo-sam"]["facts"]:
+            translations[fact] = "fact " + fact
+        selected = {key: [] for key in guides.CHARACTER_BATCH}
+        index = guides.render_index(language, translations, selected)
+        self.assertTrue(all(guides.locale_guide_url("zh-hans", key) in index for key in guides.CHARACTER_BATCH))
+        guide = guides.render_guide("tuxedo-sam", language, translations, selected, {})
+        self.assertIn("translated 現在、掲載中の商品詳細ページはありません。", guide)
+        self.assertNotIn('<div class="sf-multi-grid"></div>', guide)
+        self.assertIn("https://www.sanrio.co.jp/characters/tuxedosam/", guide)
+        self.assertIn("/en/characters/", guide)
+        self.assertNotIn('href="/en/characters/tuxedo-sam/"', guide)
 
     def test_product_sampling_round_robins_kinds(self):
         records = [
