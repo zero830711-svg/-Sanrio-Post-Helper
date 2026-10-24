@@ -11,7 +11,7 @@ function safe_affiliate_url(string $url): bool {
     return ($parts['scheme'] ?? '') === 'https'
         && strtolower((string)($parts['host'] ?? '')) === 'hb.afl.rakuten.co.jp'
         && preg_match('~^/hgc/[a-zA-Z0-9._-]{8,128}/?$~D', (string)($parts['path'] ?? ''))
-        && !isset($parts['user'], $parts['pass'], $parts['port']);
+        && !isset($parts['user']) && !isset($parts['pass']) && !isset($parts['port']) && !isset($parts['fragment']);
 }
 
 function safe_product_url(string $url): bool {
@@ -19,7 +19,7 @@ function safe_product_url(string $url): bool {
     return ($parts['scheme'] ?? '') === 'https'
         && strtolower((string)($parts['host'] ?? '')) === 'item.rakuten.co.jp'
         && str_starts_with((string)($parts['path'] ?? ''), '/')
-        && !isset($parts['user'], $parts['pass'], $parts['port']);
+        && !isset($parts['user']) && !isset($parts['pass']) && !isset($parts['port']) && !isset($parts['fragment']);
 }
 
 function safe_image_url(string $url): bool {
