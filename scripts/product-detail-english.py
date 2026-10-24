@@ -228,8 +228,17 @@ def write_english_state(wp, current, payload):
     return {"id": saved["id"], "payload": payload, "entries": payload["entries"], "raw": content}
 
 
+def pages_by_slug(wp, slug):
+    encoded = urllib.parse.quote(slug, safe="")
+    rows = []
+    for status in ("publish", "draft"):
+        rows.extend(wp.call("/wp/v2/pages?context=edit&status=" + status + "&slug=" + encoded + "&_fields=id,slug,parent,content,link,status"))
+    unique = {row["id"]: row for row in rows}
+    return [row for row in unique.values() if row.get("slug") == slug]
+
+
 def get_or_save_page(wp, slug, parent, marker, title, content, excerpt, status="publish"):
-    rows = wp.call("/wp/v2/pages?context=edit&slug=" + urllib.parse.quote(slug, safe="") + "&_fields=id,slug,parent,content,link,status")
+    rows = pages_by_slug(wp, slug)
     row = next((x for x in rows if int(x.get("parent", 0)) == int(parent)), None)
     if row and marker not in row["content"]["raw"]:
         raise RuntimeError("Refusing to overwrite an unmanaged page: " + slug)
@@ -243,8 +252,15 @@ def get_or_save_page(wp, slug, parent, marker, title, content, excerpt, status="
         path = "/wp/v2/pages"
     saved = wp.call(path, data)
     if saved.get("slug") != slug or int(saved.get("parent", 0)) != int(parent) or saved["content"]["raw"] != content:
-        raise RuntimeError("English page did not save as requested: " + slug)
+        raise RuntimeError("English page did not save as requested: %s (saved slug=%s, parent=%s)" % (slug, saved.get("slug"), saved.get("parent")))
     return saved
+
+
+def trash_failed_landing_duplicate(wp):
+    # An earlier interrupted run may have created this marked draft when the REST query omitted draft status.
+    for row in pages_by_slug(wp, "en-2"):
+        if int(row.get("parent", 0)) == 0 and row.get("status") == "draft" and LANDING_MARK in row["content"]["raw"]:
+            wp.call("/wp/v2/pages/%d" % row["id"], {"status": "trash"})
 
 
 def page_url(entry):
@@ -460,6 +476,7 @@ def run():
     if len(records) != 1000:
         raise RuntimeError("English launch expects the verified 1,000-page Japanese cohort; found %d." % len(records))
     records_by_code = {item["code"]: item for item in records}
+    trash_failed_landing_duplicate(wp)
     state = read_english_state(wp)
     new_pages_upserted = 0
     if state:
@@ -492,11 +509,11 @@ def run():
         new_pages_upserted = publish_records(wp, hub["id"], records_by_code, entries, state)
         landing, hub = save_directory_pages(wp, entries, records_by_code)
     else:
-        landing_rows = wp.call('/wp/v2/pages?context=edit&slug=en&_fields=id,slug,parent,content,link,status')
+        landing_rows = pages_by_slug(wp, "en")
         landing = next((x for x in landing_rows if x.get("slug") == "en" and int(x.get("parent", 0)) == 0), None)
         if not landing or LANDING_MARK not in landing["content"]["raw"]:
             raise RuntimeError("Managed English landing page is missing.")
-        hub_rows = wp.call('/wp/v2/pages?context=edit&slug=product-details&_fields=id,slug,parent,content,link,status')
+        hub_rows = pages_by_slug(wp, "product-details")
         hub = next((x for x in hub_rows if int(x.get("parent", 0)) == int(landing["id"])), None)
         if not hub or HUB_MARK not in hub["content"]["raw"]:
             raise RuntimeError("Managed English product directory is missing.")
