@@ -1,0 +1,33 @@
+name: Publish first 100 English product detail pages
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/product-detail-english.py
+      - .github/workflows/product-detail-english.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-english-product-details
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Check Python syntax
+        run: python3 -m py_compile scripts/product-detail-english.py
+      - name: Publish and verify 100 English product details
+        run: python3 -u scripts/product-detail-english.py --publish-first-100
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: english-product-details-100-report
+          path: product-detail-english-report.json
