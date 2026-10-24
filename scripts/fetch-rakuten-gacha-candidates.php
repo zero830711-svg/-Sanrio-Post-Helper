@@ -30,11 +30,16 @@ function safe_image_url(string $url): bool {
         && !isset($parts['user']) && !isset($parts['pass']) && !isset($parts['port']) && !isset($parts['fragment']);
 }
 
-function capsule_title(string $title): bool {
-    if (!preg_match('/ガチャ|ガシャポン|カプセルトイ|カプセル玩具|カプセルフィギュア|カプセルマスコット/u', $title)) return false;
-    return !preg_match('/ガチャ詰め|ガチャ活|ガチャ本体|ガチャマシン|カプセルマシン|空カプセル|カプセルケース/u', $title);
+function capsule_evidence(string $text): ?string {
+    if (preg_match('/ガチャ詰め|ガチャ活|ガチャ本体|ガチャマシン|カプセルマシン|空カプセル|カプセルケース/u', $text)) return null;
+    if (!preg_match('/ガチャ|ガシャポン|カプセルトイ|カプセル玩具|カプセルフィギュア|カプセルマスコット/u', $text, $matches, PREG_OFFSET_CAPTURE)) return null;
+    $charOffset = mb_strlen(substr($text, 0, $matches[0][1]), 'UTF-8');
+    return trim(mb_substr($text, max(0, $charOffset - 60), 180, 'UTF-8'));
 }
 
+function capsule_title(string $title): bool {
+    return capsule_evidence($title) !== null;
+}
 
 function normalized_product_name(string $value, bool $stripCharacters = false): string {
     $value = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -53,15 +58,16 @@ function normalized_product_name(string $value, bool $stripCharacters = false): 
 }
 
 function product_name_matches(string $seed, string $title): bool {
-    // Match the product-specific name after removing Sanrio character/brand names.
-    // Character-only and broad fuzzy matches must never qualify unrelated goods.
-    $left = normalized_product_name($seed, true);
-    $right = normalized_product_name($title, true);
+    // Keep character names so generic item types cannot match unrelated products.
+    $brandTerms = ['サンリオキャラクターズ', 'sanriocharacters', 'サンリオ', 'sanrio'];
+    $left = str_replace($brandTerms, '', normalized_product_name($seed));
+    $right = str_replace($brandTerms, '', normalized_product_name($title));
     if ($left === '' || $right === ''
         || mb_strlen($left, 'UTF-8') < 8
         || mb_strlen($right, 'UTF-8') < 8) return false;
-    return $left === $right || str_contains($right, $left) || str_contains($left, $right);
+    return $left === $right || str_contains($right, $left);
 }
+
 function sanrio_title(string $title): bool {
     return (bool)preg_match('/サンリオ|ハローキティ|ハロー・キティ|マイメロディ|クロミ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|けろけろけろっぴ|タキシードサム|あひるのペックル|バッドばつ丸|こぎみゅん|はなまるおばけ|ウサハナ|ぐでたま|キキララ|キキ＆ララ|リトルツインスターズ|ジュエルペット|ウィッシュミーメル|ぼんぼんりぼん|チョコキャット|マロンクリーム|がおぱわるぅ|まるもふびより|おさるのもんきち|みんなのたあ坊|JOCHUM|Jochum|jochum/u', $title);
 }
@@ -110,12 +116,13 @@ function append_catalog_candidates(array $catalogItems, array $productNames, arr
         $rawRows++;
         $code = trim((string)($candidate['code'] ?? ''));
         $title = trim((string)($candidate['title'] ?? ''));
+        $capsuleEvidence = capsule_evidence($title);
         $seed = '';
         foreach ($productNames as $productName) {
             if (!is_string($productName) || !product_name_matches($productName, $title)) continue;
             if ($seed === '' || mb_strlen($productName, 'UTF-8') > mb_strlen($seed, 'UTF-8')) $seed = $productName;
         }
-        if ($seed === '' || $code === '' || !preg_match('/^([a-zA-Z0-9_-]+):([a-zA-Z0-9_-]+)$/D', $code, $parts)) continue;
+        if ($seed === '' || $capsuleEvidence === null || !sanrio_title($title) || $code === '' || !preg_match('/^([a-zA-Z0-9_-]+):([a-zA-Z0-9_-]+)$/D', $code, $parts)) continue;
         if (isset($seenCodes[$code])) continue;
         $image = trim((string)($candidate['image'] ?? ''));
         $affiliate = trim((string)($candidate['affiliate'] ?? ''));
@@ -129,6 +136,7 @@ function append_catalog_candidates(array $catalogItems, array $productNames, arr
             'affiliate' => $affiliate,
             'url' => $url,
             'shop' => mb_substr(trim((string)($candidate['shop'] ?? '')), 0, 120, 'UTF-8'),
+            'capsule_evidence' => mb_substr($capsuleEvidence, 0, 240, 'UTF-8'),
             'source_product_name' => mb_substr($seed, 0, 160, 'UTF-8'),
         ];
         $matches++;
@@ -256,14 +264,12 @@ try {
 
                 if ($code === '') { $rejected['missing_code']++; continue; }
                 if ($title === '') { $rejected['missing_title']++; continue; }
-                if ($productNameSearch) {
-                    if (!product_name_matches($query, $title)) {
-                        $rejected['not_product_name_match']++;
-                        continue;
-                    }
-                } else {
-                    if (!capsule_title($discoveryText)) { $rejected['not_capsule']++; continue; }
-                    if (!sanrio_title($discoveryText)) { $rejected['not_sanrio']++; continue; }
+                $capsuleEvidence = capsule_evidence($discoveryText);
+                if ($capsuleEvidence === null) { $rejected['not_capsule']++; continue; }
+                if (!sanrio_title($discoveryText)) { $rejected['not_sanrio']++; continue; }
+                if ($productNameSearch && !product_name_matches($query, $title)) {
+                    $rejected['not_product_name_match']++;
+                    continue;
                 }
                 if (!safe_image_url($image)) { $rejected['bad_image']++; continue; }
                 if (!safe_affiliate_url($affiliate)) { $rejected['bad_affiliate']++; continue; }
@@ -278,6 +284,7 @@ try {
                     'affiliate' => $affiliate,
                     'url' => $url,
                     'shop' => mb_substr($shop, 0, 120),
+                    'capsule_evidence' => mb_substr($capsuleEvidence, 0, 240, 'UTF-8'),
                     'source_product_name' => $productNameSearch ? mb_substr($query, 0, 160) : '',
                 ];
             }
