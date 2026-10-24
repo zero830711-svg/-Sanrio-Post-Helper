@@ -14,12 +14,15 @@ class MultilingualCharacterGuideTests(unittest.TestCase):
         self.assertEqual([x["lang"] for x in guides.LANGUAGES], ["zh-Hans", "zh-Hant", "ko", "es"])
         self.assertEqual(guides.locale_guide_url("zh-hans", "mymelody"), guides.SITE + "/zh-hans/mymelody/")
 
-    def test_only_the_three_reviewed_character_profiles_are_in_scope(self):
-        self.assertEqual(guides.PILOT_CHARACTERS, ("mymelody", "hellokitty", "hanamaru-obake"))
-        self.assertEqual(set(guides.PROFILES), set(guides.PILOT_CHARACTERS))
+    def test_character_batch_has_verified_profiles_for_seven_characters(self):
+        expected = ("mymelody", "hellokitty", "hanamaru-obake", "cinnamoroll", "kuromi", "pompompurin", "pochacco")
+        self.assertEqual(guides.CHARACTER_BATCH, expected)
+        self.assertEqual(set(guides.PROFILES), set(expected))
+        self.assertEqual(set(guides.SOURCE_PAGES), set(expected))
+        self.assertEqual(set(guides.CHARACTER_NAMES), set(expected))
 
     def test_profile_summaries_do_not_use_names_that_need_token_protection(self):
-        names = ("マイメロディ", "ハローキティ", "はなまるおばけ", "まるまる")
+        names = ("マイメロディ", "ハローキティ", "はなまるおばけ", "シナモロール", "クロミ", "ポムポムプリン", "ポチャッコ")
         for profile in guides.PROFILES.values():
             self.assertFalse(any(name in profile["summary"] for name in names))
 
@@ -62,7 +65,7 @@ class MultilingualCharacterGuideTests(unittest.TestCase):
     def test_rendered_index_keeps_three_columns(self):
         language = guides.LANGUAGES[0]
         translations = {x: "translated" for x in guides.COMMON_TEXT}
-        selected = {key: [{"images": ["https://example.invalid/a.jpg"]}] for key in guides.PILOT_CHARACTERS}
+        selected = {key: [{"images": ["https://example.invalid/a.jpg"]}] for key in guides.CHARACTER_BATCH}
         markup = guides.render_index(language, translations, selected)
         self.assertIn("repeat(3,minmax(0,1fr))", markup)
         self.assertEqual(markup.count('class="sf-multi-grid"'), 1)

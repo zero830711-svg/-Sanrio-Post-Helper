@@ -22,7 +22,7 @@ e = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(e)
 
 SITE = c.SITE
-PILOT_CHARACTERS = ("mymelody", "hellokitty", "hanamaru-obake")
+CHARACTER_BATCH = ("mymelody", "hellokitty", "hanamaru-obake", "cinnamoroll", "kuromi", "pompompurin", "pochacco")
 INDEX_MARK = "<!-- sf-multilingual-character-index:v1 -->"
 GUIDE_MARK = "<!-- sf-multilingual-character-guide:v1 -->"
 JA_LINK_START = "<!-- sf-multilingual-ja-links:start -->"
@@ -55,6 +55,10 @@ CHARACTER_NAMES = {
     "mymelody": {"zh-hans": "美乐蒂", "zh-hant": "美樂蒂", "ko": "마이멜로디", "es": "My Melody"},
     "hellokitty": {"zh-hans": "Hello Kitty", "zh-hant": "Hello Kitty", "ko": "헬로키티", "es": "Hello Kitty"},
     "hanamaru-obake": {"zh-hans": "Hanamaruobake", "zh-hant": "Hanamaruobake", "ko": "하나마루오바케", "es": "Hanamaruobake"},
+    "cinnamoroll": {"zh-hans": "大耳狗喜拿", "zh-hant": "大耳狗喜拿", "ko": "시나모롤", "es": "Cinnamoroll"},
+    "kuromi": {"zh-hans": "酷洛米", "zh-hant": "酷洛米", "ko": "쿠로미", "es": "Kuromi"},
+    "pompompurin": {"zh-hans": "布丁狗", "zh-hant": "布丁狗", "ko": "폼폼푸린", "es": "Pompompurin"},
+    "pochacco": {"zh-hans": "帕恰狗", "zh-hant": "帕恰狗", "ko": "포차코", "es": "Pochacco"},
 }
 SOURCE_PAGES = {
     "mymelody": ("https://www.sanrio.co.jp/characters/mymelody/",),
@@ -63,6 +67,10 @@ SOURCE_PAGES = {
         "https://www.sanrio.co.jp/characters/hanamaruobake/",
         "https://corporate.sanrio.co.jp/en/business-info/brands/hanamaruobake/",
     ),
+    "cinnamoroll": ("https://www.sanrio.co.jp/characters/cinnamon/",),
+    "kuromi": ("https://www.sanrio.co.jp/characters/kuromi/",),
+    "pompompurin": ("https://www.sanrio.co.jp/characters/pompompurin/",),
+    "pochacco": ("https://www.sanrio.co.jp/characters/pochacco/",),
 }
 PROFILES = {
     "mymelody": {
@@ -76,6 +84,22 @@ PROFILES = {
     "hanamaru-obake": {
         "summary": "がんばったあなたにハナマルをくれる、はずかしがりやで不思議なおばけです。気づかれないうちに現れて、毎日の努力をそっとほめてくれます。正体は、夜空の星になった大切な人や思い出かもしれません。",
         "facts": ["誕生日：8月7日", "デビュー年：2023年", "性格：はずかしがりや", "特技：かくれんぼ", "好きな食べ物：あまいもの", "趣味：お昼寝"],
+    },
+    "cinnamoroll": {
+        "summary": "遠い雲の上で生まれた白いこいぬの男のコ。空から飛んできたところをカフェの店員のお姉さんに見つけられ、一緒に暮らすことに。くるくる巻いたしっぽが名前の由来です。",
+        "facts": ["誕生日：3月6日", "デビュー年：2002年（初めてグッズが発売された年）", "性格：おとなしいけれど、とても人なつっこい", "夢：レストランのシェフになってみんなを幸せにすること", "特技：大きな耳をパタパタさせて空を飛ぶこと"],
+    },
+    "kuromi": {
+        "summary": "自分でライバルを名乗る、黒いずきんとピンクのどくろがチャームポイントのキャラクター。乱暴者に見えて実は乙女チックで、イケメン好き。世界中を自分色にするために奮闘中です。",
+        "facts": ["誕生日：10月31日", "デビュー年：2005年", "性格：実はとっても乙女チック", "好きな食べ物：らっきょう", "趣味：日記をつけること"],
+    },
+    "pompompurin": {
+        "summary": "こげ茶色のベレー帽がトレードマークのゴールデンレトリバーの男のコ。のんびり屋で、「おでかけ」が好きな言葉、「おるすばん」が嫌いな言葉。くつ集めも趣味です。",
+        "facts": ["誕生日：4月16日のお天気いい日", "デビュー年：1996年", "性格：のんびりマイペース", "特技：お昼寝とプリン体操、だれとでも仲よくなれること", "好きな食べ物：ママが作ったプリン、ミルク、ふにゃふにゃしたもの", "趣味：くつ集め"],
+    },
+    "pochacco": {
+        "summary": "好奇心旺盛でおっちょこちょい、ちょっぴりおせっかいなイヌの男のコです。ふっくらした様子が名前の由来で、より道のお散歩が大好き。ふわふわタウンのはずれ、うぐいす横丁生まれです。",
+        "facts": ["誕生日：2月29日（うるう年生まれ）", "デビュー年：1989年", "性格：好奇心旺盛で、おっちょこちょいで、ちょっぴりおせっかい", "好きな食べ物：バナナアイス", "身長：バナナアイスのラージサイズのカップ4個分"],
     },
 }
 COMMON_TEXT = (
@@ -100,7 +124,7 @@ _translation_cache = {}
 
 
 def page_slug(character):
-    if character not in PILOT_CHARACTERS:
+    if character not in CHARACTER_BATCH:
         raise RuntimeError("Unsupported pilot character: " + str(character))
     return character
 
@@ -201,18 +225,22 @@ def publish_page(wp, page):
 
 def preflight_existing(wp, records, entries_by_code, en_directory_id):
     ja_pages = {}
-    for key in PILOT_CHARACTERS:
+    for key in CHARACTER_BATCH:
         page_id, slug, _ = c.CHARACTERS[key]
         page = rest_page(wp, page_id)
         if page.get("slug") != slug or page.get("status") != "publish":
             raise RuntimeError("Japanese character page identity changed: " + slug)
         ja_pages[key] = page
         guide = find_page(wp, key, en_directory_id)
-        if not guide or guide.get("status") != "publish" or GUIDE_MARK not in guide["content"]["raw"] and "<!-- sf-bilingual-character-guide:v1 -->" not in guide["content"]["raw"]:
-            raise RuntimeError("Existing English character guide is missing or unmanaged: " + key)
+        if guide and (
+            guide.get("status") != "publish"
+            or (GUIDE_MARK not in guide["content"]["raw"]
+                and "<!-- sf-bilingual-character-guide:v1 -->" not in guide["content"]["raw"])
+        ):
+            raise RuntimeError("Existing English character guide is unmanaged: " + key)
     # Verify selected cards are backed by exact paired Japanese and English pages before writing.
     selected = {}
-    for key in PILOT_CHARACTERS:
+    for key in CHARACTER_BATCH:
         rows = diversified_records([item for item in records if item["character"] == key], 12)
         if len(rows) != 12:
             raise RuntimeError("Not enough confirmed products for multilingual guide: " + key)
@@ -252,7 +280,7 @@ def language_switch(locale, character, language_text):
 
 def render_index(language, translations, selected):
     cards = []
-    for key in PILOT_CHARACTERS:
+    for key in CHARACTER_BATCH:
         item = selected[key][0]
         name = CHARACTER_NAMES[key][language["slug"]]
         cards.append(
@@ -365,7 +393,7 @@ def run():
         parent_id = root["id"] if root else None
         existing_guides[language["slug"]] = {}
         if parent_id:
-            for character in PILOT_CHARACTERS:
+            for character in CHARACTER_BATCH:
                 page = find_page(wp, character, parent_id)
                 if page and GUIDE_MARK not in page["content"]["raw"]:
                     raise RuntimeError("Refusing to overwrite an unmanaged multilingual character page.")
@@ -373,7 +401,7 @@ def run():
 
     # Prepare all translations before the first WordPress write.
     common_sources = list(COMMON_TEXT)
-    for character in PILOT_CHARACTERS:
+    for character in CHARACTER_BATCH:
         common_sources.append(PROFILES[character]["summary"])
         common_sources.extend(PROFILES[character]["facts"])
     translated_by_locale = {}
@@ -399,7 +427,7 @@ def run():
             raise RuntimeError("Language index is not a root page: " + locale)
         index_pages[locale] = index_page
         guide_pages[locale] = {}
-        for character in PILOT_CHARACTERS:
+        for character in CHARACTER_BATCH:
             body = render_guide(character, language, translated, selected, entries_by_code)
             old = existing_guides[locale].get(character)
             title = CHARACTER_NAMES[character][locale] + " | " + translated[COMMON_TEXT[1]]
@@ -420,7 +448,7 @@ def run():
         if published_indexes[locale].get("link", "").rstrip("/") != expected_index.rstrip("/"):
             raise RuntimeError("Unexpected language index URL: " + str(published_indexes[locale].get("link")))
         published_guides[locale] = {}
-        for character in PILOT_CHARACTERS:
+        for character in CHARACTER_BATCH:
             published = publish_page(wp, guide_pages[locale][character])
             expected_guide = locale_guide_url(locale, character)
             if published.get("link", "").rstrip("/") != expected_guide.rstrip("/"):
@@ -428,7 +456,7 @@ def run():
             published_guides[locale][character] = published
 
     # Link the new locale guides from the matching Japanese and English pages.
-    for character in PILOT_CHARACTERS:
+    for character in CHARACTER_BATCH:
         ja = c.CHARACTERS[character]
         body = (
             '<section lang="ja"><h2>他の言語のキャラクター紹介</h2><p>'
@@ -438,13 +466,14 @@ def run():
         _, changed = update_content(wp, ja[0], JA_LINK_START, JA_LINK_END, body)
         changed_ja_links += int(changed)
         en_guide = find_page(wp, character, en_directory["id"])
-        en_body = (
-            '<section lang="en"><h2>Character guides in other languages</h2><p>'
-            + " · ".join('<a href="' + html.escape(locale_guide_url(x["slug"], character), quote=True) + '">' + html.escape(x["label"]) + "</a>" for x in LANGUAGES)
-            + "</p></section>"
-        )
-        saved, changed = update_content(wp, en_guide["id"], EN_GUIDE_START, EN_GUIDE_END, en_body)
-        changed_en_links += int(changed)
+        if en_guide:
+            en_body = (
+                '<section lang="en"><h2>Character guides in other languages</h2><p>'
+                + " · ".join('<a href="' + html.escape(locale_guide_url(x["slug"], character), quote=True) + '">' + html.escape(x["label"]) + "</a>" for x in LANGUAGES)
+                + "</p></section>"
+            )
+            _, changed = update_content(wp, en_guide["id"], EN_GUIDE_START, EN_GUIDE_END, en_body)
+            changed_en_links += int(changed)
 
     en_index_body = (
         '<section lang="en"><h2>Character guides in Chinese, Korean and Spanish</h2><p>'
@@ -457,12 +486,13 @@ def run():
     for language in LANGUAGES:
         locale = language["slug"]
         verify_targets.append((published_indexes[locale]["link"], INDEX_MARK))
-        for character in PILOT_CHARACTERS:
+        for character in CHARACTER_BATCH:
             verify_targets.append((published_guides[locale][character]["link"], GUIDE_MARK))
-    for character in PILOT_CHARACTERS:
+    for character in CHARACTER_BATCH:
         verify_targets.append((ja_pages[character]["link"], JA_LINK_START))
         en_guide = find_page(wp, character, en_directory["id"])
-        verify_targets.append((en_guide["link"], EN_GUIDE_START))
+        if en_guide:
+            verify_targets.append((en_guide["link"], EN_GUIDE_START))
     verify_targets.append((rest_page(wp, en_directory["id"])["link"], EN_INDEX_START))
 
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -483,7 +513,7 @@ def run():
 
     report = {
         "japaneseAndEnglishProducts": 1000,
-        "pilotCharacters": list(PILOT_CHARACTERS),
+        "charactersLocalized": list(CHARACTER_BATCH),
         "languages": [x["slug"] for x in LANGUAGES],
         "languageIndexesPublished": len(published_indexes),
         "characterGuidesPublished": sum(len(x) for x in published_guides.values()),
