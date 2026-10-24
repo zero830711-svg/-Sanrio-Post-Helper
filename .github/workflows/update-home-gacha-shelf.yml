@@ -1,0 +1,28 @@
+name: Update homepage gacha shelf
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/update-home-gacha-shelf.py'
+      - '.github/workflows/update-home-gacha-shelf.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-home-gacha-shelf
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate the REST updater
+        run: |
+          python3 -m py_compile scripts/update-home-gacha-shelf.py
+          python3 scripts/update-home-gacha-shelf.py --self-test
+      - name: Add the gacha shelf through WordPress REST API
+        run: python3 scripts/update-home-gacha-shelf.py
