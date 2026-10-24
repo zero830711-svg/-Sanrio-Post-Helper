@@ -50,6 +50,18 @@ class MultilingualCharacterGuideTests(unittest.TestCase):
         self.assertIn("https://sanrio-fan.site/en/product-details/sample-item/", markup)
         self.assertIn("localized item", markup)
 
+    def test_product_sampling_round_robins_kinds(self):
+        records = [
+            {"code": "a1", "kind": "plush"},
+            {"code": "a2", "kind": "plush"},
+            {"code": "b1", "kind": "stationery"},
+            {"code": "b2", "kind": "stationery"},
+        ]
+        self.assertEqual(
+            [item["code"] for item in guides.diversified_records(records, 4)],
+            ["a1", "b1", "a2", "b2"],
+        )
+
     def test_rendered_index_keeps_three_columns(self):
         language = guides.LANGUAGES[0]
         translations = {x: "translated" for x in guides.COMMON_TEXT}

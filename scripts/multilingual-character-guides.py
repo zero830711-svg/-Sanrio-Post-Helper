@@ -186,6 +186,23 @@ def translate_many(values, language, character_by_value=None):
         return dict(pool.map(translate, unique))
 
 
+def diversified_records(records, limit=12):
+    groups = collections.OrderedDict()
+    for item in records:
+        groups.setdefault(item.get("kind") or "Sanrio goods", []).append(item)
+    selected = []
+    while groups and len(selected) < limit:
+        empty = []
+        for key, values in groups.items():
+            if values and len(selected) < limit:
+                selected.append(values.pop(0))
+            if not values:
+                empty.append(key)
+        for key in empty:
+            del groups[key]
+    return selected
+
+
 def find_page(wp, slug, parent_id):
     rows = e.pages_by_slug(wp, slug)
     return next((row for row in rows if int(row.get("parent", 0)) == int(parent_id)), None)
@@ -218,7 +235,7 @@ def preflight_existing(wp, records, entries_by_code, en_directory_id):
     # Verify selected cards are backed by exact paired Japanese and English pages before writing.
     selected = {}
     for key in PILOT_CHARACTERS:
-        rows = e.diversified_records([item for item in records if item["character"] == key], 12)
+        rows = diversified_records([item for item in records if item["character"] == key], 12)
         if len(rows) != 12:
             raise RuntimeError("Not enough confirmed products for multilingual guide: " + key)
         for item in rows:
