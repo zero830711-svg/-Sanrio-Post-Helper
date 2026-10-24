@@ -53,26 +53,15 @@ function normalized_product_name(string $value, bool $stripCharacters = false): 
 }
 
 function product_name_matches(string $seed, string $title): bool {
-    foreach ([false, true] as $stripCharacters) {
-        $left = normalized_product_name($seed, $stripCharacters);
-        $right = normalized_product_name($title, $stripCharacters);
-        if ($left === '' || $right === '') continue;
-        if (str_contains($left, $right) || str_contains($right, $left)) return true;
-        $leftChars = preg_split('//u', $left, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        $rightChars = preg_split('//u', $right, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        if (count($leftChars) < 5) continue;
-        $grams = [];
-        for ($i = 0; $i < count($leftChars) - 1; $i++) $grams[$leftChars[$i] . $leftChars[$i + 1]] = true;
-        $matched = [];
-        for ($i = 0; $i < count($rightChars) - 1; $i++) {
-            $gram = $rightChars[$i] . $rightChars[$i + 1];
-            if (isset($grams[$gram])) $matched[$gram] = true;
-        }
-        if (count($matched) / count($grams) >= 0.70) return true;
-    }
-    return false;
+    // Match the product-specific name after removing Sanrio character/brand names.
+    // Character-only and broad fuzzy matches must never qualify unrelated goods.
+    $left = normalized_product_name($seed, true);
+    $right = normalized_product_name($title, true);
+    if ($left === '' || $right === ''
+        || mb_strlen($left, 'UTF-8') < 8
+        || mb_strlen($right, 'UTF-8') < 8) return false;
+    return $left === $right || str_contains($right, $left) || str_contains($left, $right);
 }
-
 function sanrio_title(string $title): bool {
     return (bool)preg_match('/サンリオ|ハローキティ|ハロー・キティ|マイメロディ|クロミ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|けろけろけろっぴ|タキシードサム|あひるのペックル|バッドばつ丸|こぎみゅん|はなまるおばけ|ウサハナ|ぐでたま|キキララ|キキ＆ララ|リトルツインスターズ|ジュエルペット|ウィッシュミーメル|ぼんぼんりぼん|チョコキャット|マロンクリーム|がおぱわるぅ|まるもふびより|おさるのもんきち|みんなのたあ坊|JOCHUM|Jochum|jochum/u', $title);
 }
