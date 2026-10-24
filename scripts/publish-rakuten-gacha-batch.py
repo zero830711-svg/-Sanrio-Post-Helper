@@ -33,7 +33,7 @@ SANRIO_NAMES = (
     "こぎみゅん", "はなまるおばけ", "ウサハナ", "ぐでたま", "キキララ",
     "キキ＆ララ", "リトルツインスターズ", "ジュエルペット", "ウィッシュミーメル",
     "ぼんぼんりぼん", "チョコキャット", "マロンクリーム", "がおぱわるぅ",
-    "まるもふびより", "おさるのもんきち", "みんなのたあ坊",
+    "まるもふびより", "おさるのもんきち", "みんなのたあ坊", "JOCHUM", "Jochum", "jochum",
 )
 CAPSULE_RE = re.compile(r"ガチャ|ガシャポン|カプセルトイ|カプセル玩具|カプセルフィギュア|カプセルマスコット")
 EXCLUDED_RE = re.compile(r"ガチャ詰め|ガチャ活|ガチャ本体|ガチャマシン|カプセルマシン|空カプセル|カプセルケース")
@@ -111,10 +111,43 @@ def valid_image_url(value):
             and not p.fragment)
 
 
+def normalized_product_name(value, strip_characters=False):
+    value = unicodedata.normalize("NFKC", plain_text(value)).casefold()
+    value = re.sub(r"再販|再生産|予約受付中|新発売|全[0-9]+(?:種|種類)", "", value)
+    if strip_characters:
+        for name in sorted(SANRIO_NAMES, key=len, reverse=True):
+            value = value.replace(unicodedata.normalize("NFKC", name).casefold(), "")
+        value = value.replace("sanrio characters", "").replace("sanrio", "")
+    return re.sub(r"[^0-9a-zぁ-んァ-ヶ一-龠]", "", value)
+
+
+def product_name_matches(seed, title):
+    for strip_characters in (False, True):
+        left = normalized_product_name(seed, strip_characters)
+        right = normalized_product_name(title, strip_characters)
+        if not left or not right:
+            continue
+        if left in right or right in left:
+            return True
+        if len(left) < 5:
+            continue
+        grams = {left[i:i + 2] for i in range(len(left) - 1)}
+        right_grams = {right[i:i + 2] for i in range(len(right) - 1)}
+        if grams and len(grams & right_grams) / len(grams) >= 0.70:
+            return True
+    return False
+
+
 def eligible(item):
     title = plain_text(item.get("title", ""))
-    return (bool(title) and bool(CAPSULE_RE.search(title)) and not EXCLUDED_RE.search(title)
-            and any(name in title for name in SANRIO_NAMES)
+    seed = plain_text(item.get("source_product_name", ""))
+    if seed:
+        product_category_match = product_name_matches(seed, title)
+    else:
+        product_category_match = (bool(CAPSULE_RE.search(title))
+                                  and not EXCLUDED_RE.search(title)
+                                  and any(name in title for name in SANRIO_NAMES))
+    return (bool(title) and product_category_match
             and valid_affiliate(item.get("affiliate"))
             and valid_product_url(item.get("url"))
             and valid_image_url(item.get("image"))
@@ -231,6 +264,16 @@ def self_test():
     assert len(unique_candidates([valid, dict(valid), {**valid, "title": "サンリオのポーチ"}])) == 1
     assert not eligible({**valid, "image": "https://example.com/item.jpg"})
     assert not eligible({**valid, "title": "ガチャガチャ本体"})
+    seeded = {
+        **valid,
+        "title": "サンリオキャラクターズ チアリステイルズ マスコット 全4種",
+        "source_product_name": "チアリステイルズ マスコット",
+    }
+    assert eligible(seeded)
+    assert not eligible({
+        **seeded,
+        "title": "サンリオキャラクターズ 無関係なぬいぐるみ",
+    })
     text = article_for(valid, "ZmFrZQ==")["content"]
     assert text.count("{{image_url}}") == 1
     assert 'rel="sponsored nofollow noopener noreferrer"' in text
