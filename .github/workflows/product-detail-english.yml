@@ -25,7 +25,7 @@ jobs:
       - name: Check Python syntax
         run: python3 -m py_compile scripts/product-detail-english.py scripts/product-detail-pilot.py
       - name: Publish and verify the next 200 English product details
-        run: python3 -u scripts/product-detail-english.py --append-next-200
+        run: python3 -u scripts/product-detail-english.py --append-next-200-after 300
       - uses: actions/upload-artifact@v5
         if: always()
         with:

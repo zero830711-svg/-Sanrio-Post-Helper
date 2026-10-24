@@ -33,7 +33,7 @@ JA_LINK_START = "<!-- sf-product-detail-english-link:v1 -->"
 JA_LINK_END = "<!-- /sf-product-detail-english-link:v1 -->"
 INITIAL_TARGET = 100
 NEXT_TARGET = 200
-MAX_TARGET = INITIAL_TARGET + NEXT_TARGET
+MAX_TARGET = 1000
 BATCH_SIZE = 50
 TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single"
 _rate_lock = threading.Lock()
@@ -213,7 +213,7 @@ def read_english_state(wp):
     payload = json.loads(base64.b64decode(c.text_from(row["content"]["raw"])))
     entries = payload.get("entries") or []
     if len(entries) > MAX_TARGET or len({x.get("code") for x in entries}) != len(entries):
-        raise RuntimeError("English translation state is invalid or exceeds 300 pages.")
+        raise RuntimeError("English translation state is invalid or exceeds 1,000 pages.")
     return {"id": row["id"], "payload": payload, "entries": entries, "raw": row["content"]["raw"]}
 
 
@@ -486,7 +486,7 @@ def managed_directory(wp):
     return landing, hub
 
 
-def run(append_next_200=False):
+def run(append_after_count=None):
     wp = c.WordPress()
     records, _ = d.read_state(wp)
     if len(records) != 1000:
@@ -494,27 +494,36 @@ def run(append_next_200=False):
     records_by_code = {item["code"]: item for item in records}
     state = read_english_state(wp)
     new_pages_upserted = 0
+    append_next_200 = append_after_count is not None
     if append_next_200:
         if not state:
-            raise RuntimeError("The first 100 English product details must exist before adding the next 200.")
+            raise RuntimeError("English product details must already exist before adding another cohort.")
+        if append_after_count < INITIAL_TARGET or append_after_count > MAX_TARGET:
+            raise RuntimeError("The requested English cohort start is outside the verified Japanese catalog.")
+        if (append_after_count - INITIAL_TARGET) % NEXT_TARGET != 0:
+            raise RuntimeError("The requested cohort start does not match a completed 100-plus-200 batch boundary.")
+        append_count = min(NEXT_TARGET, MAX_TARGET - append_after_count)
+        if append_count <= 0:
+            raise RuntimeError("All quality-qualified Japanese product details have already been translated.")
+        expected_total = append_after_count + append_count
         entries = state["entries"]
-        if len(entries) == INITIAL_TARGET:
+        if len(entries) == append_after_count:
             if not all(x.get("pageId") and x.get("url") for x in entries):
-                raise RuntimeError("The first 100 English pages are not fully published; finish that cohort first.")
+                raise RuntimeError("The previous English cohort is not fully published; finish it first.")
             existing_codes = {x["code"] for x in entries}
-            additions = translated_entries(select_records(records, limit=NEXT_TARGET, exclude_codes=existing_codes))
+            additions = translated_entries(select_records(records, limit=append_count, exclude_codes=existing_codes))
             if existing_codes.intersection(x["code"] for x in additions):
-                raise RuntimeError("The next English cohort overlaps the first 100 products.")
+                raise RuntimeError("The new English cohort overlaps existing product pages.")
             entries = entries + additions
             payload = state["payload"]
             payload["entries"] = entries
             state = write_english_state(wp, {"id": state["id"], "raw": state["raw"]}, payload)
-        elif len(entries) != MAX_TARGET:
-            raise RuntimeError("The English state must contain the published first 100 pages or the full 300-page cohort.")
-        if len(entries) != MAX_TARGET or len({x.get("code") for x in entries}) != MAX_TARGET:
-            raise RuntimeError("The combined English product cohort must contain 300 distinct products.")
-        new_entries = entries[INITIAL_TARGET:]
-        if len(new_entries) != NEXT_TARGET:
+        elif len(entries) != expected_total:
+            raise RuntimeError("English state must contain the requested cohort start or that start plus the new batch.")
+        if len(entries) != expected_total or len({x.get("code") for x in entries}) != expected_total:
+            raise RuntimeError("The combined English product cohort has an unexpected count or duplicate products.")
+        new_entries = entries[append_after_count:expected_total]
+        if len(new_entries) != append_count:
             raise RuntimeError("The next English cohort is incomplete.")
         batch_entries = new_entries
     else:
@@ -579,12 +588,11 @@ def run(append_next_200=False):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--publish-first-100", action="store_true")
-    parser.add_argument("--append-next-200", action="store_true")
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--publish-first-100", action="store_true")
+    mode.add_argument("--append-next-200-after", type=int, metavar="CURRENT_COUNT")
     args = parser.parse_args()
-    if args.publish_first_100 == args.append_next_200:
-        parser.error("Choose exactly one of --publish-first-100 or --append-next-200")
-    run(append_next_200=args.append_next_200)
+    run(append_after_count=args.append_next_200_after)
 
 
 if __name__ == "__main__":
