@@ -158,15 +158,20 @@ def unique_candidates(rows):
     result = []
     seen_codes = set()
     seen_titles = set()
+    seen_products = set()
     for row in rows:
         if not isinstance(row, dict) or not eligible(row):
             continue
         code = str(row["code"]).strip()
         title_key = canonical_title(row["title"])
-        if code in seen_codes or not title_key or title_key in seen_titles:
+        product_key = canonical_title(row.get("source_product_name", ""))
+        if (code in seen_codes or not title_key or title_key in seen_titles
+                or (product_key and product_key in seen_products)):
             continue
         seen_codes.add(code)
         seen_titles.add(title_key)
+        if product_key:
+            seen_products.add(product_key)
         result.append(row)
     return result
 
