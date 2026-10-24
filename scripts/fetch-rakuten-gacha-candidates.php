@@ -103,11 +103,40 @@ try {
 
             foreach ($response['items'] as $item) {
                 if (!is_array($item)) continue;
-                $code = (string)($item['code'] ?? '');
-                $title = trim((string)($item['title'] ?? ''));
-                $image = (string)($item['image'] ?? '');
-                $affiliate = (string)($item['affiliate'] ?? '');
-                $url = (string)($item['url'] ?? '');
+                // The affiliate-search endpoint returns Rakuten's native item fields.
+                // Keep normalized aliases as fallbacks for compatible cached responses.
+                $code = trim((string)($item['code'] ?? $item['itemCode'] ?? $item['item_code'] ?? ''));
+                $title = trim((string)($item['title'] ?? $item['itemName'] ?? ''));
+                $image = trim((string)($item['image'] ?? $item['imageUrl'] ?? ''));
+                if ($image === '') {
+                    foreach (['mediumImageUrls', 'largeImageUrls', 'smallImageUrls'] as $imageKey) {
+                        $imageRows = $item[$imageKey] ?? [];
+                        if (!is_array($imageRows)) continue;
+                        foreach ($imageRows as $imageRow) {
+                            $candidateImage = is_array($imageRow)
+                                ? (string)($imageRow['imageUrl'] ?? '')
+                                : (string)$imageRow;
+                            if ($candidateImage !== '') {
+                                $image = trim($candidateImage);
+                                break 2;
+                            }
+                        }
+                    }
+                }
+                $affiliate = trim((string)($item['affiliate'] ?? $item['affiliateUrl'] ?? ''));
+                $url = trim((string)($item['url'] ?? $item['itemUrl'] ?? ''));
+                if (!safe_product_url($url) && safe_affiliate_url($affiliate)) {
+                    $affiliateParts = parse_url($affiliate);
+                    parse_str((string)($affiliateParts['query'] ?? ''), $affiliateQuery);
+                    foreach (['pc', 'm'] as $destinationKey) {
+                        $destination = (string)($affiliateQuery[$destinationKey] ?? '');
+                        if (safe_product_url($destination)) {
+                            $url = $destination;
+                            break;
+                        }
+                    }
+                }
+                $shop = trim((string)($item['shop'] ?? $item['shopName'] ?? ''));
                 if ($code === '' || isset($seenCodes[$code]) || $title === ''
                     || !capsule_title($title) || !sanrio_title($title)
                     || !safe_image_url($image) || !safe_affiliate_url($affiliate) || !safe_product_url($url)) continue;
@@ -118,7 +147,7 @@ try {
                     'image' => $image,
                     'affiliate' => $affiliate,
                     'url' => $url,
-                    'shop' => mb_substr(trim((string)($item['shop'] ?? '')), 0, 120),
+                    'shop' => mb_substr($shop, 0, 120),
                 ];
             }
             if (empty($response['hasMore'])) break;
