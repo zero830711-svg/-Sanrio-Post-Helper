@@ -1,4 +1,4 @@
-"""Publish the first 100 English translations of verified Sanrio product details."""
+"""Publish 100- and 200-page cohorts of verified Sanrio product details in English."""
 import argparse
 import base64
 import hashlib
@@ -31,7 +31,9 @@ LANDING_MARK = "<!-- sf-product-detail-english-landing:v1 -->"
 HUB_MARK = "<!-- sf-product-detail-english-hub:v1 -->"
 JA_LINK_START = "<!-- sf-product-detail-english-link:v1 -->"
 JA_LINK_END = "<!-- /sf-product-detail-english-link:v1 -->"
-TARGET = 100
+INITIAL_TARGET = 100
+NEXT_TARGET = 200
+MAX_TARGET = INITIAL_TARGET + NEXT_TARGET
 BATCH_SIZE = 50
 TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single"
 _rate_lock = threading.Lock()
@@ -147,21 +149,25 @@ def translate_unique(texts):
     return result
 
 
-def select_records(records):
+def select_records(records, limit=INITIAL_TARGET, exclude_codes=None):
+    excluded = set(exclude_codes or ())
+    existing = [item for item in records if item.get("code") in excluded]
     eligible = []
     for item in records:
+        if item.get("code") in excluded:
+            continue
         facts = item.get("facts") or {}
         if not item.get("images") or len(facts) < 2:
             continue
         if not any(key in facts for key in ("サイズ", "素材・材質")):
             continue
-        if d.duplicate_with(item, eligible):
+        if d.duplicate_with(item, existing + eligible):
             continue
         eligible.append(item)
-    selected = d.choose(eligible, limit=TARGET)
-    if len(selected) != TARGET:
-        raise RuntimeError("Only %d distinct, photo-backed products with specifications qualified; 100 are required." % len(selected))
-    if len({item["code"] for item in selected}) != TARGET:
+    selected = d.choose(eligible, limit=limit, existing=existing)
+    if len(selected) != limit:
+        raise RuntimeError("Only %d distinct, photo-backed products with specifications qualified; %d are required." % (len(selected), limit))
+    if len({item["code"] for item in selected}) != limit:
         raise RuntimeError("Duplicate product codes in the English cohort.")
     return selected
 
@@ -206,8 +212,8 @@ def read_english_state(wp):
         raise RuntimeError("Refusing an unmanaged English translation state page.")
     payload = json.loads(base64.b64decode(c.text_from(row["content"]["raw"])))
     entries = payload.get("entries") or []
-    if len(entries) > TARGET or len({x.get("code") for x in entries}) != len(entries):
-        raise RuntimeError("English translation state is invalid or exceeds 100 pages.")
+    if len(entries) > MAX_TARGET or len({x.get("code") for x in entries}) != len(entries):
+        raise RuntimeError("English translation state is invalid or exceeds 300 pages.")
     return {"id": row["id"], "payload": payload, "entries": entries, "raw": row["content"]["raw"]}
 
 
@@ -327,11 +333,12 @@ def render_hub(entries, records_by_code):
     )
 
 
-def publish_records(wp, parent_id, records_by_code, entries, state):
+def publish_records(wp, parent_id, records_by_code, entries, state, all_entries=None):
+    all_entries = all_entries if all_entries is not None else entries
     entry_by_code = {x["code"]: x for x in entries}
     completed = 0
     upserted = 0
-    for start in range(0, TARGET, BATCH_SIZE):
+    for start in range(0, len(entries), BATCH_SIZE):
         batch = entries[start:start + BATCH_SIZE]
         pending = [entry for entry in batch if not entry.get("pageId")]
 
@@ -351,22 +358,23 @@ def publish_records(wp, parent_id, records_by_code, entries, state):
                     entry_by_code[code]["pageId"] = page_id
                     entry_by_code[code]["url"] = url
             upserted += len(pending)
-            state["payload"]["entries"] = entries
-            current = {"id": state["id"], "raw": state["raw"], "entries": entries}
+            state["payload"]["entries"] = all_entries
+            current = {"id": state["id"], "raw": state["raw"], "entries": all_entries}
             state.update(write_english_state(wp, current, state["payload"]))
         completed += len(batch)
         print("ENGLISH PRODUCT DETAIL BATCH", json.dumps({"batch": start // BATCH_SIZE + 1, "target": len(batch), "total": completed}, ensure_ascii=False), flush=True)
     return upserted
 
 
-def save_directory_pages(wp, entries, records_by_code):
+def save_directory_pages(wp, entries, records_by_code, status="draft"):
     landing_content = LANDING_MARK + '\n<section lang="en"><h2>Sanrio product details in English</h2><p>Explore selected Sanrio products with photos and information about size, material and other specifications.</p><p><a href="/en/product-details/">Browse the English product detail directory</a></p><p><a href="/product-details/">日本語の商品詳細一覧</a></p></section>\n'
-    landing = get_or_save_page(wp, "en", 0, LANDING_MARK, "Sanrio Product Details in English | Sanrio fan info JP", landing_content, "English-language product details for selected Sanrio goods.", "draft")
+    landing = get_or_save_page(wp, "en", 0, LANDING_MARK, "Sanrio Product Details in English | Sanrio fan info JP", landing_content, "English-language product details for selected Sanrio goods.", status)
     hub_content = render_hub(entries, records_by_code)
-    hub = get_or_save_page(wp, "product-details", landing["id"], HUB_MARK, "Sanrio Product Details in English | Size and Material Guide", hub_content, "Photos and English product information for selected Sanrio goods.", "draft")
-    # Publish the directory only after all 100 child pages exist.
-    landing = wp.call("/wp/v2/pages/%d" % landing["id"], {"status": "publish"})
-    hub = wp.call("/wp/v2/pages/%d" % hub["id"], {"status": "publish"})
+    hub = get_or_save_page(wp, "product-details", landing["id"], HUB_MARK, "Sanrio Product Details in English | Size and Material Guide", hub_content, "Photos and English product information for selected Sanrio goods.", status)
+    if status == "draft":
+        # Keep the directory unpublished until all child pages in the first cohort exist.
+        landing = wp.call("/wp/v2/pages/%d" % landing["id"], {"status": "publish"})
+        hub = wp.call("/wp/v2/pages/%d" % hub["id"], {"status": "publish"})
     if landing.get("slug") != "en" or hub.get("slug") != "product-details" or int(hub.get("parent", 0)) != int(landing["id"]):
         raise RuntimeError("English directory hierarchy did not publish as expected.")
     return landing, hub
@@ -445,10 +453,12 @@ def sitemap_urls():
     return parser, found, len(seen_sitemaps)
 
 
-def verify_all(entries, landing, hub):
+def verify_all(entries, landing, hub, check_entries=None):
+    check_entries = entries if check_entries is None else check_entries
     canonical_count = 0
     urls = [x["url"] for x in entries] + [landing["link"], hub["link"]]
-    for url, marker in [(x["url"], PAGE_MARK) for x in entries] + [(landing["link"], LANDING_MARK), (hub["link"], HUB_MARK)]:
+    checked_urls = [x["url"] for x in check_entries] + [landing["link"], hub["link"]]
+    for url, marker in [(x["url"], PAGE_MARK) for x in check_entries] + [(landing["link"], LANDING_MARK), (hub["link"], HUB_MARK)]:
         canonical_count += verify_page(url, marker)
     parser, published_sitemap_urls, sitemap_count = sitemap_urls()
     if any(url.rstrip("/") not in {x.rstrip("/") for x in published_sitemap_urls} for url in urls):
@@ -460,11 +470,23 @@ def verify_all(entries, landing, hub):
         raise RuntimeError("Googlebot is blocked from %d English directory pages." % len(blocked))
     if missing:
         raise RuntimeError("English pages are not yet present in the published sitemap: %d" % len(missing))
-    return {"publicPagesVerified": len(urls), "canonicalTagsObserved": canonical_count, "googlebotAllowed": True,
+    return {"publicPagesVerified": len(checked_urls), "canonicalTagsObserved": canonical_count, "googlebotAllowed": True,
             "sitemapPagesFound": len(urls), "sitemapsChecked": sitemap_count}
 
 
-def run():
+def managed_directory(wp):
+    landing_rows = pages_by_slug(wp, "en")
+    landing = next((x for x in landing_rows if x.get("slug") == "en" and int(x.get("parent", 0)) == 0), None)
+    if not landing or LANDING_MARK not in landing["content"]["raw"]:
+        raise RuntimeError("Managed English landing page is missing.")
+    hub_rows = pages_by_slug(wp, "product-details")
+    hub = next((x for x in hub_rows if int(x.get("parent", 0)) == int(landing["id"])), None)
+    if not hub or HUB_MARK not in hub["content"]["raw"]:
+        raise RuntimeError("Managed English product directory is missing.")
+    return landing, hub
+
+
+def run(append_next_200=False):
     wp = c.WordPress()
     records, _ = d.read_state(wp)
     if len(records) != 1000:
@@ -472,58 +494,82 @@ def run():
     records_by_code = {item["code"]: item for item in records}
     state = read_english_state(wp)
     new_pages_upserted = 0
-    if state:
+    if append_next_200:
+        if not state:
+            raise RuntimeError("The first 100 English product details must exist before adding the next 200.")
         entries = state["entries"]
-        payload = state["payload"]
-        if len(entries) not in (0, TARGET):
-            raise RuntimeError("English translation state must contain exactly 100 products or be empty.")
-        if not entries:
-            entries = translated_entries(select_records(records))
+        if len(entries) == INITIAL_TARGET:
+            if not all(x.get("pageId") and x.get("url") for x in entries):
+                raise RuntimeError("The first 100 English pages are not fully published; finish that cohort first.")
+            existing_codes = {x["code"] for x in entries}
+            additions = translated_entries(select_records(records, limit=NEXT_TARGET, exclude_codes=existing_codes))
+            if existing_codes.intersection(x["code"] for x in additions):
+                raise RuntimeError("The next English cohort overlaps the first 100 products.")
+            entries = entries + additions
+            payload = state["payload"]
             payload["entries"] = entries
-            state["payload"] = payload
-            state = write_english_state(wp, {"id": state["id"], "raw": state["raw"], "entries": []}, payload)
+            state = write_english_state(wp, {"id": state["id"], "raw": state["raw"]}, payload)
+        elif len(entries) != MAX_TARGET:
+            raise RuntimeError("The English state must contain the published first 100 pages or the full 300-page cohort.")
+        if len(entries) != MAX_TARGET or len({x.get("code") for x in entries}) != MAX_TARGET:
+            raise RuntimeError("The combined English product cohort must contain 300 distinct products.")
+        new_entries = entries[INITIAL_TARGET:]
+        if len(new_entries) != NEXT_TARGET:
+            raise RuntimeError("The next English cohort is incomplete.")
+        batch_entries = new_entries
     else:
-        entries = translated_entries(select_records(records))
-        payload = {"version": 1, "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "entries": entries}
-        state = write_english_state(wp, None, payload)
-    if len(entries) != TARGET:
-        raise RuntimeError("English translation cohort is incomplete.")
+        if state:
+            entries = state["entries"]
+            payload = state["payload"]
+            if len(entries) not in (0, INITIAL_TARGET):
+                raise RuntimeError("The first cohort must contain exactly 100 products or be empty.")
+            if not entries:
+                entries = translated_entries(select_records(records, limit=INITIAL_TARGET))
+                payload["entries"] = entries
+                state["payload"] = payload
+                state = write_english_state(wp, {"id": state["id"], "raw": state["raw"]}, payload)
+        else:
+            entries = translated_entries(select_records(records, limit=INITIAL_TARGET))
+            payload = {"version": 1, "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "entries": entries}
+            state = write_english_state(wp, None, payload)
+        if len(entries) != INITIAL_TARGET:
+            raise RuntimeError("The first English product cohort must contain exactly 100 products.")
+        new_entries = entries
+        batch_entries = entries
+
     for entry in entries:
         if entry["code"] not in records_by_code:
             raise RuntimeError("Japanese source product is missing from the verified cohort: " + entry["code"])
-    if not all(x.get("pageId") for x in entries):
-        landing = get_or_save_page(wp, "en", 0, LANDING_MARK,
-            "Sanrio Product Details in English | Sanrio fan info JP",
-            LANDING_MARK + '\n<section lang="en"><h2>Sanrio product details in English</h2><p>Explore selected Sanrio products with photos and information about size, material and other specifications.</p><p><a href="/en/product-details/">Browse the English product detail directory</a></p><p><a href="/product-details/">日本語の商品詳細一覧</a></p></section>\n',
-            "English-language product details for selected Sanrio goods.", "draft")
-        hub = get_or_save_page(wp, "product-details", landing["id"], HUB_MARK,
-            "Sanrio Product Details in English | Size and Material Guide",
-            render_hub([], records_by_code), "Photos and English product information for selected Sanrio goods.", "draft")
-        new_pages_upserted = publish_records(wp, hub["id"], records_by_code, entries, state)
-        landing, hub = save_directory_pages(wp, entries, records_by_code)
+    if append_next_200:
+        landing, hub = managed_directory(wp)
+        if not all(x.get("pageId") and x.get("url") for x in new_entries):
+            new_pages_upserted = publish_records(wp, hub["id"], records_by_code, new_entries, state, all_entries=entries)
+        if not all(x.get("pageId") and x.get("url") for x in new_entries):
+            raise RuntimeError("The next 200 English pages were not fully published.")
+        landing, hub = save_directory_pages(wp, entries, records_by_code, status="publish")
+        entries_to_verify = new_entries
     else:
-        landing_rows = pages_by_slug(wp, "en")
-        landing = next((x for x in landing_rows if x.get("slug") == "en" and int(x.get("parent", 0)) == 0), None)
-        if not landing or LANDING_MARK not in landing["content"]["raw"]:
-            raise RuntimeError("Managed English landing page is missing.")
-        hub_rows = pages_by_slug(wp, "product-details")
-        hub = next((x for x in hub_rows if int(x.get("parent", 0)) == int(landing["id"])), None)
-        if not hub or HUB_MARK not in hub["content"]["raw"]:
-            raise RuntimeError("Managed English product directory is missing.")
-        # Idempotent refresh of the English directory and its saved page links.
-        hub_content = render_hub(entries, records_by_code)
-        landing = wp.call("/wp/v2/pages/%d" % landing["id"], {"status": "publish"})
-        saved = get_or_save_page(wp, "product-details", landing["id"], HUB_MARK,
-            "Sanrio Product Details in English | Size and Material Guide", hub_content,
-            "Photos and English product information for selected Sanrio goods.", "publish")
-        hub = saved
+        if not all(x.get("pageId") and x.get("url") for x in entries):
+            landing = get_or_save_page(wp, "en", 0, LANDING_MARK,
+                "Sanrio Product Details in English | Sanrio fan info JP",
+                LANDING_MARK + '\n<section lang="en"><h2>Sanrio product details in English</h2><p>Explore selected Sanrio products with photos and information about size, material and other specifications.</p><p><a href="/en/product-details/">Browse the English product detail directory</a></p><p><a href="/product-details/">日本語の商品詳細一覧</a></p></section>\n',
+                "English-language product details for selected Sanrio goods.", "draft")
+            hub = get_or_save_page(wp, "product-details", landing["id"], HUB_MARK,
+                "Sanrio Product Details in English | Size and Material Guide",
+                render_hub([], records_by_code), "Photos and English product information for selected Sanrio goods.", "draft")
+            new_pages_upserted = publish_records(wp, hub["id"], records_by_code, entries, state)
+            landing, hub = save_directory_pages(wp, entries, records_by_code)
+        else:
+            landing, hub = save_directory_pages(wp, entries, records_by_code, status="publish")
+        entries_to_verify = entries
     add_japanese_hub_link(wp)
-    verification = verify_all(entries, landing, hub)
+    verification = verify_all(entries, landing, hub, check_entries=entries_to_verify)
     report = {
         "japaneseProductDetails": len(records), "englishProductDetails": len(entries),
         "englishPagesUpsertedThisRun": new_pages_upserted,
         "englishHub": hub["link"], "englishLanding": landing["link"],
-        "batches": [50, 50], "translatedFromVerifiedJapanesePages": True,
+        "batches": [len(batch_entries[i:i + BATCH_SIZE]) for i in range(0, len(batch_entries), BATCH_SIZE)],
+        "translatedFromVerifiedJapanesePages": True,
         "googleTranslate": "machine-translated; Japanese original product name and specifications retained for reference",
         **verification,
     }
@@ -534,10 +580,11 @@ def run():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--publish-first-100", action="store_true")
+    parser.add_argument("--append-next-200", action="store_true")
     args = parser.parse_args()
-    if not args.publish_first_100:
-        parser.error("Use --publish-first-100")
-    run()
+    if args.publish_first_100 == args.append_next_200:
+        parser.error("Choose exactly one of --publish-first-100 or --append-next-200")
+    run(append_next_200=args.append_next_200)
 
 
 if __name__ == "__main__":
