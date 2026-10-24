@@ -118,6 +118,41 @@ def publish(article, wp):
     slug_query = parse.urlencode({'slug': article['slug'], 'context': 'edit', '_fields': 'id,slug,status,link'})
     existing = wp.call('/wp/v2/posts?' + slug_query)
     if existing:
+        if article.get('content_update_only'):
+            if existing[0]['slug'] != article['slug'] or existing[0]['status'] != 'publish':
+                raise RuntimeError('Refusing to update content on a different or unpublished article.')
+            post_path = '/wp/v2/posts/' + str(existing[0]['id'])
+            current_post = wp.call(post_path + '?context=edit')
+            if (current_post['slug'] != article['slug'] or current_post['status'] != 'publish'
+                    or not current_post.get('featured_media')):
+                raise RuntimeError('The published article identity or featured image could not be verified.')
+            media = wp.call('/wp/v2/media/' + str(current_post['featured_media']) + '?_fields=id,source_url')
+            media_url = media.get('source_url', '')
+            media_parts = parse.urlsplit(media_url)
+            if (media_parts.scheme != 'https'
+                    or media_parts.hostname not in ('sanrio-fan.site', 'www.sanrio-fan.site')
+                    or not media_parts.path.startswith('/wp-content/uploads/')
+                    or media_parts.username or media_parts.password or media_parts.port or media_parts.fragment):
+                raise RuntimeError('The existing featured image URL did not pass validation.')
+            content = article['content']
+            if content.count('{{image_url}}') != 1 or content.count('{{post_id}}') > 1:
+                raise RuntimeError('The article image or share-style placeholder is invalid.')
+            content = content.replace('{{image_url}}', media_url)
+            content = content.replace('{{post_id}}', str(current_post['id']))
+            if '{{image_url}}' in content or '{{post_id}}' in content:
+                raise RuntimeError('An article placeholder was not replaced.')
+            wp.call(post_path, data={'content': content})
+            verified = wp.call(post_path + '?context=edit')
+            saved_content = verified['content']['raw']
+            if (verified['id'] != current_post['id'] or verified['slug'] != article['slug']
+                    or verified['status'] != 'publish'
+                    or verified['link'] != current_post['link']
+                    or verified['featured_media'] != current_post['featured_media']
+                    or media_url not in saved_content
+                    or '店頭在庫を保証するものではありません' not in saved_content):
+                raise RuntimeError('The article content update did not pass verification.')
+            print('UPDATED article content:', verified['link'])
+            return
         if article.get('replace_existing_media'):
             replace_existing_media(article, wp, existing)
             return
