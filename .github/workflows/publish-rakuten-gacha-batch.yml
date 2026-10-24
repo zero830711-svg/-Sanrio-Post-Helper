@@ -1,15 +1,12 @@
 name: Publish Rakuten Sanrio gacha articles
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/publish-rakuten-gacha-batch.yml'
-      - 'blog/gacha-rakuten-batch.json'
-      - 'scripts/fetch-rakuten-gacha-candidates.php'
-      - 'scripts/publish-rakuten-gacha-batch.py'
-      - 'scripts/publish-editorial-article.py'
-      - 'scripts/update-home-gacha-shelf.py'
+    inputs:
+      publish:
+        description: "公開前に候補一覧を確認し、公開する時だけ有効にする"
+        required: true
+        default: false
+        type: boolean
 permissions:
   contents: read
 concurrency:
@@ -57,9 +54,14 @@ jobs:
           echo "RAKUTEN_GACHA_TMP=$gacha_tmp" >> "$GITHUB_ENV"
       - name: Fetch Sanrio capsule-toy products from the Rakuten API
         run: php scripts/fetch-rakuten-gacha-candidates.php "$RAKUTEN_GACHA_TMP/config.php" blog/gacha-rakuten-batch.json "$RAKUTEN_GACHA_TMP/candidates.json"
+      - name: Preview matched products without publishing
+        if: ${{ !inputs.publish }}
+        run: python3 scripts/publish-rakuten-gacha-batch.py --candidates "$RAKUTEN_GACHA_TMP/candidates.json" --limit 50 --dry-run
       - name: Publish one WordPress article per verified product
+        if: ${{ inputs.publish }}
         run: python3 scripts/publish-rakuten-gacha-batch.py --candidates "$RAKUTEN_GACHA_TMP/candidates.json" --limit 50
       - name: Refresh the 3-column homepage gacha shelf through WordPress REST API
+        if: ${{ inputs.publish }}
         run: python3 scripts/update-home-gacha-shelf.py
       - name: Remove private temporary files
         if: always()

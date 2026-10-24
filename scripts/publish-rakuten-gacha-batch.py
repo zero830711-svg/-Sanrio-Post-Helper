@@ -122,20 +122,13 @@ def normalized_product_name(value, strip_characters=False):
 
 
 def product_name_matches(seed, title):
-    for strip_characters in (False, True):
-        left = normalized_product_name(seed, strip_characters)
-        right = normalized_product_name(title, strip_characters)
-        if not left or not right:
-            continue
-        if left in right or right in left:
-            return True
-        if len(left) < 5:
-            continue
-        grams = {left[i:i + 2] for i in range(len(left) - 1)}
-        right_grams = {right[i:i + 2] for i in range(len(right) - 1)}
-        if grams and len(grams & right_grams) / len(grams) >= 0.70:
-            return True
-    return False
+    # Require the product-specific phrase after removing Sanrio character names.
+    # Broad character overlap and fuzzy bigram matches admitted unrelated goods.
+    left = normalized_product_name(seed, strip_characters=True)
+    right = normalized_product_name(title, strip_characters=True)
+    if len(left) < 8 or len(right) < 8:
+        return False
+    return left == right or left in right or right in left
 
 
 def eligible(item):
@@ -287,6 +280,7 @@ def main():
     parser.add_argument("--candidates")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     if args.self_test:
         self_test()
@@ -298,8 +292,15 @@ def main():
     if not isinstance(rows, list):
         raise RuntimeError("The Rakuten candidate list is invalid.")
     candidates = unique_candidates(rows)
+    if args.dry_run:
+        print("DRY RUN: %d product-name-matched candidates (limit %d)." % (len(candidates), args.limit))
+        for item in candidates[:args.limit]:
+            print("CANDIDATE: " + plain_text(item.get("title", "")))
+        if not candidates:
+            print("No verified candidates; nothing was published.")
+        return
     if not candidates:
-        raise RuntimeError("No Sanrio capsule-toy candidates passed the strict filters.")
+        raise RuntimeError("No Sanrio capsule-toy candidates passed the strict product-name filter.")
     wp = WordPress()
     slug_prefix = "/wp/v2/posts?"
     published = 0
