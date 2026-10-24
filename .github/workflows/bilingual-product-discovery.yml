@@ -1,0 +1,36 @@
+name: Publish bilingual product discovery pilot
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/bilingual-product-discovery.py
+      - tests/test_bilingual_product_discovery.py
+      - .github/workflows/bilingual-product-discovery.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-bilingual-product-discovery
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Check script syntax and pilot behavior
+        run: |
+          python3 -m py_compile scripts/bilingual-product-discovery.py scripts/product-detail-pilot.py scripts/product-detail-english.py
+          python3 -m unittest discover -s tests -p test_bilingual_product_discovery.py -v
+      - name: Publish and verify the Japanese-English discovery pilot through WordPress REST
+        run: python3 -u scripts/bilingual-product-discovery.py --pilot-characters 3
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: bilingual-product-discovery-pilot-report
+          path: bilingual-product-discovery-report.json
