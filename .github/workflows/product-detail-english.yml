@@ -23,7 +23,7 @@ jobs:
         with:
           ref: main
       - name: Check Python syntax
-        run: python3 -m py_compile scripts/product-detail-english.py
+        run: python3 -m py_compile scripts/product-detail-english.py scripts/product-detail-pilot.py
       - name: Publish and verify 100 English product details
         run: python3 -u scripts/product-detail-english.py --publish-first-100
       - uses: actions/upload-artifact@v5
