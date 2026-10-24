@@ -45,7 +45,7 @@ class MultilingualCharacterGuideTests(unittest.TestCase):
         self.assertIn('lang="zh-Hans"', markup)
         self.assertIn(guides.locale_guide_url("ko", "mymelody"), markup)
         self.assertIn("https://sanrio-fan.site/en/product-details/sample-item/", markup)
-        self.assertIn("localized item", markup)
+        self.assertIn("My Melody Item", markup)
 
     def test_product_sampling_round_robins_kinds(self):
         records = [
