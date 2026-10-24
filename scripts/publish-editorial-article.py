@@ -193,9 +193,17 @@ def publish(article, wp):
         'categories': [categories[0]['id']],
         'featured_media': media['id'],
     })
+    if '{{post_id}}' in content:
+        if content.count('{{post_id}}') != 1:
+            raise RuntimeError('The post-ID placeholder must appear exactly once.')
+        content = content.replace('{{post_id}}', str(saved['id']))
+        wp.call('/wp/v2/posts/' + str(saved['id']), data={'content': content})
     verified = wp.call('/wp/v2/posts/' + str(saved['id']) + '?context=edit')
+    saved_content = verified['content']['raw']
     if (verified['status'] != article['status'] or verified['featured_media'] != media['id']
-            or media['source_url'] not in verified['content']['raw']):
+            or media['source_url'] not in saved_content or '{{post_id}}' in saved_content
+            or ('sanrio-gacha-share-buttons' in saved_content
+                and ('postid-' + str(saved['id'])) not in saved_content)):
         raise RuntimeError('Saved article did not pass verification.')
     print('PUBLISHED:' if verified['status'] == 'publish' else 'DRAFT:', verified['link'])
 
