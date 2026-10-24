@@ -1,0 +1,64 @@
+name: Publish one Sanrio gacha product page
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/gacha/publish-*.json'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-gacha-product-publisher
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate publisher scripts and install runtime dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp php-cli php-curl
+          python3 -m pip install --quiet Pillow
+          php -l scripts/resolve-gacha-affiliate.php
+          python3 -m py_compile scripts/prepare-gacha-article.py scripts/publish-editorial-article.py
+          python3 -m json.tool blog/gacha/publish-sanrio-danball-watch-4.json >/dev/null
+      - name: Download private Rakuten configuration
+        run: |
+          set -euo pipefail
+          umask 077
+          gacha_tmp=$(mktemp -d "$RUNNER_TEMP/sanrio-gacha-publisher.XXXXXX")
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get config.php -o "$gacha_tmp/config.php"
+          bye
+          LFTP
+          echo "GACHA_PUBLISH_TMP=$gacha_tmp" >> "$GITHUB_ENV"
+      - name: Resolve the owner Rakuten link and prepare the product photo
+        run: |
+          set -euo pipefail
+          for article in blog/gacha/publish-*.json; do
+            php scripts/resolve-gacha-affiliate.php "$GACHA_PUBLISH_TMP/config.php" "$article" "$GACHA_PUBLISH_TMP/affiliate.json"
+            python3 scripts/prepare-gacha-article.py "$article" "$GACHA_PUBLISH_TMP/affiliate.json"
+            python3 scripts/publish-editorial-article.py "$article"
+          done
+      - name: Remove private temporary files
+        if: always()
+        run: |
+          if [[ -n "${GACHA_PUBLISH_TMP:-}" && -d "$GACHA_PUBLISH_TMP" ]]; then
+            rm -rf -- "$GACHA_PUBLISH_TMP"
+          fi
