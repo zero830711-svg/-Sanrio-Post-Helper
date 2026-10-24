@@ -31,6 +31,23 @@ class BilingualProductDiscoveryTests(unittest.TestCase):
         self.assertIn("<nav>updated</nav><!-- end --><div>grid</div>", twice)
         self.assertIn("<p>after</p>", twice)
 
+    def test_section_count_ignores_the_managed_link_section_after_publication(self):
+        for start, end in (
+            (discovery.JA_PAIR_START, discovery.JA_PAIR_END),
+            (discovery.EN_GUIDE_START, discovery.EN_GUIDE_END),
+        ):
+            raw = "<section>product details</section>"
+            linked = discovery.managed_block(
+                raw, start, end, "<section>language link</section>", "</section>"
+            )
+            relinked = discovery.managed_block(
+                linked, start, end, "<section>updated language link</section>", "</section>"
+            )
+            self.assertEqual(raw.count("</section>"), 1)
+            self.assertEqual(linked.count("</section>"), 2)
+            self.assertEqual(discovery.section_count_without_managed_block(linked, start, end), 1)
+            self.assertEqual(discovery.section_count_without_managed_block(relinked, start, end), 1)
+
     def test_product_sampling_round_robins_categories_without_reordering_them(self):
         records = [
             {"code": "a1", "kind": "plush"},

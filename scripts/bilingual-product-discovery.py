@@ -212,6 +212,16 @@ def rest_page(wp, page_id):
     )
 
 
+def section_count_without_managed_block(raw, start, end):
+    if (start in raw) != (end in raw):
+        raise RuntimeError("A bilingual content marker is incomplete.")
+    if start in raw:
+        if raw.count(start) != 1 or raw.count(end) != 1:
+            raise RuntimeError("Bilingual content marker is duplicated.")
+        raw = re.sub(re.escape(start) + r".*?" + re.escape(end), "", raw, count=1, flags=re.S)
+    return raw.count("</section>")
+
+
 def preflight_detail_pair(wp, item, entry):
     ja_page = rest_page(wp, item["pageId"])
     en_page = rest_page(wp, entry["pageId"])
@@ -223,7 +233,9 @@ def preflight_detail_pair(wp, item, entry):
     en_raw = en_page["content"]["raw"]
     if d.MARK not in ja_raw or e.PAGE_MARK not in en_raw:
         raise RuntimeError("Refusing to edit an unmanaged product detail pair: " + item["code"])
-    if ja_raw.count("</section>") != 1 or en_raw.count("</section>") != 1:
+    ja_sections = section_count_without_managed_block(ja_raw, JA_PAIR_START, JA_PAIR_END)
+    en_sections = section_count_without_managed_block(en_raw, EN_GUIDE_START, EN_GUIDE_END)
+    if ja_sections != 1 or en_sections != 1:
         raise RuntimeError("Product detail section boundary changed: " + item["code"])
     if 'href="' + E(item["url"]) + '"' not in en_raw:
         raise RuntimeError("English product page lost its existing Japanese product link: " + item["code"])
@@ -500,7 +512,7 @@ def run(pilot_size=PILOT_SIZE):
             for key in characters
         ],
         "englishCharacterDirectory": directory["link"],
-        "englishCharacterGuides": {key: guide_pages[key]["link"] for key in characters},
+        "englishCharacterGuides": {key: published_guides[key]["link"] for key in characters},
         "japaneseCharacterPagesUpdated": changed_character_pages,
         "japaneseDetailPagesUpdated": changed_japanese_details,
         "englishDetailPagesUpdated": changed_english_details,
