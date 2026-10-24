@@ -3,12 +3,12 @@ on:
   push:
     branches: [main]
     paths:
-    - 'blog/gacha-rakuten-batch.json'
+      - 'blog/gacha-rakuten-batch.json'
 permissions:
-    contents: read
+  contents: read
 concurrency:
-    group: sanrio-rakuten-gacha-batch
-    cancel-in-progress: false
+  group: sanrio-rakuten-gacha-batch
+  cancel-in-progress: false
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -58,6 +58,6 @@ jobs:
       - name: Remove private temporary files
         if: always()
         run: |
-          if [[ -n "${RAKUTEN_GACHA_TMP:-}" && -d "$RAKUTEN_GACHA_TMP" ]]; then
+          if [[ -n "${RAKUTEN_GACHA_TMP:-}" && -d "${RAKUTEN_GACHA_TMP:-}" ]]; then
             rm -rf -- "$RAKUTEN_GACHA_TMP"
           fi
