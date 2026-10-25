@@ -292,7 +292,7 @@ try {
     $catalogRows = 0;
     $catalogMatches = 0;
     $catalogFailures = 0;
-    if ($productNameSearch && count($items) < $targetLimit) {
+    if ($productNameSearch && empty($queryData['disable_catalog_fallback']) && count($items) < $targetLimit) {
         $catalogEndpoint = 'https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/product-flow.php?action=catalog-search';
         $characters = [
             'hellokitty', 'kuromi', 'mymelody', 'cinnamoroll', 'pompompurin', 'pochacco',
@@ -335,3 +335,4 @@ try {
     fwrite(STDERR, "\n");
     exit(1);
 }
+
