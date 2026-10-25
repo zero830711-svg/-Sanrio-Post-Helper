@@ -1,5 +1,5 @@
 {
-  "batch_version": 13,
+  "batch_version": 14,
   "products": [
     {
       "slug": "sanrio-karatomo-mascot",
@@ -182,25 +182,32 @@
       "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"ハローキティ 平成レトロショッパーバッグ風巾着の楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>平成レトロなショッパーバッグをイメージしたハローキティの巾着です。メーカー公式ニュースでは全5種、約H145mmと案内されています。 発売時期・価格・種類数・仕様はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>ハローキティ 平成レトロショッパーバッグ風巾着</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年10月中旬より順次</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr><tr><th>メーカー掲載サイズ</th><td>約H145mm</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><p>メーカー公式ニュースで確認できる全5種を紹介しています。個別の柄名は同ページに掲載されていないため、商品画像やセット内容は販売ページでご確認ください。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202610_6/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
-      "slug": "sanrio-connected-snack-package-pouch",
-      "name": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチ",
-      "release": "2026年10月中旬より順次",
+      "slug": "sanrio-colorful-carabiner-mascot-charm",
+      "name": "サンリオキャラクターズ カラフルカラビナマスコットチャーム",
+      "release": "2026年9月 第3週",
       "price": 400,
-      "types": 6,
-      "manufacturer": "ベネリック",
-      "source": "https://benelic.com/capsuletoy/news/202610_4/",
-      "lineup": [],
-      "intro": "お菓子のパッケージをイメージした、つなげて楽しめるサンリオキャラクターズのポーチです。メーカー公式ニュースでは全6種、約W95×H110mmと案内されています。",
-      "more": "公式ニュースで確認できる商品情報と全6種をまとめました。個別の種類名は同ページに掲載されていないため、セット内容は販売ページでご確認ください。",
-      "title": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチ｜全6種・1回400円",
+      "types": 5,
+      "manufacturer": "バンダイ",
+      "source": "https://www.gashapon.jp/products/detail.php?jan_code=4582769916656000",
+      "lineup": [
+        "ハローキティ",
+        "ポムポムプリン",
+        "ポチャッコ",
+        "シナモロール",
+        "マイメロディ"
+      ],
+      "intro": "大きなカラフルカラビナにフロッキーマスコットが付いた、サンリオキャラクターズのチャームです。メーカー公式ページでは全5種と案内されています。",
+      "more": "メーカー公式ページに掲載された全5種をまとめました。2026年9月に再販された商品で、同年2月発売分と同じ商品です。",
+      "title": "サンリオキャラクターズ カラフルカラビナマスコットチャーム｜全5種・1回400円",
       "status": "publish",
       "category_slug": "gacha",
-      "excerpt": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチの発売時期・価格・全6種の仕様をメーカー公式情報で確認しました。楽天市場APIで取得した商品情報と画像も掲載します。",
-      "image_filename": "sanrio-connected-snack-package-pouch.jpg",
-      "alt_text": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチの楽天市場掲載商品画像",
-      "rakuten_search_query": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチ",
-      "amazon_search_query": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチ",
-      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ つながるお菓子パッケージ風ポーチの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>お菓子のパッケージをイメージした、つなげて楽しめるサンリオキャラクターズのポーチです。メーカー公式ニュースでは全6種、約W95×H110mmと案内されています。 発売時期・価格・種類数・仕様はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ つながるお菓子パッケージ風ポーチ</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年10月中旬より順次</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr><tr><th>メーカー掲載サイズ</th><td>約W95×H110mm</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><p>公式ニュースで確認できる商品情報と全6種をまとめました。個別の種類名は同ページに掲載されていないため、セット内容は販売ページでご確認ください。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202610_4/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
+      "excerpt": "サンリオキャラクターズ カラフルカラビナマスコットチャームの発売時期・価格・全5種の仕様をメーカー公式情報で確認しました。楽天市場APIで取得した商品情報と画像も掲載します。",
+      "image_filename": "sanrio-colorful-carabiner-mascot-charm.jpg",
+      "alt_text": "サンリオキャラクターズ カラフルカラビナマスコットチャームの楽天市場掲載商品画像",
+      "rakuten_search_query": "サンリオ カラフルカラビナマスコットチャーム",
+      "amazon_search_query": "サンリオキャラクターズ カラフルカラビナマスコットチャーム",
+      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ カラフルカラビナマスコットチャームの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>大きなカラフルカラビナにフロッキーマスコットが付いた、サンリオキャラクターズのチャームです。メーカー公式ページでは全5種と案内されています。発売時期・価格・種類数・仕様はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ カラフルカラビナマスコットチャーム</td></tr><tr><th>メーカー</th><td>バンダイ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年9月 第3週</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><ul><li>ハローキティ</li><li>ポムポムプリン</li><li>ポチャッコ</li><li>シナモロール</li><li>マイメロディ</li></ul><p>メーカー公式ページに掲載された全5種をまとめました。2026年9月に再販された商品で、同年2月発売分と同じ商品です。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://www.gashapon.jp/products/detail.php?jan_code=4582769916656000\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}",
+      "size": ""
     },
     {
       "slug": "sanrio-minimini-gamaguchi-pochette-2",
