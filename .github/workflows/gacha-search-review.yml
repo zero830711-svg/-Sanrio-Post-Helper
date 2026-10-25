@@ -1,0 +1,22 @@
+name: Apply reviewed gacha search improvements
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/site-updates/gacha-search-review.json'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-gacha-search-review
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 -m py_compile scripts/apply-gacha-search-review.py
+      - run: python3 scripts/apply-gacha-search-review.py
