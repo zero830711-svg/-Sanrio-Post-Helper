@@ -1,5 +1,5 @@
 {
-  "batch_version": 19,
+  "batch_version": 20,
   "products": [
     {
       "slug": "sanrio-pumpkin-pants-figure",
@@ -30,32 +30,32 @@
       "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ かぼちゃぱんつフィギュアの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>かぼちゃぱんつ姿をまとったサンリオキャラクターズのフィギュアです。 発売時期・価格・種類数・仕様はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ かぼちゃぱんつフィギュア</td></tr><tr><th>メーカー</th><td>バンダイ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2025年11月 第4週</td></tr><tr><th>カプセル販売価格</th><td>1回300円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><ul><li>シナモロール</li><li>ポチャッコ</li><li>あひるのペックル</li><li>ポムポムプリン</li><li>バッドばつ丸</li></ul><p>メーカー公式ページでは全5種と案内され、衣装部分はフロッキー仕様です。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://gashapon.jp/products/detail.php?jan_code=4582769832475000\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
-      "slug": "sanrio-nurse-swing-mascot",
-      "name": "サンリオキャラクターズ ナーススイングマスコット",
-      "release": "2026年6月 第4週",
+      "slug": "sanrio-batankyu-gacha",
+      "name": "サンリオキャラクターズ ばたんきゅ～",
+      "release": "2025年10月 第1週",
       "price": 300,
       "types": 5,
       "manufacturer": "バンダイ",
-      "source": "https://gashapon.jp/products/detail.php?jan_code=4582769832444000",
+      "source": "https://gashapon.jp/products/detail.php?jan_code=4582769841927000",
       "lineup": [
+        "ハンギョドン",
+        "ポムポムプリン",
+        "シナモロール",
         "ハローキティ",
-        "マイスウィートピアノ",
-        "クロミ",
-        "マイメロディ",
-        "シナモロール"
+        "クロミ"
       ],
       "size": "",
-      "intro": "ナース姿のサンリオキャラクターズがハートを抱えるスイングマスコットです。",
-      "more": "メーカー公式ページでは全5種と案内され、パール塗装が施されています。",
-      "title": "サンリオキャラクターズ ナーススイングマスコット｜全5種・1回300円",
+      "intro": "普段とは違うコミカルな表情のサンリオキャラクターズが、ガシャポンのフィギュアになった商品です。",
+      "more": "メーカー公式情報では全5種、1回300円（税込）と案内されています。",
+      "title": "サンリオキャラクターズ ばたんきゅ～｜全5種・1回300円",
       "status": "publish",
       "category_slug": "gacha",
-      "excerpt": "サンリオキャラクターズ ナーススイングマスコットの発売時期・価格・全5種の仕様をメーカー公式情報で確認しました。楽天市場APIで取得した商品情報と画像も掲載します。",
-      "image_filename": "sanrio-nurse-swing-mascot.jpg",
-      "alt_text": "サンリオキャラクターズ ナーススイングマスコットの楽天市場掲載商品画像",
-      "rakuten_search_query": "サンリオキャラクターズ ナーススイングマスコット",
-      "amazon_search_query": "サンリオキャラクターズ ナーススイングマスコット",
-      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ ナーススイングマスコットの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>ナース姿のサンリオキャラクターズがハートを抱えるスイングマスコットです。 発売時期・価格・種類数・仕様はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ ナーススイングマスコット</td></tr><tr><th>メーカー</th><td>バンダイ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年6月 第4週</td></tr><tr><th>カプセル販売価格</th><td>1回300円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><ul><li>ハローキティ</li><li>マイスウィートピアノ</li><li>クロミ</li><li>マイメロディ</li><li>シナモロール</li></ul><p>メーカー公式ページでは全5種と案内され、パール塗装が施されています。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://gashapon.jp/products/detail.php?jan_code=4582769832444000\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
+      "excerpt": "サンリオキャラクターズ ばたんきゅ～の発売時期・価格・全5種の仕様をメーカー公式情報で確認しました。楽天市場APIで取得した商品情報と画像も掲載します。",
+      "image_filename": "sanrio-batankyu-gacha.jpg",
+      "alt_text": "サンリオキャラクターズ ばたんきゅ～の楽天市場掲載商品画像",
+      "rakuten_search_query": "サンリオキャラクターズ ばたんきゅ～",
+      "amazon_search_query": "サンリオキャラクターズ ばたんきゅ～",
+      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ ばたんきゅ～の楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>普段とは違うコミカルな表情のサンリオキャラクターズが、ガシャポンのフィギュアになった商品です。発売時期・価格・種類数はメーカー公式情報をもとにまとめています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ ばたんきゅ～</td></tr><tr><th>メーカー</th><td>バンダイ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2025年10月 第1週</td></tr><tr><th>カプセル販売価格</th><td>1回300円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><ul><li>ハンギョドン</li><li>ポムポムプリン</li><li>シナモロール</li><li>ハローキティ</li><li>クロミ</li></ul><p>表情やポーズの違いを見比べながら、お気に入りのキャラクターを探せます。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://gashapon.jp/products/detail.php?jan_code=4582769841927000\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
       "slug": "sanrio-shakashaka-tetra-charm",
