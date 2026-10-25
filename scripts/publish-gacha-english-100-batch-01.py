@@ -141,14 +141,28 @@ def possible_title_duplicates(wp, title):
             if re.sub(r"[\W_]+", "", plain(field(post, "title")), flags=re.UNICODE).casefold() == wanted]
 
 def public_check(url, title):
-    req = request.Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with request.urlopen(req, timeout=35) as response:
-            body = response.read(2_000_000).decode("utf-8", "replace")
-            if response.status != 200 or plain(title) not in plain(body):
-                raise RuntimeError("A public article page did not pass its HTTP/title check: " + url)
-    except error.HTTPError as exc:
-        raise RuntimeError("A public article page returned HTTP %s: %s" % (exc.code, url)) from None
+    last_status = "no response"
+    for attempt in range(6):
+        separator = "&" if "?" in url else "?"
+        check_url = url + separator + "_wp_verify=" + str(time.time_ns())
+        req = request.Request(check_url, headers={
+            "User-Agent": USER_AGENT,
+            "Cache-Control": "no-cache, no-store, max-age=0",
+            "Pragma": "no-cache",
+        })
+        try:
+            with request.urlopen(req, timeout=35) as response:
+                body = response.read(2_000_000).decode("utf-8", "replace")
+                if response.status == 200 and plain(title) in plain(body):
+                    return
+                last_status = "HTTP %s without the expected title" % response.status
+        except error.HTTPError as exc:
+            last_status = "HTTP %s" % exc.code
+        except (TimeoutError, error.URLError, OSError) as exc:
+            last_status = type(exc).__name__
+        if attempt < 5:
+            time.sleep(2)
+    raise RuntimeError("A public article page did not pass after retries (%s): %s" % (last_status, url))
 
 def preflight(data, wp):
     category_id = resolve_category(wp, data["category_slug"], data)
