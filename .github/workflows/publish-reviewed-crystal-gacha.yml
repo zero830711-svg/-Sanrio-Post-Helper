@@ -44,12 +44,12 @@ jobs:
           set ftp:ssl-protect-data true
           set ssl:verify-certificate yes
           cd "$LOLIPOP_TREND_DIR"
-          get config.php -o "$gacha_tmp/config.php"
+          get .rakuten-settings.php -o "$gacha_tmp/rakuten-settings.php"
           bye
           LFTP
           echo "RAKUTEN_GACHA_TMP=$gacha_tmp" >> "$GITHUB_ENV"
       - name: Fetch Sanrio capsule-toy products from the Rakuten API
-        run: php scripts/fetch-rakuten-gacha-candidates.php "$RAKUTEN_GACHA_TMP/config.php" blog/reviewed-gacha/crystal-search.json "$RAKUTEN_GACHA_TMP/candidates.json"
+        run: php scripts/fetch-reviewed-crystal-item.php "$RAKUTEN_GACHA_TMP/rakuten-settings.php" "$RAKUTEN_GACHA_TMP/candidates.json"
       - name: Publish the single reviewed product through WordPress REST
         run: python3 scripts/publish-reviewed-crystal-gacha.py blog/reviewed-gacha/crystal-mejirushi.json "$RAKUTEN_GACHA_TMP/candidates.json"
       - name: Refresh homepage gacha shelf above books in three columns
