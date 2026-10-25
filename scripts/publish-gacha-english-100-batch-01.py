@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 from pathlib import Path
 from urllib import error, parse, request
 
@@ -61,6 +62,13 @@ class WordPress:
 
 def plain(value):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", str(value or "")))).strip()
+
+def public_plain(value):
+    value = unicodedata.normalize("NFKC", plain(value))
+    return value.translate(str.maketrans({
+        "…": "...", "‘": "'", "’": "'", "“": '"', "”": '"',
+        "–": "-", "—": "-",
+    }))
 
 def field(post, key):
     value = post.get(key, "")
@@ -153,7 +161,7 @@ def public_check(url, title):
         try:
             with request.urlopen(req, timeout=35) as response:
                 body = response.read(2_000_000).decode("utf-8", "replace")
-                if response.status == 200 and plain(title) in plain(body):
+                if response.status == 200 and public_plain(title) in public_plain(body):
                     return
                 last_status = "HTTP %s without the expected title" % response.status
         except error.HTTPError as exc:
