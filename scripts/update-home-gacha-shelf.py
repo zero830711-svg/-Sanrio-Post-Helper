@@ -12,6 +12,7 @@ SITE = "https://sanrio-fan.site"
 PAGE_ID = 805
 PAGE_SLUG = "shopping-home"
 CATEGORY_SLUG = "gacha"
+MAX_CARDS = 9
 START = "<!-- sf-home-gacha-shelf:start -->"
 END = "<!-- sf-home-gacha-shelf:end -->"
 BOOKS_START = "<!-- sf-books-shelf:start -->"
@@ -107,14 +108,14 @@ def load_gacha_posts(wp):
         "categories": categories[0]["id"],
         "status": "publish",
         "context": "edit",
-        "per_page": 30,
+        "per_page": MAX_CARDS,
         "orderby": "date",
         "order": "desc",
         "_fields": "id,link,title,content,featured_media",
     })
     posts = wp.call("/wp/v2/posts?" + query)
     items = []
-    for post in posts:
+    for post in posts[:MAX_CARDS]:
         title = plain_text(post.get("title", {}).get("rendered", ""))
         link = str(post.get("link", ""))
         parts = parse.urlsplit(link)
