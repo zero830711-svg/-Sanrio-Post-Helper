@@ -1,5 +1,5 @@
 {
-  "batch_version": 25,
+  "batch_version": 26,
   "products": [
     {
       "slug": "sanrio-hugcot-pearl-ver",
@@ -483,33 +483,32 @@
       "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"ハローキティ ミニチュアおめんコレクションの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>ハローキティのおめんをミニチュアサイズで楽しめるカプセルトイです。キーチェーンとゴムが付属し、鍵やバッグ、ぬいぐるみなどに付けられます。 発売時期や仕様など、メーカーが公表している内容を中心に紹介します。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>ハローキティ ミニチュアおめんコレクション</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2024年7月中旬</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr><tr><th>サイズ</th><td>約W45×H35×D10mm</td></tr></tbody></table>\n<p>メーカー公式情報では全6種、1回400円（税込）、サイズ約W45×H35×D10mmと案内されています。</p>\\n<h2>ラインナップ</h2><ul><li>ハイビスカス ハローキティ</li><li>お祭り ハローキティ</li><li>カオハナ ハローキティ</li><li>50thアニバーサリー ハローキティ</li><li>チェリー ハローキティ</li><li>タイニーチャム ハローキティ</li></ul>\n<p>カプセルトイは中身を選べません。販売時期や取扱店は地域・店舗により異なり、発売終了や在庫切れの場合もあります。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されています。全種セットなど、カプセル販売とは内容や価格が異なる場合があります。購入前に種類、セット内容、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202407_1/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。価格や掲載状況は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
-      "slug": "sanrio-otedama-mejirushi-accessory",
-      "name": "さんりおきゃらくたぁず お手玉めじるしアクセサリー",
-      "release": "2025年8月 第2週",
+      "slug": "sanrio-snowman-fluffy-mejirushi-accessory",
+      "name": "サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリー",
+      "release": "2026年11月未定",
       "price": 300,
-      "types": 6,
+      "types": 5,
       "manufacturer": "バンダイ",
-      "source": "https://gashapon.jp/products/detail.php?jan_code=4582769822254000",
+      "source": "https://gashapon.jp/products/detail.php?jan_code=4582770068351000",
       "lineup": [
-        "ポチャッコ",
-        "シナモロール",
         "ハローキティ",
-        "コロコロクリリン",
-        "ポムポムプリン",
-        "けろけろけろっぴ"
+        "シナモロール",
+        "マイメロディ",
+        "クロミ",
+        "ポチャッコ"
       ],
       "size": "",
-      "intro": "お手玉を思わせる形と和柄を取り入れた、サンリオキャラクターズのめじるしアクセサリーです。",
-      "more": "メーカー公式ページでは全6種、1回300円（税込）、対象年齢15才以上と案内されています。",
-      "title": "さんりおきゃらくたぁず お手玉めじるしアクセサリー｜全6種・1回300円",
-      "excerpt": "バンダイ公式情報で、さんりおきゃらくたぁず お手玉めじるしアクセサリーの発売時期・価格・種類数を確認。楽天APIの商品情報と画像も紹介します。",
-      "image_filename": "sanrio-otedama-mejirushi-accessory.jpg",
-      "alt_text": "さんりおきゃらくたぁず お手玉めじるしアクセサリーの楽天市場掲載商品画像",
-      "rakuten_search_query": "お手玉めじるしアクセサリー",
-      "amazon_search_query": "さんりおきゃらくたぁず お手玉めじるしアクセサリー",
+      "intro": "雪だるま姿のサンリオキャラクターズを集めた、冬らしいめじるしアクセサリーです。",
+      "more": "メーカー公式情報では発売時期は2026年11月未定、価格は1回300円（税込）、種類数は全5種と案内されています。フロッキー加工が使われています。",
+      "title": "サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリー｜全5種・1回300円",
       "status": "publish",
       "category_slug": "gacha",
-      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"さんりおきゃらくたぁず お手玉めじるしアクセサリーの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>お手玉を思わせる形と和柄を取り入れた、サンリオキャラクターズのめじるしアクセサリーです。 発売時期や仕様など、メーカーが公表している内容を中心に紹介します。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>さんりおきゃらくたぁず お手玉めじるしアクセサリー</td></tr><tr><th>メーカー</th><td>バンダイ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2025年8月 第2週</td></tr><tr><th>カプセル販売価格</th><td>1回300円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr></tbody></table>\n<p>メーカー公式ページでは全6種、1回300円（税込）、対象年齢15才以上と案内されています。</p>\\n<h2>ラインナップ</h2><ul><li>ポチャッコ</li><li>シナモロール</li><li>ハローキティ</li><li>コロコロクリリン</li><li>ポムポムプリン</li><li>けろけろけろっぴ</li></ul>\n<p>カプセルトイは中身を選べません。販売時期や取扱店は地域・店舗により異なり、発売終了や在庫切れの場合もあります。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されています。全種セットなど、カプセル販売とは内容や価格が異なる場合があります。購入前に種類、セット内容、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p><small>メーカー情報の出典：<a href=\"https://gashapon.jp/products/detail.php?jan_code=4582769822254000\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。価格や掲載状況は変更されることがあります。</small></p>{{rakuten_attribution}}"
+      "excerpt": "バンダイ公式情報で、サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリーの発売時期・価格・ラインナップを確認。楽天APIの商品情報と画像も紹介します。",
+      "image_filename": "sanrio-snowman-fluffy-mejirushi-accessory.jpg",
+      "alt_text": "サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリーの楽天市場掲載商品画像",
+      "rakuten_search_query": "雪だるまふわふわめじるし",
+      "amazon_search_query": "サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリー",
+      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリーの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>雪だるま姿のサンリオキャラクターズを集めた、冬らしいめじるしアクセサリーです。 メーカーが公表している商品情報を中心にまとめます。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリー</td></tr><tr><th>メーカー</th><td>バンダイ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年11月未定</td></tr><tr><th>カプセル販売価格</th><td>1回300円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr></tbody></table>\n<p>メーカー公式情報では発売時期は2026年11月未定、価格は1回300円（税込）、種類数は全5種と案内されています。フロッキー加工が使われています。</p><h2>ラインナップ</h2><ul><li>ハローキティ</li><li>シナモロール</li><li>マイメロディ</li><li>クロミ</li><li>ポチャッコ</li></ul>\n<p>店頭での発売時期は地域や店舗によって異なる場合があります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されています。セット内容、価格、送料、在庫、発送時期は販売ページでご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>カプセル販売の価格と通販のセット販売価格は異なる場合があります。販売条件は購入前にリンク先でご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://gashapon.jp/products/detail.php?jan_code=4582770068351000\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期や販売状況は変更されることがあります。</small></p>{{rakuten_attribution}}"
     }
   ]
 }
