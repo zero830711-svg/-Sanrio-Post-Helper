@@ -22,7 +22,8 @@ for article in data["products"]:
  article["content"]=article["content"]
  replacements={"{{rakuten_affiliate_url}}":item["affiliate"],"{{amazon_affiliate_url}}":batch.amazon_url(article["amazon_search_query"]),"{{rakuten_title}}":item["title"],"{{rakuten_attribution}}":batch.RAKUTEN_ATTRIBUTION}
  for token,value in replacements.items():
-  if article["content"].count(token)!=1: raise RuntimeError("Article affiliate or attribution placeholder is invalid.")
+  expected=2 if token=="{{rakuten_affiliate_url}}" else 1
+  if article["content"].count(token)!=expected: raise RuntimeError("Article affiliate or attribution placeholder is invalid.")
   article["content"]=article["content"].replace(token,value if token=="{{rakuten_attribution}}" else html.escape(value,quote=True))
  if "ガチャガチャアイランド" in article["content"]: raise RuntimeError("Unexpected reference-site name in article.")
  article["image_base64"]=batch.download_jpeg(item["image"])
