@@ -1,5 +1,5 @@
 {
-  "batch_version": 27,
+  "batch_version": 28,
   "products": [
     {
       "slug": "sanrio-hugcot-pearl-ver",
@@ -117,26 +117,33 @@
       "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ ぷにぷにし隊の楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>やわらかな触感を楽しめる、サンリオキャラクターズのフィギュアシリーズです。 発売時期・価格・種類数・仕様はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ ぷにぷにし隊</td></tr><tr><th>メーカー</th><td>バンダイ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2025年3月 第5週</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全3種</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><ul><li>シナモロール</li><li>ポムポムプリン</li><li>タキシードサム</li></ul><p>メーカー公式ページでは全3種と案内されています。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://gashapon.jp/products/detail.php?jan_code=4582769769191000\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
-      "slug": "sanrio-mini-kids-sandal",
-      "name": "サンリオキャラクターズ ミニキッズサンダル",
-      "release": "2026年4月中旬",
-      "price": 400,
-      "types": 5,
-      "manufacturer": "ベネリック",
-      "source": "https://benelic.com/capsuletoy/news/202604_1/",
-      "lineup": [],
-      "size": "約45mm",
-      "intro": "サンリオキャラクターズのキッズサンダルをミニチュアにしたカプセルトイです。",
-      "more": "メーカー公式情報では全5種、1回400円（税込）、サイズ約45mmと案内されています。",
-      "title": "サンリオキャラクターズ ミニキッズサンダル｜全5種・1回400円",
+      "slug": "hapidanbui-mesh-kinchaku-collection",
+      "name": "はぴだんぶい メッシュ巾着コレクション",
+      "release": "2026年10月中旬から順次",
+      "price": 500,
+      "types": 6,
+      "manufacturer": "アイピーフォー",
+      "source": "https://www.ip4.co.jp/cupsuletoy/2026-10-hapidan-kintyaku/",
+      "lineup": [
+        "あひるのペックル",
+        "けろけろけろっぴ",
+        "タキシードサム",
+        "バッドばつ丸",
+        "ハンギョドン",
+        "ポチャッコ"
+      ],
+      "size": "",
+      "intro": "はぴだんぶいのメンバーをデザインしたメッシュ素材の巾着カプセルトイです。",
+      "more": "メーカー公式情報では全6種、1回500円（税込）、発売は2026年10月中旬から順次と案内されています。",
+      "title": "はぴだんぶい メッシュ巾着コレクション｜全6種・1回500円",
       "status": "publish",
       "category_slug": "gacha",
-      "excerpt": "サンリオキャラクターズ ミニキッズサンダルのメーカー掲載の発売時期・価格・種類数を確認しました。楽天市場APIで取得した商品情報と画像も掲載します。",
-      "image_filename": "sanrio-mini-kids-sandal.jpg",
-      "alt_text": "サンリオキャラクターズ ミニキッズサンダルの楽天市場掲載商品画像",
-      "rakuten_search_query": "サンリオキャラクターズ ミニキッズサンダル",
-      "amazon_search_query": "サンリオキャラクターズ ミニキッズサンダル",
-      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ ミニキッズサンダルの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>サンリオキャラクターズのキッズサンダルをミニチュアにしたカプセルトイです。発売時期・価格・種類数・仕様はメーカー公式情報をもとにまとめています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ ミニキッズサンダル</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年4月中旬</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr><tr><th>サイズ</th><td>約45mm</td></tr></tbody></table>\n<p>メーカー公式情報では全5種、1回400円（税込）、サイズ約45mmと案内されています。</p>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202604_1/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
+      "excerpt": "アイピーフォー公式情報をもとに、はぴだんぶい メッシュ巾着コレクションの発売時期・価格・全6種を紹介します。楽天市場APIの商品情報と画像も掲載します。",
+      "image_filename": "hapidanbui-mesh-kinchaku-collection.jpg",
+      "alt_text": "はぴだんぶい メッシュ巾着コレクションの楽天市場掲載商品画像",
+      "rakuten_search_query": "はぴだんぶい メッシュ巾着コレクション",
+      "amazon_search_query": "はぴだんぶい メッシュ巾着コレクション",
+      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"はぴだんぶい メッシュ巾着コレクションの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>はぴだんぶいのメンバーをデザインした、メッシュ素材の巾着カプセルトイです。発売時期、価格、ラインナップをメーカー公式情報で確認しました。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>はぴだんぶい メッシュ巾着コレクション</td></tr><tr><th>メーカー</th><td>アイピーフォー</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年10月中旬から順次</td></tr><tr><th>カプセル販売価格</th><td>1回500円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><ul><li>あひるのペックル</li><li>けろけろけろっぴ</li><li>タキシードサム</li><li>バッドばつ丸</li><li>ハンギョドン</li><li>ポチャッコ</li></ul><p>商品名、価格、種類数、キャラクターはメーカー公式発表に基づいています。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。セット内容や単品販売など、販売形態は店舗によって異なる場合があります。商品名、収録種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>カプセル販売の価格と通販のセット販売価格は異なる場合があります。販売条件はリンク先でご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://www.ip4.co.jp/cupsuletoy/2026-10-hapidan-kintyaku/\" target=\"_blank\" rel=\"noopener\">IP4公式商品ページ</a>、<a href=\"https://prtimes.jp/main/html/rd/p/000000489.000134693.html\" target=\"_blank\" rel=\"noopener\">アイピーフォー株式会社の発売発表</a>。商品画像・通販商品名：楽天API。発売時期や販売状況は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
       "slug": "sanrio-candy-pop-keyholder",
