@@ -1,5 +1,5 @@
 {
-  "batch_version": 15,
+  "batch_version": 16,
   "products": [
     {
       "slug": "sanrio-minimini-rug-mat-keyholder",
@@ -398,26 +398,26 @@
       "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ ミニキャリーケースチャーム2の楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>キャリーケースをミニチュア化した、サンリオキャラクターズのチャーム第2弾です。 発売時期・価格・種類数・仕様はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ ミニキャリーケースチャーム2</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年4月中旬より順次</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr><tr><th>メーカー掲載サイズ</th><td>約W38×H50×D28mm</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><p>メーカー公式ニュースでは全5種、約W38×H50×D28mmと案内されています。個別の柄名は同ページに掲載されていないため、セット内容は販売ページでご確認ください。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202604_2/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
-      "slug": "sanrio-name-applique-acrylic-charm-part1",
-      "name": "サンリオキャラクターズ おなまえアップリケ風アクリルチャーム",
+      "slug": "sanrio-medal-style-metal-charm",
+      "name": "サンリオキャラクターズ メダル風メタルチャーム",
       "release": "2026年5月中旬より順次",
-      "price": 300,
+      "price": 400,
       "types": 10,
       "manufacturer": "ベネリック",
-      "source": "https://benelic.com/capsuletoy/news/202605_5/",
+      "source": "https://benelic.com/capsuletoy/news/202605_3/",
       "lineup": [],
-      "size": "約W60×H20mm",
-      "intro": "アップリケ風の名前モチーフを使った、サンリオキャラクターズのアクリルチャームです。",
-      "more": "メーカー公式ニュースでは全10種、約W60×H20mmと案内されています。個別の文字や柄は同ページに掲載されていないため、セット内容は販売ページでご確認ください。",
-      "title": "サンリオキャラクターズ おなまえアップリケ風アクリルチャーム｜全10種・1回300円",
+      "size": "約W30×H35mm",
+      "intro": "メダルをイメージした、サンリオキャラクターズのメタルチャームです。",
+      "more": "メーカー公式ニュースでは全10種、約W30×H35mmと案内されています。個別のキャラクター名は同ページに掲載されていないため、セット内容は販売ページでご確認ください。",
+      "title": "サンリオキャラクターズ メダル風メタルチャーム｜全10種・1回400円",
       "status": "publish",
       "category_slug": "gacha",
-      "excerpt": "サンリオキャラクターズ おなまえアップリケ風アクリルチャームの発売時期・価格・全10種の仕様をメーカー公式情報で確認しました。楽天市場APIで取得した商品情報と画像も掲載します。",
-      "image_filename": "sanrio-name-applique-acrylic-charm-part1.jpg",
-      "alt_text": "サンリオキャラクターズ おなまえアップリケ風アクリルチャームの楽天市場掲載商品画像",
-      "rakuten_search_query": "サンリオキャラクターズ おなまえアップリケ風アクリルチャーム",
-      "amazon_search_query": "サンリオキャラクターズ おなまえアップリケ風アクリルチャーム",
-      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ おなまえアップリケ風アクリルチャームの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>アップリケ風の名前モチーフを使った、サンリオキャラクターズのアクリルチャームです。 発売時期・価格・種類数・仕様はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ おなまえアップリケ風アクリルチャーム</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年5月中旬より順次</td></tr><tr><th>カプセル販売価格</th><td>1回300円（税込）</td></tr><tr><th>種類数</th><td>全10種</td></tr><tr><th>メーカー掲載サイズ</th><td>約W60×H20mm</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><p>メーカー公式ニュースでは全10種、約W60×H20mmと案内されています。個別の文字や柄は同ページに掲載されていないため、セット内容は販売ページでご確認ください。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202605_5/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
+      "excerpt": "サンリオキャラクターズ メダル風メタルチャームの発売時期・価格・全10種の仕様をメーカー公式情報で確認しました。楽天市場APIで取得した商品情報と画像も掲載します。",
+      "image_filename": "sanrio-medal-style-metal-charm.jpg",
+      "alt_text": "サンリオキャラクターズ メダル風メタルチャームの楽天市場掲載商品画像",
+      "rakuten_search_query": "サンリオキャラクターズ メダル風メタルチャーム",
+      "amazon_search_query": "サンリオキャラクターズ メダル風メタルチャーム",
+      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ メダル風メタルチャームの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>メダルをイメージした、サンリオキャラクターズのメタルチャームです。 発売時期・価格・種類数・仕様はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ メダル風メタルチャーム</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年5月中旬より順次</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全10種</td></tr><tr><th>メーカー掲載サイズ</th><td>約W30×H35mm</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><p>メーカー公式ニュースでは全10種、約W30×H35mmと案内されています。個別のキャラクター名は同ページに掲載されていないため、セット内容は販売ページでご確認ください。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202605_3/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
       "slug": "sanrio-colorful-candy-charm",
