@@ -16,7 +16,7 @@ editorial = module("editorial", "publish-editorial-article.py")
 article = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 rows = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))["candidates"]
 matches = [row for row in rows if batch.eligible(row)
-           and "クリスタルめじるしアクセサリー" in batch.normalized_product_name(row["title"])
+           and batch.normalized_product_name("クリスタルめじるしアクセサリー") in batch.normalized_product_name(row["title"])
            and "サンリオ" in row["title"]
            and not any(word in row["title"] for word in ("くじ", "アクセサリー2", "アクセササリー"))]
 if not matches:
