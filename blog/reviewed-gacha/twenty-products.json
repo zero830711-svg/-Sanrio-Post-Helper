@@ -1,5 +1,5 @@
 {
-  "batch_version": 10,
+  "batch_version": 11,
   "products": [
     {
       "slug": "sanrio-cheeristails-mascot",
@@ -214,25 +214,32 @@
       "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"マイメロディ＆クロミ DOLLY MIX みずいろ天使の楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>マイメロディとクロミのフィギュアを「みずいろ天使」テーマでまとめたカプセルトイです。公式説明ではハート部分につやのある仕上げ、天使の輪にはクリア素材を使用し、本体サイズは約3.6～4.5cmです。 発売時期・価格・ラインナップはメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>マイメロディ＆クロミ DOLLY MIX みずいろ天使</td></tr><tr><th>メーカー</th><td>タカラトミーアーツ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年9月</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全4種</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><ul><li>マイメロディ（メイド）</li><li>クロミ（メイド）</li><li>マイメロディ（天使）</li><li>クロミ（天使）</li></ul>\n<p>メイド姿と天使姿の全4種が公式ページに掲載されています。通販では販売形態やセット内容をご確認ください。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://www.takaratomy-arts.co.jp/items/item.html?n=Y905766\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
-      "slug": "sanrio-medicine-bag-case",
-      "name": "サンリオキャラクターズ おくすりぶくろケース",
-      "release": "2026年10月中旬より順次",
-      "price": 400,
-      "types": 5,
-      "manufacturer": "ベネリック",
-      "source": "https://benelic.com/capsuletoy/news/202610_3/",
-      "lineup": [],
-      "intro": "おくすり袋をモチーフにしたサンリオキャラクターズのケースです。メーカー公式ページではカプセルトイ自販機向けの商品として掲載されています。",
-      "more": "公式ニュースで確認できる種類数は全5種です。個別の種類名は同ページに記載がないため、商品構成は販売ページでご確認ください。",
-      "title": "サンリオキャラクターズ おくすりぶくろケース｜全5種・1回400円",
+      "slug": "sanrio-fuwawa-flocky-mascot-2-handsome-blue",
+      "name": "サンリオキャラクターズ ふわわフロッキーマスコット2 ～ハンサムブルー～",
+      "release": "2026年8月（8月31日週発売）",
+      "price": 300,
+      "types": 6,
+      "manufacturer": "タカラトミーアーツ",
+      "source": "https://www.takaratomy-arts.co.jp/items/item.html?n=Y909498",
+      "lineup": [
+        "ポチャッコ",
+        "けろけろけろっぴ",
+        "バッドばつ丸",
+        "ハンギョドン",
+        "タキシードサム",
+        "あひるのペックル"
+      ],
+      "intro": "青をテーマに男の子メンバーをそろえた、ふわふわ手触りのフロッキー仕様マスコット第2弾です。ブルーカラーのボールチェーン付きで、本体サイズは約4cmと案内されています。",
+      "more": "メーカー公式ページに掲載された全6種を紹介しています。カプセルトイは中身を選べないため、通販でセットを購入する場合は商品名や内容をご確認ください。",
+      "title": "サンリオキャラクターズ ふわわフロッキーマスコット2 ～ハンサムブルー～｜全6種・1回300円",
       "status": "publish",
       "category_slug": "gacha",
-      "excerpt": "サンリオキャラクターズ おくすりぶくろケースのメーカー掲載の発売時期・価格・全5種ラインナップをまとめました。楽天市場APIで取得した掲載商品情報と商品画像も確認できます。",
-      "image_filename": "sanrio-medicine-bag-case.jpg",
-      "alt_text": "サンリオキャラクターズ おくすりぶくろケースの楽天市場掲載商品画像",
-      "rakuten_search_query": "サンリオキャラクターズ おくすりぶくろケース",
-      "amazon_search_query": "サンリオキャラクターズ おくすりぶくろケース",
-      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ おくすりぶくろケースの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>おくすり袋をモチーフにしたサンリオキャラクターズのケースです。メーカー公式ページではカプセルトイ自販機向けの商品として掲載されています。 発売時期・価格・種類数はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ おくすりぶくろケース</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年10月中旬より順次</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr><tr><th>メーカー掲載サイズ</th><td>約W55×H85mm</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><p>メーカー公式ページで確認できる種類数は全5種です。個別の種類名は公式掲載情報にないため、販売ページで商品画像やセット内容をご確認ください。</p>\n<p>公式ニュースで確認できる種類数は全5種です。個別の種類名は同ページに記載がないため、商品構成は販売ページでご確認ください。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202610_3/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
+      "excerpt": "サンリオキャラクターズ ふわわフロッキーマスコット2 ～ハンサムブルー～の発売時期・価格・全6種ラインナップをメーカー公式情報で確認しました。楽天市場APIの商品情報と画像も掲載します。",
+      "image_filename": "sanrio-fuwawa-flocky-mascot-2-handsome-blue.jpg",
+      "alt_text": "ふわわフロッキーマスコット2 ハンサムブルーの楽天市場掲載商品画像",
+      "rakuten_search_query": "サンリオキャラクターズ ふわわフロッキーマスコット2 ハンサムブルー",
+      "amazon_search_query": "サンリオキャラクターズ ふわわフロッキーマスコット2 ハンサムブルー",
+      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"ふわわフロッキーマスコット2 ハンサムブルーの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>青をテーマに男の子メンバーをそろえた、ふわふわ手触りのフロッキー仕様マスコット第2弾です。ブルーカラーのボールチェーン付きで、本体サイズは約4cmと案内されています。発売時期・価格・ラインナップはメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ ふわわフロッキーマスコット2 ～ハンサムブルー～</td></tr><tr><th>メーカー</th><td>タカラトミーアーツ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年8月（8月31日週発売）</td></tr><tr><th>カプセル販売価格</th><td>1回300円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr><tr><th>本体サイズ</th><td>約4cm</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><ul><li>ポチャッコ</li><li>けろけろけろっぴ</li><li>バッドばつ丸</li><li>ハンギョドン</li><li>タキシードサム</li><li>あひるのペックル</li></ul>\n<p>メーカー公式ページに掲載された全6種を紹介しています。カプセルトイは中身を選べないため、通販でセットを購入する場合は商品名や内容をご確認ください。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://www.takaratomy-arts.co.jp/items/item.html?n=Y909498\" target=\"_blank\" rel=\"noopener\">タカラトミーアーツ公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
       "slug": "sanrio-zokin-race-figure",
