@@ -1,0 +1,28 @@
+name: Publish 100 more Sanrio gacha articles - batch 4
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/reviewed-gacha/100-products-2026-10-batch-04.json'
+      - '.github/workflows/publish-gacha-100-batch-04.yml'
+      - 'scripts/publish-gacha-100-articles-batch04.py'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-reviewed-gacha-hundred
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Review the exact 100 posts before publishing
+        run: python3 scripts/publish-gacha-100-articles-batch04.py blog/reviewed-gacha/100-products-2026-10-batch-04.json --preflight-only
+      - name: Publish the reviewed posts and verify public pages
+        run: python3 scripts/publish-gacha-100-articles-batch04.py blog/reviewed-gacha/100-products-2026-10-batch-04.json --publish
+      - name: Refresh the homepage gacha shelf
+        run: python3 scripts/update-home-gacha-shelf.py
