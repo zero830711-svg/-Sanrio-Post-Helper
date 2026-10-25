@@ -1,0 +1,22 @@
+name: Update selected Sanrio site content
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/site-updates/publish-2026-10-25.json'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-site-improvements
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Update the reviewed posts and gacha archive through WordPress REST
+        run: python3 -u scripts/update-site-improvements.py blog/site-updates/publish-2026-10-25.json
