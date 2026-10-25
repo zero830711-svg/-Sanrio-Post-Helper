@@ -28,14 +28,22 @@ for article in data["products"]:
  if "ガチャガチャアイランド" in article["content"]: raise RuntimeError("Unexpected reference-site name in article.")
  article["image_base64"]=batch.download_jpeg(item["image"])
  prepared.append((article,item))
-print("Prepared five Rakuten API product matches and image files.",flush=True)
+print(f"Prepared {len(prepared)} Rakuten API product matches and image files.",flush=True)
 wp=editorial.WordPress()
 for article,item in prepared:
  q=batch.parse.urlencode({"slug":article["slug"],"context":"edit","_fields":"id,slug,status,link"})
  if wp.call("/wp/v2/posts?"+q): raise RuntimeError("An article slug already exists; publishing stopped before writes.")
- search=batch.parse.urlencode({"search":article["name"],"context":"edit","per_page":20,"_fields":"id,slug,title,status,link"})
+ search=batch.parse.urlencode({"search":article["name"],"context":"edit","per_page":20,"_fields":"id,slug,title,status,link,content"})
  existing=wp.call("/wp/v2/posts?"+search)
- if existing: raise RuntimeError("A possible product duplicate exists; publishing stopped before writes.")
+ possible_duplicates=[]
+ for post in existing:
+  title_data=post.get("title",{})
+  title=title_data.get("rendered",title_data.get("raw","")) if isinstance(title_data,dict) else title_data
+  content_data=post.get("content",{})
+  content=content_data.get("rendered",content_data.get("raw","")) if isinstance(content_data,dict) else content_data
+  if batch.product_name_matches(article["name"],batch.plain_text(str(title)+" "+str(content))):
+   possible_duplicates.append(post)
+ if possible_duplicates: raise RuntimeError("A possible duplicate of the same product exists; publishing stopped before writes.")
 for article,item in prepared:
  print("Publishing:",article["name"],"from",item["url"],flush=True)
  editorial.publish(article,wp)
