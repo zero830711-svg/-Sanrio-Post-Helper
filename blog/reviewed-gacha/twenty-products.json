@@ -1,5 +1,5 @@
 {
-  "batch_version": 26,
+  "batch_version": 27,
   "products": [
     {
       "slug": "sanrio-hugcot-pearl-ver",
@@ -483,32 +483,33 @@
       "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"ハローキティ ミニチュアおめんコレクションの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>ハローキティのおめんをミニチュアサイズで楽しめるカプセルトイです。キーチェーンとゴムが付属し、鍵やバッグ、ぬいぐるみなどに付けられます。 発売時期や仕様など、メーカーが公表している内容を中心に紹介します。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>ハローキティ ミニチュアおめんコレクション</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2024年7月中旬</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr><tr><th>サイズ</th><td>約W45×H35×D10mm</td></tr></tbody></table>\n<p>メーカー公式情報では全6種、1回400円（税込）、サイズ約W45×H35×D10mmと案内されています。</p>\\n<h2>ラインナップ</h2><ul><li>ハイビスカス ハローキティ</li><li>お祭り ハローキティ</li><li>カオハナ ハローキティ</li><li>50thアニバーサリー ハローキティ</li><li>チェリー ハローキティ</li><li>タイニーチャム ハローキティ</li></ul>\n<p>カプセルトイは中身を選べません。販売時期や取扱店は地域・店舗により異なり、発売終了や在庫切れの場合もあります。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されています。全種セットなど、カプセル販売とは内容や価格が異なる場合があります。購入前に種類、セット内容、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202407_1/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。価格や掲載状況は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
-      "slug": "sanrio-snowman-fluffy-mejirushi-accessory",
-      "name": "サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリー",
-      "release": "2026年11月未定",
-      "price": 300,
-      "types": 5,
-      "manufacturer": "バンダイ",
-      "source": "https://gashapon.jp/products/detail.php?jan_code=4582770068351000",
+      "slug": "sanrio-sushi-keychain",
+      "name": "サンリオキャラクターズ お寿司キーチェーン",
+      "release": "2026年10月",
+      "price": 500,
+      "types": 6,
+      "manufacturer": "アイピーフォー",
+      "source": "https://www.ip4.co.jp/cupsuletoy/2026-01-sanrio-susikey/",
       "lineup": [
         "ハローキティ",
-        "シナモロール",
+        "けろけろけろっぴ",
         "マイメロディ",
-        "クロミ",
-        "ポチャッコ"
+        "バッドばつ丸",
+        "シナモロール",
+        "ポムポムプリン"
       ],
       "size": "",
-      "intro": "雪だるま姿のサンリオキャラクターズを集めた、冬らしいめじるしアクセサリーです。",
-      "more": "メーカー公式情報では発売時期は2026年11月未定、価格は1回300円（税込）、種類数は全5種と案内されています。フロッキー加工が使われています。",
-      "title": "サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリー｜全5種・1回300円",
+      "intro": "お寿司をモチーフにした、サンリオキャラクターズのキーチェーンです。",
+      "more": "メーカー公式情報では全6種、1回500円（税込）と案内されています。",
+      "title": "サンリオキャラクターズ お寿司キーチェーン｜全6種・1回500円",
       "status": "publish",
       "category_slug": "gacha",
-      "excerpt": "バンダイ公式情報で、サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリーの発売時期・価格・ラインナップを確認。楽天APIの商品情報と画像も紹介します。",
-      "image_filename": "sanrio-snowman-fluffy-mejirushi-accessory.jpg",
-      "alt_text": "サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリーの楽天市場掲載商品画像",
-      "rakuten_search_query": "雪だるまふわふわめじるし",
-      "amazon_search_query": "サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリー",
-      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリーの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>雪だるま姿のサンリオキャラクターズを集めた、冬らしいめじるしアクセサリーです。 メーカーが公表している商品情報を中心にまとめます。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ 雪だるまふわふわめじるしアクセサリー</td></tr><tr><th>メーカー</th><td>バンダイ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年11月未定</td></tr><tr><th>カプセル販売価格</th><td>1回300円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr></tbody></table>\n<p>メーカー公式情報では発売時期は2026年11月未定、価格は1回300円（税込）、種類数は全5種と案内されています。フロッキー加工が使われています。</p><h2>ラインナップ</h2><ul><li>ハローキティ</li><li>シナモロール</li><li>マイメロディ</li><li>クロミ</li><li>ポチャッコ</li></ul>\n<p>店頭での発売時期は地域や店舗によって異なる場合があります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されています。セット内容、価格、送料、在庫、発送時期は販売ページでご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>カプセル販売の価格と通販のセット販売価格は異なる場合があります。販売条件は購入前にリンク先でご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://gashapon.jp/products/detail.php?jan_code=4582770068351000\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期や販売状況は変更されることがあります。</small></p>{{rakuten_attribution}}"
+      "excerpt": "IP4公式情報をもとに、サンリオキャラクターズ お寿司キーチェーンの全6種とカプセル価格を紹介します。楽天市場APIの商品情報・画像、楽天・Amazonのリンクを掲載しています。",
+      "image_filename": "sanrio-sushi-keychain.jpg",
+      "alt_text": "サンリオキャラクターズ お寿司キーチェーンの楽天市場掲載商品画像",
+      "rakuten_search_query": "サンリオキャラクターズ お寿司キーチェーン",
+      "amazon_search_query": "サンリオキャラクターズ お寿司キーチェーン",
+      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ お寿司キーチェーンの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>お寿司をモチーフにした、サンリオキャラクターズのキーチェーンです。メーカー公式の商品情報と発売月の掲載を確認しました。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ お寿司キーチェーン</td></tr><tr><th>メーカー</th><td>アイピーフォー</td></tr><tr><th>メーカー掲載の発売月</th><td>2026年10月</td></tr><tr><th>カプセル販売価格</th><td>1回500円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><ul><li>ハローキティ</li><li>けろけろけろっぴ</li><li>マイメロディ</li><li>バッドばつ丸</li><li>シナモロール</li><li>ポムポムプリン</li></ul><p>ラインナップと価格はメーカー公式情報に基づいています。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。通販では一部種類のセットなど、カプセル販売と異なる形で掲載される場合があります。商品名、収録種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>カプセル販売の価格と通販のセット販売価格は異なる場合があります。販売条件はリンク先でご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://www.ip4.co.jp/cupsuletoy/2026-01-sanrio-susikey/\" target=\"_blank\" rel=\"noopener\">IP4公式商品ページ</a>。発売月の掲載：<a href=\"https://www.ip4.co.jp/cupsuletoy_top/\" target=\"_blank\" rel=\"noopener\">IP4公式カプセルトイ商品一覧（2026年10月）</a>。商品画像・通販商品名：楽天API。</small></p>{{rakuten_attribution}}"
     }
   ]
 }
