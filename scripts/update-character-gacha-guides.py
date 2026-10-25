@@ -104,7 +104,7 @@ def sync(wp):
     for slug,name in character_map('scripts/sync-character-guide-cards.py').items():
         items=[p for p in products if matches(p,name)]
         if not items:continue
-        pages=wp.call('/wp/v2/pages?'+urlencode({'slug':slug,'context':'edit','_fields':'id,slug,status,content,modified_gmt'}))
+        pages=wp.call('/wp/v2/pages?'+urlencode({'slug':slug,'context':'edit','_fields':'id,slug,status,content.raw,modified_gmt'}))
         if len(pages)!=1 or pages[0]['slug']!=slug or pages[0]['status']!='publish':raise RuntimeError('Page identity mismatch: '+slug)
         page=pages[0];raw=page['content']['raw'];section=render(name,items);updated=replace(raw,section)
         if without_section(raw)!=without_section(updated):raise RuntimeError('Unrelated content changed.')
@@ -112,12 +112,12 @@ def sync(wp):
     if not prepared:raise RuntimeError('No eligible character pages.')
     for page,updated,count in prepared:
         path='/wp/v2/pages/'+str(page['id'])
-        latest=wp.call(path+'?context=edit')
+        latest=wp.call(path+'?context=edit&_fields=id,slug,status,content.raw')
         if latest['content']['raw']!=page['content']['raw']:raise RuntimeError('Concurrent page edit.')
-        if updated!=page['content']['raw']:wp.call(path,data={'content':updated})
-        saved=wp.call(path+'?context=edit')
+        if updated!=page['content']['raw']:wp.call(path+'?_fields=id,slug,status',data={'content':updated})
+        saved=wp.call(path+'?context=edit&_fields=id,slug,status,content.raw')
         if saved['content']['raw']!=updated or saved['slug']!=page['slug'] or saved['status']!='publish':raise RuntimeError('Save verification failed.')
-        print('VERIFIED',page['slug'],count,'gacha articles')
+        print('VERIFIED',page['slug'],count,'gacha articles',flush=True)
 
 
 def self_test():
