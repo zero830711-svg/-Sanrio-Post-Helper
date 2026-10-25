@@ -12,7 +12,8 @@ SITE = "https://sanrio-fan.site"
 PAGE_ID = 805
 PAGE_SLUG = "shopping-home"
 CATEGORY_SLUG = "gacha"
-MAX_CARDS = 9
+MAX_CARDS = 30
+CARDS_PER_PAGE = 9
 START = "<!-- sf-home-gacha-shelf:start -->"
 END = "<!-- sf-home-gacha-shelf:end -->"
 BOOKS_START = "<!-- sf-books-shelf:start -->"
@@ -192,9 +193,9 @@ def render(items):
         )
 
     pages = []
-    for start in range(0, len(cards), 3):
-        number = start // 3 + 1
-        page_cards = "".join(cards[start:start + 3])
+    for start in range(0, len(cards), CARDS_PER_PAGE):
+        number = start // CARDS_PER_PAGE + 1
+        page_cards = "".join(cards[start:start + CARDS_PER_PAGE])
         pages.append(
             '<div class="sf-home-gacha-page" role="group" aria-label="%dページ">%s</div>'
             % (number, page_cards)
@@ -292,14 +293,18 @@ def self_test():
         {"title": "ガチャ商品3", "link": SITE + "/gacha-3/", "image_url": "", "alt": "商品3", "icon": "✨"},
         {"title": "ガチャ商品4", "link": SITE + "/gacha-4/", "image_url": "", "alt": "商品4", "icon": "🎁"},
     ]
+    items = [dict(items[i % len(items)], title="ガチャ商品%d" % (i + 1)) for i in range(30)]
     markup = render(items)
     raw = "<main>" + BOOKS_START + "<section>books</section>" + BOOKS_END + "</main>"
     updated = replace_section(raw, markup)
     verify(updated, len(items))
     if without_our_section(updated) != raw:
         raise RuntimeError("Self-test changed content outside the gacha shelf.")
-    if updated.count('class="sf-home-gacha-page"') != 2:
-        raise RuntimeError("Self-test did not create swipe pages of three cards.")
+    if updated.count('class="sf-home-gacha-page"') != 4:
+        raise RuntimeError("Self-test did not create four swipe pages.")
+    pages = re.findall(r'<div class="sf-home-gacha-page"[^>]*>(.*?)</div>', updated, flags=re.S)
+    if [page.count('class="sf-home-gacha-card"') for page in pages] != [9, 9, 9, 3]:
+        raise RuntimeError("Expected nine cards per page with three on the last page.")
     if "ガチャガチャ・カプセルトイ" not in updated:
         raise RuntimeError("Self-test shelf heading is missing.")
     print("Home gacha shelf self-test passed.")
