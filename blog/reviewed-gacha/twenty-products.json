@@ -1,5 +1,5 @@
 {
-  "batch_version": 24,
+  "batch_version": 25,
   "products": [
     {
       "slug": "sanrio-hugcot-pearl-ver",
@@ -476,7 +476,7 @@
       "excerpt": "ベネリックの公式情報から、ハローキティ ミニチュアおめんコレクションの発売時期・価格・仕様を確認。楽天APIの商品情報と画像も紹介します。",
       "image_filename": "hello-kitty-miniature-omen-collection.jpg",
       "alt_text": "ハローキティ ミニチュアおめんコレクションの楽天市場掲載商品画像",
-      "rakuten_search_query": "ハローキティ ミニチュアおめんコレクション 全6種",
+      "rakuten_search_query": "ミニチュアおめんコレクション",
       "amazon_search_query": "ハローキティ ミニチュアおめんコレクション",
       "status": "publish",
       "category_slug": "gacha",
@@ -505,7 +505,7 @@
       "excerpt": "バンダイ公式情報で、さんりおきゃらくたぁず お手玉めじるしアクセサリーの発売時期・価格・種類数を確認。楽天APIの商品情報と画像も紹介します。",
       "image_filename": "sanrio-otedama-mejirushi-accessory.jpg",
       "alt_text": "さんりおきゃらくたぁず お手玉めじるしアクセサリーの楽天市場掲載商品画像",
-      "rakuten_search_query": "さんりおきゃらくたぁず お手玉めじるしアクセサリー 全6種",
+      "rakuten_search_query": "お手玉めじるしアクセサリー",
       "amazon_search_query": "さんりおきゃらくたぁず お手玉めじるしアクセサリー",
       "status": "publish",
       "category_slug": "gacha",
