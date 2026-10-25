@@ -9,6 +9,7 @@ data=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 candidate_data=json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))["products"]
 batch.IMAGE_HOSTS.add("thumbnail.image.rakuten.co.jp")
 prepared=[]
+missing_matches=[]
 for article in data["products"]:
  rows=candidate_data.get(article["slug"],[])
  for row in rows:
@@ -17,7 +18,10 @@ for article in data["products"]:
   image=batch.parse.urlsplit(row.get("image",""))
   if image.hostname=="thumbnail.image.rakuten.co.jp": row["image"]=batch.parse.urlunsplit(image._replace(query="_ex=600x600"))
  matches=[r for r in rows if batch.eligible(r) and batch.product_name_matches(article["name"],r["title"])]
- if not matches: raise RuntimeError("A Rakuten result did not match the reviewed product: "+article["name"])
+ if not matches:
+  candidate_titles=[batch.plain_text(r.get("title","")) for r in rows[:6] if r.get("title")]
+  missing_matches.append(article["name"]+" [API候補: "+" / ".join(candidate_titles)+"]")
+  continue
  item=matches[0]
  article["content"]=article["content"]
  replacements={"{{rakuten_affiliate_url}}":item["affiliate"],"{{amazon_affiliate_url}}":batch.amazon_url(article["amazon_search_query"]),"{{rakuten_title}}":item["title"],"{{rakuten_attribution}}":batch.RAKUTEN_ATTRIBUTION}
@@ -28,6 +32,8 @@ for article in data["products"]:
  if "ガチャガチャアイランド" in article["content"]: raise RuntimeError("Unexpected reference-site name in article.")
  article["image_base64"]=batch.download_jpeg(item["image"])
  prepared.append((article,item))
+if missing_matches:
+ raise RuntimeError("Rakuten product-specific matches are unavailable: "+"; ".join(missing_matches))
 print(f"Prepared {len(prepared)} Rakuten API product matches and image files.",flush=True)
 wp=editorial.WordPress()
 for article,item in prepared:
