@@ -47,7 +47,8 @@ for article,item in prepared:
   title=title_data.get("rendered",title_data.get("raw","")) if isinstance(title_data,dict) else title_data
   content_data=post.get("content",{})
   content=content_data.get("rendered",content_data.get("raw","")) if isinstance(content_data,dict) else content_data
-  if batch.product_name_matches(article["name"],batch.plain_text(str(title)+" "+str(content))):
+  # Ignore incidental mentions in informational posts; a product-specific title is the duplicate signal.
+  if batch.product_name_matches(article["name"],batch.plain_text(str(title))):
    possible_duplicates.append(post)
  if possible_duplicates: raise RuntimeError("A possible duplicate of the same product exists; publishing stopped before writes.")
 for article,item in prepared:
