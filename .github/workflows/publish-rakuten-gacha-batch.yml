@@ -7,6 +7,11 @@ on:
         required: true
         default: false
         type: boolean
+      product_name:
+        description: "公開対象の商品名。公開時は完全一致で指定する"
+        required: false
+        default: ""
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -56,10 +61,14 @@ jobs:
         run: php scripts/fetch-rakuten-gacha-candidates.php "$RAKUTEN_GACHA_TMP/config.php" blog/gacha-rakuten-batch.json "$RAKUTEN_GACHA_TMP/candidates.json"
       - name: Preview matched products without publishing
         if: ${{ !inputs.publish }}
-        run: python3 scripts/publish-rakuten-gacha-batch.py --candidates "$RAKUTEN_GACHA_TMP/candidates.json" --limit 50 --dry-run
+        env:
+          PUBLISH_PRODUCT_NAME: ${{ inputs.product_name }}
+        run: python3 scripts/publish-rakuten-gacha-batch.py --candidates "$RAKUTEN_GACHA_TMP/candidates.json" --limit 50 --dry-run --product-name "$PUBLISH_PRODUCT_NAME"
       - name: Publish one WordPress article per verified product
         if: ${{ inputs.publish }}
-        run: python3 scripts/publish-rakuten-gacha-batch.py --candidates "$RAKUTEN_GACHA_TMP/candidates.json" --limit 50
+        env:
+          PUBLISH_PRODUCT_NAME: ${{ inputs.product_name }}
+        run: python3 scripts/publish-rakuten-gacha-batch.py --candidates "$RAKUTEN_GACHA_TMP/candidates.json" --limit 1 --product-name "$PUBLISH_PRODUCT_NAME"
       - name: Refresh the 3-column homepage gacha shelf through WordPress REST API
         if: ${{ inputs.publish }}
         run: python3 scripts/update-home-gacha-shelf.py
