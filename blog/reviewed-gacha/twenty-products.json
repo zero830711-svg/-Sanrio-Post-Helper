@@ -1,28 +1,6 @@
 {
-  "batch_version": 23,
+  "batch_version": 24,
   "products": [
-    {
-      "slug": "sanrio-okurusi-bukuro-case",
-      "name": "サンリオキャラクターズ おくすりぶくろケース",
-      "release": "2026年10月中旬",
-      "price": 400,
-      "types": 5,
-      "manufacturer": "ベネリック",
-      "source": "https://benelic.com/capsuletoy/news/202610_3/",
-      "lineup": [],
-      "size": "約W55×H85mm",
-      "intro": "「おくすりぶくろ」をモチーフにした、ケース型のカプセルトイです。",
-      "more": "メーカー公式情報では全5種、1回400円（税込）、サイズ約W55×H85mmと案内されています。",
-      "title": "サンリオキャラクターズ おくすりぶくろケース｜全5種・1回400円",
-      "status": "publish",
-      "category_slug": "gacha",
-      "excerpt": "サンリオキャラクターズ おくすりぶくろケースのメーカー掲載の発売時期・価格・種類数を確認しました。楽天市場APIで取得した商品情報と画像も掲載します。",
-      "image_filename": "sanrio-okurusi-bukuro-case.jpg",
-      "alt_text": "サンリオキャラクターズ おくすりぶくろケースの楽天市場掲載商品画像",
-      "rakuten_search_query": "おくすりぶくろケース",
-      "amazon_search_query": "サンリオキャラクターズ おくすりぶくろケース",
-      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ おくすりぶくろケースの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>「おくすりぶくろ」をモチーフにした、ケース型のカプセルトイです。発売時期・価格・種類数・仕様はメーカー公式情報をもとにまとめています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ おくすりぶくろケース</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年10月中旬</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全5種</td></tr><tr><th>サイズ</th><td>約W55×H85mm</td></tr></tbody></table>\n<p>メーカー公式情報では全5種、1回400円（税込）、サイズ約W55×H85mmと案内されています。</p>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202610_3/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
-    },
     {
       "slug": "sanrio-hugcot-pearl-ver",
       "name": "ハグコット サンリオキャラクターズ パールVer.",
@@ -51,28 +29,6 @@
       "rakuten_search_query": "ハグコット サンリオキャラクターズ パールVer.",
       "amazon_search_query": "ハグコット サンリオキャラクターズ パールVer.",
       "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"ハグコット サンリオキャラクターズ パールVer.の楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>ケーブルなどに取り付けて楽しめる、パールカラーを取り入れたハグコットです。 発売時期・価格・種類数・仕様はメーカー公式情報をもとに確認しています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>ハグコット サンリオキャラクターズ パールVer.</td></tr><tr><th>メーカー</th><td>バンダイ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2025年9月 第2週</td></tr><tr><th>カプセル販売価格</th><td>1回200円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr></tbody></table>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>ラインナップ</h2><ul><li>ハローキティ</li><li>マイメロディ</li><li>ポムポムプリン</li><li>ポチャッコ</li><li>タキシードサム</li><li>シナモロール</li></ul><p>メーカー公式ページでは全6種と案内されています。ケーブルのサイズによっては取り付けられない場合があります。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://gashapon.jp/products/detail.php?jan_code=4582769889417000\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
-    },
-    {
-      "slug": "sanrio-tsunagaru-okashi-package-pouch",
-      "name": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチ",
-      "release": "2026年10月中旬",
-      "price": 400,
-      "types": 6,
-      "manufacturer": "ベネリック",
-      "source": "https://benelic.com/capsuletoy/news/202610_4/",
-      "lineup": [],
-      "size": "約W95×H110mm",
-      "intro": "お菓子のパッケージをイメージしたポーチのカプセルトイです。",
-      "more": "商品名のとおり、つなげて楽しめるタイプとしてメーカー公式情報に掲載されています。",
-      "title": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチ｜全6種・1回400円",
-      "status": "publish",
-      "category_slug": "gacha",
-      "excerpt": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチのメーカー掲載の発売時期・価格・種類数を確認しました。楽天市場APIで取得した商品情報と画像も掲載します。",
-      "image_filename": "sanrio-tsunagaru-okashi-package-pouch.jpg",
-      "alt_text": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチの楽天市場掲載商品画像",
-      "rakuten_search_query": "サンリオ お菓子パッケージ ポーチ",
-      "amazon_search_query": "サンリオキャラクターズ つながるお菓子パッケージ風ポーチ",
-      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ つながるお菓子パッケージ風ポーチの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>お菓子のパッケージをイメージしたポーチのカプセルトイです。発売時期・価格・種類数・仕様はメーカー公式情報をもとにまとめています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ つながるお菓子パッケージ風ポーチ</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2026年10月中旬</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr><tr><th>サイズ</th><td>約W95×H110mm</td></tr></tbody></table>\n<p>商品名のとおり、つなげて楽しめるタイプとしてメーカー公式情報に掲載されています。</p>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202610_4/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
     },
     {
       "slug": "sanrio-carupaki-miniature-collection",
@@ -496,6 +452,64 @@
       "rakuten_search_query": "サンリオキャラクターズ ミニチュアおめんコレクション こんがりビーチバージョン",
       "amazon_search_query": "サンリオキャラクターズ ミニチュアおめんコレクション～こんがりビーチバージョン～",
       "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"サンリオキャラクターズ ミニチュアおめんコレクション～こんがりビーチバージョン～の楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>夏らしいこんがりビーチをテーマにした、サンリオキャラクターズのミニチュアおめんコレクションです。発売時期・価格・種類数・仕様はメーカー公式情報をもとにまとめています。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ ミニチュアおめんコレクション～こんがりビーチバージョン～</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2025年7月中旬</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全7種</td></tr><tr><th>サイズ</th><td>W45×H35mm</td></tr></tbody></table>\n<p>メーカー公式情報では全7種、1回400円（税込）、サイズW45×H35mmと案内されています。</p>\n<p>発売時期や取扱店は地域・店舗によって異なり、在庫状況も変わります。カプセルトイは中身を選べないため、希望の種類が出るとは限りません。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されていました。販売条件やセット内容は店舗によって異なりますので、購入前に商品名、種類、価格、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p>メーカー掲載のカプセル価格と通販での販売価格は異なる場合があります。セット販売では内容と価格、送料をご確認ください。</p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202507_3/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。発売時期・価格・仕様は変更されることがあります。</small></p>{{rakuten_attribution}}"
+    },
+    {
+      "slug": "hello-kitty-miniature-omen-collection",
+      "name": "ハローキティ ミニチュアおめんコレクション",
+      "release": "2024年7月中旬",
+      "price": 400,
+      "types": 6,
+      "manufacturer": "ベネリック",
+      "source": "https://benelic.com/capsuletoy/news/202407_1/",
+      "lineup": [
+        "ハイビスカス ハローキティ",
+        "お祭り ハローキティ",
+        "カオハナ ハローキティ",
+        "50thアニバーサリー ハローキティ",
+        "チェリー ハローキティ",
+        "タイニーチャム ハローキティ"
+      ],
+      "size": "約W45×H35×D10mm",
+      "intro": "ハローキティのおめんをミニチュアサイズで楽しめるカプセルトイです。キーチェーンとゴムが付属し、鍵やバッグ、ぬいぐるみなどに付けられます。",
+      "more": "メーカー公式情報では全6種、1回400円（税込）、サイズ約W45×H35×D10mmと案内されています。",
+      "title": "ハローキティ ミニチュアおめんコレクション｜全6種・1回400円",
+      "excerpt": "ベネリックの公式情報から、ハローキティ ミニチュアおめんコレクションの発売時期・価格・仕様を確認。楽天APIの商品情報と画像も紹介します。",
+      "image_filename": "hello-kitty-miniature-omen-collection.jpg",
+      "alt_text": "ハローキティ ミニチュアおめんコレクションの楽天市場掲載商品画像",
+      "rakuten_search_query": "ハローキティ ミニチュアおめんコレクション 全6種",
+      "amazon_search_query": "ハローキティ ミニチュアおめんコレクション",
+      "status": "publish",
+      "category_slug": "gacha",
+      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"ハローキティ ミニチュアおめんコレクションの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>ハローキティのおめんをミニチュアサイズで楽しめるカプセルトイです。キーチェーンとゴムが付属し、鍵やバッグ、ぬいぐるみなどに付けられます。 発売時期や仕様など、メーカーが公表している内容を中心に紹介します。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>ハローキティ ミニチュアおめんコレクション</td></tr><tr><th>メーカー</th><td>ベネリック</td></tr><tr><th>メーカー掲載の発売時期</th><td>2024年7月中旬</td></tr><tr><th>カプセル販売価格</th><td>1回400円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr><tr><th>サイズ</th><td>約W45×H35×D10mm</td></tr></tbody></table>\n<p>メーカー公式情報では全6種、1回400円（税込）、サイズ約W45×H35×D10mmと案内されています。</p>\\n<h2>ラインナップ</h2><ul><li>ハイビスカス ハローキティ</li><li>お祭り ハローキティ</li><li>カオハナ ハローキティ</li><li>50thアニバーサリー ハローキティ</li><li>チェリー ハローキティ</li><li>タイニーチャム ハローキティ</li></ul>\n<p>カプセルトイは中身を選べません。販売時期や取扱店は地域・店舗により異なり、発売終了や在庫切れの場合もあります。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されています。全種セットなど、カプセル販売とは内容や価格が異なる場合があります。購入前に種類、セット内容、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p><small>メーカー情報の出典：<a href=\"https://benelic.com/capsuletoy/news/202407_1/\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。価格や掲載状況は変更されることがあります。</small></p>{{rakuten_attribution}}"
+    },
+    {
+      "slug": "sanrio-otedama-mejirushi-accessory",
+      "name": "さんりおきゃらくたぁず お手玉めじるしアクセサリー",
+      "release": "2025年8月 第2週",
+      "price": 300,
+      "types": 6,
+      "manufacturer": "バンダイ",
+      "source": "https://gashapon.jp/products/detail.php?jan_code=4582769822254000",
+      "lineup": [
+        "ポチャッコ",
+        "シナモロール",
+        "ハローキティ",
+        "コロコロクリリン",
+        "ポムポムプリン",
+        "けろけろけろっぴ"
+      ],
+      "size": "",
+      "intro": "お手玉を思わせる形と和柄を取り入れた、サンリオキャラクターズのめじるしアクセサリーです。",
+      "more": "メーカー公式ページでは全6種、1回300円（税込）、対象年齢15才以上と案内されています。",
+      "title": "さんりおきゃらくたぁず お手玉めじるしアクセサリー｜全6種・1回300円",
+      "excerpt": "バンダイ公式情報で、さんりおきゃらくたぁず お手玉めじるしアクセサリーの発売時期・価格・種類数を確認。楽天APIの商品情報と画像も紹介します。",
+      "image_filename": "sanrio-otedama-mejirushi-accessory.jpg",
+      "alt_text": "さんりおきゃらくたぁず お手玉めじるしアクセサリーの楽天市場掲載商品画像",
+      "rakuten_search_query": "さんりおきゃらくたぁず お手玉めじるしアクセサリー 全6種",
+      "amazon_search_query": "さんりおきゃらくたぁず お手玉めじるしアクセサリー",
+      "status": "publish",
+      "category_slug": "gacha",
+      "content": "<p>この記事にはアフィリエイト広告が含まれます。</p>\n<figure class=\"wp-block-image\"><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\"><img src=\"{{image_url}}\" alt=\"さんりおきゃらくたぁず お手玉めじるしアクセサリーの楽天市場掲載商品画像\" /></a><figcaption>画像：楽天市場の商品情報（楽天API経由）</figcaption></figure>\n<p>お手玉を思わせる形と和柄を取り入れた、サンリオキャラクターズのめじるしアクセサリーです。 発売時期や仕様など、メーカーが公表している内容を中心に紹介します。</p>\n<h2>商品情報</h2><table><tbody><tr><th>商品名</th><td>さんりおきゃらくたぁず お手玉めじるしアクセサリー</td></tr><tr><th>メーカー</th><td>バンダイ</td></tr><tr><th>メーカー掲載の発売時期</th><td>2025年8月 第2週</td></tr><tr><th>カプセル販売価格</th><td>1回300円（税込）</td></tr><tr><th>種類数</th><td>全6種</td></tr></tbody></table>\n<p>メーカー公式ページでは全6種、1回300円（税込）、対象年齢15才以上と案内されています。</p>\\n<h2>ラインナップ</h2><ul><li>ポチャッコ</li><li>シナモロール</li><li>ハローキティ</li><li>コロコロクリリン</li><li>ポムポムプリン</li><li>けろけろけろっぴ</li></ul>\n<p>カプセルトイは中身を選べません。販売時期や取扱店は地域・店舗により異なり、発売終了や在庫切れの場合もあります。</p>\n<h2>通販で商品情報を確認する</h2><p>楽天市場では「{{rakuten_title}}」が掲載されています。全種セットなど、カプセル販売とは内容や価格が異なる場合があります。購入前に種類、セット内容、送料、在庫をご確認ください。</p>\n<p><a href=\"{{rakuten_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">楽天市場で掲載商品を見る</a></p><p><a href=\"{{amazon_affiliate_url}}\" rel=\"sponsored nofollow noopener\" target=\"_blank\">Amazonで商品名を検索する</a></p>\n<p><small>メーカー情報の出典：<a href=\"https://gashapon.jp/products/detail.php?jan_code=4582769822254000\" target=\"_blank\" rel=\"noopener\">メーカー公式商品ページ</a>。商品画像・通販商品名：楽天API。価格や掲載状況は変更されることがあります。</small></p>{{rakuten_attribution}}"
     }
   ]
 }
