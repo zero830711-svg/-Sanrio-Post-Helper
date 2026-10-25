@@ -1,0 +1,28 @@
+name: Publish ten reviewed Sanrio gacha articles
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/reviewed-gacha/ten-products.json'
+      - 'scripts/publish-gacha-ten-articles.py'
+      - '.github/workflows/publish-gacha-ten-articles.yml'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-reviewed-gacha-ten
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Review the exact ten posts before publishing
+        run: python3 scripts/publish-gacha-ten-articles.py blog/reviewed-gacha/ten-products.json --preflight-only
+      - name: Publish the ten reviewed posts and verify public pages
+        run: python3 scripts/publish-gacha-ten-articles.py blog/reviewed-gacha/ten-products.json --publish
+      - name: Refresh the homepage gacha shelf
+        run: python3 scripts/update-home-gacha-shelf.py
