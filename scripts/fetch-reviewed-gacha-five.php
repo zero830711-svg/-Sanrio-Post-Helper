@@ -10,7 +10,7 @@ try {
   $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query($params,'','&',PHP_QUERY_RFC3986);
   $c=curl_init($url);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>30,CURLOPT_HTTPHEADER=>['accessKey: '.$settings['accessKey'],'Origin: https://fan-info.zombie.jp'],CURLOPT_REFERER=>'https://fan-info.zombie.jp/']);
   $body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
-  if($body===false||$status!==200)throw new RuntimeException('Rakuten API search failed for one product (HTTP '.$status.').');
+  if($body===false||$status!==200)throw new RuntimeException('Rakuten API search failed for '.$p['name'].' (HTTP '.$status.').');
   $response=json_decode($body,true,512,JSON_THROW_ON_ERROR);$rows=[];
   foreach(($response['Items']??$response['items']??[]) as $wrap){
    $r=$wrap['Item']??$wrap['item']??$wrap;$images=$r['mediumImageUrls']??[];$img=$images[0]??'';$img=is_array($img)?($img['imageUrl']??''):$img;
