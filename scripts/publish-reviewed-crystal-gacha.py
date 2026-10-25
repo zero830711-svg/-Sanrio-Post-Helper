@@ -15,6 +15,8 @@ batch = module("gacha_batch", "publish-rakuten-gacha-batch.py")
 editorial = module("editorial", "publish-editorial-article.py")
 article = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 rows = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))["candidates"]
+for row in rows:
+    print("Candidate fields:", json.dumps({k: row.get(k) for k in ("title", "code", "url", "image", "affiliate")}, ensure_ascii=False), flush=True)
 matches = [row for row in rows if batch.eligible(row)
            and batch.normalized_product_name("クリスタルめじるしアクセサリー") in batch.normalized_product_name(row["title"])
            and "サンリオ" in row["title"]
