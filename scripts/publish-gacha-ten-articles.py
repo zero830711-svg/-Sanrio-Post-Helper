@@ -147,7 +147,7 @@ def preflight(data, wp):
           (len(plans), sum(1 for _, _, state in plans if state == "new"),
            sum(1 for _, _, state in plans if state == "already published")), flush=True)
     for article, post, state in plans:
-        print("%s | %s | %s" % (state, article["title"], post.get("link", "")), flush=True)
+        print("%s | %s | %s" % (state, article["title"], post.get("link", "") if post else ""), flush=True)
     return category_id, plans
 
 
