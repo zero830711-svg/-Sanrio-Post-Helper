@@ -1,0 +1,26 @@
+name: Publish the next 100 English Sanrio gacha articles - batch 2
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/reviewed-gacha/100-english-products-2026-10-batch-02.json'
+      - '.github/workflows/publish-gacha-english-100-batch-02.yml'
+      - 'scripts/publish-gacha-english-100-batch-01.py'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-reviewed-gacha-english-hundred
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check exactly 100 English articles before publishing
+        run: python3 scripts/publish-gacha-english-100-batch-01.py blog/reviewed-gacha/100-english-products-2026-10-batch-02.json --preflight-only
+      - name: Publish and verify all 100 public English pages
+        run: python3 scripts/publish-gacha-english-100-batch-01.py blog/reviewed-gacha/100-english-products-2026-10-batch-02.json --publish
