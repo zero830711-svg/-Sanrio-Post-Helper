@@ -1,0 +1,61 @@
+name: Publish five reviewed Sanrio gacha products
+on:
+  push:
+    branches: [main]
+    paths: ['blog/reviewed-gacha/five-products.json']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-reviewed-gacha-five
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate article data and publisher scripts
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp php-cli php-curl php-mbstring
+          python3 -m pip install --quiet Pillow
+          php -l scripts/fetch-reviewed-gacha-five.php
+          python3 -m py_compile scripts/publish-reviewed-gacha-five.py scripts/publish-rakuten-gacha-batch.py scripts/publish-editorial-article.py scripts/update-home-gacha-shelf.py
+          python3 -m json.tool blog/reviewed-gacha/five-products.json >/dev/null
+      - name: Download private Rakuten configuration
+        run: |
+          set -euo pipefail
+          umask 077
+          gacha_tmp=$(mktemp -d "$RUNNER_TEMP/sanrio-reviewed-gacha.XXXXXX")
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get .rakuten-settings.php -o "$gacha_tmp/rakuten-settings.php"
+          bye
+          LFTP
+          echo "GACHA_FIVE_TMP=$gacha_tmp" >> "$GITHUB_ENV"
+      - name: Fetch five product-specific candidates from Rakuten API
+        run: php scripts/fetch-reviewed-gacha-five.php "$GACHA_FIVE_TMP/rakuten-settings.php" blog/reviewed-gacha/five-products.json "$GACHA_FIVE_TMP/candidates.json"
+      - name: Publish five articles through WordPress REST API
+        run: python3 scripts/publish-reviewed-gacha-five.py blog/reviewed-gacha/five-products.json "$GACHA_FIVE_TMP/candidates.json"
+      - name: Refresh the three-column homepage gacha shelf
+        run: python3 scripts/update-home-gacha-shelf.py
+      - name: Remove private temporary files
+        if: always()
+        run: |
+          if [[ -n "${GACHA_FIVE_TMP:-}" && -d "${GACHA_FIVE_TMP:-}" ]]; then
+            rm -rf -- "$GACHA_FIVE_TMP"
+          fi
