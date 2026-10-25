@@ -15,15 +15,21 @@ batch = module("gacha_batch", "publish-rakuten-gacha-batch.py")
 editorial = module("editorial", "publish-editorial-article.py")
 article = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 rows = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))["candidates"]
+batch.IMAGE_HOSTS.add("thumbnail.image.rakuten.co.jp")
 for row in rows:
-    print("Candidate fields:", json.dumps({k: row.get(k) for k in ("title", "code", "url", "image", "affiliate")}, ensure_ascii=False), flush=True)
+    if batch.valid_affiliate(row.get("url")):
+        query = batch.parse.parse_qs(batch.parse.urlsplit(row["url"]).query)
+        row["url"] = query.get("pc", [""])[0]
+    image = batch.parse.urlsplit(row.get("image", ""))
+    if image.hostname == "thumbnail.image.rakuten.co.jp":
+        row["image"] = batch.parse.urlunsplit(image._replace(query="_ex=600x600"))
 matches = [row for row in rows if batch.eligible(row)
            and batch.normalized_product_name("クリスタルめじるしアクセサリー") in batch.normalized_product_name(row["title"])
            and "サンリオ" in row["title"]
            and not any(word in row["title"] for word in ("くじ", "アクセサリー2", "アクセササリー"))]
 if not matches:
     raise RuntimeError("No exact Rakuten API product found; nothing published.")
-item = matches[0]
+item = next((r for r in matches if r["code"] == "mirakikaku:10028120"), matches[0])
 wp = editorial.WordPress()
 existing = wp.call("/wp/v2/posts?" + batch.parse.urlencode({
     "search": "クリスタルめじるし", "context": "edit", "per_page": 100,
