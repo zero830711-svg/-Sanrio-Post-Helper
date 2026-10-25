@@ -103,11 +103,60 @@ def replace_existing_media(article, wp, existing):
     print('UPDATED product photos:', verified['link'])
 
 
+def update_existing_draft(article, wp, existing):
+    if (existing[0]['slug'] != article['slug'] or existing[0]['status'] != 'draft'
+            or article.get('status') != 'draft'):
+        raise RuntimeError('Refusing to update a different or non-draft article.')
+    post_path = '/wp/v2/posts/' + str(existing[0]['id'])
+    current = wp.call(post_path + '?context=edit')
+    if (current['slug'] != article['slug'] or current['status'] != 'draft'
+            or not current.get('featured_media')):
+        raise RuntimeError('The existing draft identity or featured image could not be verified.')
+
+    media_specs = [article] + article.get('gallery_images', [])
+    if len(media_specs) < 1 or len(media_specs) > 20:
+        raise RuntimeError('Expected one cover photo plus at most nineteen gallery photos.')
+    media_rows = []
+    for index, spec in enumerate(media_specs):
+        suffix = 'cover' if index == 0 else f'gallery-{index}'
+        media_rows.append(upload_media(
+            wp, article['slug'] + '-' + suffix, spec['image_filename'],
+            spec['alt_text'], spec.get('image_base64', '')))
+
+    content = article['content']
+    for index, media in enumerate(media_rows):
+        token = '{{image_url}}' if index == 0 else f'{{{{image_{index}_url}}}}'
+        if token not in content:
+            raise RuntimeError('Article content is missing a product-photo placeholder.')
+        content = content.replace(token, media['source_url'])
+    if '{{image_' in content:
+        raise RuntimeError('A product-photo placeholder was not replaced.')
+
+    wp.call(post_path, data={
+        'title': article['title'],
+        'content': content,
+        'excerpt': article['excerpt'],
+        'featured_media': media_rows[0]['id'],
+    })
+    verified = wp.call(post_path + '?context=edit')
+    saved_content = verified['content']['raw']
+    if (verified['id'] != current['id'] or verified['slug'] != article['slug']
+            or verified['status'] != 'draft'
+            or verified['link'] != current['link']
+            or verified['featured_media'] != media_rows[0]['id']
+            or any(media['source_url'] not in saved_content for media in media_rows)
+            or '{{image_' in saved_content):
+        raise RuntimeError('The draft update did not pass verification.')
+    print('UPDATED DRAFT:', verified['link'])
+
+
 def publish(article, wp):
     required = ('title', 'slug', 'excerpt', 'content', 'image_filename', 'alt_text', 'category_slug')
     if any(not article.get(key) for key in required):
         raise RuntimeError('Article data is incomplete.')
-    if not article.get('replace_existing_media') and not article.get('image_base64'):
+    if (not article.get('replace_existing_media')
+            and not article.get('update_existing_draft')
+            and not article.get('image_base64')):
         raise RuntimeError('A featured image is required for a new article.')
     if not re.fullmatch(r'[a-z0-9-]{3,80}', article['slug']):
         raise RuntimeError('Article slug has an invalid format.')
@@ -118,6 +167,9 @@ def publish(article, wp):
     slug_query = parse.urlencode({'slug': article['slug'], 'context': 'edit', '_fields': 'id,slug,status,link'})
     existing = wp.call('/wp/v2/posts?' + slug_query)
     if existing:
+        if article.get('update_existing_draft'):
+            update_existing_draft(article, wp, existing)
+            return
         if article.get('content_update_only'):
             if existing[0]['slug'] != article['slug'] or existing[0]['status'] != 'publish':
                 raise RuntimeError('Refusing to update content on a different or unpublished article.')
