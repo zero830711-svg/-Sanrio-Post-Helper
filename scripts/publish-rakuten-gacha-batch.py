@@ -293,6 +293,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidates")
     parser.add_argument("--limit", type=int, default=50)
+    parser.add_argument("--product-name", default="")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -306,6 +307,17 @@ def main():
     if not isinstance(rows, list):
         raise RuntimeError("The Rakuten candidate list is invalid.")
     candidates = unique_candidates(rows)
+    requested_product = plain_text(args.product_name)
+    if not args.dry_run and not requested_product:
+        raise RuntimeError("Publishing requires an exact source product name.")
+    if requested_product:
+        requested_key = canonical_title(requested_product)
+        if not requested_key:
+            raise RuntimeError("The requested source product name is invalid.")
+        candidates = [
+            item for item in candidates
+            if canonical_title(item.get("source_product_name", "")) == requested_key
+        ]
     if args.dry_run:
         print("DRY RUN: %d capsule-and-product-name-verified candidates (limit %d)." % (len(candidates), args.limit))
         for item in candidates[:args.limit]:
