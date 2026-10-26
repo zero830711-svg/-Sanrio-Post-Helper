@@ -1,0 +1,25 @@
+{
+  "source": "Google Search Console via Windsor.ai",
+  "period": {
+    "from": "2026-09-28",
+    "to": "2026-10-25"
+  },
+  "page": {
+    "page": "https://sanrio-fan.site/%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA%E3%82%AA%E3%83%B3%E3%83%A9%E3%82%A4%E3%83%B3%E3%82%B7%E3%83%A7%E3%83%83%E3%83%97%E3%81%AE%E4%BA%88%E7%B4%84%E5%95%86%E5%93%81%E3%81%AF%E3%81%84%E3%81%A4%E5%B1%8A/",
+    "clicks": 1,
+    "impressions": 85,
+    "position": 9.2941
+  },
+  "source_check_date": "2026-10-27",
+  "sources": [
+    "https://shop.sanrio.co.jp/guide/delivery",
+    "https://shop.sanrio.co.jp/guide/steps",
+    "https://shop.sanrio.co.jp/guide/notes",
+    "https://shop.sanrio.co.jp/guide/mypage"
+  ],
+  "image": {
+    "file": "preorder-delivery-cover.jpg",
+    "tool": "built-in image_gen",
+    "prompt": "Generic editorial still life of a plain parcel, blank calendar and phone; no branding, no dates, no actual order or shipment."
+  }
+}
