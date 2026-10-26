@@ -1,0 +1,41 @@
+name: Improve indexed Sanrio restock notification article 283
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/seo-refresh-283/**'
+      - 'scripts/refresh-indexed-restock-283.py'
+      - '.github/workflows/refresh-indexed-restock-283.yml'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-refresh-283
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate article and preserve original through REST API
+        run: |
+          python3 scripts/refresh-indexed-restock-283.py validate
+          python3 scripts/refresh-indexed-restock-283.py prepare
+      - name: Save original article before changing it
+        uses: actions/upload-artifact@v4
+        with:
+          name: article-283-before-${{ github.run_id }}
+          path: article-283-backup/before.json
+          retention-days: 90
+      - name: Update one existing article through REST API and verify
+        run: python3 scripts/refresh-indexed-restock-283.py apply
+      - name: Save before and after for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: article-283-review-${{ github.run_id }}
+          path: article-283-backup/
+          retention-days: 90
