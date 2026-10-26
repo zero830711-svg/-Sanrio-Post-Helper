@@ -1,0 +1,23 @@
+name: Publish standalone gacha troubleshooting guide
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/gacha-not-found-guide.html'
+      - 'scripts/publish-gacha-not-found-guide.py'
+      - '.github/workflows/gacha-not-found-guide.yml'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-gacha-not-found-guide
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 scripts/publish-gacha-not-found-guide.py
