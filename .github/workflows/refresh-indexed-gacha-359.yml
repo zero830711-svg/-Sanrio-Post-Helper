@@ -1,0 +1,41 @@
+name: Improve indexed Sanrio gashapon article 359
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/seo-refresh-359/**'
+      - 'scripts/refresh-indexed-gacha-359.py'
+      - '.github/workflows/refresh-indexed-gacha-359.yml'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-refresh-359
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate article and preserve original through REST API
+        run: |
+          python3 scripts/refresh-indexed-gacha-359.py validate
+          python3 scripts/refresh-indexed-gacha-359.py prepare
+      - name: Save original article before changing it
+        uses: actions/upload-artifact@v4
+        with:
+          name: article-359-before-${{ github.run_id }}
+          path: article-359-backup/before.json
+          retention-days: 90
+      - name: Update one existing article through REST API and verify
+        run: python3 scripts/refresh-indexed-gacha-359.py apply
+      - name: Save before and after for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: article-359-review-${{ github.run_id }}
+          path: article-359-backup/
+          retention-days: 90
