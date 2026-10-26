@@ -105,48 +105,45 @@ def load_gacha_posts(wp):
     }))
     if len(categories) != 1 or categories[0].get("slug") != CATEGORY_SLUG:
         raise RuntimeError("The gacha article category could not be resolved uniquely.")
-    query = parse.urlencode({
-        "categories": categories[0]["id"],
-        "status": "publish",
-        "context": "edit",
-        "per_page": MAX_CARDS,
-        "orderby": "date",
-        "order": "desc",
-        "_fields": "id,link,title,content,featured_media",
-    })
-    posts = wp.call("/wp/v2/posts?" + query)
     items = []
-    for post in posts[:MAX_CARDS]:
-        title = plain_text(post.get("title", {}).get("rendered", ""))
-        link = str(post.get("link", ""))
-        parts = parse.urlsplit(link)
-        if not title:
-            continue
-        if (parts.scheme != "https"
-                or parts.hostname not in ("sanrio-fan.site", "www.sanrio-fan.site")
-                or not parts.path.startswith("/")):
-            raise RuntimeError("A gacha article link did not pass site validation.")
-        image_url, alt = photo_for_post(wp, post)
-        items.append({
-            "title": title,
-            "link": link,
-            "image_url": image_url,
-            "alt": alt or title,
-            "icon": fallback_icon(title),
+    # Scan beyond recent text-only batches so they cannot displace product photos.
+    for page in range(1, 21):
+        query = parse.urlencode({
+            "categories": categories[0]["id"], "status": "publish",
+            "context": "edit", "per_page": 100, "page": page,
+            "orderby": "date", "order": "desc",
+            "_fields": "id,slug,link,title,content,featured_media",
         })
+        posts = wp.call("/wp/v2/posts?" + query)
+        for post in posts:
+            title = plain_text(post.get("title", {}).get("rendered", ""))
+            slug = post.get("slug", "")
+            if not title or re.search(r"(?:^|-)(?:guide|roundup)(?:-|$)", slug):
+                continue
+            if re.search(r"比較|まとめ|探し方|楽しみ方|設置場所", title):
+                continue
+            image_url, alt = photo_for_post(wp, post)
+            if not image_url:
+                continue
+            link = str(post.get("link", ""))
+            parts = parse.urlsplit(link)
+            if (parts.scheme != "https"
+                    or parts.hostname not in ("sanrio-fan.site", "www.sanrio-fan.site")
+                    or not parts.path.startswith("/")):
+                raise RuntimeError("A gacha product link did not pass site validation.")
+            product_name = re.search(r"「(.+?)」", title)
+            items.append({
+                "title": product_name.group(1) if product_name else title.split("｜", 1)[0],
+                "link": link, "image_url": image_url, "alt": alt or title,
+            })
+            if len(items) == MAX_CARDS:
+                return items
+        if len(posts) < 100:
+            break
     if not items:
-        raise RuntimeError("No published articles are available in the gacha category.")
+        raise RuntimeError("No photographed gacha products found; existing shelf left unchanged.")
     return items
 
-
-def fallback_icon(title):
-    if "設置" in title or "場所" in title:
-        return "📍"
-    if "ダブり" in title or "予算" in title:
-        return "🎲"
-    if "新作" in title or "比較" in title:
-        return "✨"
-    return "🎁"
 
 
 CSS = """<style id="sf-home-gacha-shelf-style">
@@ -160,7 +157,6 @@ CSS = """<style id="sf-home-gacha-shelf-style">
 #sf-home-gacha-shelf .sf-home-gacha-card{display:flex;min-width:0;flex-direction:column;overflow:hidden;border:1px solid #ece2eb;border-radius:14px;background:#fff}
 #sf-home-gacha-shelf .sf-home-gacha-photo{display:grid;width:100%;aspect-ratio:1/1;place-items:center;overflow:hidden;background:#fff}
 #sf-home-gacha-shelf .sf-home-gacha-photo img{display:block;width:100%;height:100%;margin:0;object-fit:contain}
-#sf-home-gacha-shelf .sf-home-gacha-placeholder{display:grid;width:100%;height:100%;place-items:center;background:linear-gradient(145deg,#f8eaf5,#eaf6f5);color:#715c78;font-size:clamp(27px,8vw,46px)}
 #sf-home-gacha-shelf .sf-home-gacha-title{display:-webkit-box;min-height:3.9em;margin:8px 7px 5px;overflow:hidden;color:#39333f;font-size:clamp(11px,2.9vw,14px);font-weight:700;line-height:1.4;text-decoration:none;-webkit-box-orient:vertical;-webkit-line-clamp:3}
 #sf-home-gacha-shelf .sf-home-gacha-link{display:flex;min-height:34px;align-items:center;justify-content:center;margin:0 6px 7px;padding:5px 3px;border-radius:8px;background:#f5eff7;color:#674e72;font-size:11px;line-height:1.25;text-align:center;text-decoration:none}
 #sf-home-gacha-shelf .sf-home-gacha-all{display:block;margin-top:12px;padding:11px;border-radius:10px;background:#f5eff7;color:#674e72;font-size:14px;text-align:center;text-decoration:none}
@@ -182,13 +178,13 @@ def render(items):
                 + '" loading="lazy" decoding="async">'
             )
         else:
-            photo = '<span class="sf-home-gacha-placeholder" aria-hidden="true">' + esc(item.get("icon", "🎁")) + "</span>"
+            raise RuntimeError("Every homepage gacha product requires a photo.")
         cards.append(
             '<article class="sf-home-gacha-card">'
-            '<a class="sf-home-gacha-photo" href="' + href + '" aria-label="' + title + 'の記事を見る">'
+            '<a class="sf-home-gacha-photo" href="' + href + '" aria-label="' + title + 'の商品を見る">'
             + photo + '</a>'
             '<a class="sf-home-gacha-title" href="' + href + '">' + title + '</a>'
-            '<a class="sf-home-gacha-link" href="' + href + '">記事を見る →</a>'
+            '<a class="sf-home-gacha-link" href="' + href + '">商品を見る →</a>'
             '</article>'
         )
 
@@ -205,10 +201,10 @@ def render(items):
         START + CSS
         + '<section id="sf-home-gacha-shelf" aria-labelledby="sf-home-gacha-heading">'
         + '<h2 id="sf-home-gacha-heading">サンリオのガチャガチャ・カプセルトイ</h2>'
-        + '<div class="sf-home-gacha-track" tabindex="0" aria-label="ガチャ・カプセルトイの記事。横にスワイプできます">'
+        + '<div class="sf-home-gacha-track" tabindex="0" aria-label="ガチャ・カプセルトイの商品。横にスワイプできます">'
         + "".join(pages)
         + '</div><p class="sf-home-gacha-swipe">横にスワイプして見る →</p>'
-        + '<p class="sf-home-gacha-intro">新作商品やガチャの楽しみ方をまとめています。発売時期や設置・在庫は、各記事と店舗の最新情報をご確認ください。</p>'
+        + '<p class="sf-home-gacha-intro">気になる商品を写真から探せます。発売時期・ラインナップは各商品ページをご確認ください。</p>'
         + '<a class="sf-home-gacha-all" href="/category/gacha/">ガチャ・カプセルトイの記事をすべて見る →</a>'
         + '</section>' + END
     )
@@ -245,6 +241,9 @@ def verify(raw, expected):
         raise RuntimeError("The saved home page does not have one gacha shelf.")
     if raw.count('class="sf-home-gacha-card"') != expected:
         raise RuntimeError("The saved gacha shelf card count did not match.")
+    shelf = raw.split(START, 1)[1].split(END, 1)[0]
+    if shelf.count('<img ') != expected or 'sf-home-gacha-placeholder' in shelf:
+        raise RuntimeError("Every saved gacha product must have a photo.")
     if raw.count('grid-template-columns:repeat(3,minmax(0,1fr))') < 1:
         raise RuntimeError("The gacha shelf is not configured for three columns.")
     if raw.find(START) > raw.find(BOOKS_START):
@@ -289,9 +288,9 @@ def sync(wp):
 def self_test():
     items = [
         {"title": "ガチャ商品1", "link": SITE + "/gacha-1/", "image_url": SITE + "/wp-content/uploads/1.jpg", "alt": "商品1"},
-        {"title": "ガチャ商品2", "link": SITE + "/gacha-2/", "image_url": "", "alt": "商品2", "icon": "🎲"},
-        {"title": "ガチャ商品3", "link": SITE + "/gacha-3/", "image_url": "", "alt": "商品3", "icon": "✨"},
-        {"title": "ガチャ商品4", "link": SITE + "/gacha-4/", "image_url": "", "alt": "商品4", "icon": "🎁"},
+        {"title": "ガチャ商品2", "link": SITE + "/gacha-2/", "image_url": SITE + "/wp-content/uploads/test.jpg", "alt": "商品2", "icon": "🎲"},
+        {"title": "ガチャ商品3", "link": SITE + "/gacha-3/", "image_url": SITE + "/wp-content/uploads/test.jpg", "alt": "商品3", "icon": "✨"},
+        {"title": "ガチャ商品4", "link": SITE + "/gacha-4/", "image_url": SITE + "/wp-content/uploads/test.jpg", "alt": "商品4", "icon": "🎁"},
     ]
     items = [dict(items[i % len(items)], title="ガチャ商品%d" % (i + 1)) for i in range(30)]
     markup = render(items)
