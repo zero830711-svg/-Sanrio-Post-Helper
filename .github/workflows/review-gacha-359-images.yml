@@ -1,0 +1,44 @@
+name: Review licensed product images for indexed article 359
+on:
+  push:
+    branches: [main]
+    paths: ['blog/gacha-359-image-queries.json', '.github/workflows/review-gacha-359-images.yml']
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update -qq && sudo apt-get install --yes lftp php-cli php-curl
+      - name: Read private Rakuten API configuration
+        run: |
+          set -euo pipefail
+          umask 077
+          image_tmp=$(mktemp -d "$RUNNER_TEMP/sanrio-image-review.XXXXXX")
+          echo "IMAGE_REVIEW_TMP=$image_tmp" >> "$GITHUB_ENV"
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get .rakuten-settings.php -o "$image_tmp/rakuten-settings.php"
+          bye
+          LFTP
+      - name: Fetch product image candidates without publishing
+        run: |
+          php scripts/fetch-reviewed-gacha-five.php "$IMAGE_REVIEW_TMP/rakuten-settings.php" blog/gacha-359-image-queries.json "$IMAGE_REVIEW_TMP/candidates.json"
+          python3 -c 'import json,os; d=json.load(open(os.environ["IMAGE_REVIEW_TMP"]+"/candidates.json")); print(json.dumps({k:v[:4] for k,v in d["products"].items()},ensure_ascii=False))'
+      - name: Remove private temporary files
+        if: always()
+        run: |
+          if [[ -n "${IMAGE_REVIEW_TMP:-}" && -d "$IMAGE_REVIEW_TMP" ]]; then rm -rf -- "$IMAGE_REVIEW_TMP"; fi
