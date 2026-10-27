@@ -1,0 +1,28 @@
+name: Inspect IndexNow configuration
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/inspect-indexnow-20261027.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Check installed plugins through WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,base64,urllib.request,json
+          auth=base64.b64encode((os.environ['SANRIO_WP_USER']+':'+os.environ['SANRIO_WP_APP_PASSWORD']).encode()).decode()
+          req=urllib.request.Request('https://sanrio-fan.site/wp-json/wp/v2/plugins?per_page=100',headers={'Authorization':'Basic '+auth})
+          try:
+            with urllib.request.urlopen(req,timeout=30) as res: data=json.load(res)
+            for x in data:
+              name=x.get('name','')
+              if any(w in str(name).lower() for w in ('indexnow','rank math','yoast','aioseo','seo')): print('PLUGIN',name,x.get('status'))
+            print('PLUGIN_CHECK_COMPLETE')
+          except Exception as e: print('PLUGIN_CHECK_UNAVAILABLE',type(e).__name__)
+          PY
