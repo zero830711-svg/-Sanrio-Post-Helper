@@ -1,4 +1,4 @@
-import importlib.util,json,sys,hashlib,html,re
+import importlib.util,json,sys,hashlib,html,re,os
 from pathlib import Path
 from urllib import parse
 
@@ -8,12 +8,14 @@ batch=load('batch','publish-rakuten-gacha-batch.py'); ed=load('ed','publish-edit
 batch.IMAGE_HOSTS.add('thumbnail.image.rakuten.co.jp')
 wp=ed.WordPress(); failures=[]
 for spec in json.loads(Path('blog/three-product-articles-20261027.json').read_text()):
+ if os.environ.get('ONLY_SLUG') and spec['slug'] != os.environ['ONLY_SLUG']: continue
  try:
   path=Path(sys.argv[1]+'-'+hashlib.md5(spec['query'].encode()).hexdigest()+'.json')
   rows=json.loads(path.read_text())['candidates']; candidates=[]
   for r in rows:
    title=r.get('title',''); norm=batch.normalized_product_name(title)
    if not all(batch.normalized_product_name(w) in norm for w in spec['words']): continue
+   if spec['slug']=='sanrio-two-piece-acrylic-stand-20' and not re.search(r'(全|完全)?20種', title): continue
    if spec['slug']=='sanrio-chimapote-plush-shop-3' and '第3弾' not in title and '第３弾' not in title: continue
    if batch.valid_affiliate(r.get('url')):
     q=parse.parse_qs(parse.urlsplit(r['url']).query);r['url']=q.get('pc',[''])[0]
