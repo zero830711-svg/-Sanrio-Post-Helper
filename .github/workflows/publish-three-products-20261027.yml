@@ -1,0 +1,48 @@
+name: Publish three verified Sanrio product articles
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-three-products-20261027.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install --yes lftp php-cli php-curl php-mbstring
+          python3 -m pip install --quiet Pillow
+          python3 -m py_compile scripts/publish-three-product-articles-20261027.py
+          php -l scripts/fetch-three-post-candidates.php
+      - name: Fetch exact products and publish through WordPress REST
+        run: |
+          set -euo pipefail
+          umask 077
+          tmp_dir=$(mktemp -d)
+          trap 'rm -rf "$tmp_dir"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get .rakuten-settings.php -o "$tmp_dir/rakuten.php"
+          bye
+          LFTP
+          php scripts/fetch-three-post-candidates.php "$tmp_dir/rakuten.php" "$tmp_dir/result"
+          python3 scripts/publish-three-product-articles-20261027.py "$tmp_dir/result"
