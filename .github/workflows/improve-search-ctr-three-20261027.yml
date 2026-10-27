@@ -1,0 +1,61 @@
+name: Improve three search articles
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/improve-search-ctr-three-20261027.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepare backups
+        run: |
+          cat > /tmp/improve_search_three.py <<'PY'
+          import importlib.util,json,pathlib,sys,re,html
+          spec=importlib.util.spec_from_file_location('ed','scripts/publish-editorial-article.py'); mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);wp=mod.WordPress()
+          items=json.loads(r'''{"272":{"title":"サンリオの新商品は何曜日に発売？発売日・店舗・通販の調べ方","excerpt":"サンリオ新商品は何曜日に発売？2026年10月以降のオリジナル商品の発売曜日と、公式告知で店舗・通販の発売日を確認する方法を紹介します。","extra":"<p>「何曜日に発売？」と調べる場合は、まずサンリオオリジナル商品か、他社のライセンス商品かを確認します。オリジナル商品は2026年10月以降、木曜日中心の案内ですが、個別の商品告知や例外が優先です。<a href=\"https://www.sanrio.co.jp/news/goods/goods-release-date-20260915/\">公式の発売日変更案内</a>をご確認ください。</p><p>関連：<a href=\"/sanrio-goods-buying-guide/\">サンリオグッズの購入先の選び方</a></p>"},"274":{"title":"サンリオのガチャガチャはどこ？設置場所・在庫を公式で探す方法","excerpt":"サンリオのガチャガチャの設置場所を探す手順を紹介。商品メーカーを確認し、バンダイ公式の「ガシャポンどこ？」で取扱店や在庫情報を調べる方法と注意点をまとめます。","extra":"<p>ガシャポン商品を探す場合は、<a href=\"https://gashapon.jp/sanrio-characters/item/\">公式のサンリオ商品一覧</a>で商品名を選び、その商品の取扱店情報を確認できます。入荷前は表示されないことがあり、検索結果はすべての売場を網羅しません。店頭の最新状況も確認してください。</p><p>関連：<a href=\"/sanrio-gacha-duplicate-budget-guide/\">ガチャがダブったときの予算の考え方</a></p>"},"280":{"title":"サンリオオンラインは何日で届く？予約商品の発送予定と確認方法","excerpt":"サンリオオンラインショップの予約商品はいつ届く？商品別の発送予定、通常商品の発送目安、注文履歴や配送状況の確認方法を紹介します。","extra":"<p>「何日で届く？」と調べるときは、まず予約商品か通常商品かを確認してください。通常商品の発送目安を、そのまま予約商品の到着日として計算することはできません。予約商品の商品ページと注文履歴の予定を確認し、発送後は案内された配送状況を確認しましょう。</p><p>参考：<a href=\"https://shop.sanrio.co.jp/guide/delivery\">公式オンラインショップの配送案内</a> ／ 関連：<a href=\"/sanrio-goods-buying-guide/\">公式通販・店舗・ECモールの選び方</a></p>"}}''')
+          backup=pathlib.Path('traffic-three-backup');backup.mkdir(exist_ok=True)
+          if sys.argv[1]=='prepare':
+           for pid,c in items.items():
+            p=wp.call('/wp/v2/posts/'+pid+'?context=edit')
+            assert p['id']==int(pid) and p['status']=='publish' and p['link'].startswith('https://sanrio-fan.site/'),pid
+            (backup/(pid+'.json')).write_text(json.dumps(p,ensure_ascii=False))
+            print('BACKUP',pid,p['link'],flush=True)
+          else:
+           for pid,c in items.items():
+            before=json.loads((backup/(pid+'.json')).read_text())
+            path='/wp/v2/posts/'+pid
+            now=wp.call(path+'?context=edit')
+            assert now['modified_gmt']==before['modified_gmt'] and now['content']['raw']==before['content']['raw'] and now['link']==before['link'],pid
+            original=before['content']['raw']; doc=original.rstrip()+'\n\n'+c['extra']
+            wp.call(path,data={'content':doc,'title':c['title'],'excerpt':c['excerpt']})
+            after=wp.call(path+'?context=edit')
+            assert after['content']['raw']==doc and after['title']['raw']==c['title'] and after['excerpt']['raw']==c['excerpt'],pid
+            for key in ('slug','link','status','featured_media','date','categories','tags','author'): assert after[key]==before[key],(pid,key)
+            (backup/(pid+'-after.json')).write_text(json.dumps(after,ensure_ascii=False))
+            print('UPDATED',pid,after['link'],flush=True)
+          
+          PY
+          python3 /tmp/improve_search_three.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: before-search-articles-${{ github.run_id }}
+          path: traffic-three-backup/
+          retention-days: 90
+      - name: Apply and verify WordPress REST changes
+        run: python3 /tmp/improve_search_three.py apply
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: after-search-articles-${{ github.run_id }}
+          path: traffic-three-backup/
+          retention-days: 90
