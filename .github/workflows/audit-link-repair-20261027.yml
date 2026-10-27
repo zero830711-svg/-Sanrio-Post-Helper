@@ -1,0 +1,38 @@
+name: Repair search discovery links 20261027
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/audit-link-repair-20261027.py'
+      - '.github/workflows/audit-link-repair-20261027.yml'
+permissions:
+  contents: read
+concurrency:
+  group: audit-link-repair-20261027
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Preserve original through WordPress REST API
+        run: python3 scripts/audit-link-repair-20261027.py prepare
+      - name: Save original before update
+        uses: actions/upload-artifact@v4
+        with:
+          name: discovery-link-before-${{ github.run_id }}
+          path: audit-link-repair-backup/before.json
+          retention-days: 90
+      - name: Add links and verify
+        run: python3 scripts/audit-link-repair-20261027.py apply
+      - name: Save review record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discovery-link-review-${{ github.run_id }}
+          path: audit-link-repair-backup/
+          retention-days: 90
