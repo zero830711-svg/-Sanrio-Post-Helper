@@ -269,7 +269,9 @@ const lovelyWatch = (()=>{
     if(!externalEditor)return;
     const session=externalEditor;externalEditor=null;
     editorGeneration++;chooseSequence++;detailLoading=false;selected=null;files=[];
-    el('lovelyEditor').hidden=true;session.home.append(el('lovelyEditor'));
+    el('lovelyEditor').hidden=true;
+    if(el('amazonSharedPhotoLabel')){const input=el('lovelyPhotos');el('amazonSharedPhotoLabel').before(input);el('amazonSharedPhotoLabel').remove();input.hidden=true;input.classList.add('hidden');input.setAttribute('aria-hidden','true');el('amazonSharedPaste')?.remove();el('amazonSharedApp')?.remove();el('amazonSharedSearchLink')?.remove();el('amazonSharedToNews')?.remove();}
+    session.home.append(el('lovelyEditor'));
     session.host.classList.remove('lovely-editor-host');
     el('lovelyBrowse').hidden=false;el('lovelyRestoreBox').hidden=false;
     session.onClose?.();
@@ -287,7 +289,17 @@ const lovelyWatch = (()=>{
       try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
     }
     const edits=draft?Object.fromEntries(['ownAmazon','ownRakuten','note','postText','postEdited','postLinks'].filter(key=>Object.hasOwn(draft,key)).map(key=>[key,draft[key]])):{};
-    edit({...item,...edits,origin:'product-search'});
+    edit({...item,...edits,origin:item.origin||'product-search'});
+    if(item.origin==='amazon-search'){
+      const input=el('lovelyPhotos');input.hidden=false;input.classList.remove('hidden');input.removeAttribute('aria-hidden');
+      const label=document.createElement('label');label.id='amazonSharedPhotoLabel';label.textContent='投稿用の写真を選ぶ';input.before(label);label.append(input);
+      if(item.previewImage){const img=document.createElement('img');img.src=item.previewImage;img.alt='商品照合用プレビュー';img.referrerPolicy='no-referrer';img.style.cssText='max-width:180px;max-height:180px;object-fit:contain';el('lovelyProductInfo').prepend(img);}
+      const note=document.createElement('p');note.className='backup-note';note.textContent='商品画像は照合用です。投稿にはご自身の写真や利用許可のある画像を選んでください。';el('lovelyProductInfo').append(note);
+      el('lovelySource').textContent='Amazonの商品ページを確認';
+      const app=document.createElement('a');app.id='amazonSharedApp';app.className='small-btn link-btn';app.rel='noopener noreferrer';amazonAppAnchor(app,item.url);el('lovelySource').after(app);
+      const paste=document.createElement('button');paste.type='button';paste.id='amazonSharedPaste';paste.className='small-btn';paste.textContent='📋 貼り付けて置き換え';el('lovelyAmazon').after(paste);
+      paste.onclick=async()=>{try{const value=await navigator.clipboard.readText();el('lovelyAmazon').value=ownLink(value.trim(),'Amazon');el('lovelyAmazon').dispatchEvent(new Event('input',{bubbles:true}));}catch(_){el('lovelyAmazon').focus();el('lovelyAmazon').select();el('lovelyPostStatus').textContent='リンク欄にコピーした紹介リンクを貼り付けてください。';}};
+    }
     el('lovelyEditor').hidden=false;
     domesticCandidates.editor(selected,'lovelyEvidenceEditor');
     el('lovelyEditor').scrollIntoView({block:'start',behavior:'instant'});
@@ -566,7 +578,7 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){el('lovelyShareStatus').textContent='記録を保存できませんでした。';return}
     editorGeneration++;imageBusy=0;uploadBusy=false;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();backToList();
   }
-  el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft&&draft.origin!=='product-search'&&!!draft.overseas===(sectionMode==='overseas'))edit(draft)}});
+  el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft&&!['product-search','amazon-search'].includes(draft.origin)&&!!draft.overseas===(sectionMode==='overseas'))edit(draft)}});
   el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
   el('rakutenSaveSettings')?.addEventListener('click',saveSettings);
   el('lovelyRakutenProductCopy')?.addEventListener('click',async()=>{

@@ -5,7 +5,7 @@ let current=null,busy=false,newsSource='',storageOK=true,autoBusy=false,autoLoad
 let searchPage=0,searchKeyword='',searchItems=[],searchTag='',searchMore=false,searchReadyAt=0,searchTimer=null;
 let autoLimit=20,autoCharacter='',autoCategory='',returnY=0;
 const text=v=>String(v||'').trim();
-function amazonUrl(value){try{const raw=String(value||'').trim(),u=new URL(raw);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['www.amazon.co.jp','amazon.co.jp','amzn.to','amzn.asia'].includes(u.hostname)?raw:'';}catch{return '';}}
+function amazonUrl(value){try{const raw=String(value||'').trim(),u=new URL(raw);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['www.amazon.co.jp','amazon.co.jp','amzn.to','amzn.asia','a.co','link.amazon'].includes(u.hostname)?raw:'';}catch{return '';}}
 function imageUrl(value){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['m.media-amazon.com','images-na.ssl-images-amazon.com','images-fe.ssl-images-amazon.com'].includes(u.hostname)?u.href:'';}catch{return '';}}
 function rows(){try{const a=JSON.parse(localStorage.getItem(LIST)||'[]');if(!Array.isArray(a))throw new Error();return a;}catch{storageOK=false;$('amazonFlowStatus').textContent='保存済み下書きを読み込めません。保存データを確認してください。';return [];}}
 function write(list){try{localStorage.setItem(LIST,JSON.stringify(list));storageOK=true;return true;}catch{storageOK=false;$('amazonFlowEditorStatus').textContent='下書きを保存できませんでした。端末の空き容量を確認してください。';return false;}}
@@ -28,21 +28,42 @@ function save(mark){
 function button(label,fn){const b=document.createElement('button');b.type='button';b.className='small-btn';b.textContent=label;b.onclick=fn;return b;}
 function open(row){
  returnY=window.scrollY;
- current={...row};current.itemUrl=amazonUrl(row.itemUrl||row.affiliateUrl);current.searchUrl=amazonUrl(row.searchUrl)||(row.manual?'':searchLink(row.title,row.partnerTag||localStorage.getItem('sphAmazonAssociateTagV1')||'ononbrothers2-22'));
+ current={...row};current.itemUrl=amazonUrl(row.itemUrl||row.affiliateUrl);
  if(!current.itemUrl){$('amazonFlowStatus').textContent='保存済み商品のAmazonリンクを確認してください。';current=null;return;}
- $('amazonFlowEditor').hidden=false;$('amazonFlowTitle').textContent=current.title;amazonAppAnchor($('amazonFlowSource'),current.itemUrl);$('amazonFlowSourceWeb').href=current.itemUrl;
- $('amazonFlowBody').value=row.body??text(row.draft||'').split(row.affiliateUrl||'\u0000').join('').replace(/🛍️ Amazonでチェック\s*/gu,'').replace(/\s*#pr\b/giu,'').trim();
- $('amazonFlowMode').value=['item','search','none'].includes(row.linkMode)?row.linkMode:'item';
- for(const option of $('amazonFlowMode').options)option.disabled=option.value==='search'&&!current.searchUrl;
- $('amazonFlowEditorStatus').textContent='';update();$('amazonFlowEditor').scrollIntoView({block:'start',behavior:'instant'});
+ const chosen=amazonUrl(row.affiliateUrl)||(row.linkMode==='search'?amazonUrl(row.searchUrl):'')||current.itemUrl;
+ let body=String(row.draft||row.body||'').trim();
+ if(body&&!body.includes(chosen))body+='\n\n🛍️ Amazon：'+chosen;
+ if(body&&!/(?:^|\s)#pr\s*$/i.test(body))body+='\n\n#pr';
+ const item={url:current.itemUrl,title:row.title,source:'Amazon検索',origin:'amazon-search',ownAmazon:chosen,
+  postText:body,postEdited:!!body,previewImage:imageUrl(row.image||''),products:[],
+  productInfo:{title:row.title,url:'',itemCode:'',images:[],specs:{},contents:[],checkedAt:new Date().toISOString()}};
+ function saveShared(draft,mark){
+  const list=rows();if(!storageOK)throw new Error('保存データを確認してください。');
+  const index=list.findIndex(x=>x.id===row.id);const entry={...(index>=0?list[index]:row),affiliateUrl:draft.ownAmazon||'',body:draft.postText||'',draft:draft.postText||'',image:row.image||'',status:mark||row.status||'未投稿',sharedEditor:true};
+  if(index>=0)list[index]=entry;else list.push(entry);
+  if(!write(list))throw new Error('端末に保存できませんでした。');
+  renderDrafts();renderAuto();renderSearch();
+ }
+ $('amazonFlowEditor').hidden=true;
+ lovelyWatch.openProduct(item,{host:$('amazonSearchArea'),
+  onBack:draft=>saveShared(draft),onMark:(reason,draft)=>saveShared(draft,reason==='used'?'投稿済み':'見送り'),
+  onClose:()=>{current=null;window.scrollTo({top:returnY,behavior:'instant'});}
+ });
+ const search=amazonUrl(row.searchUrl);
+ if(search){const button=document.createElement('button');button.type='button';button.className='small-btn';button.id='amazonSharedSearchLink';button.textContent='検索結果リンクを使う';$('lovelyAmazon').after(button);button.onclick=()=>{$('lovelyAmazon').value=search;$('lovelyAmazon').dispatchEvent(new Event('input',{bubbles:true}));};}
+ if(row.sourceUrl){const button=document.createElement('button');button.type='button';button.className='small-btn';button.id='amazonSharedToNews';button.textContent='元のニュースにAmazonリンクを追加';$('lovelyPostText').after(button);button.onclick=()=>{const link=$('lovelyAmazon').value.trim();if(link)document.dispatchEvent(new CustomEvent('sph-amazon-news-link',{detail:{sourceUrl:row.sourceUrl,link}}));};}
 }
+
 function prepare(item,tag,manual=false){
  const itemUrl=amazonUrl(item.url);if(!itemUrl||!text(item.title))return;
  const asin=productAsin(itemUrl);
  const list=rows();if(!storageOK)return;
  const existing=list.find(row=>row.itemUrl===itemUrl||row.affiliateUrl===itemUrl||(asin&&productAsin(row.itemUrl||row.affiliateUrl)===asin));
  const pastedSearch=manual&&['www.amazon.co.jp','amazon.co.jp'].includes(new URL(itemUrl).hostname)&&/^\/s\/?$/.test(new URL(itemUrl).pathname);
- open(existing||{id:crypto.randomUUID(),title:text(item.title),itemUrl,affiliateUrl:itemUrl,searchUrl:manual?(pastedSearch?itemUrl:''):searchLink(item.title,tag),partnerTag:tag,sourceUrl:newsSource,manual,createdAt:new Date().toISOString(),status:'未投稿',body:'🎀 '+text(item.title),linkMode:pastedSearch?'search':'item'});return save();
+ if(existing&&!existing.image&&imageUrl(item.image||''))existing.image=imageUrl(item.image);
+ const entry=existing||{id:crypto.randomUUID(),title:text(item.title),itemUrl,affiliateUrl:itemUrl,searchUrl:manual?(pastedSearch?itemUrl:''):searchLink(item.title,tag),partnerTag:tag,sourceUrl:newsSource,manual,image:imageUrl(item.image||''),createdAt:new Date().toISOString(),status:'未投稿',body:'',linkMode:pastedSearch?'search':'item'};
+ if(!existing){list.push(entry);if(!write(list))return false;}
+ open(entry);return true;
 }
 function renderDrafts(){
  const host=$('amazonFlowDrafts');host.replaceChildren();const filter=$('amazonFlowFilter').value;

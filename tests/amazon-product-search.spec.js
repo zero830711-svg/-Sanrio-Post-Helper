@@ -25,20 +25,20 @@ test('Amazon検索から編集・検索リンク・下書き復元・投稿済�
  await expect(page.locator('#amazonFlowStatus')).toContainText('1件を取得');expect(calls).toEqual([{keywords:'ハローキティ',page:1}]);
  await expect(page.locator('#amazonFlowResults')).not.toContainText('不正リンク');
  await page.locator('#amazonFlowResults').getByRole('button',{name:'投稿準備'}).click();
- await expect(page.locator('#amazonFlowFinal')).toHaveValue(new RegExp('ref_=api'));
- await page.locator('#amazonFlowBody').fill('🎀 編集した商品紹介');await page.locator('#amazonFlowMode').selectOption('search');
- const link=await page.locator('#amazonFlowLink').inputValue();expect(new URL(link).searchParams.get('k')).toBe(item.title);expect(new URL(link).searchParams.get('tag')).toBe('test-22');
- await expect(page.locator('#amazonFlowFinal')).toHaveValue(/#pr$/);
+ await expect(page.locator('#lovelyPostText')).toHaveValue(new RegExp('ref_=api'));
+ await page.locator('#lovelyPostText').fill('🎀 編集した商品紹介');await page.locator('#amazonSharedSearchLink').click();
+ const link=await page.locator('#lovelyAmazon').inputValue();expect(new URL(link).searchParams.get('k')).toBe(item.title);expect(new URL(link).searchParams.get('tag')).toBe('test-22');
+ await page.locator('#lovelyPostText').fill('🎀 編集した商品紹介\n'+link+'\n#pr');
  await page.reload();await page.getByRole('tab',{name:'商品検索',exact:true}).click();
  await expect(page.locator('#amazonSearchArea')).toBeVisible();await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();
- await expect(page.locator('#amazonFlowBody')).toHaveValue('🎀 編集した商品紹介');await expect(page.locator('#amazonFlowLink')).toHaveValue(link);
- await page.locator('#amazonFlowMode').selectOption('none');await expect(page.locator('#amazonFlowFinal')).toHaveValue('🎀 編集した商品紹介');
- await page.locator('#amazonFlowDone').click();await page.locator('#amazonFlowFilter').selectOption('投稿済み');await expect(page.locator('#amazonFlowDrafts')).toContainText(item.title);
+ await expect(page.locator('#lovelyPostText')).toHaveValue('🎀 編集した商品紹介\n'+link+'\n#pr');await expect(page.locator('#lovelyAmazon')).toHaveValue(link);
+ await expect(page.locator('#lovelyAmazon')).toHaveValue(link);
+ await page.locator('#lovelyDone').click();await page.locator('#amazonFlowFilter').selectOption('投稿済み');await expect(page.locator('#amazonFlowDrafts')).toContainText(item.title);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
 test('既存Amazon候補の本文と紹介リンクを引き継ぎ、楽天へ切り替えられる',async({page})=>{
  const {calls}=await setup(page,{legacy:true});await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();
- await expect(page.locator('#amazonFlowBody')).toHaveValue('💜 前に編集した本文');await expect(page.locator('#amazonFlowLink')).toHaveValue(url);
+ await expect(page.locator('#lovelyPostText')).toHaveValue(/前に編集した本文/);await expect(page.locator('#lovelyAmazon')).toHaveValue(url);
  await page.getByRole('button',{name:'楽天',exact:true}).click();await expect(page.locator('#flowProviderRakuten')).toHaveAttribute('aria-pressed','true');await expect(page.locator('#flowRakutenArea')).toBeVisible();await expect(page.locator('#amazonSearchArea')).toBeHidden();expect(calls).toHaveLength(0);
 });
 test('Amazonの商品権限エラーは表示し、保存済み下書きを保持する',async({page})=>{
@@ -61,7 +61,7 @@ test('Amazonを開くとキャッシュ候補を自動表示し、同じASINは1
  const {calls,autoCalls}=await setup(page,{automatic:true});
  await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(1);await expect(page.locator('#amazonAutoProgress')).toContainText('ハローキティ ぬいぐるみ');
  expect(autoCalls).toEqual(['candidates']);expect(calls).toHaveLength(0);
- await page.locator('#amazonAutoResults').getByRole('button',{name:'投稿準備'}).click();await page.locator('#amazonFlowDone').click();await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(0);
+ await page.locator('#amazonAutoResults').getByRole('button',{name:'投稿準備'}).click();await page.locator('#lovelyDone').click();await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(0);
 });
 test('期限が来た時だけ次の検索を進め、上限エラーでもキャッシュ候補を残す',async({page})=>{
  const {calls,autoCalls}=await setup(page,{automatic:true,due:true,autoError:true});
@@ -80,13 +80,13 @@ test('検索を上部に表示し、次ページを追記してASIN重複を除�
  await page.locator('#amazonFlowQuery').fill('クロミ');await expect(page.locator('#amazonFlowMore')).toBeDisabled();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
 test('外部で探した検索紹介URLを原文のまま追加・復元し、APIを呼ばない',async({page})=>{
- const {calls}=await setup(page);const search='https://www.amazon.co.jp/s?k=TOPTOY%20%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA&tag=original-22&ref=manual';await page.locator('#amazonManualAddBox summary').click();await page.locator('#amazonManualTitle').fill('TOPTOY サンリオの検索候補');await page.locator('#amazonManualUrl').fill(search);await page.locator('#amazonManualConfirmed').check();await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonFlowLink')).toHaveValue(search);await page.locator('#amazonFlowBody').fill('🎀 自分で編集した紹介');
- await page.reload();await page.getByRole('tab',{name:'商品検索',exact:true}).click();await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();await expect(page.locator('#amazonFlowLink')).toHaveValue(search);await expect(page.locator('#amazonFlowBody')).toHaveValue('🎀 自分で編集した紹介');expect(calls).toHaveLength(0);
+ const {calls}=await setup(page);const search='https://www.amazon.co.jp/s?k=TOPTOY%20%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA&tag=original-22&ref=manual';await page.locator('#amazonManualAddBox summary').click();await page.locator('#amazonManualTitle').fill('TOPTOY サンリオの検索候補');await page.locator('#amazonManualUrl').fill(search);await page.locator('#amazonManualConfirmed').check();await page.locator('#amazonManualAdd').click();await expect(page.locator('#lovelyAmazon')).toHaveValue(search);await page.locator('#lovelyPostText').fill('🎀 自分で編集した紹介');
+ await page.reload();await page.getByRole('tab',{name:'商品検索',exact:true}).click();await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();await expect(page.locator('#lovelyAmazon')).toHaveValue(search);await expect(page.locator('#lovelyPostText')).toHaveValue('🎀 自分で編集した紹介');expect(calls).toHaveLength(0);
  const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('sphAmazonScoutCandidatesV1')));expect(stored[0].affiliateUrl).toBe(search);expect(stored[0].manual).toBe(true);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
 test('手動追加の不正URL・未確認を拒否し、同じASINの既存本文と元リンクを変更しない',async({page})=>{
  const {calls}=await setup(page,{legacy:true});await page.locator('#amazonManualAddBox summary').click();await page.locator('#amazonManualTitle').fill('別の名前');await page.locator('#amazonManualUrl').fill('https://amazon.co.jp.evil.test/dp/B000000001');await page.locator('#amazonManualConfirmed').check();await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonManualStatus')).toContainText('日本のAmazon');
- await page.locator('#amazonManualUrl').fill('https://www.amazon.co.jp/dp/B000000001?tag=changed-22');await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonManualStatus')).toContainText('一致を確認');await page.locator('#amazonManualConfirmed').check();await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonFlowLink')).toHaveValue(url);await expect(page.locator('#amazonFlowBody')).toHaveValue('💜 前に編集した本文');
+ await page.locator('#amazonManualUrl').fill('https://www.amazon.co.jp/dp/B000000001?tag=changed-22');await page.locator('#amazonManualAdd').click();await expect(page.locator('#amazonManualStatus')).toContainText('一致を確認');await page.locator('#amazonManualConfirmed').check();await page.locator('#amazonManualAdd').click();await expect(page.locator('#lovelyAmazon')).toHaveValue(url);await expect(page.locator('#lovelyPostText')).toHaveValue(/前に編集した本文/);
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('sphAmazonScoutCandidatesV1')).length)).toBe(1);expect(calls).toHaveLength(0);
 });
 
@@ -98,9 +98,9 @@ test('取得済み候補だけを絞り込み20件ずつ表示し、状態と元
  await page.locator('#amazonCharacterButtons').getByRole('button',{name:'クロミ',exact:true}).click();await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(3);
  await page.locator('#amazonCategoryButtons').getByRole('button',{name:'バッグ・ポーチ',exact:true}).click();await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(0);
  await page.locator('#amazonCategoryButtons').getByRole('button',{name:'すべて',exact:true}).click();await page.locator('#amazonAutoQuery').fill('25');await expect(page.locator('#amazonAutoResults .flow-card')).toHaveCount(1);
- await page.locator('#amazonAutoResults').getByRole('button',{name:'投稿準備'}).click();await page.locator('#amazonFlowBody').fill('編集した本文');await page.locator('#amazonFlowBack').click();await expect(page.locator('#amazonFlowEditor')).toBeHidden();await expect(page.locator('#amazonAutoResults')).toContainText('下書きあり');
+ await page.locator('#amazonAutoResults').getByRole('button',{name:'投稿準備'}).click();await page.locator('#lovelyPostText').fill('編集した本文');await page.locator('#lovelyBack').click();await expect(page.locator('#lovelyEditor')).toBeHidden();await expect(page.locator('#amazonAutoResults')).toContainText('下書きあり');
  await page.locator('#amazonDraftsJump').click();await expect(page.locator('#amazonDraftsHeading')).toBeFocused();
- await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();await expect(page.locator('#amazonFlowBody')).toHaveValue('編集した本文');await page.locator('#amazonFlowDone').click();await expect(page.locator('#amazonAutoCount')).toContainText('投稿済み・見送り 1件');
+ await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();await expect(page.locator('#lovelyPostText')).toHaveValue('編集した本文');await page.locator('#lovelyDone').click();await expect(page.locator('#amazonAutoCount')).toContainText('投稿済み・見送り 1件');
  expect(external).toBe(1);expect(calls).toHaveLength(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
@@ -204,8 +204,8 @@ test('Amazonアプリで商品・検索を開く導線とブラウザの代替�
  await expect(page.locator('#amazonSearchWeb')).toHaveAttribute('href',/^https:\/\/www\.amazon\.co\.jp\/s\?k=/);
  await page.locator('#amazonFlowSearch').click();
  const card=page.locator('#amazonFlowResults article').first();await expect(card.getByRole('link',{name:'Amazonアプリで開く',exact:true})).toHaveAttribute('href',url.replace('https://','com.amazon.mobile.shopping.web://'));
- await card.getByRole('button',{name:'投稿準備',exact:true}).click();await expect(page.locator('#amazonFlowSource')).toHaveAttribute('href',url.replace('https://','com.amazon.mobile.shopping.web://'));await expect(page.locator('#amazonFlowSourceWeb')).toHaveAttribute('href',url);await expect(page.locator('#amazonFlowLink')).toHaveValue(url);
+ await card.getByRole('button',{name:'投稿準備',exact:true}).click();await expect(page.locator('#amazonSharedApp')).toHaveAttribute('href',url.replace('https://','com.amazon.mobile.shopping.web://'));await expect(page.locator('#lovelySource')).toHaveAttribute('href',url);await expect(page.locator('#lovelyAmazon')).toHaveValue(url);
  expect(await page.evaluate(()=>{const a=document.createElement('a');return amazonAppAnchor(a,'https://www.amazon.co.jp.evil.invalid/dp/B000000001');})).toBe(false);
  expect(await page.evaluate(()=>{const a=document.createElement('a');return amazonAppAnchor(a,'https://user@www.amazon.co.jp/dp/B000000001');})).toBe(false);
- await expect(page.locator('#amazonFlowFinal')).toHaveValue(new RegExp('https://www.amazon.co.jp/dp/B000000001'));
+ await expect(page.locator('#lovelyPostText')).toHaveValue(new RegExp('https://www.amazon.co.jp/dp/B000000001'));
 });
