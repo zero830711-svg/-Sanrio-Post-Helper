@@ -1,0 +1,22 @@
+name: Publish November Hello Kitty lottery article
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-kitty-kuji-202611.yml'
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check and publish one article via WordPress REST
+        run: python3 scripts/publish-kitty-kuji-202611.py
