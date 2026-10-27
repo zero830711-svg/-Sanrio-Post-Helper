@@ -1,0 +1,37 @@
+name: Inspect reported indexing URLs
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/inspect-indexing-issues-20261027.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.parse,urllib.error,re,importlib.util
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self,req,fp,code,msg,headers,newurl): return None
+          op=urllib.request.build_opener(NoRedirect)
+          paths=['/product-b89d43d05b2b2041','/product-b89d43d05b2b2041/','/author/sanrio-fan/','/2026/09/','/サンリオ-金ピカ根付ストラップ/']
+          for path in paths:
+            url='https://sanrio-fan.site'+urllib.parse.quote(path,safe='/')
+            for agent in ['Mozilla/5.0','Mozilla/5.0 (Linux; Android 10; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)']:
+              try:
+                with op.open(urllib.request.Request(url,headers={'User-Agent':agent}),timeout=30) as r:
+                  h=r.read(1000000).decode('utf8','replace')
+                  print('CHECK',url,'AGENT',agent[:20],'STATUS',r.status,'LOCATION',r.headers.get('Location'),'XROBOTS',r.headers.get('X-Robots-Tag'),'META',re.findall(r'<meta[^>]+(?:robots|googlebot)[^>]*>',h,re.I),flush=True)
+              except urllib.error.HTTPError as e: print('CHECK',url,'AGENT',agent[:20],'STATUS',e.code,'LOCATION',e.headers.get('Location'),flush=True)
+              except Exception as e: print('CHECK',url,'ERROR',type(e).__name__,flush=True)
+          spec=importlib.util.spec_from_file_location('ed','scripts/publish-editorial-article.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);wp=m.WordPress()
+          for term in ('根付','ストラップ','金ピカ'):
+            for typ in ('posts','pages'):
+              rows=wp.call('/wp/v2/'+typ+'?'+urllib.parse.urlencode({'search':term,'per_page':100,'_fields':'id,slug,link,title,status'}))
+              for p in rows: print('SEARCH',term,typ,p['id'],p['status'],p['link'],p['title']['rendered'],flush=True)
+          PY
