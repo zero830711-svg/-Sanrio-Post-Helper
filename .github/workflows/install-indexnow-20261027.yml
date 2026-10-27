@@ -1,0 +1,39 @@
+name: Install IndexNow plugin
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/install-indexnow-20261027.yml']
+permissions:
+  contents: read
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Install official IndexNow plugin via WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,base64,urllib.request,urllib.error,json
+          base='https://sanrio-fan.site/wp-json/wp/v2/plugins'
+          auth=base64.b64encode((os.environ['SANRIO_WP_USER']+':'+os.environ['SANRIO_WP_APP_PASSWORD']).encode()).decode()
+          def call(url, data=None):
+              req=urllib.request.Request(url,data=json.dumps(data).encode() if data is not None else None,headers={'Authorization':'Basic '+auth,'Content-Type':'application/json'})
+              with urllib.request.urlopen(req,timeout=90) as res: return json.load(res)
+          try:
+              rows=call(base+'?per_page=100')
+              for p in rows:
+                  print('INSTALLED',p.get('plugin'),p.get('name'),p.get('status'))
+              if any('all-in-one-seo-pack-pro' in str(p.get('plugin','')) and p.get('status')=='active' for p in rows):
+                  print('STOP_AIOSEO_PRO_REQUIRES_REVIEW');raise SystemExit(1)
+              found=[p for p in rows if str(p.get('plugin','')).startswith('indexnow/')]
+              if found:
+                  print('INDEXNOW_EXISTING',found[0].get('status'))
+              else:
+                  result=call(base,{'slug':'indexnow','status':'active'})
+                  print('INDEXNOW_INSTALL',result.get('plugin'),result.get('status'))
+          except urllib.error.HTTPError as e:
+              print('WORDPRESS_HTTP_ERROR',e.code)
+              raise SystemExit(1)
+          PY
