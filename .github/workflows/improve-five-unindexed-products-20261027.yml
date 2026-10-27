@@ -1,0 +1,71 @@
+name: Improve five unindexed product pages
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/improve-five-unindexed-products-20261027.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepare guarded update and backup
+        run: |
+          cat > /tmp/improve_products.py <<'PY'
+          import importlib.util, json, pathlib, re
+          spec=importlib.util.spec_from_file_location('editor','scripts/publish-editorial-article.py')
+          m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m); wp=m.WordPress()
+          items=json.loads(r'''{
+            "product-9a6fc7cee941175a": "<h2>ぬいどりドールSの大きさと特徴</h2><p>ドールは約11×6×13cm、付属の土台は約9×0.3×9cmです。ドール1体と土台1個がセットになっています。足裏のマグネットで土台につけて立たせられ、小物をゴムに挟んで持たせることもできます。</p><p>着せ替え用の服や小物は別売りです。対象年齢は3歳以上。お手持ちの服を選ぶときは、対応するドールのサイズを確認してください。</p><p>参考：<a href=\"https://item.rakuten.co.jp/sanrio/n-2304-811611/\">公式サンリオオンラインショップの商品情報</a>（確認日：2026年10月27日）。</p><p>関連ガイド：<a href=\"/sanrio-plush-clothes-measurement-guide/\">ぬい服のサイズの測り方</a></p>",
+            "product-78f25ff51e11bf39": "<h2>ウィッシュミーメルのぬい服はどのサイズに着せられる？</h2><p>公式の着用目安は、ぬいぐるみの<strong>顔が約幅9×奥行7×高さ9cm以下</strong>です。ぬいぐるみの全長ではなく顔の寸法を確認してください。形状によって着せ心地が異なるため、目安内でも着用を保証するものではありません。</p><p>掲載の約幅19×奥行1.5×高さ19.5cmはパッケージの寸法です。ポリエステル製で、くつした付き。背面の面ファスナーで調節でき、チェーン用の穴と腕を出す穴があり、スタイは着脱できます。対象年齢は3歳以上です。</p><p>参考：<a href=\"https://item.rakuten.co.jp/sanrio/n-2403-184411/\">公式サンリオオンラインショップの商品情報</a>（確認日：2026年10月27日）。</p><p>同シリーズ：<a href=\"/product-cb7a11c5c4de259a/\">タキシードサムのベビーコスチューム</a> ／ <a href=\"/sanrio-plush-clothes-measurement-guide/\">ぬい服のサイズの測り方</a></p>",
+            "product-cb7a11c5c4de259a": "<h2>タキシードサムのぬい服はどのサイズに着せられる？</h2><p>公式の着用目安は、ぬいぐるみの<strong>顔が約幅9×奥行7×高さ9cm以下</strong>です。ぬいぐるみの全長ではなく顔の寸法を確認してください。形状によって着せ心地が異なるため、目安内でも着用を保証するものではありません。</p><p>掲載の約幅19×奥行1.5×高さ19.5cmはパッケージの寸法です。ポリエステル製で、くつした付き。背面の面ファスナーで調節でき、チェーン用の穴と腕を出す穴があり、スタイは着脱できます。対象年齢は3歳以上です。</p><p>参考：<a href=\"https://item.rakuten.co.jp/sanrio/n-2403-184403/\">公式サンリオオンラインショップの商品情報</a>（確認日：2026年10月27日）。</p><p>同シリーズ：<a href=\"/product-78f25ff51e11bf39/\">ウィッシュミーメルのベビーコスチューム</a> ／ <a href=\"/sanrio-plush-clothes-measurement-guide/\">ぬい服のサイズの測り方</a></p>",
+            "product-249b0acc6e22806b": "<h2>500mlの保存容器を選ぶ前に</h2><p>スケーター公式によると、容量500mlの容器が柄違いで2個入っています。1個のサイズは約17.8×11.9×5.5cmで、重ねて収納できます。本体・フタはポリプロピレン、エアーバルブはシリコーンゴムです。</p><p><strong>完全密封ではなく、汁気のあるものは漏れる可能性があります。</strong> フタをしたまま電子レンジで加熱できますが、食器洗浄機・食器乾燥機、直火・オーブン・グリルは使用できません。抗菌加工はすべての細菌の増殖を抑えるものではありません。</p><p>重量はメーカー公式で1個約50gと表示されており、販売店の110g表記と異なります。計測対象が確認できないため、購入時は販売元にご確認ください。</p><p>参考：<a href=\"https://skater-outlet.com/view/item/000000008047\">スケーター公式の商品情報</a>（確認日：2026年10月27日）。</p><p>関連商品：<a href=\"/product-7c70d0b63e119069/\">ポチャッコのステンレスマグボトル</a></p>",
+            "product-7c70d0b63e119069": "<h2>460mlボトルの使い方とお手入れ</h2><p>容量460ml、約幅6.5×奥行6.7×高さ21.5cmの直飲みタイプです。ステンレス真空二重構造で、温かい飲み物と冷たい飲み物の両方に対応します。広口で氷を入れやすく、パッキンは取り外せます。</p><p>公式案内では本体とフタの丸洗いが可能ですが、<strong>電子レンジ・食器洗浄機・食器乾燥機は使用できません。</strong> 詳しい扱い方や飲み物の制限は、付属の取扱説明書を確認してください。</p><p>参考：<a href=\"https://item.rakuten.co.jp/sanrio/n-2407-389820/\">公式サンリオオンラインショップの商品情報</a>（確認日：2026年10月27日）。</p><p>関連商品：<a href=\"/product-b89d43d05b2b2041/\">クロミのステンレスマグボトル</a> ／ <a href=\"/product-249b0acc6e22806b/\">みんなのたあ坊の保存容器</a></p>"
+          }''')
+          backup=pathlib.Path('product-audit-backup'); backup.mkdir(exist_ok=True)
+          import sys, urllib.parse
+          if sys.argv[1]=='prepare':
+           for slug in items:
+            rows=wp.call('/wp/v2/pages?'+urllib.parse.urlencode({'slug':slug,'context':'edit'}))
+            assert len(rows)==1 and rows[0]['slug']==slug and rows[0]['status']=='publish',slug
+            p=rows[0]; raw=p['content']['raw']
+            assert raw.count('<h2>購入先</h2>')==1 and 'sf-product-detail-pilot:v1' in raw and 'サイズと特徴・購入前の確認' not in raw,slug
+            (backup/(slug+'.json')).write_text(json.dumps(p,ensure_ascii=False),encoding='utf8')
+            print('BACKED UP',slug,p['id'],flush=True)
+          else:
+           for slug, extra in items.items():
+            before=json.loads((backup/(slug+'.json')).read_text())
+            path='/wp/v2/pages/'+str(before['id'])
+            current=wp.call(path+'?context=edit')
+            assert current['slug']==slug and current['link']==before['link'] and current['status']=='publish' and current['modified_gmt']==before['modified_gmt'] and current['content']['raw']==before['content']['raw'],slug
+            original=before['content']['raw']
+            updated=original.replace('<h2>購入先</h2>',extra+'<h2>購入先</h2>',1)
+            wp.call(path,data={'content':updated})
+            after=wp.call(path+'?context=edit')
+            assert after['content']['raw']==updated and after['link']==before['link'] and after['slug']==slug and after['featured_media']==before['featured_media'] and after['status']=='publish',slug
+            (backup/(slug+'-after.json')).write_text(json.dumps(after,ensure_ascii=False),encoding='utf8')
+            print('UPDATED',slug,after['id'],flush=True)
+          
+          PY
+          python3 /tmp/improve_products.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: before-products-${{ github.run_id }}
+          path: product-audit-backup/
+          retention-days: 90
+      - name: Apply and verify content through WordPress REST
+        run: python3 /tmp/improve_products.py apply
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: after-products-${{ github.run_id }}
+          path: product-audit-backup/
+          retention-days: 90
