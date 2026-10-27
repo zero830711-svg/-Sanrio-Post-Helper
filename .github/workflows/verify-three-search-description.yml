@@ -1,0 +1,27 @@
+name: Verify three search descriptions
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-three-search-description.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+          python3 - <<'PY'
+          import importlib.util,re,urllib.request
+          spec=importlib.util.spec_from_file_location('ed','scripts/publish-editorial-article.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);wp=m.WordPress()
+          for pid in (274,272,280):
+            p=wp.call('/wp/v2/posts/'+str(pid)+'?context=edit')
+            try:
+              h=urllib.request.urlopen(p['link'],timeout=45).read().decode('utf8','replace')
+              meta=re.findall(r'<meta\b[^>]*(?:name|property)=["\'](?:description|og:description)["\'][^>]*>',h,re.I)
+              print('META',pid,meta,flush=True)
+            except Exception as e: print('PUBLIC ERROR',pid,type(e).__name__,flush=True)
+          PY
