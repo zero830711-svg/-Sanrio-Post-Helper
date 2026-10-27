@@ -1,0 +1,38 @@
+name: Inspect three product article candidates
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/inspect-three-post-candidates.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update -qq && sudo apt-get install --yes lftp php-cli php-curl php-mbstring
+      - name: Retrieve private configuration and check three product searches
+        run: |
+          set -euo pipefail
+          umask 077
+          tmp_dir=$(mktemp -d)
+          trap 'rm -rf "$tmp_dir"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get .rakuten-settings.php -o "$tmp_dir/rakuten.php"
+          bye
+          LFTP
+          php -l scripts/fetch-three-post-candidates.php
+          php scripts/fetch-three-post-candidates.php "$tmp_dir/rakuten.php" "$tmp_dir/result"
