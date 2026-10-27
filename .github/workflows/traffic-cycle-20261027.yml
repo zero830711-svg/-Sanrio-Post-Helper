@@ -1,0 +1,41 @@
+name: Improve search articles and November products 20261027
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blog/traffic-cycle-20261027/**'
+      - 'scripts/traffic-cycle-20261027.py'
+      - '.github/workflows/traffic-cycle-20261027.yml'
+permissions:
+  contents: read
+concurrency:
+  group: traffic-cycle-20261027
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate and back up articles
+        run: |
+          python3 scripts/traffic-cycle-20261027.py validate
+          python3 scripts/traffic-cycle-20261027.py prepare
+      - name: Save originals before editing
+        uses: actions/upload-artifact@v4
+        with:
+          name: traffic-refresh-original-${{ github.run_id }}
+          path: traffic-cycle-20261027-backup/*-before.json
+          retention-days: 90
+      - name: Update and verify through WordPress REST API
+        run: python3 scripts/traffic-cycle-20261027.py apply
+      - name: Save before and after for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traffic-refresh-review-${{ github.run_id }}
+          path: traffic-cycle-20261027-backup/
+          retention-days: 90
