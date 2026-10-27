@@ -1,0 +1,29 @@
+name: Inspect five unindexed products 20261027
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/inspect-five-products-20261027.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Inspect existing product pages
+        run: |
+          python3 - <<'PY'
+          import importlib.util, json, urllib.parse
+          spec=importlib.util.spec_from_file_location('editor','scripts/publish-editorial-article.py')
+          mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod); wp=mod.WordPress()
+          slugs=['product-9a6fc7cee941175a','product-78f25ff51e11bf39','product-cb7a11c5c4de259a','product-249b0acc6e22806b','product-7c70d0b63e119069']
+          for slug in slugs:
+            for typ in ('posts','pages'):
+              rows=wp.call('/wp/v2/'+typ+'?'+urllib.parse.urlencode({'slug':slug,'context':'edit','per_page':10}))
+              for row in rows:
+                print('PRODUCT',json.dumps({'type':typ,'id':row['id'],'slug':row['slug'],'status':row['status'],'link':row['link'],'modified':row['modified_gmt'],'title':row['title']['rendered'],'content':row['content']['raw']},ensure_ascii=False),flush=True)
+              if not rows: print('EMPTY',typ,slug,flush=True)
+          PY
