@@ -37,7 +37,7 @@ class UnifiedSearchTests(unittest.TestCase):
             def publish(wp, index):
                 asset["index"] = index
                 return "https://sanrio-fan.site/wp-content/uploads/test.txt"
-            with patch.object(u, "publish_asset", side_effect=publish), patch.object(u, "read_index", side_effect=lambda raw: asset["index"]), patch.object(u, "load", side_effect=lambda name, file: details if file == "product-detail-pilot.py" else home if file == "home-catalog.py" else seo):
+            with patch.object(u, "publish_asset", side_effect=publish), patch.object(u, "read_index", side_effect=lambda raw: asset.get("index")), patch.object(u, "load", side_effect=lambda name, file: details if file == "product-detail-pilot.py" else home if file == "home-catalog.py" else seo):
                 saved=u.sync(wp,previous_index=previous,guide_source=guide)
                 home.sync.assert_called_once_with(wp, saved)
         self.assertEqual(len(wp.writes),1)
