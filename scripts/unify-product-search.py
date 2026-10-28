@@ -171,9 +171,9 @@ def publish_asset(wp, index):
 
 
 def externalize(raw, url):
-    pattern = r'(<script\\b[^>]*id="' + DATA_ID + r'"[^>]*>)(.*?)(</script>)'
+    pattern = r'(<script\b[^>]*id="' + DATA_ID + r'"[^>]*>)(.*?)(</script>)'
     def replace(match):
-        tag = re.sub(r'\\sdata-src="[^"]*"', '', match.group(1))
+        tag = re.sub(r'\sdata-src="[^"]*"', '', match.group(1))
         return tag[:-1] + ' data-src="' + html.escape(url, quote=True) + '"></script>'
     result, count = re.subn(pattern, replace, raw, flags=re.S)
     if count != 1:
