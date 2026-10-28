@@ -8,6 +8,8 @@ import importlib.util
 import json
 from pathlib import Path
 import re
+from urllib import request
+from uuid import uuid4
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parent
@@ -138,10 +140,45 @@ def read_index(raw):
     if not match:
         return None
     payload = match.group(2)
+    source = re.search(r'data-src="([^"]+)"', match.group(1))
+    if source:
+        url = html.unescape(source.group(1))
+        if not url.startswith(c.SITE + '/wp-content/uploads/'):
+            raise RuntimeError('Invalid catalog asset URL.')
+        with request.urlopen(url, timeout=60) as response:
+            payload = response.read().decode('ascii')
     if 'data-encoding="gzip-base64"' in match.group(1):
         payload = gzip.decompress(base64.b64decode(payload)).decode()
     return json.loads(payload)
 
+
+
+def publish_asset(wp, index):
+    payload = base64.b64encode(gzip.compress(safe_json(index).encode(), mtime=0))
+    filename = 'sanrio-search-' + uuid4().hex + '.txt'
+    req = request.Request(c.SITE + '/wp-json/wp/v2/media', data=payload,
+        headers={'Authorization': wp.auth, 'Content-Type':'text/plain',
+                 'Content-Disposition':'attachment; filename="' + filename + '"'})
+    with request.urlopen(req, timeout=120) as response:
+        asset = json.load(response)
+    url = asset['source_url']
+    if not url.startswith(c.SITE + '/wp-content/uploads/'):
+        raise RuntimeError('Unexpected uploaded asset URL.')
+    with request.urlopen(url, timeout=60) as response:
+        if response.read() != payload:
+            raise RuntimeError('Catalog asset verification failed.')
+    return url
+
+
+def externalize(raw, url):
+    pattern = r'(<script\\b[^>]*id="' + DATA_ID + r'"[^>]*>)(.*?)(</script>)'
+    def replace(match):
+        tag = re.sub(r'\\sdata-src="[^"]*"', '', match.group(1))
+        return tag[:-1] + ' data-src="' + html.escape(url, quote=True) + '"></script>'
+    result, count = re.subn(pattern, replace, raw, flags=re.S)
+    if count != 1:
+        raise RuntimeError('Catalog asset marker missing.')
+    return result
 
 def render(index):
     counts = {x['key']: collections.Counter() for x in index['characters']}
@@ -197,7 +234,8 @@ def sync(wp=None, previous_index=None, guide_source=None):
     end = raw.find('</section>', start)
     if start < 0 or end < 0:
         raise RuntimeError('Managed directory boundary missing.')
-    updated = raw[:start]+render(index)+raw[end+len('</section>'):]
+    asset_url = publish_asset(wp, index)
+    updated = raw[:start]+externalize(render(index), asset_url)+raw[end+len('</section>'): ]
     if wp.call('/wp/v2/pages/804?context=edit&_fields=content')['content']['raw'] != raw:
         raise RuntimeError('Goods page changed during indexing; retry safely.')
     if updated != raw:
