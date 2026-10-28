@@ -431,7 +431,11 @@ const lovelyWatch = (()=>{
     const status=el('lovelyPostStatus');try{
       const text=readyPost();
       if(imageBusy||(imageChoices.size&&files.length!==imageChoices.size))throw new Error('選んだ写真の準備が終わっていません。再試行するか選択を外してください。');
-      if(!files.length)throw new Error('共有する写真を選んでください。');
+      if(!files.length){
+        if(navigator.share){navigator.share({text}).then(()=>{status.textContent='共有先でXを選び、本文を確認して投稿してください。';}).catch(e=>{if(e.name!=='AbortError')status.textContent='共有できませんでした。投稿文をコピーして使ってください。';});}
+        else{window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text),'_blank','noopener,noreferrer');status.textContent='Xで本文を確認して投稿してください。';}
+        return;
+      }
       if(!navigator.share||!navigator.canShare?.({files}))throw new Error('このブラウザーでは写真共有に対応していません。投稿文をコピーして使ってください。');
       navigator.share({text,files:files.slice()}).then(()=>{status.textContent='共有先でXを選び、本文・写真を確認して投稿してください。'}).catch(e=>{if(e.name!=='AbortError')status.textContent='共有できませんでした。投稿文をコピーして使ってください。';});
     }catch(e){status.textContent=e.message;}

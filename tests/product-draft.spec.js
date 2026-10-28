@@ -6,7 +6,7 @@ async function setup(page){
  await page.addInitScript(()=>{
   localStorage.setItem('sanrioCloudSyncKey','test-key');
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
-  Object.defineProperty(navigator,'share',{value:async data=>{window.sharedDraft={text:data.text,files:data.files.map(f=>({name:f.name,type:f.type}))}},configurable:true});
+  Object.defineProperty(navigator,'share',{value:async data=>{window.sharedDraft={text:data.text,files:(data.files||[]).map(f=>({name:f.name,type:f.type}))}},configurable:true});
  });
  await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
  await page.route('**/archive-media-batch.php?**',r=>r.fulfill({json:{ok:true,items:[],manifest:[],stats:{}}}));
@@ -32,6 +32,14 @@ test('商品情報の下書きと自分のリンクをそのままXに写真付�
  const shared=await page.evaluate(()=>window.sharedDraft);expect(shared.text).toBe(text);expect(shared.files).toEqual([{name:'product-1.png',type:'image/png'}]);
  await page.locator('#lovelyShare').click();expect((await page.evaluate(()=>window.sharedDraft)).text).toContain('Sanrio fan info向け');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+});
+
+test('写真を選ばずに本文と紹介リンクを共有できる',async({page})=>{
+ await setup(page);
+ const text=await page.locator('#lovelyPostText').inputValue();
+ await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostShare').click();
+ const shared=await page.evaluate(()=>window.sharedDraft);expect(shared.text).toBe(text);expect(shared.text).toContain(link);expect(shared.files).toEqual([]);
+ await expect(page.locator('#lovelyPostStatus')).toContainText('本文を確認');
 });
 
 test('商品AIはボタンで生成し、素材を送らずリンクを保持して写真と共有する',async({page})=>{
