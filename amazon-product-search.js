@@ -144,6 +144,7 @@ async function loadAuto(){
 }
 function searchControls(){
  $('amazonFlowSearch').disabled=busy||autoBusy;
+ for(const b of $('amazonBrandButtons').querySelectorAll('button'))b.disabled=busy||autoBusy;
  $('amazonFlowMore').hidden=!searchMore;$('amazonFlowMore').disabled=busy||autoBusy||Date.now()<searchReadyAt||$('amazonFlowQuery').value.trim()!==searchKeyword;
  clearTimeout(searchTimer);if(Date.now()<searchReadyAt)searchTimer=setTimeout(searchControls,searchReadyAt-Date.now()+20);
  const u=new URL('https://www.amazon.co.jp/s');u.searchParams.set('k',$('amazonFlowQuery').value.trim()||'サンリオ');amazonAppAnchor($('amazonSearchExternal'),u.href,'Amazonアプリで検索');$('amazonSearchWeb').href=u.href;
@@ -183,7 +184,8 @@ $('amazonFlowBack').onclick=backToList;
 document.addEventListener('sph-candidates-restored',()=>{current=null;$('amazonFlowEditor').hidden=true;renderDrafts();renderAuto();renderSearch();});
 document.addEventListener('sph-product-flow-tab',()=>{if($('flowProvider').value==='amazon')loadAuto();});
 setInterval(()=>{if(!document.hidden&&!$('productFlowPanel').hidden&&$('flowProvider').value==='amazon'&&autoNextAt<=Date.now())loadAuto();},60000);
-$('amazonFlowSearch').onclick=()=>search();$('amazonFlowMore').onclick=()=>search(true);$('amazonFlowQuery').oninput=searchControls;$('amazonFlowQuery').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();search();}};
+for(const b of $('amazonBrandButtons').querySelectorAll('button'))b.onclick=()=>{for(const other of $('amazonBrandButtons').querySelectorAll('button'))other.setAttribute('aria-pressed',String(other===b));$('amazonFlowQuery').value=b.dataset.amazonBrand+' サンリオ';searchControls();search();};
+$('amazonFlowSearch').onclick=()=>search();$('amazonFlowMore').onclick=()=>search(true);$('amazonFlowQuery').oninput=()=>{for(const b of $('amazonBrandButtons').querySelectorAll('button'))b.setAttribute('aria-pressed','false');searchControls();};$('amazonFlowQuery').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();search();}};
 $('amazonManualAdd').onclick=manualAdd;for(const id of ['amazonManualTitle','amazonManualUrl'])$(id).oninput=()=>{$('amazonManualConfirmed').checked=false;};
 $('amazonFlowFilter').onchange=renderDrafts;
 $('amazonFlowBody').oninput=()=>{update();save();};$('amazonFlowMode').onchange=()=>{update();save();};$('amazonFlowSave').onclick=()=>save();

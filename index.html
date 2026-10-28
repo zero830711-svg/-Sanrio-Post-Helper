@@ -22,7 +22,7 @@
 #instagramTools label{display:block;margin:10px 0}
 #instagramSearch,#instagramAddUrl{width:100%;box-sizing:border-box;padding:10px;border:1px solid #eadde5;border-radius:12px;font:inherit}
 @media(max-width:520px){#newsPhotoDialog .news-photo img{height:210px}.news-photo-dialog-head{align-items:flex-start}#newsPhotoDialog .small-btn{padding:10px}}
-</style><link rel="stylesheet" href="./product-flow.css?v=20261028-amazon-row">
+</style><link rel="stylesheet" href="./product-flow.css?v=20261028-amazon-brand">
 
 </head>
 <body>
@@ -77,16 +77,20 @@
 <p class="backup-note">キャラクター名と商品カテゴリからAmazon候補を自動で集めます。価格・在庫は商品ページで確認してください。</p>
 <button id="amazonDraftsJump" type="button" class="small-btn">保存した下書きへ</button>
 <section id="amazonKeywordSearch" aria-label="Amazonの商品を探して追加">
-<h3>自分で探して候補を追加</h3>
+<h3>ブランドから探す</h3>
+<div id="amazonBrandButtons" class="evidence-buttons" role="group" aria-label="Amazonの商品ブランド"><button type="button" data-amazon-brand="TOPTOY" aria-pressed="false">TOPTOY</button><button type="button" data-amazon-brand="POP MART" aria-pressed="false">POP MART</button></div>
+<p class="backup-note">ボタンを押すと、ブランド名とサンリオでAmazonの商品を検索します。</p>
+<details id="amazonManualSearch"><summary>自分で商品を探す・リンクを追加</summary>
 <label>商品・キャラクター名<input id="amazonFlowQuery" value="サンリオ" maxlength="120" type="search"></label>
 <div class="cloud-sync-actions"><button id="amazonFlowSearch" class="small-btn" type="button">Amazonの商品を検索</button><a id="amazonSearchExternal" class="small-btn link-btn" href="https://www.amazon.co.jp/s?k=サンリオ" target="_blank" rel="noopener noreferrer">Amazonアプリで検索</a><a id="amazonSearchWeb" class="small-btn link-btn" href="https://www.amazon.co.jp/s?k=サンリオ" target="_blank" rel="noopener noreferrer">ブラウザで開く</a></div>
-<p id="amazonFlowStatus" class="backup-note" aria-live="polite"></p><p class="backup-note">1回最大10件。「次の10件」で追加検索できます（最大10ページ）。実際の件数は検索結果によって変わります。</p>
-<div id="amazonFlowResults"></div><button id="amazonFlowMore" class="small-btn" type="button" hidden>次の10件を検索</button>
 <details id="amazonManualAddBox"><summary>Amazonで見つけた商品・紹介リンクを追加</summary>
 <p class="backup-note">Amazonで探した商品の名前と、ご自身の紹介リンクを貼り付けて保存できます。商品URL・検索結果URL・短縮リンクも使えます。貼り付けたURLをそのまま保持し、価格・在庫は断定しません。</p>
 <label>商品名<input id="amazonManualTitle" maxlength="500" placeholder="商品名を入力"></label><label>自分のAmazon紹介リンク・商品URL<input id="amazonManualUrl" type="url" maxlength="4096" placeholder="https://www.amazon.co.jp/…"></label>
 <label><input id="amazonManualConfirmed" type="checkbox">商品名とリンク先の商品・検索内容を確認しました</label><button id="amazonManualAdd" class="small-btn" type="button">候補に追加して投稿準備</button><p id="amazonManualStatus" class="backup-note" aria-live="polite"></p>
-</details></section>
+</details></details>
+<p id="amazonFlowStatus" class="backup-note" aria-live="polite"></p><p class="backup-note">1回最大10件。「次の10件」で追加検索できます（最大10ページ）。実際の件数は検索結果によって変わります。</p>
+<div id="amazonFlowResults"></div><button id="amazonFlowMore" class="small-btn" type="button" hidden>次の10件を検索</button>
+</section>
 <h3>自動検索したAmazon候補</h3>
 <label>取得済み候補を絞り込む<input id="amazonAutoQuery" type="search" placeholder="商品名で絞り込み"></label>
 <div id="amazonCharacterButtons" class="evidence-buttons" role="group" aria-label="Amazon候補のキャラクター"></div>
@@ -583,7 +587,7 @@ window.addEventListener("load",()=>{
 </script>
 <script src="./blog-export.js?v=20261018-catalog2"></script>
 <script src="./product-flow.js?v=20261023-shared-editor"></script>
-<script src="./amazon-product-search.js?v=20261028-amazon-filter"></script>
+<script src="./amazon-product-search.js?v=20261028-amazon-brand"></script>
 </body>
 </html>
 

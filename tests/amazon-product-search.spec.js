@@ -16,9 +16,18 @@ async function setup(page,{legacy=false,error=false,automatic=false,due=false,au
   calls.push(r.request().postDataJSON());return error?r.fulfill({status:502,json:{ok:false,error:'商品APIの利用権限を確認できません。',stage:'product-search',upstreamStatus:403}}):r.fulfill({json:{ok:true,partnerTag:'test-22',items:[item,{title:'不正リンク',url:'https://www.amazon.co.jp.evil.test/dp/B000000002',image:''}]}});
  });
  await page.goto('/');await page.getByRole('tab',{name:'商品検索',exact:true}).click();await page.getByRole('button',{name:'Amazon',exact:true}).click();await expect(page.locator('#flowProviderAmazon')).toHaveAttribute('aria-pressed','true');await expect(page.locator('#flowProviderRakuten')).toHaveAttribute('aria-pressed','false');
- await expect(page.locator('#amazonFlowSearch')).toBeEnabled();await expect(page.locator('#amazonFlowQuery')).toBeVisible();
+ await page.locator('#amazonManualSearch > summary').click();await expect(page.locator('#amazonFlowSearch')).toBeEnabled();await expect(page.locator('#amazonFlowQuery')).toBeVisible();
  return {calls,autoCalls};
 }
+test('ブランドボタンからサンリオ商品を検索できる',async({page})=>{
+ const {calls}=await setup(page);await page.locator('#amazonManualSearch > summary').click();
+ await page.locator('#amazonBrandButtons').getByRole('button',{name:'TOPTOY'}).click();
+ await expect(page.locator('#amazonFlowStatus')).toContainText('1件を取得');
+ expect(calls).toEqual([{keywords:'TOPTOY サンリオ',page:1}]);
+ await expect(page.locator('#amazonFlowResults')).toContainText(item.title);
+ await expect(page.locator('#amazonBrandButtons').getByRole('button',{name:'TOPTOY'})).toHaveAttribute('aria-pressed','true');
+});
+
 test('Amazon検索から編集・検索リンク・下書き復元・投稿済みまで',async({page})=>{
  const {calls}=await setup(page);expect(calls).toHaveLength(0);
  await page.locator('#amazonFlowQuery').fill('ハローキティ');await page.locator('#amazonFlowSearch').click();

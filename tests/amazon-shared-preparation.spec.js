@@ -16,7 +16,7 @@ async function setup(page,{legacy=false,error=false,automatic=false,due=false,au
   calls.push(r.request().postDataJSON());return error?r.fulfill({status:502,json:{ok:false,error:'商品APIの利用権限を確認できません。',stage:'product-search',upstreamStatus:403}}):r.fulfill({json:{ok:true,partnerTag:'test-22',items:[item,{title:'不正リンク',url:'https://www.amazon.co.jp.evil.test/dp/B000000002',image:''}]}});
  });
  await page.goto('/');await page.getByRole('tab',{name:'商品検索',exact:true}).click();await page.getByRole('button',{name:'Amazon',exact:true}).click();await expect(page.locator('#flowProviderAmazon')).toHaveAttribute('aria-pressed','true');await expect(page.locator('#flowProviderRakuten')).toHaveAttribute('aria-pressed','false');
- await expect(page.locator('#amazonFlowSearch')).toBeEnabled();await expect(page.locator('#amazonFlowQuery')).toBeVisible();
+ await page.locator('#amazonManualSearch > summary').click();await expect(page.locator('#amazonFlowSearch')).toBeEnabled();await expect(page.locator('#amazonFlowQuery')).toBeVisible();
  return {calls,autoCalls};
 }
 test('Amazonの共通投稿準備で短縮リンクと編集本文を保存し復元する',async({page})=>{
