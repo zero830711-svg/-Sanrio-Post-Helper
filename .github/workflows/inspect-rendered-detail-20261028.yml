@@ -1,0 +1,31 @@
+name: Inspect rendered product grid
+on:
+  push:
+    paths: ['.github/workflows/inspect-rendered-detail-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import urllib.request
+          from html.parser import HTMLParser
+          class P(HTMLParser):
+           def __init__(self): super().__init__(); self.inside=False; self.depth=0; self.count=0
+           def handle_starttag(self,t,a):
+            d=dict(a)
+            if t=='div' and 'sf-detail-hub' in d.get('class',''): self.inside=True;self.depth=0;print('HUB',a);return
+            if self.inside:
+             if self.depth==0 and self.count<15: print('CHILD',t,a);self.count+=1
+             if t not in ('img','br','input','meta','link','hr','wbr'): self.depth+=1
+           def handle_endtag(self,t):
+            if self.inside:
+             if t=='div' and self.depth==0: self.inside=False
+             elif t not in ('img','br','input','meta','link','hr','wbr'): self.depth-=1
+           def handle_data(self,d):
+            if self.inside and self.depth==0 and d.strip() and self.count<15: print('TEXT',repr(d[:100]))
+          with urllib.request.urlopen('https://sanrio-fan.site/product-details/',timeout=40) as f: html=f.read().decode()
+          p=P();p.feed(html)
+          PY
