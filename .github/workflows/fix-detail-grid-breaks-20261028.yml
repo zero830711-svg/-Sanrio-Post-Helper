@@ -1,0 +1,37 @@
+name: Fix extra grid line breaks
+on:
+  push:
+    paths: ['.github/workflows/fix-detail-grid-breaks-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    env:
+      WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      WP_PASS: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request
+          root='https://sanrio-fan.site'
+          base=root+'/wp-json/wp/v2/pages/3100'
+          auth=base64.b64encode((os.environ['WP_USER']+':'+os.environ['WP_PASS']).encode()).decode()
+          headers={'Authorization':'Basic '+auth,'Content-Type':'application/json'}
+          def call(url,data=None):
+           req=urllib.request.Request(url,headers=headers,data=json.dumps(data).encode() if data else None,method='POST' if data else 'GET')
+           with urllib.request.urlopen(req,timeout=60) as f:return json.load(f)
+          p=call(base+'?context=edit')
+          assert p['link']==root+'/product-details/' and p['status']=='publish'
+          raw=p['content']['raw']
+          marker='<!-- sf-details-br-fix-20261028 -->'
+          assert 'sf-detail-hub' in raw and marker not in raw
+          new=raw+marker+'<style>.page-id-3100 .sf-detail-hub > br { display:none !important; }</style>'
+          call(base,{'content':new})
+          check=call(base+'?context=edit')
+          assert check['content']['raw']==new and check['link']==p['link']
+          req=urllib.request.Request(root+'/product-details/',headers={'Cache-Control':'no-cache'})
+          with urllib.request.urlopen(req,timeout=40) as f: rendered=f.read().decode()
+          assert 'sf-details-br-fix-20261028' in rendered and '.sf-detail-hub > br' in rendered
+          print('SUCCESS: rendered page contains scoped br fix; original content preserved')
+          PY
