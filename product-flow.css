@@ -52,7 +52,7 @@
 #amazonSearchArea .flow-source-actions .small-btn{width:100%;min-width:0;min-height:32px;padding:5px 2px;font-size:10px;line-height:1.2;border-radius:9px;white-space:nowrap}
 
 #amazonSearchArea #amazonBrandButtons{gap:5px;margin:6px 0}
-#amazonSearchArea #amazonBrandButtons button{min-height:32px;padding:4px 9px;border-radius:9px;font-size:12px;line-height:1.2}
+#amazonSearchArea #amazonBrandButtons button{min-height:28px;padding:3px 7px;border-radius:8px;font-size:11px;line-height:1.2}
 #amazonManualSearch{margin:6px 0}#amazonManualSearch>summary{font-size:13px;line-height:1.4;cursor:pointer}
 
 /* Compact Amazon search results while retaining each full product name. */
