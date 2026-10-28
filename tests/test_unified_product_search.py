@@ -33,11 +33,16 @@ class UnifiedSearchTests(unittest.TestCase):
             guide='<article class="sf-directory-card" data-character="cinnamoroll" data-kind="bags"><a href="https://sanrio-fan.site/new-guide/"><strong>ポーチの仕様</strong></a></article>'
             details, home, seo = MagicMock(), MagicMock(), MagicMock()
             details.read_state.return_value = ([], None)
-            with patch.object(u, "load", side_effect=lambda name, file: details if file == "product-detail-pilot.py" else home if file == "home-catalog.py" else seo):
+            asset = {}
+            def publish(wp, index):
+                asset["index"] = index
+                return "https://sanrio-fan.site/wp-content/uploads/test.txt"
+            with patch.object(u, "publish_asset", side_effect=publish), patch.object(u, "read_index", side_effect=lambda raw: asset["index"]), patch.object(u, "load", side_effect=lambda name, file: details if file == "product-detail-pilot.py" else home if file == "home-catalog.py" else seo):
                 saved=u.sync(wp,previous_index=previous,guide_source=guide)
                 home.sync.assert_called_once_with(wp, saved)
         self.assertEqual(len(wp.writes),1)
         self.assertIn(u.DATA_ID,wp.writes[0])
+        self.assertIn('data-src="https://sanrio-fan.site/wp-content/uploads/test.txt"',wp.writes[0])
         self.assertEqual(saved['firstSeenHistory']['rakuten:shop:a'],'2026-10-18T00:00:00+00:00')
         self.assertTrue(next(x for x in saved['items'] if x['type']=='guide')['addedAt'])
 
