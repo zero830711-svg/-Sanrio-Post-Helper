@@ -39,7 +39,7 @@ test('ブランド検索はサンリオ関連を優先し、他の商品も残�
  await expect(page.locator('#amazonFlowResults .flow-card h3')).toHaveText(['TOP TOY サンリオ クロミ','TOP TOY Hello Kitty','TOP TOY ディズニー','TOP TOY ムーミン']);
 });
 
-for(const maker of ['バンダイ','タカラトミー','リーメント','エンスカイ','グルマンディーズ','ティーズファクトリー','ナカジマコーポレーション','ケイカンパニー','アガツマ']){
+for(const maker of ['バンダイ','タカラトミー','リーメント','エンスカイ','グルマンディーズ','ティーズファクトリー','ナカジマコーポレーション','ケイカンパニー','アガツマ','マリモクラフト','カミオジャパン','粧美堂','スケーター','セガ フェイブ']){
  test(maker+'ボタンはサンリオ商品を検索して関連候補を優先する',async({page})=>{
   const {calls}=await setup(page);
   const mixed=[{title:'他のキャラクター',url:'https://www.amazon.co.jp/dp/B000000101'},item];
