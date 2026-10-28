@@ -352,6 +352,8 @@ const lovelyWatch = (()=>{
     el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.title)+'/';
     if(item.source==='グルマンディーズ')el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.productInfo?.searchKeyword||item.title)+'/?sid=312278';
     if(item.source==='スケーター')el('lovelyRakutenSearch').href='https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(item.productInfo?.jan||item.jan||item.title)+'/?sid=206803';
+    const rakutenBrowser=el('lovelyRakutenBrowserSearch');
+    if(rakutenBrowser){const searchUrl=el('lovelyRakutenSearch').href;rakutenBrowser.href=iosChrome?searchUrl.replace(/^https:/,'googlechromes:'):searchUrl;if(iosChrome)rakutenBrowser.removeAttribute('target');else rakutenBrowser.setAttribute('target','_blank');}
     postEdited=!!item.postEdited;postLinks=item.postLinks||linkSignature();postStale=false;
     el('lovelyPostText').value=postEdited?String(item.postText||''):'';el('lovelyPostStatus').textContent='';el('lovelyPostAiStatus').textContent='';
     el('lovelyShareStatus').textContent='';restorePreparation(item);persist();el('lovelyLinkTools').open=true;

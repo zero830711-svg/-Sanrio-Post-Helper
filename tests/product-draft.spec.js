@@ -21,6 +21,18 @@ async function setup(page){
  await page.goto('/');await page.getByRole('tab',{name:'新着商品',exact:true}).click();await page.locator('#lovelyList button').click();
  await expect(page.locator('#lovelyRakuten')).toHaveValue(link);
 }
+test('楽天ブラウザ検索は同じ検索条件を開く',async({page})=>{
+ await setup(page);const app=page.locator('#lovelyRakutenSearch'),browser=page.locator('#lovelyRakutenBrowserSearch');
+ await expect(browser).toHaveAttribute('href',await app.getAttribute('href'));
+ await expect(browser).toHaveText('楽天ブラウザで探す');
+});
+test('iPhoneでは楽天の検索条件を保ってChromeで開く',async({page})=>{
+ await page.addInitScript(()=>Object.defineProperty(navigator,'userAgent',{value:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)',configurable:true}));
+ await setup(page);const app=await page.locator('#lovelyRakutenSearch').getAttribute('href');
+ await expect(page.locator('#lovelyRakutenBrowserSearch')).toHaveAttribute('href',app.replace(/^https:/,'googlechromes:'));
+ await expect(page.locator('#lovelyRakutenBrowserSearch')).not.toHaveAttribute('target','_blank');
+});
+
 test('商品情報の下書きと自分のリンクをそのままXに写真付き共有する',async({page})=>{
  await setup(page);
  const draft=page.locator('#lovelyPostText');

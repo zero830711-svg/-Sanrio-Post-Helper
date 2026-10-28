@@ -490,3 +490,7 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 
 /* Compact source and product-period controls on the new-products panel. */
 #lovelyPanel .evidence-buttons button{min-height:32px;padding:4px 8px;font-size:12px;line-height:1.2;border-radius:9px}
+
+/* Three compact search choices in product preparation. */
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-search-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+:is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-search-actions a{font-size:10px;line-height:1.25;padding:6px 3px}
