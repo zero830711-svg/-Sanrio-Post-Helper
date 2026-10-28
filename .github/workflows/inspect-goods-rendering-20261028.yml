@@ -1,0 +1,26 @@
+name: Inspect goods rendering
+on:
+  push:
+    paths: ['.github/workflows/inspect-goods-rendering-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      U: ${{ secrets.SANRIO_WP_USER }}
+      P: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import urllib.request,os,json,base64
+          auth=base64.b64encode((os.environ['U']+':'+os.environ['P']).encode()).decode()
+          h={'Authorization':'Basic '+auth}
+          for path in ['/wp/v2/pages/804?context=edit','/wp/v2/pages/804/revisions?per_page=20&_fields=id,date,modified,title','/wp/v2/settings']:
+           try:
+            with urllib.request.urlopen(urllib.request.Request('https://sanrio-fan.site/wp-json'+path,headers=h),timeout=60) as f: v=json.load(f)
+            if 'content' in v: print('PAGE','raw',len(v['content']['raw']),'rendered',len(v['content']['rendered']),'modified',v.get('modified'))
+            elif 'revisions' in path: print('REVISIONS',json.dumps(v,ensure_ascii=False))
+            else: print('SETTINGS OK')
+           except Exception as e: print('ERROR',path,repr(e))
+          PY
