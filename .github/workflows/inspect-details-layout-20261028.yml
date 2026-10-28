@@ -1,0 +1,23 @@
+name: Inspect product details layout
+on:
+  push:
+    paths: ['.github/workflows/inspect-details-layout-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      WP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import os,base64,urllib.request,json
+          a=base64.b64encode((os.environ['WP_USER']+':'+os.environ['WP_PASSWORD']).encode()).decode()
+          req=urllib.request.Request('https://sanrio-fan.site/wp-json/wp/v2/pages?slug=product-details&context=edit',headers={'Authorization':'Basic '+a})
+          with urllib.request.urlopen(req) as f: p=json.load(f)[0]
+          print('ID',p['id'],'LENGTH',len(p['content']['raw']))
+          print('START',p['content']['raw'][:7000])
+          print('END',p['content']['raw'][-2500:])
+          PY
