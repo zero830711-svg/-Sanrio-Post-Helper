@@ -1,0 +1,28 @@
+name: Diagnose goods page response
+on:
+  push:
+    paths: ['.github/workflows/diagnose-goods-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      U: ${{ secrets.SANRIO_WP_USER }}
+      P: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error,os,json,base64
+          for url in ['https://sanrio-fan.site/','https://sanrio-fan.site/goods/','https://sanrio-fan.site/characters/']:
+           try:
+            with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Cache-Control':'no-cache'}),timeout=40) as f:
+             b=f.read(); print('PUBLIC',url,'STATUS',f.status,'BYTES',len(b),'BODY',repr(b[:500]))
+           except Exception as e: print('ERROR',url,repr(e))
+          auth=base64.b64encode((os.environ['U']+':'+os.environ['P']).encode()).decode()
+          try:
+           req=urllib.request.Request('https://sanrio-fan.site/wp-json/wp/v2/pages?slug=goods&context=edit&per_page=100',headers={'Authorization':'Basic '+auth})
+           with urllib.request.urlopen(req,timeout=40) as f: rows=json.load(f)
+           for p in rows: print('PAGE',p['id'],p['link'],p['status'],'length',len(p['content']['raw']),'START',p['content']['raw'][:2500])
+          except Exception as e: print('WP ERROR',repr(e))
+          PY
