@@ -1,0 +1,31 @@
+name: Prepare search data asset
+on:
+  push:
+    paths: ['.github/workflows/prepare-search-asset-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      WP_PASS: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import requests,re,os,hashlib
+          from requests.auth import HTTPBasicAuth
+          s=requests.Session();s.auth=HTTPBasicAuth(os.environ['WP_USER'],os.environ['WP_PASS'])
+          base='https://sanrio-fan.site';api=base+'/wp-json/wp/v2'
+          r=s.get(api+'/pages/804',params={'context':'edit','_fields':'content'},timeout=60);r.raise_for_status()
+          raw=r.json()['content']['raw']
+          m=re.search(r'<script\b[^>]*id="sf-unified-search-data"[^>]*>(.*?)</script>',raw,re.S)
+          if not m:raise Exception('Data not found')
+          data=m.group(1).encode('ascii')
+          r=s.post(api+'/media',data=data,headers={'Content-Type':'text/plain','Content-Disposition':'attachment; filename="sanrio-search-index-20261028.txt"'},timeout=90)
+          print('upload status',r.status_code,flush=True);r.raise_for_status();obj=r.json()
+          url=obj['source_url'];print('asset URL',url,'media ID',obj['id'],flush=True)
+          v=requests.get(url,timeout=60);v.raise_for_status()
+          if hashlib.sha256(v.content).digest()!=hashlib.sha256(data).digest():raise Exception('asset mismatch')
+          print('asset verified bytes',len(data),flush=True)
+          PY
