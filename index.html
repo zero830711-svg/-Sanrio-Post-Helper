@@ -88,11 +88,11 @@
 <label><input id="amazonManualConfirmed" type="checkbox">商品名とリンク先の商品・検索内容を確認しました</label><button id="amazonManualAdd" class="small-btn" type="button">候補に追加して投稿準備</button><p id="amazonManualStatus" class="backup-note" aria-live="polite"></p>
 </details></section>
 <h3>自動検索したAmazon候補</h3>
-<label>取得済み候補を絞り込む<input id="amazonAutoQuery" type="search" placeholder="商品名で絞り込み（API通信なし）"></label>
+<label>取得済み候補を絞り込む<input id="amazonAutoQuery" type="search" placeholder="商品名で絞り込み"></label>
 <div id="amazonCharacterButtons" class="evidence-buttons" role="group" aria-label="Amazon候補のキャラクター"></div>
 <div id="amazonCategoryButtons" class="evidence-buttons" role="group" aria-label="Amazon候補の商品カテゴリ"></div>
-<p class="backup-note">絞り込みは取得済み候補の中で行います。発売日・価格・在庫の確認結果ではありません。</p>
-<p id="amazonAutoCount" class="backup-note" aria-live="polite"></p><button id="amazonAutoRefresh" class="small-btn" type="button">候補一覧を更新</button><p id="amazonAutoStatus" class="backup-note" aria-live="polite"></p><p id="amazonAutoProgress" class="backup-note"></p><div id="amazonAutoResults"></div><button id="amazonAutoMore" class="small-btn" type="button" hidden>さらに20件を表示</button>
+<p class="backup-note">取得済み候補を絞り込み、一致する候補がない場合は選んだ条件でAmazonを検索します。発売日・価格・在庫は商品ページで確認してください。</p>
+<p id="amazonFilterStatus" class="backup-note" aria-live="polite"></p><p id="amazonAutoCount" class="backup-note" aria-live="polite"></p><button id="amazonAutoRefresh" class="small-btn" type="button">候補一覧を更新</button><p id="amazonAutoStatus" class="backup-note" aria-live="polite"></p><p id="amazonAutoProgress" class="backup-note"></p><div id="amazonAutoResults"></div><button id="amazonAutoMore" class="small-btn" type="button" hidden>さらに20件を表示</button>
 <h3 id="amazonDraftsHeading" tabindex="-1">保存したAmazon下書き</h3><label>表示<select id="amazonFlowFilter"><option value="未投稿">未投稿</option><option value="投稿済み">投稿済み</option><option value="見送り">見送り</option></select></label>
 <p class="backup-note">Amazon下書きはこのブラウザーに保存されます。既存の「商品候補づくり」と共通です。</p><div id="amazonFlowDrafts"></div>
 <div id="amazonFlowEditor" hidden>
@@ -583,7 +583,7 @@ window.addEventListener("load",()=>{
 </script>
 <script src="./blog-export.js?v=20261018-catalog2"></script>
 <script src="./product-flow.js?v=20261023-shared-editor"></script>
-<script src="./amazon-product-search.js?v=20261028-amazon-row"></script>
+<script src="./amazon-product-search.js?v=20261028-amazon-filter"></script>
 </body>
 </html>
 
