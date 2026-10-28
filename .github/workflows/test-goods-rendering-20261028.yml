@@ -1,0 +1,43 @@
+name: Diagnose goods rendering with temporary pages
+on:
+  push:
+    paths: ['.github/workflows/test-goods-rendering-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      WP_PASS: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Compare temporary pages and remove them
+        run: |
+          python3 - <<'PY'
+          import requests, re, uuid
+          from requests.auth import HTTPBasicAuth
+          s=requests.Session()
+          s.auth=HTTPBasicAuth(__import__('os').environ['WP_USER'],__import__('os').environ['WP_PASS'])
+          base='https://sanrio-fan.site'
+          api=base+'/wp-json/wp/v2/pages'
+          r=s.get(api+'/804',params={'context':'edit','_fields':'content'},timeout=90);r.raise_for_status()
+          raw=r.json()['content']['raw']
+          pattern=r'(<script\b[^>]*id="sf-unified-search-data"[^>]*>)(.*?)(</script>)'
+          m=re.search(pattern,raw,re.S)
+          if not m: raise Exception('index marker absent')
+          print('content length',len(raw),'payload length',len(m.group(2)),flush=True)
+          variants=[('full',raw),('without_payload',raw[:m.start(2)]+'e30='+raw[m.end(2):])]
+          for label,body in variants:
+              pageid=None
+              try:
+                  marker=uuid.uuid4().hex
+                  c=s.post(api,json={'status':'publish','slug':'temporary-render-test-'+marker,'title':'Temporary rendering test','content':'<meta name="robots" content="noindex,nofollow">'+body},timeout=120)
+                  c.raise_for_status(); obj=c.json();pageid=obj['id']
+                  p=requests.get(obj['link'],params={'test':marker,'LSCWP_CTRL':'before_optm'},timeout=120)
+                  print(label,'status',p.status_code,'bytes',len(p.content),'html',b'<html' in p.content.lower(),'directory',b'sf-unified-directory' in p.content,flush=True)
+              finally:
+                  if pageid:
+                      deleted=s.delete(api+'/'+str(pageid),params={'force':'true'},timeout=90)
+                      print('temporary page cleanup',deleted.status_code,flush=True)
+                      deleted.raise_for_status()
+          PY
