@@ -1,0 +1,26 @@
+name: Locate site logs via FTPS
+on:
+  push:
+    paths: ['.github/workflows/find-site-errors-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      H: ${{ secrets.LOLIPOP_FTP_HOST }}
+      U: ${{ secrets.LOLIPOP_FTP_USER }}
+      P: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+    steps:
+      - run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp >/dev/null
+          lftp -u "$U","$P" "$H" <<'EOF'
+          set net:timeout 15
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          cls -a -1 wordpress/
+          cls -a -1 wordpress/wp-content/
+          cls -a -1 sanrio-fan/
+          bye
+          EOF
