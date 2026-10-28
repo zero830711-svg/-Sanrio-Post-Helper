@@ -1,0 +1,29 @@
+name: Publish Korea cafe comparison article
+on:
+  push:
+    paths: ['.github/workflows/publish-korea-cafe-comparison-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      WP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Publish only if article is new
+        run: |
+          python3 - <<'PY'
+          import os,base64,json,urllib.request,urllib.parse
+          base='https://sanrio-fan.site/wp-json/wp/v2/posts'
+          auth=base64.b64encode((os.environ['WP_USER']+':'+os.environ['WP_PASSWORD']).encode()).decode()
+          headers={'Authorization':'Basic '+auth,'Content-Type':'application/json'}
+          article=json.loads("{\"title\":\"韓国サンリオカフェを写真で比較｜弘大のシナモンと江南のプリン\",\"slug\":\"seoul-sanrio-cafe-visit-comparison\",\"status\":\"publish\",\"excerpt\":\"実際の訪問写真で弘大と江南のサンリオカフェを見比べます。営業情報はお出かけ前に公式案内をご確認ください。\",\"content\":\"<p>ソウルでサンリオの世界を楽しみたいとき、シナモンの空間とプリンのベーカリーでは、楽しみ方が少し違います。実際の訪問写真をもとに、それぞれの雰囲気と旅行前に確認したい点をまとめました。</p><p><strong>過去の訪問記録です。</strong> 営業状況・商品・装飾は変わることがあります。お出かけ前に公式案内をご確認ください。</p><h2>どちらに行く？ 2つの楽しみ方</h2><table><tbody><tr><th>場所</th><th>訪問時の見どころ</th><th>おすすめの楽しみ方</th></tr><tr><td>弘大：シナモロール スイートカフェ</td><td>ミント色とピンクの空間、シナモンのオブジェ</td><td>キャラクターと店内装飾を写真で楽しむ</td></tr><tr><td>江南：ポムポムプリン ベーカリーカフェ</td><td>コック姿のプリン、パンと黄色いグッズ売り場</td><td>ベーカリーのディスプレイやグッズを見る</td></tr></tbody></table><h2>弘大：シナモンと淡い色に包まれる空間</h2><figure><img src=\\\"https://sanrio-fan.site/wp-content/uploads/2026/10/b72fe0350e3a06cc607bd4978c042dd4.jpg\\\" alt=\\\"弘大のシナモロールカフェで撮影したシナモンのオブジェ\\\"><figcaption>訪問時に撮影。展示や装飾は当時のものです。</figcaption></figure><p>3月の訪問時には、ミント色の衣装を着たシナモンと誕生日飾りが出迎えてくれました。ピンクの窓枠や淡い内装も印象的。写真では、キャラクターのアップと空間全体で異なる雰囲気を楽しめます。</p><p>訪問当時の場所は弘大のAK PLAZA 2階です。最新の店舗・フロアは<a href=\\\"https://www.akplaza.com/store/floor?store=51\\\">AK PLAZA公式案内</a>をご確認ください。<a href=\\\"https://sanrio-fan.site/hongdae-cinnamoroll-sweet-cafe-visit/\\\">シナモロールカフェの詳しい訪問記はこちら</a>。</p><h2>江南：パンとプリンのベーカリー</h2><figure><img src=\\\"https://sanrio-fan.site/wp-content/uploads/2026/10/e4cdac776a9b50890b1c9aab61af3b14.jpg\\\" alt=\\\"ポムポムプリン ベーカリーカフェのシェフ姿のプリン\\\"><figcaption>9月の訪問時に撮影したシェフ姿のプリン。</figcaption></figure><p>新世界百貨店・江南店のスイートパークで訪れたベーカリーカフェでは、コック帽姿のプリンや、表情のついたパンが目を引きました。黄色い売り場やグッズの様子も、訪問時の写真に残しています。</p><p>施設へのアクセスと営業案内は<a href=\\\"https://www.shinsegae.com/store/restaurant.do?storeCd=SC00002\\\">新世界百貨店・江南店の公式案内</a>をご確認ください。施設案内はカフェの現在の営業を保証するものではありません。<a href=\\\"https://sanrio-fan.site/seoul-pompompurin-bakery-cafe-visit/\\\">プリンのベーカリーカフェ訪問記はこちら</a>。</p><h2>旅行前に確認したいこと</h2><ul><li>公式情報で営業日・営業時間・店舗のフロアを確認する。</li><li>予約や待機受付が必要か当日の案内を確認する。</li><li>写真に写ったメニューやグッズは現在もあるとは限らないため、店頭で確認する。</li><li>店内の撮影ルールや周囲のお客さんに配慮する。</li></ul><p>写真は当時の体験の記録です。好きなキャラクターや過ごしたい時間から選んで、旅行前の情報集めにお役立てください。</p>\"}")
+          req=urllib.request.Request(base+'?'+urllib.parse.urlencode({'slug':article['slug'],'context':'edit'}),headers=headers)
+          with urllib.request.urlopen(req,timeout=40) as f: rows=json.load(f)
+          if rows: raise SystemExit('Article already exists; no changes made.')
+          req=urllib.request.Request(base,headers=headers,data=json.dumps(article,ensure_ascii=False).encode(),method='POST')
+          with urllib.request.urlopen(req,timeout=40) as f: post=json.load(f)
+          if post.get('status')!='publish' or post.get('slug')!=article['slug']: raise SystemExit('Publication verification failed.')
+          print('PUBLISHED',post['id'],post['link'])
+          PY
