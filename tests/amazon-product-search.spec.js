@@ -28,6 +28,17 @@ test('ブランドボタンからサンリオ商品を検索できる',async({pa
  await expect(page.locator('#amazonBrandButtons').getByRole('button',{name:'TOPTOY'})).toHaveAttribute('aria-pressed','true');
 });
 
+test('ブランド検索はサンリオ関連を優先し、他の商品も残す',async({page})=>{
+ await setup(page);
+ const mixed=[{title:'TOP TOY ディズニー',url:'https://www.amazon.co.jp/dp/B000000101'},
+ {title:'TOP TOY サンリオ クロミ',url:'https://www.amazon.co.jp/dp/B000000102'},
+ {title:'TOP TOY ムーミン',url:'https://www.amazon.co.jp/dp/B000000103'},
+ {title:'TOP TOY Hello Kitty',url:'https://www.amazon.co.jp/dp/B000000104'}];
+ await page.route('**/amazon-creators.php?action=search',r=>r.fulfill({json:{ok:true,partnerTag:'test-22',items:mixed,hasMore:false}}));
+ await page.locator('#amazonBrandButtons').getByRole('button',{name:'TOPTOY'}).click();
+ await expect(page.locator('#amazonFlowResults .flow-card h3')).toHaveText(['TOP TOY サンリオ クロミ','TOP TOY Hello Kitty','TOP TOY ディズニー','TOP TOY ムーミン']);
+});
+
 test('Amazon検索から編集・検索リンク・下書き復元・投稿済みまで',async({page})=>{
  const {calls}=await setup(page);expect(calls).toHaveLength(0);
  await page.locator('#amazonFlowQuery').fill('ハローキティ');await page.locator('#amazonFlowSearch').click();
