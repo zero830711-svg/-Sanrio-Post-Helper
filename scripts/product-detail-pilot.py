@@ -468,10 +468,8 @@ def sync_catalogs(wp,records):
   code=item['id'].removeprefix('rakuten:')
   if item['type']=='product' and code in retired_urls:item['url']=retired_urls[code]
  apply_index(index,records)
- payload=base64.b64encode(__import__('gzip').compress(u.safe_json(index).encode(),mtime=0)).decode()
- pattern=r'(<script\b[^>]*id="sf-unified-search-data"[^>]*>).*?(</script>)'
- updated,n=re.subn(pattern,lambda m:m[1]+payload+m[2],raw,flags=re.S)
- if n!=1:raise RuntimeError('Search index boundary missing')
+ asset_url=u.publish_asset(wp,index)
+ updated=u.externalize(raw,asset_url)
  update_existing_content(wp,'/wp/v2/pages/804',raw,updated);saved=u.read_index(wp.call('/wp/v2/pages/804?context=edit&_fields=content')['content']['raw'])
  if saved!=index or len(saved['items'])!=count or {x['id']:x.get('addedAt') for x in saved['items']}!=before:raise RuntimeError('Search products/dates changed')
  home=wp.call('/wp/v2/pages/805?context=edit&_fields=content');raw=home['content']['raw'];tag='<p id="sf-product-detail-pilot-link"><a href="/'+HUB+'/">サイズ・素材を確認できる商品情報を見る →</a></p>'
