@@ -34,3 +34,15 @@
 .product-provider-buttons button{min-width:0;min-height:44px;border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff;color:inherit;font:inherit;font-weight:700;cursor:pointer}
 .product-provider-buttons button[aria-pressed="true"]{background:#f6dbe6;border:2px solid #e58caf;color:#66374b}
 .product-provider-buttons button:focus-visible{outline:3px solid #79bdf8;outline-offset:2px}
+
+/* Amazon search and filters: keep the preparation editor at its existing size. */
+#amazonSearchArea>p.backup-note{margin:6px 0;font-size:12px;line-height:1.45}
+#amazonSearchArea>h3,#amazonKeywordSearch>h3{font-size:15px;line-height:1.35;margin:14px 0 6px}
+#productFlowPanel #amazonKeywordSearch>label,#productFlowPanel #amazonSearchArea>label:has(#amazonAutoQuery){margin:6px 0;font-size:13px}
+#amazonFlowQuery,#amazonAutoQuery{width:100%;display:block;margin:4px 0 6px;padding:7px 9px;font-size:16px;line-height:1.3}
+#amazonKeywordSearch .cloud-sync-actions{gap:5px;margin:5px 0}
+#amazonDraftsJump,#amazonKeywordSearch .cloud-sync-actions .small-btn,#amazonKeywordSearch .cloud-sync-actions .link-btn{min-height:32px;padding:5px 9px;font-size:12px;line-height:1.3}
+#amazonKeywordSearch>p.backup-note{margin:4px 0;font-size:12px;line-height:1.4}
+#amazonManualAddBox>summary{font-size:13px;line-height:1.4}
+#amazonSearchArea #amazonCharacterButtons,#amazonSearchArea #amazonCategoryButtons{gap:5px;margin:6px 0}
+#amazonSearchArea #amazonCharacterButtons button,#amazonSearchArea #amazonCategoryButtons button{min-height:32px;padding:4px 8px;border-radius:9px;font-size:12px;line-height:1.2}
