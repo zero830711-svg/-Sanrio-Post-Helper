@@ -1,0 +1,21 @@
+name: Diagnose uncached goods output
+on:
+  push:
+    paths: ['.github/workflows/diagnose-goods-uncached-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error,time
+          urls=['https://sanrio-fan.site/goods/?probe=20261028a','https://sanrio-fan.site/goods/?LSCWP_CTRL=before_optm','https://sanrio-fan.site/?page_id=804']
+          for u in urls:
+           try:
+            req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0','Cache-Control':'no-cache'})
+            with urllib.request.urlopen(req,timeout=90) as f:
+             b=f.read(); print('RESULT',u,'status',f.status,'bytes',len(b),'cache',f.headers.get('x-litespeed-cache'),'prefix',repr(b[:400]))
+           except Exception as e: print('ERROR',u,repr(e))
+          PY
