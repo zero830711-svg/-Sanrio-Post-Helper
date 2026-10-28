@@ -1,0 +1,29 @@
+name: Verify restored search and updater
+on:
+  push:
+    paths: ['.github/workflows/verify-restored-goods-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+          python3 - <<'PY'
+          import importlib.util,collections
+          spec=importlib.util.spec_from_file_location('unified','scripts/unify-product-search.py')
+          u=importlib.util.module_from_spec(spec);spec.loader.exec_module(u)
+          wp=u.c.WordPress()
+          page=wp.call('/wp/v2/pages/804?context=edit&_fields=content')
+          idx=u.read_index(page['content']['raw'])
+          print('Live updater can read items:',len(idx['items']),dict(collections.Counter(x['type'] for x in idx['items'])))
+          if len(idx['items'])<100:raise Exception('Catalog unexpectedly small')
+          url='https://sanrio-fan.site/wp-content/uploads/test-only.txt'
+          converted=u.externalize(page['content']['raw'],url)
+          if converted.count('data-src=')!=1 or url not in converted:raise Exception('External update marker invalid')
+          print('External marker replacement verified')
+          PY
