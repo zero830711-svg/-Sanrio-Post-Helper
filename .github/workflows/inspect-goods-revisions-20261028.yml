@@ -1,0 +1,26 @@
+name: Inspect recent goods revisions
+on:
+  push:
+    paths: ['.github/workflows/inspect-goods-revisions-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      U: ${{ secrets.SANRIO_WP_USER }}
+      P: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import urllib.request,os,json,base64,hashlib,difflib
+          h={'Authorization':'Basic '+base64.b64encode((os.environ['U']+':'+os.environ['P']).encode()).decode()}
+          def get(p):
+           with urllib.request.urlopen(urllib.request.Request('https://sanrio-fan.site/wp-json'+p,headers=h),timeout=50) as f:return json.load(f)
+          p=get('/wp/v2/pages/804?context=edit'); current=p['content']['raw']
+          for i in [7920,7916,7915,7914,7895]:
+           try:
+            r=get('/wp/v2/pages/804/revisions/'+str(i)+'?context=edit'); s=r['content']['raw']
+            print('REV',i,'LENGTH',len(s),'CHANGED',len(current)-len(s),'RATIO',round(difflib.SequenceMatcher(None,current[:4000],s[:4000]).ratio(),3),'HEAD',s[:160])
+           except Exception as e:print('ERROR',i,repr(e))
+          PY
