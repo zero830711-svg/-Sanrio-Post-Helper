@@ -1,0 +1,22 @@
+name: Inspect exact Japanese product details
+on:
+  push:
+    paths: ['.github/workflows/inspect-jp-details-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      U: ${{ secrets.SANRIO_WP_USER }}
+      P: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request
+          a=base64.b64encode((os.environ['U']+':'+os.environ['P']).encode()).decode()
+          u='https://sanrio-fan.site/wp-json/wp/v2/pages?slug=product-details&context=edit&per_page=100'
+          with urllib.request.urlopen(urllib.request.Request(u,headers={'Authorization':'Basic '+a})) as f: rows=json.load(f)
+          for p in rows:
+           print('PAGE',p['id'],p['link'],len(p['content']['raw']),p['content']['raw'][:3500])
+          PY
