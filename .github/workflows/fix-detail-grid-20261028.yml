@@ -1,0 +1,43 @@
+name: Fix Japanese product details mobile grid
+on:
+  push:
+    paths: ['.github/workflows/fix-detail-grid-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      WP_PASS: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Update page-scoped layout
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request
+          site='https://sanrio-fan.site'
+          base=site+'/wp-json/wp/v2/pages/3100'
+          auth=base64.b64encode((os.environ['WP_USER']+':'+os.environ['WP_PASS']).encode()).decode()
+          headers={'Authorization':'Basic '+auth,'Content-Type':'application/json'}
+          def call(url,data=None):
+           req=urllib.request.Request(url,headers=headers,data=json.dumps(data).encode() if data else None,method='POST' if data else 'GET')
+           with urllib.request.urlopen(req,timeout=60) as f:return json.load(f)
+          p=call(base+'?context=edit')
+          assert p['link']==site+'/product-details/' and p['slug']=='product-details' and p['status']=='publish'
+          raw=p['content']['raw']
+          assert 'sf-detail-hub' in raw and '<!-- sf-product-detail-pilot:v1 -->' in raw
+          marker='<!-- sf-details-mobile-layout-20261028 -->'
+          assert marker not in raw
+          css=marker+'''<style>
+          .page-id-3100 .sf-detail-hub{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;align-items:stretch!important}
+          .page-id-3100 .sf-detail-hub > a{display:flex!important;flex-direction:column!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:8px!important;border:1px solid #eee2ed;border-radius:12px;background:#fff;color:#403449!important;text-decoration:none!important;font-size:12px!important;line-height:1.45!important;overflow:hidden}
+          .page-id-3100 .sf-detail-hub > a img{width:100%!important;height:auto!important;aspect-ratio:1/1;object-fit:contain;display:block;margin:0 0 7px!important}
+          .page-id-3100 .sf-detail-hub > a strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;overflow-wrap:anywhere;font-size:12px;line-height:1.45;font-weight:600;text-decoration:none}
+          @media(max-width:480px){.page-id-3100 .sf-detail-hub{gap:6px!important}.page-id-3100 .sf-detail-hub>a{padding:6px!important}.page-id-3100 .sf-detail-hub>a strong{font-size:11px!important}}
+          </style>'''
+          updated=raw+css
+          saved=call(base,{'content':updated})
+          check=call(base+'?context=edit')
+          assert check['content']['raw']==updated and check['link']==p['link'] and check['status']==p['status']
+          print('SUCCESS page',p['id'],'original content retained',len(raw),'characters; style appended')
+          PY
