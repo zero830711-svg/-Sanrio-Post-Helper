@@ -1,7 +1,7 @@
 (function(){
 async function init(){
  var root=document.querySelector('.sf-unified-directory');if(!root)return;
- var source=root.querySelector('#sf-unified-search-data'),payload=source.textContent;
+ var source=root.querySelector('#sf-unified-search-data'),payload=source.dataset.src ? await (await fetch(source.dataset.src)).text() : source.textContent;
  if(source.dataset.encoding==='gzip-base64'){
   var bytes=Uint8Array.from(atob(payload.trim()),function(char){return char.charCodeAt(0);});
   payload=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
