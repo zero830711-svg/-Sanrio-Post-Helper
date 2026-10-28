@@ -46,3 +46,7 @@
 #amazonManualAddBox>summary{font-size:13px;line-height:1.4}
 #amazonSearchArea #amazonCharacterButtons,#amazonSearchArea #amazonCategoryButtons{gap:5px;margin:6px 0}
 #amazonSearchArea #amazonCharacterButtons button,#amazonSearchArea #amazonCategoryButtons button{min-height:32px;padding:4px 8px;border-radius:9px;font-size:12px;line-height:1.2}
+
+/* Keep Amazon product actions on one row on narrow screens. */
+#amazonSearchArea .flow-source-actions{display:grid;grid-template-columns:1fr 1.2fr .85fr;gap:4px}
+#amazonSearchArea .flow-source-actions .small-btn{width:100%;min-width:0;min-height:32px;padding:5px 2px;font-size:10px;line-height:1.2;border-radius:9px;white-space:nowrap}
