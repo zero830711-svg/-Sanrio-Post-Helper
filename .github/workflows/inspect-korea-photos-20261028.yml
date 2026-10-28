@@ -1,0 +1,27 @@
+name: Inspect owned Korea photographs
+on:
+  push:
+    paths: ['.github/workflows/inspect-korea-photos-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    env:
+      WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      WP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Search images and articles
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse
+          t=base64.b64encode((os.environ['WP_USER']+':'+os.environ['WP_PASSWORD']).encode()).decode()
+          for kind, words in [('media',['hongdae','jamsil','korea','seoul','user','cafe']),('posts',['홍대','韓国','カフェ','サンリオショップ','TOPTOY'])]:
+            for word in words:
+              q=urllib.parse.urlencode({'search':word,'per_page':100,'_fields':'id,date,slug,title,link,source_url,alt_text,post'})
+              try:
+                req=urllib.request.Request('https://sanrio-fan.site/wp-json/wp/v2/'+kind+'?'+q,headers={'Authorization':'Basic '+t})
+                with urllib.request.urlopen(req,timeout=30) as f: data=json.load(f)
+                print('RESULT',kind,word,json.dumps(data,ensure_ascii=False))
+              except Exception as e: print('FAILED',kind,word,type(e).__name__)
+          PY
