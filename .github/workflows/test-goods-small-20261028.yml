@@ -1,0 +1,37 @@
+name: Check diagnostic page and small payload
+on:
+  push:
+    paths: ['.github/workflows/test-goods-small-20261028.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      WP_PASS: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - run: |
+          python3 - <<'PY'
+          import requests,re,os,uuid
+          from requests.auth import HTTPBasicAuth
+          s=requests.Session(); s.auth=HTTPBasicAuth(os.environ['WP_USER'],os.environ['WP_PASS'])
+          api='https://sanrio-fan.site/wp-json/wp/v2/pages'
+          q=s.get(api,params={'context':'edit','search':'Temporary rendering test','per_page':100,'_fields':'id,slug,title'},timeout=45);q.raise_for_status()
+          for p in q.json():
+              if p['slug'].startswith('temporary-render-test-'):
+                  d=s.delete(api+'/'+str(p['id']),params={'force':'true'},timeout=45);print('cleanup previous test',d.status_code,flush=True);d.raise_for_status()
+          x=s.get(api+'/804',params={'context':'edit','_fields':'content'},timeout=45);x.raise_for_status()
+          raw=x.json()['content']['raw']
+          m=re.search(r'(<script\b[^>]*id="sf-unified-search-data"[^>]*>)(.*?)(</script>)',raw,re.S)
+          if not m: raise Exception('marker missing')
+          body=raw[:m.start(2)]+'e30='+raw[m.end(2):]
+          marker=uuid.uuid4().hex; pageid=None
+          try:
+              c=s.post(api,json={'status':'publish','slug':'temporary-render-test-'+marker,'title':'Temporary rendering test','content':'<meta name="robots" content="noindex,nofollow">'+body},timeout=45);c.raise_for_status(); p=c.json();pageid=p['id']
+              r=requests.get(p['link'],params={'test':marker,'LSCWP_CTRL':'before_optm'},timeout=45)
+              print('reduced payload status',r.status_code,'bytes',len(r.content),'html',b'<html' in r.content.lower(),'directory',b'sf-unified-directory' in r.content,flush=True)
+          finally:
+              if pageid:
+                  d=s.delete(api+'/'+str(pageid),params={'force':'true'},timeout=45);print('cleanup test',d.status_code,flush=True);d.raise_for_status()
+          PY
