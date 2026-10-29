@@ -1,0 +1,59 @@
+name: Inspect sitemap files safely
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/inspect-sitemap-rss-20261030.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+    steps:
+      - name: Locate public site and inspect files without changes
+        run: |
+          python3 - <<'PY'
+          import ftplib,io,os,ssl,json
+          from urllib import parse,request
+          from pathlib import Path
+          host=os.environ['LOLIPOP_FTP_HOST'];u=parse.urlsplit(host if '://' in host else 'ftp://'+host)
+          old=request.urlopen('https://sanrio-fan.site/catalog-image-sitemap.xml',timeout=60).read()
+          report={'matches':[]};out=Path('sitemap-inspection');out.mkdir()
+          with ftplib.FTP_TLS(timeout=30,context=ssl.create_default_context()) as ftp:
+              ftp.connect(u.hostname,u.port or 21);ftp.login(os.environ['LOLIPOP_FTP_USER'],os.environ['LOLIPOP_FTP_PASSWORD']);ftp.prot_p()
+              q=[(ftp.pwd(),0)];seen=set()
+              while q and len(seen)<250:
+                  folder,depth=q.pop(0)
+                  if folder in seen: continue
+                  seen.add(folder)
+                  try:
+                      ftp.cwd(folder); entries=list(ftp.mlsd())
+                  except ftplib.error_perm: continue
+                  names={n for n,f in entries if f.get('type')=='file'}
+                  if 'catalog-image-sitemap.xml' in names and 'wp-config.php' in names:
+                      buf=io.BytesIO();ftp.retrbinary('RETR catalog-image-sitemap.xml',buf.write)
+                      if buf.getvalue()==old:
+                          match={'path':folder,'files':{}}
+                          for name in ('robots.txt','.htaccess','sitemap.rss'):
+                              if name in names:
+                                  data=io.BytesIO();ftp.retrbinary('RETR '+name,data.write)
+                                  (out/('existing-'+name.replace('.','_'))).write_bytes(data.getvalue())
+                                  match['files'][name]={'present':True,'size':len(data.getvalue())}
+                              else: match['files'][name]={'present':False}
+                          report['matches'].append(match)
+                  if depth<4:
+                      dirs=[n for n,f in entries if f.get('type')=='dir' and not n.startswith('.') and n not in ('wp-admin','wp-includes','wp-content','logs','log')]
+                      dirs.sort(key=lambda n:(not any(x in n.lower() for x in ('sanrio','fan','public','www')),n))
+                      q.extend((folder.rstrip('/')+'/'+n,depth+1) for n in dirs)
+          (out/'report.json').write_text(json.dumps(report,indent=2))
+          print(json.dumps({'matches':len(report['matches']),'result':report['matches']},ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sitemap-inspection-${{ github.run_id }}
+          path: sitemap-inspection/
+          retention-days: 90
