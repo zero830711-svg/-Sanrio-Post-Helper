@@ -1,0 +1,46 @@
+name: Inspect Rakuten candidate for Sanrio article
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/inspect-toone-exact-20261030.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp php-cli php-curl php-mbstring
+      - name: Inspect exact products
+        run: |
+          set -euo pipefail
+          tmpdir=$(mktemp -d)
+          trap 'rm -rf "$tmpdir"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get .rakuten-settings.php -o "$tmpdir/settings.php"
+          bye
+          LFTP
+          cat > "$tmpdir/query.json" <<'JSON'
+          {"products":[{"name":"トーン ハローキティ ハンドクリーム","slug":"cream","rakuten_search_query":"トーン キティ ハンドクリーム"},{"name":"トーン ハローキティ VC ショット","slug":"vc","rakuten_search_query":"toone キティ ショット"}]}
+          JSON
+          php scripts/fetch-reviewed-gacha-five.php "$tmpdir/settings.php" "$tmpdir/query.json" "$tmpdir/results.json"
+          python3 - "$tmpdir/results.json" <<'PY'
+          import json,sys
+          x=json.load(open(sys.argv[1],encoding='utf-8'))
+          print('RESULT_JSON',json.dumps(x,ensure_ascii=False)[:180000])
+          for row in x.get('products',{}).get('candidate',[])[:20]:
+              print(json.dumps({k:row.get(k) for k in ['title','url','image','shop']},ensure_ascii=False))
+          PY
