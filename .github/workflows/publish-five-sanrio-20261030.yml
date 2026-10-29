@@ -1,0 +1,60 @@
+name: Publish five Sanrio guides sequentially
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-five-sanrio-20261030.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-editorial-publisher
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish and verify one at a time
+        run: |
+          python3 - <<'PY'
+          import json,subprocess,urllib.request,urllib.parse,html
+          from html.parser import HTMLParser
+          class Tags(HTMLParser):
+              def __init__(self):
+                  super().__init__(); self.t=[]; self.c=[]; self.d=[]; self.img=[]; self.links=[];self.in_title=False;self.title=''
+              def handle_starttag(self,t,a):
+                  a=dict(a)
+                  if t=='title': self.in_title=True
+                  if t=='meta' and a.get('name')=='description': self.d.append(a.get('content',''))
+                  if t=='link' and 'canonical' in a.get('rel','').split(): self.c.append(a.get('href',''))
+                  if t=='img': self.img.append(a.get('src',''))
+                  if t=='a': self.links.append(a.get('href',''))
+              def handle_endtag(self,t):
+                  if t=='title': self.in_title=False
+              def handle_data(self,d):
+                  if self.in_title:self.title+=d
+          def get(url):
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 Sanrio article verification'})
+              with urllib.request.urlopen(req,timeout=40) as r:return r.read().decode('utf-8')
+          for key in ['favorite','kuromi','chibi','warm','closet']:
+              path='blog/editorial/oct2026-'+key+'-guide.json'
+              article=json.load(open(path,encoding='utf-8'))
+              term={'favorite':'お気に入りデザイン','kuromi':'まっくろクロミモード','chibi':'ちびっとも','warm':'あったかアイテム','closet':'closet collection'}[key]
+              q=urllib.parse.urlencode({'search':term,'per_page':100,'_fields':'id,title,link'})
+              matches=json.loads(get('https://sanrio-fan.site/wp-json/wp/v2/posts?'+q))
+              if matches: raise RuntimeError('Related article found for '+key+': '+str([x['id'] for x in matches]))
+              subprocess.run(['python3','scripts/publish-editorial-article.py',path],check=True)
+              posts=json.loads(get('https://sanrio-fan.site/wp-json/wp/v2/posts?'+urllib.parse.urlencode({'slug':article['slug']})))
+              if len(posts)!=1 or posts[0]['status']!='publish':raise RuntimeError('Post missing '+key)
+              post=posts[0]; page=get(post['link']); parsed=Tags();parsed.feed(page)
+              if not parsed.d or not parsed.c or set(parsed.c)!={post['link']} or html.unescape(article['title']) not in html.unescape(parsed.title):
+                  raise RuntimeError('SEO fields failed for '+key)
+              if '公式発表' not in page or not any(key+'-guide-2026' in u for u in parsed.img):
+                  raise RuntimeError('Body or image missing for '+key)
+              sm=get('https://sanrio-fan.site/post-sitemap1.xml')
+              if post['link'] not in sm:raise RuntimeError('Not found in sitemap '+key)
+              print('VERIFIED',key,post['link'],flush=True)
+          PY
