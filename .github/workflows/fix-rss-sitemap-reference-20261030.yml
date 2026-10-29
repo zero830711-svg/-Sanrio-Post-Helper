@@ -1,0 +1,66 @@
+name: Fix RSS sitemap reference
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/fix-rss-sitemap-reference-20261030.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-site-config
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+    steps:
+      - name: Save existing public robots and inspect server
+        run: |
+          cat > /tmp/robots_rss.py <<'PY'
+          import ftplib,io,os,ssl,sys,json,hashlib
+          from urllib import parse,request
+          from pathlib import Path
+          base='https://sanrio-fan.site/'
+          def public(name):
+              with request.urlopen(request.Request(base+name,headers={'User-Agent':'Mozilla/5.0'}),timeout=30) as r:return r.read()
+          def connect():
+              h=os.environ['LOLIPOP_FTP_HOST'];u=parse.urlsplit(h if '://' in h else 'ftp://'+h)
+              f=ftplib.FTP_TLS(timeout=30,context=ssl.create_default_context());f.connect(u.hostname,u.port or 21);f.login(os.environ['LOLIPOP_FTP_USER'],os.environ['LOLIPOP_FTP_PASSWORD']);f.prot_p();f.cwd('sanrio-fan');return f
+          def read(f,name):
+              b=io.BytesIO();f.retrbinary('RETR '+name,b.write);return b.getvalue()
+          d=Path('robots-backup');d.mkdir(exist_ok=True);p=d/'robots-before.txt';meta=d/'meta.json'
+          expected=b'Sitemap: https://sanrio-fan.site/sitemap.rss'
+          if sys.argv[1]=='prepare':
+              before=public('robots.txt');assert before.count(expected)==1
+              with connect() as f:
+                  names={n for n,x in f.mlsd() if x.get('type')=='file'}
+                  assert 'wp-config.php' in names and 'ads.txt' in names and 'robots.txt' not in names
+                  assert read(f,'ads.txt')==public('ads.txt')
+              p.write_bytes(before);meta.write_text(json.dumps({'source':'public virtual robots.txt','physical_file_existed':False,'sha256':hashlib.sha256(before).hexdigest()}))
+              print('Backup prepared; public rules preserved, no physical robots.txt exists')
+          else:
+              before=p.read_bytes();assert hashlib.sha256(before).hexdigest()==json.loads(meta.read_text())['sha256']
+              assert public('robots.txt')==before
+              after=before.replace(expected,b'Sitemap: https://sanrio-fan.site/feed/',1)
+              assert b'Sitemap: https://sanrio-fan.site/sitemap.xml' in after and expected not in after
+              with connect() as f:
+                  names={n for n,x in f.mlsd() if x.get('type')=='file'}
+                  assert 'robots.txt' not in names and 'ads.txt' in names and 'wp-config.php' in names
+                  assert read(f,'ads.txt')==public('ads.txt')
+                  temp='robots-sitemap-update.tmp';assert temp not in names
+                  f.storbinary('STOR '+temp,io.BytesIO(after));assert read(f,temp)==after
+                  f.rename(temp,'robots.txt')
+              assert public('robots.txt?verify=rss20261030')==after
+              print('VERIFIED robots.txt references /feed/ and retains all other rules')
+          PY
+          python3 /tmp/robots_rss.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: robots-before-${{ github.run_id }}
+          path: robots-backup/
+          retention-days: 90
+      - name: Publish and verify
+        run: python3 /tmp/robots_rss.py apply
