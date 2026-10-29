@@ -1,0 +1,49 @@
+name: Add official event area information
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/update-cinnamon-event-20261030.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Backup
+        run: |
+          cat > /tmp/event_update.py <<'PY'
+          import importlib.util,json,pathlib,sys,re
+          spec=importlib.util.spec_from_file_location('ed','scripts/publish-editorial-article.py');mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);wp=mod.WordPress()
+          path='/wp/v2/posts/302';d=pathlib.Path('event-backup');d.mkdir(exist_ok=True);f=d/'before.json'
+          if sys.argv[1]=='prepare':
+              p=wp.call(path+'?context=edit'); assert p['id']==302 and p['status']=='publish'
+              f.write_text(json.dumps(p,ensure_ascii=False),encoding='utf-8');print('BACKUP',p['link'])
+          else:
+              b=json.loads(f.read_text(encoding='utf-8'));p=wp.call(path+'?context=edit')
+              assert b['modified_gmt']==p['modified_gmt'] and b['content']['raw']==p['content']['raw']
+              marker='<h2>会場限定グッズについて</h2>'
+              add='<h2>周辺のシナモロールイルミネーションも確認</h2><p>イベント公式は、東京ドームシティのウィンターイルミネーションとのコラボを案内しています。シナモロールの演出や装飾が予定され、期間は2026年11月19日から2027年2月28日までです。<strong>パーク本体の会期（11月20日〜1月17日）とは異なります。</strong>演出の時間などは<a href="https://cinnamorollpark.sanrio.co.jp/news/news04">イベント公式のお知らせ</a>と東京ドームシティの最新案内で確認してください。情報確認日：2026年10月30日。</p>'
+              doc=p['content']['raw']; assert doc.count(marker)==1 and 'ウィンターイルミネーション' not in doc
+              doc=doc.replace(marker,add+'\n'+marker,1)
+              assert all(link in doc for link in re.findall(r'href=["\x27]([^"\x27]+)',p['content']['raw']))
+              assert re.findall(r'<img\b[^>]*>',doc)==re.findall(r'<img\b[^>]*>',p['content']['raw'])
+              wp.call(path,data={'content':doc});a=wp.call(path+'?context=edit')
+              assert a['content']['raw']==doc
+              for k in ('title','excerpt','slug','link','status','featured_media','date','categories','tags','author'): assert a[k]==b[k],k
+              print('UPDATED',a['link'])
+          PY
+          python3 /tmp/event_update.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: event-before-${{ github.run_id }}
+          path: event-backup/
+          retention-days: 90
+      - name: Apply and verify
+        run: python3 /tmp/event_update.py apply
