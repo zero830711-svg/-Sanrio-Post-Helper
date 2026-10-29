@@ -1,0 +1,31 @@
+name: Publish one Sanrio lollipop gummy guide
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-sanrio-lollipop-guide-20261030.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-editorial-publisher
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check distinct published article and publish one
+        run: |
+          python3 - <<'PY'
+          import json,urllib.parse,urllib.request
+          for term in ['ロリポップグミ']:
+              u='https://sanrio-fan.site/wp-json/wp/v2/posts?per_page=100&search='+urllib.parse.quote(term)
+              posts=json.load(urllib.request.urlopen(u,timeout=40))
+              matches=[x for x in posts if ('ロリポップ' in x['title']['rendered'] and 'グミ' in x['title']['rendered'])]
+              if matches: raise RuntimeError('Existing related article requires review: '+str([x['id'] for x in matches]))
+          print('No matching published collaboration article')
+          PY
+          python3 scripts/publish-editorial-article.py blog/editorial/lollipop-2026-buying-guide.json
