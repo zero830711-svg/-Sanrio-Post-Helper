@@ -1,0 +1,47 @@
+name: Clarify Busan visit hours
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/clarify-busan-hours-20261030.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Backup
+        run: |
+          cat > /tmp/busan_update.py <<'PY'
+          import importlib.util,json,pathlib,sys,re
+          spec=importlib.util.spec_from_file_location('ed','scripts/publish-editorial-article.py');mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);wp=mod.WordPress()
+          path='/wp/v2/posts/404';d=pathlib.Path('busan-backup');d.mkdir(exist_ok=True);f=d/'before.json'
+          if sys.argv[1]=='prepare':
+              p=wp.call(path+'?context=edit');assert p['id']==404 and p['status']=='publish'
+              f.write_text(json.dumps(p,ensure_ascii=False),encoding='utf-8');print('BACKUP',p['link'])
+          else:
+              b=json.loads(f.read_text(encoding='utf-8'));p=wp.call(path+'?context=edit')
+              assert p['modified_gmt']==b['modified_gmt'] and p['content']['raw']==b['content']['raw']
+              old='<strong>営業時間：</strong>毎日 10:00〜21:30／ラストオーダー 21:00'
+              new='<strong>掲載時の営業時間（現在の営業状況は未確認）：</strong>毎日 10:00〜21:30／ラストオーダー 21:00'
+              doc=p['content']['raw'];assert doc.count(old)==1;doc=doc.replace(old,new,1)
+              assert re.findall(r'href=["\x27]([^"\x27]+)',doc)==re.findall(r'href=["\x27]([^"\x27]+)',p['content']['raw'])
+              assert re.findall(r'<img\b[^>]*>',doc)==re.findall(r'<img\b[^>]*>',p['content']['raw'])
+              wp.call(path,data={'content':doc});a=wp.call(path+'?context=edit');assert a['content']['raw']==doc
+              for k in ('title','excerpt','slug','link','status','featured_media','date','categories','tags','author'): assert a[k]==b[k],k
+              print('UPDATED',a['link'])
+          PY
+          python3 /tmp/busan_update.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: busan-before-${{ github.run_id }}
+          path: busan-backup/
+          retention-days: 90
+      - name: Apply and verify
+        run: python3 /tmp/busan_update.py apply
