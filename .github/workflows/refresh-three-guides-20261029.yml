@@ -1,0 +1,81 @@
+name: Refresh three existing guides 20261029
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/refresh-three-guides-20261029.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepare and save originals
+        run: |
+          cat > /tmp/refresh_guides.py <<'PY'
+          import importlib.util,json,pathlib,sys,re
+          spec=importlib.util.spec_from_file_location('ed','scripts/publish-editorial-article.py')
+          mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);wp=mod.WordPress()
+          backup=pathlib.Path('guide-backups');backup.mkdir(exist_ok=True)
+          ids=[332,274,380]
+          def replace_once(s,old,new):
+              assert s.count(old)==1, 'expected exactly one matching passage: '+old[:45]
+              return s.replace(old,new,1)
+          if sys.argv[1]=='prepare':
+              for pid in ids:
+                  p=wp.call('/wp/v2/posts/'+str(pid)+'?context=edit')
+                  assert p['id']==pid and p['status']=='publish' and p['link'].startswith('https://sanrio-fan.site/')
+                  (backup/(str(pid)+'.json')).write_text(json.dumps(p,ensure_ascii=False),encoding='utf-8')
+              docs={}
+              p=json.loads((backup/'332.json').read_text(encoding='utf-8')); s=p['content']['raw']
+              s=replace_once(s,'2026年10月29日（木）発売予定のNintendo Switch／Switch 2向けゲームです。','2026年10月29日（木）に発売されたNintendo Switch／Switch 2向けゲームです。')
+              s=replace_once(s,'公式情報確認日：2026年10月27日。実際にプレイしたレビューではありません。','公式情報確認日：2026年10月29日。実際にプレイしたレビューではありません。<a href="https://corporate.sanrio.co.jp/news/202601029.html">サンリオの発売日発表</a>もご確認ください。')
+              s=replace_once(s,'発売予定日 2026年10月29日','発売日 2026年10月29日') if '発売予定日 2026年10月29日' in s else s
+              s=replace_once(s,'予約・購入前のチェック','購入前のチェック')
+              docs[332]=s
+              p=json.loads((backup/'274.json').read_text(encoding='utf-8')); s=p['content']['raw']
+              old='<h3>検索しても出ないときは？</h3><p>①発売前または情報が未掲載、②サービスの検索対象外、③商品名やシリーズ違いなどを順に確認します。どれが原因かは検索結果だけでは決められません。店舗情報や公式商品ページの更新を確認し、遠方へ向かう前は最新案内を参照しましょう。</p>'
+              s=replace_once(s,old,'')
+              docs[274]=s
+              p=json.loads((backup/'380.json').read_text(encoding='utf-8')); s=p['content']['raw']
+              old='<p>たとえば月の上限が5,000円で、候補Aの総額が2,600円、候補Bの総額が3,000円なら合計5,600円です。どちらも購入する前に優先順位か翌月の予算を見直します。不足分の600円を後から工面する前提で購入しないようにすると整理しやすくなります。</p>'
+              s=replace_once(s,old,'')
+              docs[380]=s
+              for pid,s in docs.items():
+                  before=json.loads((backup/(str(pid)+'.json')).read_text(encoding='utf-8'))
+                  links=re.findall(r'href=["\x27]([^"\x27]+)',before['content']['raw'])
+                  assert all(link in s for link in links), 'existing link missing '+str(pid)
+                  (backup/(str(pid)+'-new.txt')).write_text(s,encoding='utf-8')
+                  print('READY',pid,before['link'],flush=True)
+          else:
+              for pid in ids:
+                  before=json.loads((backup/(str(pid)+'.json')).read_text(encoding='utf-8'))
+                  path='/wp/v2/posts/'+str(pid); now=wp.call(path+'?context=edit')
+                  assert now['modified_gmt']==before['modified_gmt'] and now['content']['raw']==before['content']['raw'] and now['link']==before['link'], 'concurrent change '+str(pid)
+              for pid in ids:
+                  before=json.loads((backup/(str(pid)+'.json')).read_text(encoding='utf-8'))
+                  path='/wp/v2/posts/'+str(pid)
+                  now=wp.call(path+'?context=edit')
+                  assert now['modified_gmt']==before['modified_gmt'] and now['content']['raw']==before['content']['raw'], 'concurrent change '+str(pid)
+                  doc=(backup/(str(pid)+'-new.txt')).read_text(encoding='utf-8')
+                  wp.call(path,data={'content':doc})
+                  after=wp.call(path+'?context=edit')
+                  assert after['content']['raw']==doc
+                  for key in ('slug','link','status','featured_media','date','categories','tags','author'): assert after[key]==before[key],(pid,key)
+                  print('UPDATED',pid,after['link'],flush=True)
+          PY
+          python3 /tmp/refresh_guides.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-guides-${{ github.run_id }}
+          path: guide-backups/
+          retention-days: 90
+      - name: Update and verify
+        run: python3 /tmp/refresh_guides.py apply
