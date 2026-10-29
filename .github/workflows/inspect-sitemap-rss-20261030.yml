@@ -21,7 +21,7 @@ jobs:
           from urllib import parse,request
           from pathlib import Path
           host=os.environ['LOLIPOP_FTP_HOST'];u=parse.urlsplit(host if '://' in host else 'ftp://'+host)
-          old=request.urlopen('https://sanrio-fan.site/catalog-image-sitemap.xml',timeout=60).read()
+          old=request.urlopen('https://sanrio-fan.site/ads.txt',timeout=60).read()
           report={'matches':[]};out=Path('sitemap-inspection');out.mkdir()
           with ftplib.FTP_TLS(timeout=30,context=ssl.create_default_context()) as ftp:
               ftp.connect(u.hostname,u.port or 21);ftp.login(os.environ['LOLIPOP_FTP_USER'],os.environ['LOLIPOP_FTP_PASSWORD']);ftp.prot_p()
@@ -34,8 +34,8 @@ jobs:
                       ftp.cwd(folder); entries=list(ftp.mlsd())
                   except ftplib.error_perm: continue
                   names={n for n,f in entries if f.get('type')=='file'}
-                  if 'catalog-image-sitemap.xml' in names and 'wp-config.php' in names:
-                      buf=io.BytesIO();ftp.retrbinary('RETR catalog-image-sitemap.xml',buf.write)
+                  if 'ads.txt' in names and 'wp-config.php' in names:
+                      buf=io.BytesIO();ftp.retrbinary('RETR ads.txt',buf.write)
                       if buf.getvalue()==old:
                           match={'path':folder,'files':{}}
                           for name in ('robots.txt','.htaccess','sitemap.rss'):
