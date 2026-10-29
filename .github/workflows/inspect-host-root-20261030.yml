@@ -21,7 +21,7 @@ jobs:
           u=parse.urlsplit(os.environ['LOLIPOP_FTP_HOST'] if '://' in os.environ['LOLIPOP_FTP_HOST'] else 'ftp://'+os.environ['LOLIPOP_FTP_HOST'])
           with ftplib.FTP_TLS(timeout=20,context=ssl.create_default_context()) as f:
               f.connect(u.hostname,u.port or 21);f.login(os.environ['LOLIPOP_FTP_USER'],os.environ['LOLIPOP_FTP_PASSWORD']);f.prot_p()
-              print('ROOT',f.pwd())
+              f.cwd('sanrio-fan'); print('SITE_DIR',f.pwd())
               entries=list(f.mlsd()); print('DIRS',json.dumps([n for n,x in entries if x.get('type')=='dir']))
               print('FILES',json.dumps([n for n,x in entries if x.get('type')=='file' and n in ('robots.txt','ads.txt','wp-config.php','.htaccess')]))
           PY
