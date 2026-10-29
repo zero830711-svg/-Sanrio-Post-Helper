@@ -1,0 +1,59 @@
+name: Clarify ended LINE Sanrio collaboration
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/clarify-line-collab-20261030.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Save current post and settings
+        run: |
+          cat > /tmp/line_update.py <<'PY'
+          import importlib.util,json,pathlib,sys,re
+          spec=importlib.util.spec_from_file_location('ed','scripts/publish-editorial-article.py');mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);wp=mod.WordPress()
+          path='/wp/v2/posts/291';d=pathlib.Path('line-backup');d.mkdir(exist_ok=True);f=d/'before.json'
+          if sys.argv[1]=='prepare':
+              p=wp.call(path+'?context=edit');assert p['id']==291 and p['status']=='publish' and p['modified']=='2026-10-09T01:17:25'
+              f.write_text(json.dumps(p,ensure_ascii=False,indent=2),encoding='utf-8')
+              (d/'seopress-observed.json').write_text(json.dumps({'custom_title':'','custom_description':'','noindex':'','canonical_override':'','observed_post_modified':'2026-10-09 01:17:25'},ensure_ascii=False,indent=2),encoding='utf-8')
+              print('BACKUP',p['link'])
+          else:
+              b=json.loads(f.read_text(encoding='utf-8'));p=wp.call(path+'?context=edit')
+              assert p['modified_gmt']==b['modified_gmt'] and p['content']['raw']==b['content']['raw']
+              doc=p['content']['raw']
+              changes=[
+                ('ここでは日本から参加する人が混同しやすい点を整理します。','ここでは当時の日本・台湾向け告知の違いを整理します。'),
+                ('2026年10月9日時点の公式発表の比較です。','2026年10月9日時点の公式発表の比較です。両告知の開催期間は2026年10月16日までで、案内された期間は過ぎています。延長や再開催は確認できていません。'),
+                ('実施中〜2026年10月16日10:59（日本時間）','告知時に開催中〜2026年10月16日10:59（日本時間）'),
+                ('日本向け告知は10:59終了です。','日本向け告知は10:59まででした。'),
+                ('開催中でも召喚や報酬の受取条件は個別に異なるため、ゲーム内表示を確認してください。','当時の召喚や報酬の受取条件は個別に異なり、現在利用できることを示すものではありません。'),
+                ('<h2>日本から遊ぶ前に確認すること</h2>','<h2>当時の日本向け・台湾向け告知を見分けるポイント</h2>'),
+                ('カード召喚、装飾収集、ログイン報酬などの参加条件は、アプリ内のお知らせと対象アカウントで確認する。','当時のカード召喚、装飾収集、ログイン報酬などの参加条件は、それぞれ異なった。'),
+                ('確認日：2026年10月9日。イベント内容・期限・参加条件は変更される場合があります。','当初の情報確認日：2026年10月9日。開催期間の再確認：2026年10月30日。イベント内容・期限・参加条件は変更される場合があります。')
+              ]
+              for old,new in changes:
+                  assert doc.count(old)==1,(old,doc.count(old));doc=doc.replace(old,new,1)
+              assert re.findall(r'href=["\x27]([^"\x27]+)',doc)==re.findall(r'href=["\x27]([^"\x27]+)',p['content']['raw'])
+              assert re.findall(r'<img\b[^>]*>',doc)==re.findall(r'<img\b[^>]*>',p['content']['raw'])
+              wp.call(path,data={'content':doc});a=wp.call(path+'?context=edit');assert a['content']['raw']==doc
+              for k in ('title','excerpt','slug','link','status','featured_media','date','categories','tags','author'): assert a[k]==b[k],k
+              print('UPDATED',a['link'])
+          PY
+          python3 /tmp/line_update.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: line-collab-before-${{ github.run_id }}
+          path: line-backup/
+          retention-days: 90
+      - name: Update and check
+        run: python3 /tmp/line_update.py apply
