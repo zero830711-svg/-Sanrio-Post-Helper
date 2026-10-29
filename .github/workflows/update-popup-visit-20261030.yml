@@ -1,0 +1,56 @@
+name: Correct past popup visit wording
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/update-popup-visit-20261030.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Backup before editing
+        run: |
+          cat > /tmp/popup_update.py <<'PY'
+          import importlib.util,json,pathlib,sys,re
+          spec=importlib.util.spec_from_file_location('ed','scripts/publish-editorial-article.py')
+          mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);wp=mod.WordPress()
+          path='/wp/v2/posts/639';d=pathlib.Path('popup-backup');d.mkdir(exist_ok=True);f=d/'before.json'
+          if sys.argv[1]=='prepare':
+              p=wp.call(path+'?context=edit')
+              assert p['id']==639 and p['status']=='publish' and p['link']=='https://sanrio-fan.site/korea-sanrio-stationery-popup-visit/'
+              f.write_text(json.dumps(p,ensure_ascii=False),encoding='utf-8')
+              print('BACKUP',p['link'])
+          else:
+              before=json.loads(f.read_text(encoding='utf-8'));p=wp.call(path+'?context=edit')
+              assert p['modified_gmt']==before['modified_gmt'] and p['content']['raw']==before['content']['raw']
+              doc=p['content']['raw']
+              changes=[
+               ('韓国・弘大のAK PLAZAで開催中の','韓国・弘大のAK PLAZAで開催されていた'),
+               ('2026年10月8日時点では会期終了が10月11日に迫っています。営業時間や入場方法、在庫は変わることがあるため、向かう前に会場の最新案内も確認してください。','掲載時に確認した会期は2026年10月11日までで、すでにその予定期間を過ぎています。この記事は10月6日の訪問記録です。その後の開催・再開催や商品販売は確認できていません。')]
+              for old,new in changes:
+                  assert doc.count(old)==1,old
+                  doc=doc.replace(old,new,1)
+              assert re.findall(r'href=["\x27]([^"\x27]+)',doc)==re.findall(r'href=["\x27]([^"\x27]+)',p['content']['raw'])
+              assert re.findall(r'<img\b[^>]*>',doc)==re.findall(r'<img\b[^>]*>',p['content']['raw'])
+              wp.call(path,data={'content':doc})
+              after=wp.call(path+'?context=edit')
+              assert after['content']['raw']==doc
+              for k in ('title','excerpt','slug','link','status','featured_media','date','categories','tags','author'): assert after[k]==before[k],k
+              print('UPDATED',after['link'])
+          PY
+          python3 /tmp/popup_update.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: popup-before-${{ github.run_id }}
+          path: popup-backup/
+          retention-days: 90
+      - name: Apply and verify
+        run: python3 /tmp/popup_update.py apply
