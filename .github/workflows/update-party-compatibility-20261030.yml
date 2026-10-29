@@ -1,0 +1,57 @@
+name: Update Party Land compatibility guide
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/update-party-compatibility-20261030.yml']
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Backup and prepare
+        run: |
+          cat > /tmp/party_update.py <<'PY'
+          import importlib.util,json,pathlib,sys,re
+          spec=importlib.util.spec_from_file_location('ed','scripts/publish-editorial-article.py')
+          mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);wp=mod.WordPress()
+          path='/wp/v2/posts/332'
+          directory=pathlib.Path('party-backup');directory.mkdir(exist_ok=True)
+          file=directory/'before.json'
+          if sys.argv[1]=='prepare':
+              p=wp.call(path+'?context=edit')
+              assert p['id']==332 and p['status']=='publish'
+              assert p['title']['raw']=='サンリオ パーティランド予約ガイド｜発売日・価格・Switch 2対応・特典の違い'
+              file.write_text(json.dumps(p,ensure_ascii=False),encoding='utf-8')
+              print('BACKED UP',p['link'])
+          else:
+              before=json.loads(file.read_text(encoding='utf-8'))
+              p=wp.call(path+'?context=edit')
+              assert p['modified_gmt']==before['modified_gmt'] and p['content']['raw']==before['content']['raw'] and p['title']['raw']==before['title']['raw']
+              old='限定セットのソフトはSwitch向けですが、Switch 2でもプレイ可能です。公式によると、Switch 2専用ソフト版やダウンロード版の限定セットはありません。'
+              new=old+'ただし公式案内では、Switch 2版のソフトと、限定セットに含まれるSwitch版ソフトとの間にセーブデータ・追加コンテンツの互換性はないとされています。両方の購入を考えている場合は、購入前に対応するソフトを確認してください。'
+              doc=p['content']['raw']
+              assert doc.count(old)==1
+              doc=doc.replace(old,new,1)
+              title='サンリオ パーティランド購入ガイド｜価格・Switch 2対応・限定セットの特典'
+              wp.call(path,data={'content':doc,'title':title})
+              after=wp.call(path+'?context=edit')
+              assert after['content']['raw']==doc and after['title']['raw']==title
+              for key in ('slug','link','status','featured_media','date','categories','tags','author','excerpt'): assert after[key]==before[key],key
+              print('UPDATED',after['link'])
+          PY
+          python3 /tmp/party_update.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: party-before-${{ github.run_id }}
+          path: party-backup/
+          retention-days: 90
+      - name: Apply and verify
+        run: python3 /tmp/party_update.py apply
