@@ -1,0 +1,59 @@
+name: Publish PICOCICI Sanrio light figure guide
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-picocici-glimmer-20261030.yml
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Add five supplied images and publish draft
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          site="https://sanrio-fan.site/wp-json/wp/v2"; user=os.environ["SANRIO_WP_USER"]; pwd=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not user or not pwd: raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((user+":"+pwd).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           hdr={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None: hdr["Content-Type"]="application/json"
+           hdr.update(headers or {})
+           req=urllib.request.Request(site+path,data=body,headers=hdr)
+           with urllib.request.urlopen(req,timeout=45) as r:return json.load(r)
+          p=api("/posts/7989?context=edit")
+          if p["slug"]!="picocici-sanrio-healing-glimmer-light-figure" or p["status"]!="draft":raise RuntimeError("Draft identity or status mismatch")
+          spec=[("IMG_8479.jpeg","PICOCICI サンリオ 愈见微光シリーズのフィギュア","光るリボンに乗ったサンリオキャラクターたち"),("IMG_8480.jpeg","PICOCICI サンリオ 愈见微光シリーズ全12種類","リボンが光る全12デザインのイメージ"),("IMG_8481.jpeg","シナモロールとポチャッコの光るスマホ用フィギュア","画面の点灯・消灯時の光り方を示すイメージ"),("IMG_8482.jpeg","スマートフォンの感応エリアに近づけたハローキティのフィギュア","スマートフォンの感応エリアに近づける使い方"),("IMG_8483.jpeg","PICOCICI サンリオ 愈见微光の12種類とブラインドボックス","全12種類と、1個・12個入りボックスの販売形式")]
+          fig=[];media=[]
+          for i,(filename,alt,caption) in enumerate(spec):
+           raw=(Path("blog/editorial/picocici-glimmer")/filename).read_bytes()
+           result=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="picocici-sanrio-glimmer-%s.jpg"'%(i+1)})
+           api("/media/"+str(result["id"]),{"alt_text":alt})
+           media.append(result)
+           fig.append('<figure class="wp-block-image size-large"><img src="'+html.escape(result["source_url"],quote=True)+'" alt="'+html.escape(alt,quote=True)+'" loading="lazy"><figcaption>'+html.escape(caption)+'｜画像出典：RED公式投稿より</figcaption></figure>')
+          content=p["content"]["raw"]
+          markers=["<h2>スマホに近づけるとやさしく光る</h2>","<h2>全12種類のデザイン</h2>","<h2>ブラインド販売とボックス購入の注意点</h2>","<h2>どこで買える？日本での販売情報</h2>"]
+          for marker in markers:
+           if content.count(marker)!=1: raise RuntimeError("Unexpected draft structure")
+          content=content.replace(markers[0],fig[0]+markers[0]+fig[3],1)
+          content=content.replace(markers[1],markers[1]+fig[1],1)
+          content=content.replace(markers[2],fig[2]+markers[2]+fig[4],1)
+          saved=api("/posts/7989",{"content":content,"featured_media":media[0]["id"],"status":"draft"})
+          check=api("/posts/7989?context=edit")
+          if check["status"]!="draft" or any(x["source_url"] not in check["content"]["raw"] for x in media):raise RuntimeError("Image verification failed")
+          pub=api("/posts/7989",{"status":"publish"})
+          if pub["status"]!="publish":raise RuntimeError("Publication failed")
+          print("PUBLISHED",pub["link"],"IMAGE_IDS",[x["id"] for x in media])
+          PY
