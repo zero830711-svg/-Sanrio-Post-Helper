@@ -1,0 +1,65 @@
+name: Publish MOETCH Hello Kitty Christmas guide
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-moetch-kitty-star-wish-20261030.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check and publish via WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"]; p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p: raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None: h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=45) as r: return json.load(r)
+          slug="moetch-hello-kitty-christmas-star-wish-mini"
+          for term in [slug,"苹安星愿","苹安星愿","MOETCH"]:
+           rows=api("/posts?"+urllib.parse.urlencode({"search":term,"context":"edit","per_page":100,"_fields":"id,slug,status,title,link"}))
+           print("SEARCH",term,json.dumps(rows,ensure_ascii=False))
+           for row in rows:
+            t=html.unescape(row["title"]["rendered"]).lower()
+            if row["slug"]==slug or "苹安星愿" in t or "苹安星愿" in t or ("moetch" in t and ("クリスマス" in t or "star wish" in t)):
+             raise RuntimeError("Possible duplicate; review existing post")
+          specs=[
+           ("8485","赤と黄色のクリスマス帽子姿のハローキティのマスコット","赤と黄色の帽子に、大きなリボンや星の飾りが映えます。"),
+           ("8486","緑と赤のクリスマス帽子姿のハローキティのマスコット","緑と赤の組み合わせは、クリスマスらしい配色。"),
+           ("8487","黄色と緑のクリスマス帽子姿のハローキティのマスコット","白いポンポンやリボン、雪の結晶の飾りもそれぞれ異なります。"),
+           ("8488","MOETCH ハローキティ 苹安星愿シリーズ Mini 全6種類の一覧","画像では6種類のデザインを見比べられます。"),
+           ("8490","ハローキティ 苹安星愿シリーズの全6種類とブラインドボックス購入形式の説明","画像に記載された単品と6個入りボックスの購入形式。")]
+          figs=[]; media=[]
+          for i,(num,alt,cap) in enumerate(specs):
+           raw=Path("blog/editorial/moetch-star-wish/IMG_"+num+".jpeg").read_bytes()
+           x=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="moetch-hello-kitty-christmas-star-wish-%s.jpg"'%(i+1)})
+           api("/media/"+str(x["id"]),{"alt_text":alt})
+           media.append(x)
+           figs.append('<figure class="wp-block-image size-large"><img src="'+html.escape(x["source_url"],quote=True)+'" alt="'+html.escape(alt,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'｜画像出典：RED公式投稿より</figcaption></figure>')
+          title="ハローキティがクリスマス帽子に！MOETCH「苹安星愿」Mini全6種類を紹介"
+          excerpt="MOETCHのハローキティ「苹安星愿」Miniを画像で紹介。クリスマス風の全6種類、ブラインド販売の仕組み、購入前の確認点をまとめました。"
+          content='<p>クリスマス帽子のような姿になったハローキティがかわいい！ MOETCH（萌趣）の「Hello Kitty 苹安星愿系列 搪胶毛绒 Mini」は、ふわふわした帽子姿とリボンが目を引くマスコットです。提供されたRED投稿画像をもとに、デザインや購入前に知りたいポイントを紹介します。</p>'+figs[0]+'<h2>クリスマスカラーのキティに注目</h2><p>赤・緑・黄色の帽子姿に、白いポンポンやリボン、星や雪の結晶の装飾が添えられています。キティの顔とちょこんと出た手足も愛らしく、お部屋に飾って季節の雰囲気を楽しみたくなるデザインです。</p>'+figs[1]+'<p>同じ赤や緑でも、リボンの模様や帽子の質感が異なります。お気に入りの組み合わせを探すのも楽しそうです。</p>'+figs[2]+'<h2>ラインアップは全6種類</h2>'+figs[3]+'<p>画像の一覧には「星辉寄语」「红果颂歌」「松语微光」「璀璨心礼」「星夜礼赞」「雪绒梦境」の6種類が掲載されています。いずれも原文の商品名です。購入案内には全6種類でシークレットはないと記載されています。</p><h2>飾っても、掛けても楽しめる</h2><p>投稿では置物または掛け飾りとして使えると紹介されています。一覧画像では上部にリングが付いています。サイズやリングの仕様は確認できていないため、取り付けたい場所に合うか購入前に販売元へ確認してください。</p><h2>単品は開けるまで種類が分からない</h2>'+figs[4]+'<p>画像の購入案内によると、単品は中身が見えない包装で、開封前には種類が分からないブラインド形式です。1ボックスには6個入っています。6個入りを購入した場合に全種類がそろうかは画像から確認できないため、販売元の案内をご確認ください。</p><h2>価格・発売日・日本での販売は？</h2><p>日本での発売日、取扱店、国内価格、商品のサイズは確認できていません。添付の販売画面には「¥69」と表示されていますが、通貨や販売条件を確認できないため、日本円の価格としては掲載していません。海外から購入する際は、配送先・送料・通貨・返品条件を販売元で確認しましょう。</p><p>海外の卸売業者にも同名シリーズの掲載があります。一般向けの日本国内販売を示すものではありません。<a href="https://wishtimetoys.com/brands/quwan" rel="noopener noreferrer">海外販売元の掲載情報を見る</a></p><h2>関連記事</h2><p><a href="https://sanrio-fan.site/picocici-sanrio-healing-glimmer-light-figure/">PICOCICI×サンリオの光るフィギュア全12種類</a>もあわせてチェック。<a href="https://sanrio-fan.site/characters/">サンリオキャラクター一覧</a>からも関連グッズを探せます。</p><p>※掲載情報は2026年10月30日確認時点です。写真は提供されたRED投稿の画像です。商品の詳細や販売条件は購入先でご確認ください。</p>'
+          a=api("/posts",{"slug":slug,"title":title,"excerpt":excerpt,"status":"draft","content":content,"featured_media":media[0]["id"]})
+          check=api("/posts/"+str(a["id"])+"?context=edit")
+          if check["status"]!="draft" or any(m["source_url"] not in check["content"]["raw"] for m in media): raise RuntimeError("Draft verification failed")
+          pub=api("/posts/"+str(a["id"]),{"status":"publish"})
+          print("PUBLISHED",pub["id"],pub["link"],"IMAGE_IDS",[m["id"] for m in media])
+          if pub["status"]!="publish":raise RuntimeError("Publication failed")
+          PY
