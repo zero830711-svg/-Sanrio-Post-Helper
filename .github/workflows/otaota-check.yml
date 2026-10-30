@@ -1,0 +1,23 @@
+name: Verify otaota preparation
+on:
+  pull_request:
+    paths:
+      - index.html
+      - otaota.js
+      - server/lolipop/otaota.php
+      - tests/otaota.php
+      - .github/workflows/otaota-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check syntax and filtering
+        run: |
+          php -l server/lolipop/otaota.php
+          php tests/otaota.php
+          php tests/news-parser.php
+          node --check otaota.js
