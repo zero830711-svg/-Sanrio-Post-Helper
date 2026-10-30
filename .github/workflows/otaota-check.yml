@@ -21,6 +21,9 @@ jobs:
           php tests/otaota.php
           php tests/news-parser.php
           node --check otaota.js
+      - name: Probe PR TIMES candidate retrieval
+        run: |
+          php -r 'define("OTAOTA_TEST",true);require "server/lolipop/otaota.php";$r=ota_list();echo "Candidates: ".count($r["items"])."; failed keyword pages: ".count($r["failed"])."; inaccessible articles: ".$r["detailFailures"]."\n";'
   backend-check:
     runs-on: ubuntu-latest
     env:
