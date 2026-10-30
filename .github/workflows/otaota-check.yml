@@ -23,7 +23,7 @@ jobs:
           node --check otaota.js
       - name: Probe PR TIMES candidate retrieval
         run: |
-          php -r 'define("OTAOTA_TEST",true);require "server/lolipop/otaota.php";$r=ota_list();echo "Candidates: ".count($r["items"])."; failed keyword pages: ".count($r["failed"])."; inaccessible articles: ".$r["detailFailures"]."\n";'
+          php -r 'define("OTAOTA_TEST",true);require "server/lolipop/otaota.php";$r=ota_list();echo "Candidates: ".count($r["items"])."; failed keyword pages: ".count($r["failed"])."; inaccessible articles: ".$r["detailFailures"]."; with images: ".count(array_filter($r["items"],static fn($x)=>!empty($x["image"])))."\n";'
   backend-check:
     runs-on: ubuntu-latest
     env:
