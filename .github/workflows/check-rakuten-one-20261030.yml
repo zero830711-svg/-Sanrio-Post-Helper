@@ -1,0 +1,47 @@
+name: Check Rakuten candidate for image article
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/check-rakuten-one-20261030.yml
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Retrieve matching product details
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --yes -qq lftp php-cli php-curl php-mbstring
+          umask 077
+          temp_dir=$(mktemp -d)
+          trap 'rm -rf "$temp_dir"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get .rakuten-settings.php -o "$temp_dir/settings.php"
+          bye
+          LFTP
+          printf '%s' '{"products":[{"slug":"basket","name":"サンリオキャラクターズ いっしょにおでかけバスケット","rakuten_search_query":"サンリオ いっしょにおでかけバスケット"},{"slug":"flocky","name":"サンリオキャラクターズ ふわわ フロッキー マスコット","rakuten_search_query":"サンリオ ふわわ フロッキー マスコット"}]}' > "$temp_dir/query.json"
+          php scripts/fetch-reviewed-gacha-five.php "$temp_dir/settings.php" "$temp_dir/query.json" "$temp_dir/results.json"
+          python3 - "$temp_dir/results.json" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          for key,rows in d['products'].items():
+              for x in rows[:5]: print(json.dumps({'query':key,**x},ensure_ascii=False))
+          PY
