@@ -1,0 +1,64 @@
+name: Deploy otaota endpoint
+on:
+  push:
+    branches: [main]
+    paths:
+      - server/lolipop/otaota.php
+      - .github/workflows/deploy-otaota.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: otaota-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+          php -l server/lolipop/otaota.php
+          php tests/otaota.php
+          sudo apt-get update -qq
+          sudo apt-get install -y lftp
+      - name: Check dependency and deploy only otaota
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$LOLIPOP_FTP_HOST" && test -n "$LOLIPOP_FTP_USER" && test -n "$LOLIPOP_FTP_PASSWORD" && test -n "$LOLIPOP_TREND_DIR"
+          ota_tmp=$(mktemp -d)
+          trap 'rm -rf "$ota_tmp"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get news.php -o "$ota_tmp/news.php"
+          get config.php -o "$ota_tmp/config.php"
+          bye
+          LFTP
+          cmp -s "$ota_tmp/news.php" server/lolipop/news.php || { echo 'Backend news.php differs from repository; refusing deployment.'; exit 1; }
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          put server/lolipop/otaota.php -o otaota.php.tmp
+          mv otaota.php.tmp otaota.php
+          bye
+          LFTP
+          php -r '
+          $cfg=require $argv[1];$url="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/otaota.php?action=list";
+          $c=curl_init($url);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>30]);curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);if($status!==401)throw new RuntimeException("Unauthenticated request was not rejected");
+          $c=curl_init($url);curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>45,CURLOPT_HTTPHEADER=>["Authorization: Bearer ".$cfg["sync_key"],"Origin: https://zero830711-svg.github.io"]]);$body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);$d=json_decode((string)$body,true);if($status!==200||empty($d["ok"])||!isset($d["items"]))throw new RuntimeException("otaota endpoint failed verification");echo "Endpoint verified; ".count($d["items"])." candidates, ".count($d["failed"]??[])." source failures.\n";
+          ' "$ota_tmp/config.php"
