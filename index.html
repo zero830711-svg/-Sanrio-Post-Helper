@@ -33,6 +33,7 @@
 <section id="otaPanel" class="card" hidden>
  <h1>otaota 投稿の準備</h1><p class="backup-note">PR TIMESの情報から、推し活・グッズ・イベントを探します。</p>
  <div class="ota-buttons"><button id="otaRefresh" type="button">候補を更新</button><button type="button" data-ota-filter="all">すべて</button><button type="button" data-ota-filter="draft">下書き</button><button type="button" data-ota-filter="done">投稿済み</button><button type="button" data-ota-filter="skip">見送り</button></div>
+ <div class="ota-buttons" aria-label="ジャンル"><button type="button" data-ota-category="all">全ジャンル</button><button type="button" data-ota-category="character">キャラクター</button><button type="button" data-ota-category="oshi">推し活・ぬい活</button><button type="button" data-ota-category="figure">フィギュア</button><button type="button" data-ota-category="event">イベント</button></div>
  <p id="otaStatus" class="backup-note" aria-live="polite"></p><div id="otaList"></div>
  <section id="otaEditor" hidden><h2>投稿準備</h2><p id="otaTitle"></p><p id="otaMeta"></p><a id="otaSource" target="_blank" rel="noopener noreferrer">PR TIMESの元記事を開く</a>
  <label>投稿文<textarea id="otaText" rows="9"></textarea></label><p class="backup-note">AI生成時は記事の文章がGroqへ送信されます。内容は元記事と照合してください。</p>
@@ -581,7 +582,7 @@
 <script src="./new-product-ranking.js?v=20261005-3451"></script>
 <script src="./lovely-watch.js?v=20261028-rakuten-browser"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
-<script src="./otaota.js?v=20261030-1"></script>
+<script src="./otaota.js?v=20261030-2"></script>
 <script src="./news-collage.js?v=20261010-3452"></script>
 <script src="./news.js?v=20261022-3546"></script>
 <script src="./post-ai.js?v=20261005-3451"></script>
