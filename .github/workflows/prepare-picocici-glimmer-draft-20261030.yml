@@ -1,0 +1,39 @@
+name: Prepare PICOCICI Sanrio article draft
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/prepare-picocici-glimmer-draft-20261030.yml
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Prepare draft through WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse
+          site="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"];p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p: raise RuntimeError("Missing WordPress credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None):
+           req=urllib.request.Request(site+path,data=None if data is None else json.dumps(data,ensure_ascii=False).encode(),headers={"Authorization":auth,"Content-Type":"application/json","User-Agent":"SanrioEditorialPublisher/1.0"})
+           with urllib.request.urlopen(req,timeout=45) as r:return json.load(r)
+          a=json.loads("{\"slug\":\"picocici-sanrio-healing-glimmer-light-figure\",\"title\":\"PICOCICI×サンリオ「愈见微光」｜スマホで光るフィギュア全12種を紹介\",\"excerpt\":\"PICOCICI×サンリオの「愈见微光」シリーズを紹介。スマートフォンに近づけると光る特徴、全12種のブラインド販売、購入前の確認点をまとめました。\",\"status\":\"draft\",\"content\":\"<p>リボンの上でくつろぐサンリオキャラクターたちが、スマートフォンの近くでやさしく光る。PICOCICIとサンリオの「愈见微光（Healing Glimmer）」は、小さなフィギュアをスマホのそばで楽しめるブラインド商品です。</p><p>キティやシナモロールたちが透明感のあるリボンに乗った姿は、スマホ周りをかわいく飾りたいサンリオファンにも気になるデザイン。公開されている商品画像と海外販売店の案内をもとに、特徴や購入前の確認点をまとめました。</p><h2>スマホに近づけるとやさしく光る</h2><p>提供された商品画像では、対応条件を満たしたスマートフォンの感応エリアに近づけると、リボン部分が光ると案内されています。充電は不要とされていますが、すべてのスマートフォンで動作するとは限りません。</p><p>販売店の案内では、iPhone 6以降を対応対象としつつ、Androidは機種・システム・使用環境により光らない場合があるとしています。動作方式の詳細や、お使いの機種・ケースとの組み合わせは、購入前に販売元に確認してください。画面のオン・オフ両方で光るという説明も、対応条件を満たす場合の案内です。</p><h2>全12種類のデザイン</h2><p>商品画像には、ハローキティ、マイメロディ、シナモロール、ポムポムプリン、バッドばつ丸、ポチャッコが登場します。海外販売店では、通常6種類と色違い6種類の合計12種類と案内しています。光るリボンとキャラクターの組み合わせを見比べるのも楽しみの一つです。</p><h2>ブラインド販売とボックス購入の注意点</h2><p>提供画像によると、1個ずつ中身が見えない包装で、開けるまで種類が分からないブラインド形式です。1ボックスは12個入りと案内されています。販売店によって単品・ボックスの販売方法や内容は異なる可能性があるため、購入画面でセット内容を確認しましょう。必ず希望のキャラクターが単品で選べるとは限りません。</p><h2>どこで買える？日本での販売情報</h2><p>海外の販売店に商品掲載を確認しました。日本の正規取扱店、国内発売日、国内価格は確認できていません。海外から購入する場合は、販売先の配送対象地域、送料、決済通貨、配送時期、返品条件を確認してください。添付の販売画面にある「¥39.9」は通貨や販売条件を独立して確認できていないため、日本円の価格としては掲載しません。</p><p>商品説明の確認先：<a href=\\\"https://www.leeinselect.com/products/picocici-sanrio\\\" rel=\\\"noopener noreferrer\\\">海外販売店のPICOCICI×SANRIO商品ページ</a>。掲載情報は2026年10月30日確認時点です。</p><p>関連記事：<a href=\\\"https://sanrio-fan.site/characters/\\\">サンリオキャラクター一覧からグッズを探す</a> ／ <a href=\\\"https://sanrio-fan.site/sanrio-chibitomo-secret-keyholder-2026/\\\">サンリオ「ちびっとも」の種類と値段</a></p>\"}")
+          api("/users/me?context=edit&_fields=id")
+          rows=api("/posts?"+urllib.parse.urlencode({"slug":a["slug"],"context":"edit","_fields":"id,slug,status,link"}))
+          if rows:
+           print("EXISTING",rows[0]["id"],rows[0]["status"]);exit()
+          p=api("/posts",a)
+          if p["status"]!="draft" or p["slug"]!=a["slug"]:raise RuntimeError("Draft verification failed")
+          print("DRAFT",p["id"],p["link"])
+          PY
