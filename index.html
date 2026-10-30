@@ -24,9 +24,22 @@
 @media(max-width:520px){#newsPhotoDialog .news-photo img{height:210px}.news-photo-dialog-head{align-items:flex-start}#newsPhotoDialog .small-btn{padding:10px}}
 </style><link rel="stylesheet" href="./product-flow.css?v=20261028-brand-compact">
 
-</head>
+<style>
+.account-switch,.ota-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}.account-switch button,.ota-buttons button{font:inherit;font-size:.85rem;border:1px solid #e3cbd7;border-radius:14px;padding:8px 12px;background:white;color:#342a32}.account-switch button[aria-pressed="true"]{background:#f5dce9;border-color:#db8eb1}.ota-active> :not(.account-switch):not(#otaPanel){display:none!important}#otaPanel[hidden],#otaEditor[hidden]{display:none}#otaPanel label{display:block;margin:14px 0}#otaPanel input,#otaPanel textarea{display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:10px;border:1px solid #dfced7;border-radius:10px;font:inherit}.ota-row{padding:14px 0;border-bottom:1px solid #eadde5}.ota-row p{margin:6px 0}.ota-row a{margin-right:12px}.ota-row button{margin-top:8px}
+</style></head>
 <body>
-<main class="app">
+<main class="app" id="accountApp">
+<nav class="account-switch" aria-label="アカウント"><button id="accountSanrio" type="button" aria-pressed="true">Sanrio fan info</button><button id="accountOta" type="button" aria-pressed="false">otaota</button></nav>
+<section id="otaPanel" class="card" hidden>
+ <h1>otaota 投稿の準備</h1><p class="backup-note">PR TIMESの情報から、推し活・グッズ・イベントを探します。</p>
+ <div class="ota-buttons"><button id="otaRefresh" type="button">候補を更新</button><button type="button" data-ota-filter="all">すべて</button><button type="button" data-ota-filter="draft">下書き</button><button type="button" data-ota-filter="done">投稿済み</button><button type="button" data-ota-filter="skip">見送り</button></div>
+ <p id="otaStatus" class="backup-note" aria-live="polite"></p><div id="otaList"></div>
+ <section id="otaEditor" hidden><h2>投稿準備</h2><p id="otaTitle"></p><p id="otaMeta"></p><a id="otaSource" target="_blank" rel="noopener noreferrer">PR TIMESの元記事を開く</a>
+ <label>投稿文<textarea id="otaText" rows="9"></textarea></label><p class="backup-note">AI生成時は記事の文章がGroqへ送信されます。内容は元記事と照合してください。</p>
+ <div class="ota-buttons"><button id="otaAi" type="button">AIで本文を作る</button><button id="otaCopy" type="button">本文をコピー</button><button id="otaShare" type="button">Xへ共有</button></div>
+ <label>画像の利用条件・権利表記メモ<input id="otaRights" placeholder="確認した条件を記録"></label><p class="backup-note">画像の利用条件を記事ごとに確認してください。画像は元記事から確認し、利用可能なものをXでご自身で添付してください。</p>
+ <div class="ota-buttons"><button id="otaDone" type="button">投稿済みにする</button><button id="otaSkip" type="button">見送り</button><button id="otaBack" type="button">一覧に戻る</button></div><p id="otaEditorStatus" class="backup-note" aria-live="polite"></p></section>
+</section>
 <header class="home-header">
 <div class="home-heading"><div class="badge">Sanrio fan info</div>
 <h1>投稿の準備</h1></div>
@@ -568,6 +581,7 @@
 <script src="./new-product-ranking.js?v=20261005-3451"></script>
 <script src="./lovely-watch.js?v=20261028-rakuten-browser"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
+<script src="./otaota.js?v=20261030-1"></script>
 <script src="./news-collage.js?v=20261010-3452"></script>
 <script src="./news.js?v=20261022-3546"></script>
 <script src="./post-ai.js?v=20261005-3451"></script>
