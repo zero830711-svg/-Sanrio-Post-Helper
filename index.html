@@ -50,7 +50,7 @@
 <details><summary>記事の情報を確認</summary><p id="otaFacts" class="backup-note"></p></details>
 <h3>記事の写真</h3><p class="backup-note">元記事で画像の利用条件・商品との一致をご確認ください。選んだ画像だけを共有します。</p>
 <label>画像の利用条件・権利表記メモ<input id="otaRights" placeholder="確認した条件を記録"></label><label class="ota-check"><input id="otaRightsConfirmed" type="checkbox"> この記事の画像の利用条件を確認しました</label>
-<p id="otaPhotoStatus" class="backup-note" aria-live="polite"></p><div id="otaImages" class="news-images"></div>
+<label class="ota-check"><input id="otaCollageMode" type="checkbox"> 写真を4枚ずつまとめる</label><p class="backup-note">選択順に4枚ずつまとめ、残りは個別に共有します。完成画像と個別写真は合わせて4枚まで。</p><div id="otaCollagePreview" class="news-images" hidden></div><button id="otaCollageRetry" class="small-btn" type="button" hidden>まとめ画像を再作成</button><p id="otaPhotoStatus" class="backup-note" aria-live="polite"></p><div id="otaImages" class="news-images"></div>
 <button id="otaShare" class="small-btn primary" type="button">本文＋写真を共有</button><div class="cloud-sync-actions prepare-secondary-actions"><button id="otaCopy" class="small-btn" type="button">投稿文をコピー</button></div>
 <div class="cloud-sync-actions prepare-finish-actions"><button id="otaDone" class="small-btn" type="button">投稿済み</button><button id="otaSkip" class="small-btn" type="button">見送る</button><button id="otaBackBottom" class="small-btn" type="button">一覧へ戻る</button></div><p id="otaEditorStatus" class="backup-note" aria-live="polite"></p></section>
 </section>
@@ -595,7 +595,7 @@
 <script src="./new-product-ranking.js?v=20261005-3451"></script>
 <script src="./lovely-watch.js?v=20261028-rakuten-browser"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
-<script src="./otaota.js?v=20261030-length5"></script>
+<script src="./otaota.js?v=20261030-collage6"></script>
 <script src="./news-collage.js?v=20261010-3452"></script>
 <script src="./news.js?v=20261022-3546"></script>
 <script src="./post-ai.js?v=20261005-3451"></script>
