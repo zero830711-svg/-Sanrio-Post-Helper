@@ -1,0 +1,71 @@
+name: Verify otaota preparation
+on:
+  pull_request:
+    paths:
+      - index.html
+      - otaota.js
+      - server/lolipop/otaota.php
+      - tests/otaota.php
+      - .github/workflows/otaota-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check syntax and filtering
+        run: |
+          php -l server/lolipop/otaota.php
+          php tests/otaota.php
+          php tests/news-parser.php
+          node --check otaota.js
+      - name: Probe PR TIMES candidate retrieval
+        run: |
+          php -r 'define("OTAOTA_TEST",true);require "server/lolipop/otaota.php";$r=ota_list();echo "Candidates: ".count($r["items"])."; failed keyword pages: ".count($r["failed"])."; inaccessible articles: ".$r["detailFailures"]."\n";'
+  backend-check:
+    runs-on: ubuntu-latest
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update -qq && sudo apt-get install -y lftp
+      - name: Compare deployed news dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$LOLIPOP_FTP_HOST" && test -n "$LOLIPOP_FTP_USER" && test -n "$LOLIPOP_FTP_PASSWORD" && test -n "$LOLIPOP_TREND_DIR"
+          tmp_dir=$(mktemp -d)
+          trap 'rm -rf "$tmp_dir"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set net:timeout 20
+          set net:max-retries 1
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get news.php -o "$tmp_dir/news.php"
+          bye
+          LFTP
+          cmp -s "$tmp_dir/news.php" server/lolipop/news.php || { echo 'Deployed dependency differs from main'; exit 1; }
+          echo 'Deployed news dependency matches repository.'
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps webkit
+      - run: npx playwright test tests/otaota.spec.js
+        env:
+          CI: true
+          BASE_URL: http://127.0.0.1:4173
