@@ -54,3 +54,18 @@ jobs:
           LFTP
           cmp -s "$tmp_dir/news.php" server/lolipop/news.php || { echo 'Deployed dependency differs from main'; exit 1; }
           echo 'Deployed news dependency matches repository.'
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps webkit
+      - run: npx playwright test tests/otaota.spec.js
+        env:
+          CI: true
+          BASE_URL: http://127.0.0.1:4173
