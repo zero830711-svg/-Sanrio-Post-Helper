@@ -1,0 +1,42 @@
+name: Publish three November Sanrio guides
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-november-guides-20261030.yml
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Publish and verify new articles through WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse
+          site="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"]; p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p: raise RuntimeError("Missing WordPress credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None):
+           req=urllib.request.Request(site+path,data=None if data is None else json.dumps(data,ensure_ascii=False).encode(),headers={"Authorization":auth,"Content-Type":"application/json","User-Agent":"SanrioEditorialPublisher/1.0"})
+           with urllib.request.urlopen(req,timeout=45) as r: return json.load(r)
+          articles=json.loads("[{\"slug\":\"hapidanbui-thankyoumart-november-2026\",\"title\":\"サンキューマート×はぴだんぶい新作はいつから？2026年11月の発売・種類・値段\",\"excerpt\":\"はぴだんぶいの限定グッズは2026年11月中旬から店頭に順次登場。予約、税込価格、ラインナップ、店舗ごとの入荷をまとめます。\",\"content\":\"<p>ピンクを基調にした「はぴだんぶい」の限定アイテムがサンキューマートに登場します。店頭販売は2026年11月中旬から、店舗・商品ごとに入荷次第順次開始。公式オンラインショップでは予約販売が案内されています。お出かけ用のポーチからヘア小物、文具まで、普段使いできるアイテムが気になる方に向けてまとめました。</p>\\n<h2>いつから、どこで買える？</h2><p>店頭では11月中旬から順次販売されます。地域や店舗、アイテムによって入荷時期が異なります。公式オンラインショップでも予約商品として掲載されていますが、予約数や発送予定は商品ごとに異なるため、購入前に各商品ページで確認してください。</p>\\n<p><a href=\\\"https://www.sanrio.co.jp/news/goods/hv-thankyoumart-20261021/\\\">サンリオの発売案内</a> ／ <a href=\\\"https://thankyoumart.jp/blogs/news/hapidanbui-sanrio\\\">サンキューマートのラインナップ・商品画像を見る</a></p>\\n<h2>注目したいグッズと価格</h2><p>公式案内には、ロングヘアクリップ、ぬいぐるみヘアゴム、Tシャツキーホルダー、巾着、クリアペンケースなどが掲載されています。これらは各429円（税込）です。クリアステッカーは店頭ではよりどり2点で429円（税込）と案内されています。売り方は各販売先の商品表示で確認しましょう。</p>\\n<ul><li><strong>お出かけ用：</strong>巾着やリップポーチ、キーホルダー。</li><li><strong>身だしなみ用：</strong>ロングヘアクリップやぬいぐるみヘアゴム。</li><li><strong>文具好きに：</strong>クリアペンケース、ダイカットメモ、フレークステッカー。</li></ul>\\n<p>6人のデザインを楽しめるシリーズですが、商品ごとに選べる柄やセット内容は異なります。気になるキャラクターの取り扱い、寸法、送料や発送予定は購入先の表示をご確認ください。</p>\\n<h2>店舗へ行く前に確認したいこと</h2><p>発売月だけで全店一斉に並ぶとは限りません。各店舗の入荷状況はサンキューマート店舗のXなどで確認できます。予約商品も上限に達すると受付終了となる場合があるため、最新情報を公式ページで確かめてから予定を立てましょう。</p>\\n<p>関連：<a href=\\\"https://sanrio-fan.site/hapidanbui-mesh-kinchaku-collection/\\\">はぴだんぶいのメッシュ巾着コレクション</a>も紹介しています。</p><p>情報確認日：2026年10月30日。デザインは上記の公式リンクから確認できます。</p>\"},{\"slug\":\"mezzo-piano-hello-kitty-popup-2026\",\"title\":\"メゾピアノ×ハローキティのポップアップ2026｜池袋・福岡の日程とグッズ価格\",\"excerpt\":\"メゾピアノ×ハローキティの期間限定ショップについて、池袋・福岡の日程、営業時間、注目グッズやランダム商品の注意点を紹介。\",\"content\":\"<p>ハローキティとベリエちゃんが登場する「Mezzo Piano×Hello Kitty POP-UP SHOP」が東京・池袋と福岡で開催されます。しっぽチャームやガラケーミラーなど、平成レトロな雰囲気のグッズが気になる方へ、会場と価格をまとめました。</p>\\n<h2>池袋・福岡の会場と日程</h2><table><thead><tr><th>会場</th><th>開催期間</th><th>時間</th></tr></thead><tbody><tr><td>JR池袋駅 南改札前</td><td>開催中〜2026年11月23日</td><td>11:00〜21:00、最終日は18:00まで</td></tr><tr><td>福岡PARCO 本館5階 PARCO FACTORY</td><td>2026年11月13日〜11月23日</td><td>10:00〜20:30</td></tr></tbody></table><p>福岡会場の住所は福岡市中央区天神2-11-1です。日時や販売方法が変更される場合に備え、来場前に<a href=\\\"https://www.sanrio.co.jp/news/spots/kt-mezzopiano-popup-20261028/\\\">サンリオの公式案内</a>と運営元の最新情報を確認してください。</p>\\n<h2>どんなグッズがある？</h2><ul><li>ぬいぐるみ巾着：全2種、各1,650円</li><li>スクバ風ポーチ：2,420円</li><li>しっぽチャーム：1,870円</li><li>スライドガラケーミラー：1,100円</li><li>ランダムハート缶バッジ：全6種、550円</li><li>アンブレラマーカー：全6種、500円</li></ul><p>価格はすべて税込です。バッグに付けて楽しみたいならしっぽチャーム、懐かしい小物が好きならガラケー型ミラーが候補。公式ページではグッズ画像と他のラインナップも確認できます。</p>\\n<h2>ランダム商品を買う前に</h2><p>ハート缶バッジはブラインド包装でデザインを選べません。アンブレラマーカーはカプセルマシン限定で、こちらも種類は選べません。重複する可能性があるので、予算を決めて楽しみましょう。商品ラインナップは生産上の都合で変わる場合があり、会場の在庫は未確認です。</p>\\n<p>関連：<a href=\\\"https://sanrio-fan.site/hello-kitty-favorite-ribbon-2026-guide/\\\">ハローキティのお気に入りデザインシリーズ</a>もご覧ください。</p><p>情報確認日：2026年10月30日。商品写真は公式ページで確認できます。</p>\"},{\"slug\":\"pochacco-designer-signing-nishiginza-20261122\",\"title\":\"ポチャッコのデザイナーサイン会2026｜銀座の応募期間・参加条件を確認\",\"excerpt\":\"11月22日のポチャッコ担当デザイナーサイン会について、事前抽選と当日抽選、必要なスマイル、当選後の購入条件を整理します。\",\"content\":\"<p>ポチャッコ担当デザイナーのサイン会が2026年11月22日、東京のSanrio NISHIGINZA店で開催されます。事前抽選は<strong>11月1日20時まで</strong>。応募に必要なSanrio＋のステージと、当選後の購入条件を先に確認しておきましょう。</p>\\n<h2>開催日時と定員</h2><p>会場はSanrio NISHIGINZA店。サイン会は①12:00〜14:00、②15:30〜17:30の2回で、定員は各20名、合計40名です。当日抽選の枠は各回5名とキャンセル分。時間や条件の変更もあり得るため、申込前に<a href=\\\"https://www.sanrio.co.jp/news/spots/event-nishiginza-1122-20261029/\\\">サンリオ公式のサイン会案内</a>をご確認ください。</p>\\n<h2>事前抽選と当日抽選の違い</h2><table><thead><tr><th></th><th>事前抽選</th><th>当日抽選</th></tr></thead><tbody><tr><th>対象</th><td>Sanrio＋ゴールド以上</td><td>Sanrio＋会員ならステージを問わず応募可能</td></tr><tr><th>申込</th><td>10月29日〜11月1日20:00</td><td>11月22日、各回12:00・15:30予定</td></tr><tr><th>必要なスマイル</th><td>1口30スマイル</td><td>1回30スマイル</td></tr></tbody></table><p>事前抽選の当選発表は11月6日予定で、先着順ではありません。当日抽選を希望する場合は、各回予定時間までに西銀座デパート1階正面入口へ。事前抽選に当選した方は当日抽選に参加できません。</p>\\n<h2>当選後に必要な買い物</h2><p>事前・当日いずれも、当選だけで参加が完了するわけではありません。サイン会当日の各回受付時間内に、Sanrio NISHIGINZA店で<strong>ポチャッコの商品を含む税込4,400円以上</strong>購入し、会員証を提示して条件を満たす購入スマイルを受ける必要があります。必要なスマイル数は会員ステージにより異なります。クーポンなどを使う場合は割引後の金額で判定されます。</p>\\n<p>当選チケットを受け取ったスマートフォンが必要で、スクリーンショットでは参加できません。受付時間は1回目11:00〜12:00、2回目14:30〜15:30です。詳しい購入スマイル数、応募口数、参加条件を必ず公式案内で確認してください。</p>\\n<p>関連：<a href=\\\"https://sanrio-fan.site/characters/\\\">キャラクター一覧からポチャッコの情報を探す</a>。</p><p>情報確認日：2026年10月30日。イベントの詳細は公式案内をご覧ください。</p>\"}]")
+          api("/users/me?context=edit&_fields=id")
+          for a in articles:
+           rows=api("/posts?"+urllib.parse.urlencode({"slug":a["slug"],"context":"edit","_fields":"id,slug,status,link"}))
+           if rows:
+            print("SKIP EXISTING",a["slug"],flush=True); continue
+           body=dict(a,status="publish")
+           post=api("/posts",body)
+           check=api("/posts/"+str(post["id"])+"?_fields=id,slug,status,link,title")
+           if check["status"]!="publish" or check["slug"]!=a["slug"]: raise RuntimeError("Post verification failed")
+           print("PUBLISHED",check["id"],check["link"],flush=True)
+          PY
