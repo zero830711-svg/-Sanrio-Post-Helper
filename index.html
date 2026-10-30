@@ -43,8 +43,8 @@
 <p id="otaStatus" class="backup-note" aria-live="polite"></p><div id="otaList"></div><button id="otaMore" class="small-btn" type="button" hidden>もっと見る</button></div>
 <section id="otaEditor" hidden><button id="otaBack" class="small-btn" type="button">一覧へ戻る</button><h3 id="otaTitle"></h3><p id="otaMeta" class="backup-note"></p><a id="otaSource" target="_blank" rel="noopener noreferrer">PR TIMESの記事を確認</a>
 <label>投稿文（編集できます）<textarea id="otaText" rows="7"></textarea></label>
-<label class="ota-check"><input id="otaIncludeLink" type="checkbox"> 本文に元記事リンクを含める</label>
-<label>返信用コメント（投稿後に返信してください）<textarea id="otaReply" rows="3"></textarea></label><button id="otaReplyCopy" class="small-btn" type="button">返信用コメントをコピー</button>
+<p id="otaCount" class="backup-note" aria-live="polite"></p><label class="ota-check"><input id="otaIncludeLink" type="checkbox"> 本文に元記事リンクを含める</label>
+<label>返信用コメント（投稿後に返信してください）<textarea id="otaReply" rows="3"></textarea></label><p id="otaReplyCount" class="backup-note" aria-live="polite"></p><button id="otaReplyCopy" class="small-btn" type="button">返信用コメントをコピー</button>
 <details><summary>楽天・Amazonリンクを追加</summary><p class="backup-note">紹介リンクをそのまま保存し、必要に応じて返信用コメントへ追加できます。検索結果リンクも使えます。</p><label>楽天リンク<input id="otaRakuten" type="url" placeholder="https://"></label><label>Amazonリンク<input id="otaAmazon" type="url" placeholder="https://"></label><button id="otaAddLinks" class="small-btn" type="button">返信用コメントへ追加</button></details>
 <p id="otaDraftStatus" class="backup-note" aria-live="polite"></p><button id="otaAi" class="small-btn" type="button">🎀 AIで投稿文を作る</button><p class="backup-note">ボタンを押すと記事の文章がGroqへ送信されます。生成後は元記事と照合してください。</p>
 <details><summary>記事の情報を確認</summary><p id="otaFacts" class="backup-note"></p></details>
@@ -595,7 +595,7 @@
 <script src="./new-product-ranking.js?v=20261005-3451"></script>
 <script src="./lovely-watch.js?v=20261028-rakuten-browser"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
-<script src="./otaota.js?v=20261030-editor4"></script>
+<script src="./otaota.js?v=20261030-length5"></script>
 <script src="./news-collage.js?v=20261010-3452"></script>
 <script src="./news.js?v=20261022-3546"></script>
 <script src="./post-ai.js?v=20261005-3451"></script>
