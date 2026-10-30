@@ -128,6 +128,8 @@ jobs:
           php -l server/lolipop/news-thankyou.php
           php tests/thankyou-parser.php
           php tests/news-parser.php
+          php -l server/lolipop/otaota.php
+          php tests/otaota.php
           php tests/bandai-parser.php
           php tests/gashapon-parser.php
           php -l scripts/verify-product-ai.php
