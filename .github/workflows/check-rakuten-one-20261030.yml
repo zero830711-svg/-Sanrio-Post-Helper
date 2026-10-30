@@ -45,3 +45,11 @@ jobs:
           for key,rows in d['products'].items():
               for x in rows[:5]: print(json.dumps({'query':key,**x},ensure_ascii=False))
           PY
+          python3 - "$temp_dir/results.json" <<'PY'
+          import json,sys,urllib.request,base64
+          rows=json.load(open(sys.argv[1]))['products']['flocky']
+          match=next((x for x in rows if x['code']=='auc-isauto:10007629'),None)
+          if not match: raise RuntimeError('Candidate unavailable')
+          with urllib.request.urlopen(match['image'],timeout=20) as r: data=r.read()
+          print('IMGBASE64:'+base64.b64encode(data).decode())
+          PY
