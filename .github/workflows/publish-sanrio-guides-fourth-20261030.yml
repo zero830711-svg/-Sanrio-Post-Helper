@@ -1,0 +1,41 @@
+name: Publish three Sanrio guides fourth batch
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-sanrio-guides-fourth-20261030.yml
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Publish and verify through WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse
+          site="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"]; p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p: raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None):
+           req=urllib.request.Request(site+path,data=None if data is None else json.dumps(data,ensure_ascii=False).encode(),headers={"Authorization":auth,"Content-Type":"application/json","User-Agent":"SanrioEditorialPublisher/1.0"})
+           with urllib.request.urlopen(req,timeout=45) as r: return json.load(r)
+          articles=json.loads("[{\"slug\":\"hello-kitty-familymart-ribbon-eco-bag-2026\",\"title\":\"ファミマのキティ「リボンでまとまるエコバッグ」｜全4種・値段・サイズ\",\"excerpt\":\"ファミリーマートのハローキティのエコバッグについて、発売日時、価格、サイズ、素材と取扱店の確認先を紹介します。\",\"content\":\"<p>エコバッグをリボン型のチャームバンドでまとめて、バッグに下げて持ち歩ける！ ハローキティの「リボンでまとまるエコバッグ」が、2026年10月30日からファミリーマートの一部店舗に登場しました。全4種のデザインと、購入前に知っておきたい寸法を紹介します。</p><h2>発売日時・値段・取り扱い</h2><table><tbody><tr><th>発売</th><td>2026年10月30日10:00から順次</td></tr><tr><th>取り扱い</th><td>ファミリーマートの一部店舗</td></tr><tr><th>種類</th><td>全4種</td></tr><tr><th>価格</th><td>各2,398円（税込）</td></tr></tbody></table><p>数量限定で、なくなり次第販売終了です。地域や店舗によって取扱いが異なります。<a href=\\\"https://www.family.co.jp/goods/charakuji/6391386.html\\\">ファミリーマートの商品情報</a>や<a href=\\\"https://www.sanrio.co.jp/news/goods/kt-familymart-bag-20261029/\\\">サンリオ公式の案内</a>から取扱情報を確認してください。</p><h2>バッグとリボンのサイズ</h2><p>エコバッグは約幅30×高さ40×奥行20cmで、持ち手はこの寸法に含まれません。リボン型チャームバンドは約幅12×高さ7.2×奥行3cmです。素材はバッグがポリエステル、バンドが合成皮革・ゴム。普段の買い物用バッグとして選ぶ際は、入れたい物の大きさと比べてみてください。</p><h2>購入前の確認ポイント</h2><ul><li>4種類から好きなデザインを選べますが、各店の取扱い・在庫は未確認です。</li><li>商品に含まれるのはエコバッグとリボン型チャームバンドです。</li><li>予約・店舗での取り置きは実施されず、店舗への電話問い合わせは控えるよう公式から案内されています。</li></ul><p>リボンのデザインやカラーは上記の公式商品ページで確認できます。</p><p>関連：<a href=\\\"https://sanrio-fan.site/hello-kitty-favorite-ribbon-2026-guide/\\\">ハローキティのお気に入りデザインシリーズ</a> ／ <a href=\\\"https://sanrio-fan.site/mezzo-piano-hello-kitty-popup-2026/\\\">メゾピアノ×ハローキティのポップアップ</a></p><p>情報確認日：2026年10月30日。</p>\"},{\"slug\":\"donki-sanrio-microfiber-wear-november-2026\",\"title\":\"ドンキのサンリオ新作ルームウェア2026｜11月2日発売・全11種と値段\",\"excerpt\":\"ドン・キホーテ限定マイクロファイバーシリーズのパーカーとパンツの価格、M・Lサイズ、全11デザインを紹介。\",\"content\":\"<p>ふわふわのやさしい肌ざわりが魅力のサンリオキャラクターズのマイクロファイバーシリーズに、新色と新キャラクターが登場。ドン・キホーテの取扱店舗で2026年11月2日から順次発売予定です。おうちで着たい推しのウェアを探している方へ、種類と価格をまとめました。</p><h2>パーカー・パンツの価格</h2><table><thead><tr><th>アイテム</th><th>税込価格</th><th>サイズ</th></tr></thead><tbody><tr><td>パーカー</td><td>1,979円</td><td>M・L</td></tr><tr><td>ロングパンツ</td><td>1,429円</td><td>M・L</td></tr><tr><td>ショートパンツ</td><td>1,099円</td><td>M・L</td></tr></tbody></table><p>上下を一緒に選ぶなら、パーカーとロングパンツで合計3,408円、ショートパンツなら合計3,078円が計算上の目安です。それぞれ別アイテムの価格を合算しています。着心地や対応する寸法は、購入前に商品表示で確認してください。</p><h2>全11デザインのキャラクター</h2><p>各アイテムは全11種。ハローキティ3種のほか、マイメロディ、クロミ、シナモロール、ポムポムプリン、ポチャッコ、バッドばつ丸、ウサハナ、シュガーバニーズが案内されています。今回はポチャッコとバッドばつ丸が仲間入り。デザインの色柄は<a href=\\\"https://www.sanrio.co.jp/news/goods/mx-donki-apparel-20261023/\\\">サンリオ公式ページ</a>で見比べられます。</p><h2>どこで買える？</h2><p>11月2日からドン・キホーテの取扱店舗で順次発売されます。全店での販売や在庫は確認できていません。入荷状況は店舗により異なるため、公式ページに掲載された取扱店舗一覧と店舗の案内をご確認ください。</p><p>関連：<a href=\\\"https://sanrio-fan.site/sanrio-cozy-character-outfit-november-2026/\\\">あったかキャラコーデの新作</a> ／ <a href=\\\"https://sanrio-fan.site/sanrio-warm-blanket-2026-guide/\\\">ブランケット・スリッパのあったかアイテム</a></p><p>情報確認日：2026年10月30日。</p>\"},{\"slug\":\"gudetama-thankyoumart-november-2026\",\"title\":\"サンキューマート×ぐでたま2026｜11月発売の限定グッズと予約情報\",\"excerpt\":\"ぐでたまのサンキューマート限定全16アイテムについて、店頭発売時期、予約、ヘア小物やポーチのサイズを紹介。\",\"content\":\"<p>ぐでたまの脱力感がかわいい限定グッズが、サンキューマートに登場します。イエローとオレンジを基調にした全16アイテムで、ヘア小物やポーチなど普段使いしやすいラインナップ。店頭は2026年11月上旬から入荷次第、順次販売予定です。</p><h2>発売時期と予約</h2><p>店頭では11月上旬から、店舗・商品ごとに入荷順で販売。公式オンラインショップでは10月7日から先行予約が案内され、商品ごとの上限に達すると受付終了となります。予約できるか、発送予定や送料は購入時の各商品ページを確認してください。</p><p>公式の<a href=\\\"https://thankyoumart.jp/blogs/news/gudetama-sanrio\\\">サンキューマートのラインナップ</a>では商品の画像や販売案内を、<a href=\\\"https://www.sanrio.co.jp/news/goods/gu-thankyoumart-20261007/\\\">サンリオ公式ニュース</a>では取扱いの概要を確認できます。</p><h2>注目アイテムとサイズ</h2><ul><li><strong>ロングヘアクリップ：</strong>公式オンライン掲載価格429円（税込）。サイズは横3.6×縦11.7cm、素材はプラスチック・PVC。</li><li><strong>ヘアブラシ：</strong>横7×縦22×厚み3.5cm。毎日のヘアケアに使えるアイテムです。</li><li><strong>窓付きポーチ：</strong>本体は約横18×縦13.5×マチ5cm、窓は約横11.7×縦8cm。入れたい小物と寸法を比べられます。</li></ul><p>サイズは販売元による採寸などのため、多少の誤差がある場合があります。色や仕様、各商品の価格は商品ページで確認してください。</p><h2>店頭で探す前に</h2><p>同じ11月上旬でも、地域・店舗・商品によって入荷日は異なります。各店舗の入荷状況はサンキューマート店舗のXなどで確認できます。オンライン予約は店頭より早く届くことを保証するものではなく、発送時期は商品によって異なります。</p><p>関連：<a href=\\\"https://sanrio-fan.site/hapidanbui-thankyoumart-november-2026/\\\">サンキューマート×はぴだんぶいの限定グッズ</a> ／ <a href=\\\"https://sanrio-fan.site/characters/\\\">サンリオのキャラクター一覧</a></p><p>情報確認日：2026年10月30日。</p>\"}]")
+          api("/users/me?context=edit&_fields=id")
+          for a in articles:
+           rows=api("/posts?"+urllib.parse.urlencode({"slug":a["slug"],"context":"edit","_fields":"id,slug,status,link"}))
+           if rows:
+            print("SKIP EXISTING",a["slug"],flush=True); continue
+           post=api("/posts",dict(a,status="publish"))
+           check=api("/posts/"+str(post["id"])+"?_fields=id,slug,status,link")
+           if check["status"]!="publish" or check["slug"]!=a["slug"]: raise RuntimeError("Post verification failed")
+           print("PUBLISHED",check["id"],check["link"],flush=True)
+          PY
