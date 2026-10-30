@@ -6,7 +6,7 @@ function ota_excluded(string $text): bool {
  return (bool)preg_match('/サンリオ|sanrio|ハローキティ|hello\s*kitty|マイメロ|クロミ|kuromi|シナモロール|シナモンロール|cinnamoroll|ポムポムプリン|ポチャッコ|ハンギョドン|けろけろけろっぴ|タキシードサム|バッドばつ丸|リトルツインスターズ|キキララ|ウサハナ|こぎみゅん|ぐでたま|あひるのペックル|チャーミーキティ|マロンクリーム|マイスウィートピアノ|ぼんぼんりぼん|ジュエルペット|リトルフォレストフェロォ|シナモン|リルリルフェアリル|シュガーバニーズ|ウィッシュミーメル|まるもふびより|ゴロピカドン|マイスウィートピアノ/iu', $text);
 }
 function ota_list():array {
- $cache=sys_get_temp_dir().'/otaota-news-list-'.hash('sha256',__DIR__).'.json';
+ $cache=sys_get_temp_dir().'/otaota-news-list-v2-'.hash('sha256',__DIR__).'.json';
  if(is_file($cache)&&filemtime($cache)>time()-900){$data=json_decode((string)file_get_contents($cache),true);if(is_array($data)&&isset($data['items']))return $data;}
  $keywords=['ディズニー','ちいかわ','ポケモン','推し活グッズ','ぬい活','ぬいぐるみ','フィギュア','カプセルトイ','ポップアップ','コラボカフェ'];
  $feeds=array_map(static fn($s)=>['url'=>'https://prtimes.jp/topics/keywords/'.rawurlencode($s),'kind'=>'html'],$keywords);
@@ -15,7 +15,7 @@ function ota_list():array {
  $items=array_values($rows);usort($items,static fn($a,$b)=>(strtotime($b['date']??'')?:0)<=>(strtotime($a['date']??'')?:0));
  // Check the article text as well as the title. Skip inaccessible articles rather than guessing.
  $items=array_slice($items,0,40);$details=news_fetch_feeds(array_map(static fn($item)=>['url'=>$item['url'],'kind'=>'html'],$items));$verified=[];$detailFailures=0;
- foreach($items as $i=>$item){try{if($details[$i]===null)throw new RuntimeException('unavailable');$article=news_parse($details[$i],$item['url']);if(ota_excluded(($article['title']??'')."\n".implode("\n",$article['paragraphs']??[])))continue;$verified[]=$item;}catch(Throwable $e){$detailFailures++;}}
+ foreach($items as $i=>$item){try{if($details[$i]===null)throw new RuntimeException('unavailable');$article=news_parse($details[$i],$item['url']);if(ota_excluded(($article['title']??'')."\n".implode("\n",$article['paragraphs']??[])))continue;$item['image']=news_image_url((string)($article['images'][0]??''));$verified[]=$item;}catch(Throwable $e){$detailFailures++;}}
  $result=['items'=>$verified,'failed'=>$failed,'detailFailures'=>$detailFailures,'fetchedAt'=>gmdate('c')];
  if(!$failed&&!$detailFailures){file_put_contents($cache,json_encode($result,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);}return $result;
 }
