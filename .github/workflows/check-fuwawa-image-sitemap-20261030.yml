@@ -1,0 +1,40 @@
+name: Check fuwawa sitemap and image
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/check-fuwawa-image-sitemap-20261030.yml
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check public article and sitemap
+        run: |
+          python3 - <<'PY'
+          import urllib.request,xml.etree.ElementTree as E
+          from html.parser import HTMLParser
+          base="https://sanrio-fan.site"; target=base+"/sanrio-fuwawa-flocky-mascot-five-2026/"
+          def get(u):
+           req=urllib.request.Request(u,headers={"User-Agent":"Mozilla/5.0"} )
+           with urllib.request.urlopen(req,timeout=30) as r:return r.read()
+          class Images(HTMLParser):
+           def handle_starttag(self,tag,attrs):
+            if tag=="img":
+             d=dict(attrs); src=d.get("src","")
+             if "58f470bb" in src: print("IMAGE_HTML", "alt="+repr(d.get("alt")), "url="+src)
+          page=get(target).decode("utf-8",errors="replace"); Images().feed(page)
+          root=E.fromstring(get(base+"/sitemaps.xml")); ns={"s":"http://www.sitemaps.org/schemas/sitemap/0.9","i":"http://www.google.com/schemas/sitemap-image/1.1"}
+          links=[x.text for x in root.findall(".//s:sitemap/s:loc",ns) if x.text and "post" in x.text]
+          print("POST_SITEMAPS",len(links)); found=False
+          for u in links:
+           try:
+            xml=E.fromstring(get(u))
+            for node in xml.findall(".//s:url",ns):
+             loc=node.find("s:loc",ns)
+             if loc is not None and loc.text and loc.text.rstrip("/")==target.rstrip("/"):
+              found=True; print("TARGET_FOUND",u); print("IMAGE_LOCS",[x.text for x in node.findall("i:image/i:loc",ns)])
+           except Exception as e: print("READ_FAILED",type(e).__name__)
+          print("FOUND",found)
+          PY
