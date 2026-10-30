@@ -1,0 +1,41 @@
+name: Publish three Sanrio guides third batch
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-sanrio-guides-third-20261030.yml
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Publish and verify through WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse
+          site="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"]; p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p: raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None):
+           req=urllib.request.Request(site+path,data=None if data is None else json.dumps(data,ensure_ascii=False).encode(),headers={"Authorization":auth,"Content-Type":"application/json","User-Agent":"SanrioEditorialPublisher/1.0"})
+           with urllib.request.urlopen(req,timeout=45) as r: return json.load(r)
+          articles=json.loads("[{\"slug\":\"sanrio-cozy-character-outfit-november-2026\",\"title\":\"サンリオ あったかキャラコーデ2026｜11月6日発売・種類と購入制限\",\"excerpt\":\"あったかキャラコーデの発売日、マスコットやポーチの価格、店頭・通販の購入制限をまとめます。\",\"content\":\"<p>もこもこのイヤーマフやマフラーで冬らしくおめかししたキャラクターたちが登場！ サンリオの「あったかキャラコーデデザインシリーズ」は、2026年11月6日発売です。マスコットやポーチなど、気になるアイテムと購入前の注意点を紹介します。</p><h2>発売日と販売場所</h2><p>11月6日からサンリオ直営店・百貨店のサンリオコーナーなどと、サンリオオンラインショップで販売予定です。オンラインは同日9:30以降に商品ページを確認でき、販売は10:00開始と案内されています。一部店舗やアウトレット、サンリオカフェ店舗では取り扱いがありません。</p><h2>注目アイテムと税込価格</h2><ul><li>マスコットホルダー：全7種、各2,596円</li><li>ハローキティ リュック：5,280円</li><li>ポーチ：全5種、各2,497円</li><li>シークレットあったか小物キーホルダー：全8種、946円</li></ul><p>イヤーマフとティペットを着けたマスコットは、冬のぬい撮りやバッグのお供が気になる方に。シークレットキーホルダーは中身を選べません。コンプリートセットで購入できる案内もありますが、店舗や在庫状況によってそろわない場合があります。</p><h2>店頭と通販で購入制限が違う</h2><p>対象の直営店などでは11月6日〜8日、各アイテム・キャラクター・デザインにつき1人1個まで。シークレットキーホルダーは8個までです。オンラインでは11月6日〜12日、各デザイン2個まで、シークレットは8個までと案内されています。制限は変更される場合があります。</p><p>対象期間中、店頭・電話での取り置きは受け付けず、発売初日はカウンター販売を実施する店舗もあります。商品のデザインや最新ルールは<a href=\\\"https://www.sanrio.co.jp/news/goods/mx-cozy-character-outfit-202611/\\\">サンリオ公式の案内</a>をご確認ください。</p><p>関連：<a href=\\\"https://sanrio-fan.site/sanrio-warm-blanket-2026-guide/\\\">ブランケット・スリッパのあったかアイテム</a> ／ <a href=\\\"https://sanrio-fan.site/pitatto-friends-winter-shoulder-scarf-2026/\\\">ぴたっとふれんず冬の新作</a></p><p>情報確認日：2026年10月30日。</p>\"},{\"slug\":\"aeon-pompompurin-3l-plush-2026\",\"title\":\"イオン限定ポムポムプリン3Lぬいぐるみ｜サイズ・価格・先行販売はいつ？\",\"excerpt\":\"イオン限定のポムポムプリン3Lぬいぐるみについて、約74cmのサイズ、価格、オンライン先行販売と店舗発売予定を紹介。\",\"content\":\"<p>大きなポムポムプリンをお部屋に迎えたい方へ。「イオン限定ポムポムプリン 3Lぬいぐるみ」が数量限定で登場します。高さ約74cmの存在感が魅力。購入前に、置き場所と販売時期を確認しておきましょう。</p><h2>サイズと価格</h2><table><tbody><tr><th>商品名</th><td>イオン限定ポムポムプリン 3Lぬいぐるみ</td></tr><tr><th>サイズ</th><td>約 高さ740×幅740×奥行き580mm</td></tr><tr><th>価格</th><td>33,000円（税込）</td></tr></tbody></table><p>高さ・幅ともに約74cm、奥行きは約58cm。飾りたい場所の幅だけでなく、奥行きや搬入経路も測ってから選ぶと安心です。素材や重さは今回確認した公式案内では確認できませんでした。</p><h2>オンライン先行販売と店舗発売</h2><p>イオンスタイルオンラインでの先行販売期間は、2026年10月30日0:00〜11月11日23:59。予定販売数に達すると早期終了する場合があります。注文商品の発送は11月19日以降、順次予定です。</p><p>一般発売は12月上旬頃を予定し、全国のイオンの一部店舗が対象です。全店舗ではありません。対象店舗や最新情報は<a href=\\\"https://www.sanrio.co.jp/news/goods/pn-aeon-20261029/\\\">サンリオ公式案内</a>から確認してください。対象店舗は予告なく変更されることがあります。</p><h2>購入前のチェック</h2><ul><li>飾る場所の高さ・幅・奥行きを測る</li><li>オンラインの送料・配送条件・発送予定を購入画面で確認する</li><li>店舗で探す場合は公式の取扱予定店を確かめる</li><li>数量限定のため、購入時の販売状況を確認する</li></ul><p>関連：<a href=\\\"https://sanrio-fan.site/shimamura-sanrio-dog-characters-20261031/\\\">しまむらのポムポムプリンなど犬キャラクターグッズ</a> ／ <a href=\\\"https://sanrio-fan.site/characters/\\\">キャラクター一覧から探す</a></p><p>情報確認日：2026年10月30日。商品画像は公式案内をご覧ください。</p>\"},{\"slug\":\"taito-sanrio-velvety-night-202611\",\"title\":\"タイトー×サンリオ Velvety Night｜11月14日からの景品・対象店舗\",\"excerpt\":\"タイトーのサンリオコラボ「Velvety Night」の期間、景品の種類、対象店舗やオンラインクレーンの確認点を紹介。\",\"content\":\"<p>きらめく夜をテーマにしたサンリオキャラクターズの景品が、タイトーのコラボキャンペーン「Velvety Night ～きらめく夜の贈りもの～」に登場します。マスコットからポーチまで、2026年11月14日からの期間限定企画です。</p><h2>開催期間と取扱い</h2><p>キャンペーン期間は<strong>11月14日〜12月6日</strong>。全国のタイトー系列店舗とタイトーオンラインクレーンで実施されますが、一部対象外の店舗があります。景品がなくなり次第終了するため、訪問前に<a href=\\\"https://www.sanrio.co.jp/news/goods/mx-taito-prize-20261027/\\\">サンリオ公式案内</a>からタイトーの詳細ページを確認してください。</p><h2>登場する景品は？</h2><ul><li>マスコット：全6種</li><li>がま口ポーチ：全6種</li><li>ドールGGJ</li><li>ブランケット</li><li>ポンポンキーリング：全6種</li></ul><p>持ち歩けるポーチやキーリング、大きなぬいぐるみなどから、使いたい場面に合わせて狙いを決めるのも楽しそうです。各キャラクターのデザインや投入時期は、公式の景品情報で確認しましょう。</p><h2>プレゼント企画もチェック</h2><p>公式案内では、シリアルナンバー入りのオリジナルグッズが抽選で当たるSNS企画と、タイトーステーションアプリから応募できるプレゼント企画も紹介されています。応募方法、対象期間、当選条件はそれぞれ異なるため、参加前にタイトー公式の詳細を確認してください。</p><p>景品は数量限定で、店舗によって取扱いが異なります。景品の画像にはイメージイラストを含み、実物と異なる場合があります。クレーンゲームのため、希望した景品を必ず獲得できるわけではありません。</p><p>関連：<a href=\\\"https://sanrio-fan.site/sanrio-chibitomo-secret-keyholder-2026/\\\">サンリオ「ちびっとも」の種類と値段</a> ／ <a href=\\\"https://sanrio-fan.site/characters/\\\">キャラクター一覧</a></p><p>情報確認日：2026年10月30日。景品のデザインは公式案内をご覧ください。</p>\"}]")
+          api("/users/me?context=edit&_fields=id")
+          for a in articles:
+           rows=api("/posts?"+urllib.parse.urlencode({"slug":a["slug"],"context":"edit","_fields":"id,slug,status,link"}))
+           if rows:
+            print("SKIP EXISTING",a["slug"],flush=True); continue
+           post=api("/posts",dict(a,status="publish"))
+           check=api("/posts/"+str(post["id"])+"?_fields=id,slug,status,link")
+           if check["status"]!="publish" or check["slug"]!=a["slug"]: raise RuntimeError("Post verification failed")
+           print("PUBLISHED",check["id"],check["link"],flush=True)
+          PY
