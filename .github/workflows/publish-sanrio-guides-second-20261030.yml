@@ -1,0 +1,41 @@
+name: Publish three Sanrio guides second batch
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-sanrio-guides-second-20261030.yml
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Publish and verify through WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse
+          site="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"]; p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p: raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None):
+           req=urllib.request.Request(site+path,data=None if data is None else json.dumps(data,ensure_ascii=False).encode(),headers={"Authorization":auth,"Content-Type":"application/json","User-Agent":"SanrioEditorialPublisher/1.0"})
+           with urllib.request.urlopen(req,timeout=45) as r: return json.load(r)
+          articles=json.loads("[{\"slug\":\"shimamura-sanrio-dog-characters-20261031\",\"title\":\"しまむら×サンリオ犬キャラクター2026｜10月31日発売・通販は何時から？\",\"excerpt\":\"しまむらのシナモロール・ポチャッコ・ポムポムプリングッズについて、店頭発売日、通販開始時刻、取扱店の注意点を紹介。\",\"content\":\"<p>シナモロール、ポチャッコ、ポムポムプリンの「犬」キャラクターをテーマにしたアイテムが、2026年10月31日からしまむらに登場します。アパレル、インテリア、小物など、推しを日常に取り入れたい方に気になるラインナップです。</p><h2>店頭とオンラインはいつから？</h2><table><tbody><tr><th>しまむら店舗</th><td>10月31日から販売</td></tr><tr><th>しまむらパーク</th><td>10月31日15:00から販売</td></tr></tbody></table><p>全国のしまむら店舗と公式オンラインストア「しまむらパーク」で取り扱いが案内されています。オンラインの販売開始時刻は店頭と別なので、家から探す場合は15時を確認しましょう。</p><h2>どんな商品がある？</h2><p>公式では、シナモロール・ポチャッコ・ポムポムプリンのアパレル、インテリア、小物が案内されています。デザイン、サイズや個別価格は、<a href=\\\"https://www.sanrio.co.jp/news/goods/mx-shimamura-dog-20261029/\\\">サンリオ公式のラインナップ画像</a>と販売先で確認できます。価格や在庫は商品ごとに異なるため、購入画面の表示を確認してください。</p><h2>店舗へ行く前の確認ポイント</h2><p>入荷・在庫状況は店舗によって異なります。公式画像に青い星が付いた商品は沖縄県の店舗では取り扱いがなく、ピンクの星が付いた商品にも一部取扱対象外の店舗があります。欲しい商品のマークと対象店舗を公式案内で見てから、お近くの店舗にお問い合わせください。</p><p>関連：<a href=\\\"https://sanrio-fan.site/characters/\\\">キャラクター一覧からグッズを探す</a> ／ <a href=\\\"https://sanrio-fan.site/pochacco-designer-signing-nishiginza-20261122/\\\">ポチャッコのデザイナーサイン会情報</a></p><p>情報確認日：2026年10月30日。商品のデザインは公式リンクでご覧ください。</p>\"},{\"slug\":\"hello-kitty-lounge-omotesando-2026\",\"title\":\"ハローキティラウンジ2026｜表参道の無料イベント・予約と体験内容\",\"excerpt\":\"表参道ヒルズで開催されるHello Kitty’s Loungeの期間、入場方法、シュシュ作りや写真撮影などの体験をまとめます。\",\"content\":\"<p>ハローキティと一緒に「好き」を楽しむ体験型イベント「Hello Kitty’s Lounge」が、東京・表参道ヒルズで2026年11月8日まで開催されています。音やリボンを選ぶ体験、キティとの写真撮影などを楽しめる、期間限定のお出かけ先です。</p><h2>場所・日時・入場料</h2><table><tbody><tr><th>期間</th><td>2026年10月28日〜11月8日</td></tr><tr><th>場所</th><td>表参道ヒルズ 本館B3F スペース オー</td></tr><tr><th>時間</th><td>11:00〜20:00（最終入場19:30）</td></tr><tr><th>入場料</th><td>無料</td></tr><tr><th>入場方法</th><td>事前予約優先制</td></tr></tbody></table><p>10月28日のみ営業時間は16:00〜20:00でした。予約した方が優先され、空きがある場合に限り当日入場も案内されます。予約の空きや最新の入場方法は<a href=\\\"https://www.sanrio.co.jp/news/spots/kt-event-20261008/\\\">サンリオ公式のイベント案内</a>で確認してからお出かけください。</p><h2>どんな体験ができる？</h2><ul><li>好きな音を組み合わせてBGMを作る体験</li><li>好きなリボンを選んでオリジナルシュシュを作る体験</li><li>ハローキティと一緒に写真を撮る体験</li></ul><p>会場には大きなリボンのモニュメントや、新作グッズを販売するショップエリアも用意されています。体験の詳細や参加条件は公式の最新案内で確認しましょう。</p><h2>行く前にチェック</h2><p>会場は東京都渋谷区神宮前4-12-10、表参道ヒルズ本館の地下3階です。入場無料でも予約優先のため、行きたい時間を決めたら予約状況を確認しておくと安心です。内容が変更・中止になる場合もあります。</p><p>関連：<a href=\\\"https://sanrio-fan.site/hello-kitty-sanrio-closet-collection-2026/\\\">Sanrio closet collectionの種類と価格</a> ／ <a href=\\\"https://sanrio-fan.site/hello-kitty-favorite-ribbon-2026-guide/\\\">ハローキティのお気に入りデザインシリーズ</a></p><p>情報確認日：2026年10月30日。会場イメージは<a href=\\\"https://corporate.sanrio.co.jp/news/20261008.html\\\">サンリオのニュースリリース</a>から確認できます。</p>\"},{\"slug\":\"pochacco-tuxedosam-lumine-ikebukuro-20261103\",\"title\":\"ポチャッコ＆タキシードサム撮影会｜ルミネ池袋11月3日の参加方法\",\"excerpt\":\"ルミネ池袋で11月3日に開催されるポチャッコ・タキシードサムの撮影会について、各回の時間、参加券の条件と注意点を紹介。\",\"content\":\"<p>ポチャッコとタキシードサムが、2026年11月3日（火・祝）にルミネ池袋のグリーティング撮影会に登場します。参加には当日の対象ショップでの買い物と、先着で配られる参加券が必要です。</p><h2>開催場所・時間・定員</h2><table><tbody><tr><th>日程</th><td>2026年11月3日（火・祝）</td></tr><tr><th>場所</th><td>ルミネ池袋 B1F 特設会場</td></tr><tr><th>時間</th><td>12:00〜、14:00〜、16:00〜</td></tr><tr><th>人数</th><td>各回20組</td></tr></tbody></table><p>会場の住所は東京都豊島区西池袋1-11-1。ポチャッコとサムに会える機会なので、参加方法を確認してから出かけましょう。</p><h2>参加券の受け取り方</h2><ol><li>11月3日当日、はぴだんぶいPOP UP SHOPで税込3,000円以上購入します。</li><li>購入時のレシートをPOP UP SHOP横の受付へ持参します。</li><li>先着で撮影参加券が配布されます。券はなくなり次第終了です。</li></ol><p>参加回は選べません。購入すれば必ず希望の時間に参加できるわけではないため、配布状況や詳しい条件は<a href=\\\"https://www.sanrio.co.jp/news/spots/hv-lumine-20261021/\\\">サンリオ公式のイベント案内</a>から確認してください。</p><h2>サイン会との違い</h2><p>こちらはキャラクターのグリーティング撮影会です。11月22日に銀座で開催される<a href=\\\"https://sanrio-fan.site/pochacco-designer-signing-nishiginza-20261122/\\\">ポチャッコ担当デザイナーのサイン会</a>とは、会場も参加条件も異なります。両方気になる方は、それぞれの公式案内を確認しましょう。</p><p>関連：<a href=\\\"https://sanrio-fan.site/hapidanbui-thankyoumart-november-2026/\\\">はぴだんぶいのサンキューマート限定グッズ</a></p><p>情報確認日：2026年10月30日。イベントの最新情報は公式リンクをご覧ください。</p>\"}]")
+          api("/users/me?context=edit&_fields=id")
+          for a in articles:
+           rows=api("/posts?"+urllib.parse.urlencode({"slug":a["slug"],"context":"edit","_fields":"id,slug,status,link"}))
+           if rows:
+            print("SKIP EXISTING",a["slug"],flush=True); continue
+           post=api("/posts",dict(a,status="publish"))
+           check=api("/posts/"+str(post["id"])+"?_fields=id,slug,status,link")
+           if check["status"]!="publish" or check["slug"]!=a["slug"]: raise RuntimeError("Post verification failed")
+           print("PUBLISHED",check["id"],check["link"],flush=True)
+          PY
