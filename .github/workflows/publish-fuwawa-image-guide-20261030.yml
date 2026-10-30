@@ -1,0 +1,40 @@
+name: Publish fuwawa image guide
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-fuwawa-image-guide-20261030.yml
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - name: Publish and verify through WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse
+          site="https://sanrio-fan.site/wp-json/wp/v2"
+          auth="Basic "+base64.b64encode((os.environ["SANRIO_WP_USER"]+":"+os.environ["SANRIO_WP_APP_PASSWORD"]).encode()).decode()
+          def api(path,data=None):
+           req=urllib.request.Request(site+path,data=None if data is None else json.dumps(data,ensure_ascii=False).encode(),headers={"Authorization":auth,"Content-Type":"application/json","User-Agent":"SanrioEditorialPublisher/1.0"})
+           with urllib.request.urlopen(req,timeout=45) as r: return json.load(r)
+          a=json.loads("{\"slug\":\"sanrio-fuwawa-flocky-mascot-five-2026\",\"title\":\"サンリオ ふわわフロッキーマスコット｜全5種・サイズと楽天の予約情報\",\"excerpt\":\"サンリオキャラクターズ ふわわフロッキーマスコットの全5種・約4cmのサイズ、ガチャの価格と楽天市場のセット予約情報を紹介。\",\"content\":\"<p>【PR】この記事には楽天アフィリエイト広告が含まれます。</p><p>ふわふわの手ざわりと、半立体のぺたんこフォルムがかわいい「サンリオキャラクターズ ふわわフロッキーマスコット」。タカラトミーアーツのガチャは全5種、約4cmのボールチェーン付きマスコットです。楽天市場には全5種セットの予約商品も掲載されています。</p><h2>ふわわフロッキーマスコットの画像と楽天市場の商品</h2><p>下の画像は、ポムポムプリン・シナモロール・ポチャッコ・クロミ・ハローキティの全5種セットを扱う楽天市場の商品リンクです。画像を押すと楽天市場の商品ページで詳細を確認できます。</p><div style=\\\"max-width:100%;overflow-x:auto;\\\"><table border=\\\"0\\\" cellpadding=\\\"0\\\" cellspacing=\\\"0\\\"><tr><td><div style=\\\"border:1px solid #95a5a6;border-radius:.75rem;background-color:#FFFFFF;width:824px;margin:0px;padding:5px;text-align:center;overflow:hidden;\\\"><table><tr><td style=\\\"width:400px\\\"><a href=\\\"https://hb.afl.rakuten.co.jp/ichiba/58f470bb.cd8e2983.58f470bc.d22f8a7c/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2Fauc-isauto%2Fgon-refwawasanrio%2F&link_type=picttext&ut=eyJwYWdlIjoiaXRlbSIsInR5cGUiOiJwaWN0dGV4dCIsInNpemUiOiI0MDB4NDAwIiwibmFtIjoxLCJuYW1wIjoicmlnaHQiLCJjb20iOjEsImNvbXAiOiJkb3duIiwicHJpY2UiOjAsImJvciI6MSwiY29sIjoxLCJiYnRuIjoxLCJwcm9kIjowLCJhbXAiOmZhbHNlfQ%3D%3D\\\" target=\\\"_blank\\\" rel=\\\"nofollow sponsored noopener\\\" style=\\\"word-wrap:break-word;\\\"><img src=\\\"https://hbb.afl.rakuten.co.jp/hgb/58f470bb.cd8e2983.58f470bc.d22f8a7c/?me_id=1331419&item_id=10007629&pc=https%3A%2F%2Fthumbnail.image.rakuten.co.jp%2F%400_mall%2Fauc-isauto%2Fcabinet%2F05911090%2F09890530%2F13259757%2Fp4-4904790901614.jpg%3F_ex%3D400x400&s=400x400&t=picttext\\\" border=\\\"0\\\" style=\\\"margin:2px\\\" alt=\\\"\\\" title=\\\"\\\"></a></td><td style=\\\"vertical-align:top;width:408px;display: block;\\\"><p style=\\\"font-size:12px;line-height:1.4em;text-align:left;margin:0px;padding:2px 6px;word-wrap:break-word\\\"><a href=\\\"https://hb.afl.rakuten.co.jp/ichiba/58f470bb.cd8e2983.58f470bc.d22f8a7c/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2Fauc-isauto%2Fgon-refwawasanrio%2F&link_type=picttext&ut=eyJwYWdlIjoiaXRlbSIsInR5cGUiOiJwaWN0dGV4dCIsInNpemUiOiI0MDB4NDAwIiwibmFtIjoxLCJuYW1wIjoicmlnaHQiLCJjb20iOjEsImNvbXAiOiJkb3duIiwicHJpY2UiOjAsImJvciI6MSwiY29sIjoxLCJiYnRuIjoxLCJwcm9kIjowLCJhbXAiOmZhbHNlfQ%3D%3D\\\" target=\\\"_blank\\\" rel=\\\"nofollow sponsored noopener\\\" style=\\\"word-wrap:break-word;\\\">【予約】サンリオキャラクターズ ふわわフロッキーマスコット 全5種セット　カプセルトイ　発売時期2026年11月</a></p><div style=\\\"margin:15px;\\\"><a href=\\\"https://hb.afl.rakuten.co.jp/ichiba/58f470bb.cd8e2983.58f470bc.d22f8a7c/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2Fauc-isauto%2Fgon-refwawasanrio%2F&link_type=picttext&ut=eyJwYWdlIjoiaXRlbSIsInR5cGUiOiJwaWN0dGV4dCIsInNpemUiOiI0MDB4NDAwIiwibmFtIjoxLCJuYW1wIjoicmlnaHQiLCJjb20iOjEsImNvbXAiOiJkb3duIiwicHJpY2UiOjAsImJvciI6MSwiY29sIjoxLCJiYnRuIjoxLCJwcm9kIjowLCJhbXAiOmZhbHNlfQ%3D%3D\\\" target=\\\"_blank\\\" rel=\\\"nofollow sponsored noopener\\\" style=\\\"word-wrap:break-word;\\\"><img src=\\\"https://static.affiliate.rakuten.co.jp/makelink/rl.svg\\\" style=\\\"float:left;max-height:27px;width:auto;margin-top:5px\\\" ></a><a href=\\\"https://hb.afl.rakuten.co.jp/ichiba/58f470bb.cd8e2983.58f470bc.d22f8a7c/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2Fauc-isauto%2Fgon-refwawasanrio%2F%3Fscid%3Daf_pc_bbtn&link_type=picttext&ut=eyJwYWdlIjoiaXRlbSIsInR5cGUiOiJwaWN0dGV4dCIsInNpemUiOiI0MDB4NDAwIiwibmFtIjoxLCJuYW1wIjoicmlnaHQiLCJjb20iOjEsImNvbXAiOiJkb3duIiwicHJpY2UiOjAsImJvciI6MSwiY29sIjoxLCJiYnRuIjoxLCJwcm9kIjowLCJhbXAiOmZhbHNlfQ==\\\" target=\\\"_blank\\\" rel=\\\"nofollow sponsored noopener\\\" style=\\\"word-wrap:break-word;\\\"><div style=\\\"float:right;width:50%;height:32px;background-color:#bf0000;color:#fff!important;font-size:14px;font-weight:500;line-height:32px;margin-left:1px;padding: 0 12px;border-radius:16px;cursor:pointer;text-align:center;\\\"> 楽天で購入 </div></a></div></td></tr></table></div><br><p style=\\\"color:#000000;font-size:12px;line-height:1.4em;margin:5px;word-wrap:break-word\\\"></p></td></tr></table></div><p>楽天市場の販売条件・価格・送料・在庫・発送予定は変わる場合があります。購入前にリンク先で最新情報をご確認ください。ガチャを1回回す価格と通販のセット価格は異なります。</p><h2>メーカー公式の商品情報</h2><table><tbody><tr><th>商品名</th><td>サンリオキャラクターズ ふわわフロッキーマスコット</td></tr><tr><th>メーカー</th><td>タカラトミーアーツ</td></tr><tr><th>初回発売時期</th><td>2026年2月23日週</td></tr><tr><th>カプセル価格</th><td>1回300円（税込）</td></tr><tr><th>サイズ</th><td>本体約4cm</td></tr><tr><th>種類</th><td>全5種</td></tr></tbody></table><p>メーカーによると、ふわふわのフロッキー仕様で、メタリックパープルのボールチェーン付き。小さめのバッグやポーチに好きなキャラクターを付けたい方にも気になるアイテムです。</p><h2>全5種類のラインナップ</h2><ul><li>ポムポムプリン</li><li>シナモロール</li><li>ポチャッコ</li><li>クロミ</li><li>ハローキティ</li></ul><p>ガチャ売場で1回ずつ購入する場合は、ランダムのため同じ種類が重なる可能性があります。楽天の掲載商品は全5種セットの予約販売です。販売店は2026年11月入荷予定と案内していますが、メーカー公式の初回発売時期とは別の情報です。入荷時期やセット内容は必ず販売ページで確認してください。</p><h2>公式情報と関連する記事</h2><p><a href=\\\"https://www.takaratomy-arts.co.jp/items/item.html?n=Y901614\\\">タカラトミーアーツ公式：ふわわフロッキーマスコット</a>（メーカーの商品情報）</p><p>関連：<a href=\\\"https://sanrio-fan.site/sanrio-fuwawa-flocky-mascot-2-handsome-blue/\\\">ふわわフロッキーマスコット2 ハンサムブルー</a> ／ <a href=\\\"https://sanrio-fan.site/taito-sanrio-velvety-night-202611/\\\">タイトー×サンリオの景品情報</a></p><p>情報確認日：2026年10月30日。</p>\"}")
+          api("/users/me?context=edit&_fields=id")
+          rows=api("/posts?"+urllib.parse.urlencode({"slug":a["slug"],"context":"edit","_fields":"id,slug,status,link"}))
+          if rows: raise RuntimeError("A post with this slug already exists")
+          p=api("/posts",dict(a,status="draft"))
+          q=api("/posts/"+str(p["id"])+"?context=edit")
+          s=q["content"]["raw"]
+          if 'hbb.afl.rakuten.co.jp/hgb/58f470bb' not in s or 'item_id=10007629' not in s or '【PR】' not in s: raise RuntimeError("Draft verification failed")
+          p=api("/posts/"+str(p["id"]),{"status":"publish"})
+          if p["status"]!="publish": raise RuntimeError("Publication failed")
+          print("PUBLISHED",p["id"],p["link"])
+          PY
