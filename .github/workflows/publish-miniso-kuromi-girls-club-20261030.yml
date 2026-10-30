@@ -1,0 +1,64 @@
+name: Publish MINISO Kuromi Girls Club guide
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-miniso-kuromi-girls-club-20261030.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish with WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"]; p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p: raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None: h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=45) as r: return json.load(r)
+          slug="miniso-kuromi-girls-club-plush-blind-box"
+          for term in [slug,"GIRLS CLUB","MINISO"]:
+           rows=api("/posts?"+urllib.parse.urlencode({"search":term,"context":"edit","per_page":100,"_fields":"id,slug,status,title,link"}))
+           print("SEARCH",term,json.dumps(rows,ensure_ascii=False))
+           for row in rows:
+            t=html.unescape(row["title"]["rendered"]).lower()
+            if row["slug"]==slug or ("girls club" in t and ("kuromi" in t or "クロミ" in t)): raise RuntimeError("Possible duplicate")
+          specs=[
+           ("8491","MINISO KUROMI GIRLS CLUBのさまざまな衣装のクロミ","パンク風からガーリーまで、さまざまな衣装のクロミが登場。"),
+           ("8493","マイクとドラムのそばに並ぶパンク風とヘッドホン姿のクロミ","音楽をイメージした背景と、それぞれのコーディネート。"),
+           ("8494","星の髪飾りとピンクのヒョウ柄スカートを着たクロミ","青いトップスとヒョウ柄スカートが目を引きます。"),
+           ("8495","銀色のヘッドホンと制服風コーデの紫色のクロミ","銀色のヘッドホンとリボンがアクセント。"),
+           ("8498","ピンクのバッグに付けたクロミのマスコット","画像ではバッグに付けたイメージも紹介されています。")]
+          figs=[];media=[]
+          for i,(num,alt,cap) in enumerate(specs):
+           raw=Path("blog/editorial/miniso-kuromi-girls/IMG_"+num+".jpeg").read_bytes()
+           x=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="miniso-kuromi-girls-club-%s.jpg"'%(i+1)})
+           api("/media/"+str(x["id"]),{"alt_text":alt})
+           media.append(x)
+           figs.append('<figure class="wp-block-image size-large"><img src="'+html.escape(x["source_url"],quote=True)+'" alt="'+html.escape(alt,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'｜画像出典：RED公式投稿より</figcaption></figure>')
+          title="MINISO×クロミ「KUROMI GIRLS CLUB」｜Y2K風コーデがかわいいマスコット"
+          excerpt="MINISOの「KUROMI GIRLS CLUB」シリーズを写真で紹介。クロミの衣装やブラインド販売、購入前に確認したい日本での販売情報をまとめました。"
+          content='<p>パンク風のクロミも、リボンをつけたガーリーなクロミもかわいい！ MINISOの「KUROMI GIRLS CLUB」は、さまざまなファッションを楽しむクロミのマスコットシリーズです。提供されたRED投稿画像をもとに、コーデの魅力と購入前に確認したいことを紹介します。</p>'+figs[0]+'<h2>クロミがY2K風ファッションに</h2><p>投稿では「KUROMI GIRLS CLUB系列 搪胶毛绒盲盒」と紹介されています。画像には、黒や紫、グレーのずきんに、リボンや星、ヘッドホンなどを合わせたクロミが登場。パンク風からやさしい雰囲気まで、それぞれ異なる着こなしが楽しめます。</p>'+figs[1]+'<p>マイクやギターなど、音楽を思わせる小物が並ぶ写真も印象的。写真に写っている小物が商品に付属するかは確認できていません。</p><h2>ヒョウ柄スカートと星のアクセント</h2>'+figs[2]+'<p>黒いずきんのクロミは、星の飾りに青いトップス、ピンクのヒョウ柄スカートを合わせたコーディネート。白いふわふわの袖や黒い靴にも注目です。</p><h2>銀色のヘッドホン姿もかわいい</h2>'+figs[3]+'<p>紫色のずきんに銀色のヘッドホン、黒いリボンを合わせたクロミも登場。投稿では渋谷系ファッションをイメージした装いとして紹介されています。</p><h2>バッグに付けたイメージも</h2>'+figs[4]+'<p>画像にはバッグに付けた姿もあります。金具の仕様や商品のサイズ、耐荷重は確認できていないため、実際に使用する際は購入先の商品説明を確認してください。</p><h2>ブラインドボックスの購入前に</h2><p>投稿では中身が見えない「盲盒（ブラインドボックス）」として案内されています。単品では希望のデザインを選べない場合があります。画像には複数のデザインが写っていますが、全種類の数やシークレットの有無、セット内容は確認できていません。購入前に販売元の案内を確認しましょう。</p><h2>日本で買える？発売日と価格</h2><p>日本国内の発売日、取扱店、価格、商品のサイズは確認できていません。日本での販売があるかどうかは、MINISOや販売店の最新情報を確認してください。海外から購入する場合は、配送対象地域、通貨、送料、返品条件も確認しましょう。</p><p>MINISOのサンリオとの取り組みについては、<a href="https://miniso.com/brand/news_185.html" rel="noopener noreferrer">MINISO公式の案内</a>をご覧ください。この案内は本商品の国内販売を示すものではありません。</p><h2>関連記事</h2><p><a href="https://sanrio-fan.site/toptoy-sanrio-halloween-mischief-night/">TOPTOY×サンリオのハロウィンフィギュア紹介</a>や、<a href="https://sanrio-fan.site/characters/">サンリオキャラクター一覧</a>もあわせてチェック。</p><p>※掲載情報は2026年10月30日確認時点です。写真は提供されたRED投稿画像です。商品の詳細と販売条件は購入先をご確認ください。</p>'
+          a=api("/posts",{"slug":slug,"title":title,"excerpt":excerpt,"status":"draft","content":content,"featured_media":media[0]["id"]})
+          check=api("/posts/"+str(a["id"])+"?context=edit")
+          if check["status"]!="draft" or any(m["source_url"] not in check["content"]["raw"] for m in media): raise RuntimeError("Draft verification failed")
+          pub=api("/posts/"+str(a["id"]),{"status":"publish"})
+          if pub["status"]!="publish": raise RuntimeError("Publication failed")
+          print("PUBLISHED",pub["id"],pub["link"],"IMAGE_IDS",[m["id"] for m in media])
+          PY
