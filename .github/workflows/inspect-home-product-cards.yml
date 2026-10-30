@@ -15,6 +15,6 @@ jobs:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Inspect the homepage over WordPress REST
         run: python3 scripts/inspect-home-product-cards.py
