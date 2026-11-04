@@ -1,0 +1,64 @@
+name: Publish PICOCICI Kitty earphone pouch
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-picocici-kitty-earphone-20261104.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish via WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"];p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p: raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None:h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=60) as r:return json.load(r)
+          slug="picocici-hello-kitty-sweet-cool-earphone-pouch"
+          for term in [slug,"甜酷变奏","PICOCICI","イヤホン"]:
+           rows=api("/posts?"+urllib.parse.urlencode({"search":term,"context":"edit","per_page":100,"_fields":"id,slug,status,title,link"}))
+           print("SEARCH",term,json.dumps(rows,ensure_ascii=False))
+           for row in rows:
+            t=html.unescape(row["title"]["rendered"]).lower()
+            if row["slug"]==slug or "甜酷变奏" in t or ("picocici" in t and ("イヤホン" in t or "earphone" in t)):raise RuntimeError("Possible duplicate")
+          specs=[
+           ("8744","ハローキティのミニリュック型イヤホンポーチとイヤホンケース","イヤホンや小物の収納をイメージした写真。"),
+           ("8745","PICOCICI ハローキティ 甜酷变奏のシルバーとピンク柄ポーチ","大きなリボンのシルバーと、ピンク柄のデザイン。"),
+           ("8747","赤いバッグに付けた黒と赤のハローキティのミニポーチ","バッグに掛けて楽しむイメージ。"),
+           ("8748","ハローキティ 甜酷变奏のミニリュック型ポーチ全15デザイン","黒・白・赤・シルバーや柄物のデザイン。"),
+           ("8749","全15種類と単品および12個入りボックスの購入案内","単品と12個入りボックスの販売形式を案内する画像。")]
+          figs=[];media=[]
+          for i,(num,alt,cap) in enumerate(specs):
+           raw=Path("blog/editorial/picocici-kitty-earphone/IMG_"+num+".jpeg").read_bytes()
+           m=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="picocici-hello-kitty-earphone-pouch-%s.jpg"'%(i+1)})
+           api("/media/"+str(m["id"]),{"alt_text":alt})
+           media.append(m)
+           figs.append('<figure class="wp-block-image size-large"><img src="'+html.escape(m["source_url"],quote=True)+'" alt="'+html.escape(alt,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'｜画像出典：RED公式投稿より</figcaption></figure>')
+          title="ハローキティのミニリュック型イヤホンポーチ｜PICOCICI「甜酷变奏」全15種"
+          excerpt="PICOCICIのハローキティ「甜酷变奏」イヤホンポーチを写真で紹介。全15デザインや12個入りボックス、購入前の確認点をまとめました。"
+          content='<p>小さなリュックにハローキティのリボンが付いた、甘さとかっこよさが楽しめるポーチ。MOETCH・PICOCICIの「Hello Kitty款甜酷变奏系列耳机包」は、イヤホンや小物を持ち歩くミニバッグ型アイテムです。提供されたRED投稿画像から、デザインと購入前のポイントを紹介します。</p>'+figs[0]+'<h2>イヤホンや小物を入れて持ち歩く</h2><p>投稿ではイヤホン・鍵・小物の収納に使えると紹介されています。写真には白いイヤホンケースをポーチに入れるイメージも。ただし対応するイヤホンやケースの機種、収納部分の寸法は確認できていません。お手持ちのものが入るか、購入前に販売元へご確認ください。</p><h2>リボンやヒョウ柄がかわいいミニリュック</h2>'+figs[1]+'<p>ぷっくりしたリボンが主役のデザインや、ピンクのヒョウ柄風デザインなど、それぞれ異なる雰囲気。小さな持ち手や側面のリボン型の飾りにも注目です。</p>'+figs[2]+'<p>バッグに掛けた使い方も紹介されています。取り付け金具の仕様や耐荷重は確認できていないため、使用方法や付属品は購入先で確認しましょう。</p><h2>デザインは全15種類</h2>'+figs[3]+'<p>購入案内には「全15種類」と記載されています。黒・白・赤・シルバーのほか、柄入りや金色のアクセントがあるものも。画像を見比べながら、好きなデザインを探せます。通常版とシークレットの内訳や出現率は確認できていません。</p><h2>単品とボックス購入の注意点</h2>'+figs[4]+'<p>画像の案内によると、単品は開封前に中身が分からない包装です。1ボックスには12個入っています。全15種類に対して1ボックスは12個のため、1ボックスだけでは全15種類をそろえられません。重複の有無や封入の組み合わせは販売元の案内をご確認ください。</p><h2>日本で買える？価格・サイズは？</h2><p>日本国内での発売日、取扱店、国内価格、ポーチの詳しいサイズは確認できていません。海外から購入する場合は、配送対象、送料、決済通貨、発送時期、返品条件を確認しましょう。</p><p>同名の商品は中国の通販サイトにも掲載があります。単品と12個入りの案内がありますが、日本への配送や販売条件は購入前にご確認ください。<a href="https://www.jd.com/hprm/619675d299bf7388b4de.html" rel="noopener noreferrer">京東の商品掲載を確認する</a></p><h2>関連記事</h2><p><a href="https://sanrio-fan.site/picocici-sanrio-healing-glimmer-light-figure/">PICOCICI×サンリオの光るフィギュア</a>や、<a href="https://sanrio-fan.site/characters/">サンリオキャラクター一覧</a>もあわせてご覧ください。</p><p>※2026年11月4日確認時点の情報です。写真は提供されたRED投稿画像です。商品や販売条件の詳細は購入先をご確認ください。</p>'
+          a=api("/posts",{"slug":slug,"title":title,"excerpt":excerpt,"status":"draft","content":content,"featured_media":media[0]["id"]})
+          check=api("/posts/"+str(a["id"])+"?context=edit")
+          if check["status"]!="draft" or any(m["source_url"] not in check["content"]["raw"] for m in media):raise RuntimeError("Draft verification failed")
+          pub=api("/posts/"+str(a["id"]),{"status":"publish"})
+          if pub["status"]!="publish":raise RuntimeError("Publication failed")
+          print("PUBLISHED",pub["id"],pub["link"],"IMAGE_IDS",[m["id"] for m in media])
+          PY
