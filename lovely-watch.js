@@ -385,8 +385,8 @@ const lovelyWatch = (()=>{
       let amazon='',rakuten='';try{amazon=ownLink(el('lovelyAmazon').value.trim(),'Amazon')}catch(_){}try{rakuten=ownLink(el('lovelyRakuten').value.trim(),'楽天')}catch(_){}
       area.value=productDraft(selected,amazon,rakuten);postLinks=signature;postStale=false;
     }
-    const count=productCharLength(area.value);el('lovelyPostCount').textContent=count+' / 300文字（URLは23文字換算）';
-    el('lovelyPostStatus').textContent=postStale?'紹介リンクを変更しました。「作り直す」で投稿文を更新してください。':count>300?'300文字を超えています。本文を編集して短くしてください。':'商品情報から作成した下書きです。本文・写真・リンクを確認してください。';
+    const count=productCharLength(area.value);el('lovelyPostCount').textContent=count+'文字（URLは23文字換算）';
+    el('lovelyPostStatus').textContent=postStale?'紹介リンクを変更しました。「作り直す」で投稿文を更新してください。':'商品情報から作成した下書きです。本文・写真・リンクを確認してください。';
   }
   function productCharLength(text){
     return Array.from(String(text).replace(/https?:\/\/[^\s<>]+/gu,'x'.repeat(23))).length;
@@ -396,7 +396,7 @@ const lovelyWatch = (()=>{
     const amazon=ownLink(el('lovelyAmazon').value.trim(),'Amazon'),rakuten=ownLink(el('lovelyRakuten').value.trim(),'楽天');
     if(!amazon&&!rakuten&&!selected.overseas)throw new Error('自分のAmazonか楽天のリンクを入力してください。');
     const context={mode:'product',overseas:!!selected.overseas,region:selected.region||'',title:selected.title,links:[...(amazon?[{kind:'amazon',url:amazon}]:[]),...(rakuten?[{kind:'rakuten',url:rakuten}]:[])]},facts=selected.manufacturerInfo?.facts||{},info=selected.productInfo||{};
-    const rows=[context.title,...(selected.overseas?['海外の公式一覧への掲載地域：'+regionName(selected.region),'日本国内販売・海外限定・価格・在庫・発売日：未確認']:[]),...Object.entries(facts).filter(([key])=>!/素材|価格|在庫|JAN|商品コード|掲載/.test(key)).map(([key,value])=>key+'：'+value),
+    const rows=[context.title,info.description?'楽天販売ページの商品説明：'+info.description:'',...(selected.overseas?['海外の公式一覧への掲載地域：'+regionName(selected.region),'日本国内販売・海外限定・価格・在庫・発売日：未確認']:[]),...Object.entries(facts).filter(([key])=>!/素材|価格|在庫|JAN|商品コード|掲載/.test(key)).map(([key,value])=>key+'：'+value),
       ...Object.entries(info.specs||{}).filter(([key])=>!/素材|価格|在庫|JAN|商品コード/.test(key)).map(([key,value])=>key+'：'+value),
       (info.contents||[]).length?'セット内容：'+info.contents.join(' / '):''];
     return {...context,text:rows.filter(Boolean).join('\n').slice(0,4000)};
@@ -413,11 +413,11 @@ const lovelyWatch = (()=>{
       postAiPending=true;button.disabled=true;status.textContent='AIで可愛い紹介文を作成中…';
       const facts=context.text, note=el('lovelyNote').value.trim();
       const evidence=[facts,note].filter(Boolean).join('\n');
-      const data=await newsAiPost('product-groq-draft',{...context,text:'商品名・シリーズ名・確認済みの特徴から一つ選び、ファンが目を留める短い一言で紹介。資料にない機能・形・サイズ感や、見ていない写真の描写は加えない。ホルダーを収納用品と解釈しない。情報が少なければ短く。\n資料：'.replace('PLACEHOLDER','')+evidence});
+      const data=await newsAiPost('product-groq-draft',{...context,extendedProduct:true,text:'商品名・シリーズ名・確認済みの特徴から一つ選び、ファンが目を留める短い一言で紹介。資料にない機能・形・サイズ感や、見ていない写真の描写は加えない。ホルダーを収納用品と解釈しない。説明にあるデザイン・取り付け方・本体の寸法を必要に応じて自然な段落で紹介。撮影例のバッグは対象外。情報が少なければ短く。\n資料：'+evidence});
       if(selected!==item||chooseSequence!==sequence)return;
       if(!data.configured)throw new Error('ニュースの「AI設定」にGroqのキーを保存してください。');
       if(typeof data.text==='string'&&unsupportedProductClaim(data.text.split(/(?:Amazon：|楽天：)/)[0],evidence))data.text=productDraft(item,context.links.find(l=>l.kind==='amazon')?.url,context.links.find(l=>l.kind==='rakuten')?.url);
-      if(typeof data.text!=='string'||!data.text.trim()||productCharLength(data.text)>300)throw new Error('300文字以内のAI文を取得できませんでした。');
+      if(typeof data.text!=='string'||!data.text.trim())throw new Error('AI文を取得できませんでした。');
       if(context.links.some(link=>!data.text.includes(link.url))||!/#pr\s*$/.test(data.text))throw new Error('紹介リンク・PR表記を確認できませんでした。');
       if(el('lovelyPostText').value!==before||linkSignature()!==signature){status.textContent='編集中の本文・リンクを優先しました。AI文は反映していません。';return;}
       el('lovelyPostText').value=data.text;postEdited=true;postLinks=signature;postStale=false;el('lovelyConfirmed').checked=false;persist();
@@ -431,7 +431,7 @@ const lovelyWatch = (()=>{
     if(postStale)throw new Error('紹介リンクを変更しました。「作り直す」で投稿文を更新してください。');
     const text=el('lovelyPostText').value.trim(),amazon=ownLink(el('lovelyAmazon').value.trim(),'Amazon'),rakuten=ownLink(el('lovelyRakuten').value.trim(),'楽天');
     if(!amazon&&!rakuten&&!selected.overseas)throw new Error('自分のAmazonか楽天のリンクを入力してください。');
-    if(!text||productCharLength(text)>300)throw new Error('投稿文を300文字以内にしてください。');
+    if(!text)throw new Error('投稿文を入力してください。');
     if((amazon&&!text.includes(amazon))||(rakuten&&!text.includes(rakuten)))throw new Error('入力した自分の紹介リンクを投稿文にも入れてください。');
     if(!/(?:^|\s)#pr\s*$/i.test(text))throw new Error('投稿文の最後に #pr を付けてください。');
     return text;

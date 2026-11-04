@@ -158,7 +158,7 @@ function lw_rakuten(string $html,string $url): array {
     }
     $images=[];
     foreach([lw_meta($x,'property','og:image'),lw_meta($x,'itemprop','image')] as $image){$image=lw_image_url($image);if($image)$images[]=$image;}
-    return ['title'=>$name,'url'=>$product['url'],'productId'=>$product['id'],'itemCode'=>$sku?:substr($product['id'],8),'jan'=>lw_meta($x,'itemprop','gtin13'),'specs'=>array_slice($specs,0,8,true),'contents'=>array_slice($contents,0,12),'images'=>array_values(array_unique($images)),'checkedAt'=>gmdate('c')];
+    return ['title'=>$name,'url'=>$product['url'],'productId'=>$product['id'],'itemCode'=>$sku?:substr($product['id'],8),'jan'=>lw_meta($x,'itemprop','gtin13'),'description'=>mb_substr(trim(implode("\n",$lines??[])),0,2500),'specs'=>array_slice($specs,0,8,true),'contents'=>array_slice($contents,0,12),'images'=>array_values(array_unique($images)),'checkedAt'=>gmdate('c')];
 }
 function lw_enriched(string $html,string $url): array {
     if(lw_gour_article_url($url))return lw_gour_enriched($html,$url);
@@ -622,7 +622,7 @@ function lw_sanrio_item(array $row,array $settings): array {
     $images=[];foreach($row['mediumImageUrls']??[] as $r){$image=lw_image_url(is_array($r)?(string)($r['imageUrl']??''):(string)$r);if($image&&preg_match('~^https://(?:image\.rakuten\.co\.jp|shop\.r10s\.jp|tshop\.r10s\.jp)/sanrio/cabinet/~',$image))$images[]=preg_replace('/([?&])_ex=[^&]+/','$1_ex=1200x1200',$image);}
     $checked=gmdate('c');$item=['source'=>'サンリオ公式 楽天市場店','url'=>$p['url'],'title'=>$name,'date'=>'','thumbnail'=>$images[0]??'','products'=>[$p],'productIds'=>[$p['id']],'needsReview'=>false,'catalogUpdate'=>true,
       'retailerStatus'=>'サンリオ公式 楽天市場店のAPI掲載商品です。更新順で取得しています。新発売・発売日・現在の在庫は未確認です。',
-      'productInfo'=>['title'=>$name,'url'=>$p['url'],'productId'=>$p['id'],'itemCode'=>$code,'jan'=>'','specs'=>[],'contents'=>[],'images'=>array_values(array_unique($images)),'checkedAt'=>$checked]];
+      'productInfo'=>['title'=>$name,'url'=>$p['url'],'productId'=>$p['id'],'itemCode'=>$code,'jan'=>'','description'=>mb_substr(trim(html_entity_decode(strip_tags(str_ireplace(['<br>','<br/>','<br />'],"\n",(string)($row['itemCaption']??''))),ENT_QUOTES|ENT_HTML5,'UTF-8')),0,2500),'specs'=>[],'contents'=>[],'images'=>array_values(array_unique($images)),'checkedAt'=>$checked]];
     if(isset($row['itemPrice'])&&is_numeric($row['itemPrice'])&&(int)$row['itemPrice']>=0)$item['priceAtFetch']=(int)$row['itemPrice'];
     try{$item['matchedAffiliate']=lw_affiliate_result(['items'=>[$row]],$code,$settings['affiliateId']);}catch(Throwable $e){}
     return $item;
@@ -644,7 +644,7 @@ function lw_fashion_item(array $row,array $settings): array {
     $images=[];foreach($row['mediumImageUrls']??[] as $r){$image=lw_image_url(is_array($r)?(string)($r['imageUrl']??''):(string)$r);if($image)$images[]=preg_replace('/([?&])_ex=[^&]+/','$1_ex=1200x1200',$image);}
     $checked=gmdate('c');$item=['source'=>'楽天ファッション','url'=>$p['url'],'title'=>$name,'date'=>'','thumbnail'=>$images[0]??'','products'=>[$p],'productIds'=>[$p['id']],'needsReview'=>false,'catalogUpdate'=>true,
       'retailerStatus'=>'楽天ファッションのAPI掲載商品です。更新順で取得しています。新発売・発売日・現在の在庫は未確認です。',
-      'productInfo'=>['title'=>$name,'url'=>$p['url'],'productId'=>$p['id'],'itemCode'=>$code,'jan'=>'','specs'=>[],'contents'=>[],'images'=>array_values(array_unique($images)),'checkedAt'=>$checked]];
+      'productInfo'=>['title'=>$name,'url'=>$p['url'],'productId'=>$p['id'],'itemCode'=>$code,'jan'=>'','description'=>mb_substr(trim(html_entity_decode(strip_tags(str_ireplace(['<br>','<br/>','<br />'],"\n",(string)($row['itemCaption']??''))),ENT_QUOTES|ENT_HTML5,'UTF-8')),0,2500),'specs'=>[],'contents'=>[],'images'=>array_values(array_unique($images)),'checkedAt'=>$checked]];
     if(isset($row['itemPrice'])&&is_numeric($row['itemPrice'])&&(int)$row['itemPrice']>=0)$item['priceAtFetch']=(int)$row['itemPrice'];
     try{$item['matchedAffiliate']=lw_affiliate_result(['items'=>[$row]],$code,$settings['affiliateId']);}catch(Throwable $e){}
     return $item;
