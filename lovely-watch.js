@@ -401,15 +401,22 @@ const lovelyWatch = (()=>{
       (info.contents||[]).length?'セット内容：'+info.contents.join(' / '):''];
     return {...context,text:rows.filter(Boolean).join('\n').slice(0,4000)};
   }
+  function unsupportedProductClaim(body, facts){
+    const claims=[[/収納|小物をしま|小物を入れ|小物が入/,/収納|小物を入れ|小物が入|小物入れ/],[/ハート(?:型|形)/,/ハート(?:型|形)/],[/ポーチにぴったり|ポーチに収ま/,/ポーチにぴったり|ポーチに収ま/]];
+    return claims.some(([claim,evidence])=>claim.test(body)&&!evidence.test(facts));
+  }
   async function generateProductAi(){
     const button=el('lovelyPostAi'),status=el('lovelyPostAiStatus');if(postAiPending)return;
     let item,sequence,before,signature;
     try{
       const context=productAiContext();item=selected;sequence=chooseSequence;before=el('lovelyPostText').value;signature=linkSignature();
       postAiPending=true;button.disabled=true;status.textContent='AIで可愛い紹介文を作成中…';
-      const data=await newsAiPost('product-groq-draft',context);
+      const facts=context.text, note=el('lovelyNote').value.trim();
+      const evidence=[facts,note].filter(Boolean).join('\n');
+      const data=await newsAiPost('product-groq-draft',{...context,text:'商品名・シリーズ名・確認済みの特徴から一つ選び、ファンが目を留める短い一言で紹介。資料にない機能・形・サイズ感や、見ていない写真の描写は加えない。ホルダーを収納用品と解釈しない。情報が少なければ短く。\n資料：'.replace('PLACEHOLDER','')+evidence});
       if(selected!==item||chooseSequence!==sequence)return;
       if(!data.configured)throw new Error('ニュースの「AI設定」にGroqのキーを保存してください。');
+      if(typeof data.text==='string'&&unsupportedProductClaim(data.text.split(/(?:Amazon：|楽天：)/)[0],evidence))data.text=productDraft(item,context.links.find(l=>l.kind==='amazon')?.url,context.links.find(l=>l.kind==='rakuten')?.url);
       if(typeof data.text!=='string'||!data.text.trim()||productCharLength(data.text)>300)throw new Error('300文字以内のAI文を取得できませんでした。');
       if(context.links.some(link=>!data.text.includes(link.url))||!/#pr\s*$/.test(data.text))throw new Error('紹介リンク・PR表記を確認できませんでした。');
       if(el('lovelyPostText').value!==before||linkSignature()!==signature){status.textContent='編集中の本文・リンクを優先しました。AI文は反映していません。';return;}
