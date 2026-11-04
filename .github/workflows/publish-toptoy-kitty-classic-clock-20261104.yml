@@ -1,0 +1,64 @@
+name: Publish TOPTOY Hello Kitty classic clock guide
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-toptoy-kitty-classic-clock-20261104.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish through WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"]; p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p: raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None: h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=60) as r:return json.load(r)
+          slug="toptoy-hello-kitty-classic-clock-blind-box"
+          for term in [slug,"经典时钟","クラシック 時計","TOPTOY"]:
+           rows=api("/posts?"+urllib.parse.urlencode({"search":term,"context":"edit","per_page":100,"_fields":"id,slug,status,title,link"}))
+           print("SEARCH",term,json.dumps(rows,ensure_ascii=False))
+           for row in rows:
+            t=html.unescape(row["title"]["rendered"]).lower()
+            if row["slug"]==slug or ("经典时钟" in t) or ("toptoy" in t and ("時計" in t or "clock" in t) and ("キティ" in t or "kitty" in t)):raise RuntimeError("Possible duplicate")
+          specs=[
+           ("8725","TOP TOY ハローキティの時計付きフィギュアのデザイン一覧","ケーキやリボンなど、時計とハローキティを組み合わせたデザイン。"),
+           ("8726","黄色いケーキの上に座るハローキティの時計付きフィギュア","ケーキの正面に文字盤をあしらったデザイン。"),
+           ("8727","赤いリボンに寄りかかるハローキティの時計付きフィギュア","大きな赤いリボンに寄り添うキティ。"),
+           ("8728","赤い屋根の家に座るハローキティの時計付きフィギュア","おうちの屋根に座ったキティと、カラフルな文字盤。"),
+           ("8731","赤いりんごとテディベアに寄り添うハローキティの時計付きフィギュア","りんごに文字盤を組み合わせた、キティらしいモチーフ。")]
+          figs=[];media=[]
+          for i,(num,alt,cap) in enumerate(specs):
+           raw=Path("blog/editorial/toptoy-kitty-clock/IMG_"+num+".jpeg").read_bytes()
+           m=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="toptoy-hello-kitty-classic-clock-%s.jpg"'%(i+1)})
+           api("/media/"+str(m["id"]),{"alt_text":alt})
+           media.append(m)
+           figs.append('<figure class="wp-block-image size-large"><img src="'+html.escape(m["source_url"],quote=True)+'" alt="'+html.escape(alt,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'｜画像出典：RED公式投稿より</figcaption></figure>')
+          title="TOP TOY×ハローキティ「クラシック時計」｜レトロかわいいフィギュアを紹介"
+          excerpt="TOP TOYのハローキティ「经典时钟」シリーズを写真で紹介。時計とフィギュアのデザイン、販売案内、購入前の確認点をまとめました。"
+          content='<p>赤いリボンやりんご、ケーキに囲まれたハローキティがかわいい！ TOP TOYの「Hello Kitty 经典时钟系列手办盲盒」は、クラシックなキティと小さな時計を組み合わせたフィギュアシリーズです。提供されたRED投稿画像をもとに、デザインや購入前に知りたい情報をまとめました。</p>'+figs[0]+'<h2>ハローキティと時計を一緒に楽しめる</h2><p>赤・青・黄色を中心にした、どこか懐かしいカラーリングが魅力。投稿では卓上に飾れるアイテムであり、時計でもあると紹介されています。文字盤にもキティたちのイラストが描かれ、細かな違いを見比べるのも楽しそうです。</p><p>画像には8つのデザインが写っています。シークレットの有無やシリーズの全種類数は確認できていません。</p><h2>ケーキの上にちょこん</h2>'+figs[1]+'<p>黄色いケーキから顔を出すキティと、ケーキの中央に付いた文字盤がポイント。赤い飾りと白いクリーム風のデザインが華やかです。</p><h2>大きなリボンに寄り添うキティ</h2>'+figs[2]+'<p>キティが大きな赤いリボンに寄りかかった姿。リボンの真ん中に時計があり、ブルーの縁取りがアクセントになっています。</p><h2>おうちやりんごのデザインも</h2>'+figs[3]+'<p>赤い屋根のおうちに座るキティは、お部屋に飾りたくなるデザイン。風船やチューリップのイラストにも注目です。</p>'+figs[4]+'<p>りんごの時計をキティと小さなくまが囲む姿も。画像にはこのほか、カメラや電話、カップなどをイメージしたデザインも見られます。</p><h2>発売日・価格は？</h2><p>提供されたTOP TOYのRED投稿では、<strong>11月6日からオンライン・店舗で順次販売</strong>と案内されています。投稿に年や対象地域の詳しい記載はなく、日本国内の発売日・取扱店は確認できていません。</p><p>同投稿の価格表記は<strong>1個59元、1ボックス472元</strong>です。日本円ではなく、海外向けの投稿に記された価格です。販売地域や販売先によって価格・条件は異なる可能性があります。</p><h2>購入前に確認したいこと</h2><p>商品名には「盲盒（ブラインドボックス）」とあり、通常は開封まで中身が分からない販売形式です。希望のデザインを選べるか、ボックスに何個入るか、全種類がそろうかは購入先で確認してください。価格の割り算だけで入り数を確定することはできません。</p><p>サイズ、電源や電池の種類、時刻合わせの方法、電池交換の可否は確認できていません。時計として使う際の条件は販売元の商品説明でご確認ください。画像の背景にある小物が付属するかも未確認です。</p><h2>どこで買える？</h2><p>日本での正規取扱店や国内価格は確認できていません。海外から購入する場合は、配送先、送料、決済通貨、発送時期、返品条件を販売元で確認しましょう。<a href="https://gotoptoy.com/collections/hello-kitty" rel="noopener noreferrer">TOPTOYのハローキティ商品一覧</a>も参考にできますが、当該商品の掲載や日本への配送を示すものではありません。</p><h2>関連記事</h2><p><a href="https://sanrio-fan.site/toptoy-sanrio-halloween-mischief-night/">TOPTOY×サンリオのハロウィンフィギュア紹介</a>もチェック。<a href="https://sanrio-fan.site/characters/">サンリオキャラクター一覧</a>から関連グッズを探せます。</p><p>※情報は2026年11月4日確認時点です。画像は提供されたRED投稿の写真です。商品の仕様と販売条件は購入先でご確認ください。</p>'
+          a=api("/posts",{"slug":slug,"title":title,"excerpt":excerpt,"status":"draft","content":content,"featured_media":media[0]["id"]})
+          check=api("/posts/"+str(a["id"])+"?context=edit")
+          if check["status"]!="draft" or any(m["source_url"] not in check["content"]["raw"] for m in media):raise RuntimeError("Draft verification failed")
+          pub=api("/posts/"+str(a["id"]),{"status":"publish"})
+          if pub["status"]!="publish":raise RuntimeError("Publication failed")
+          print("PUBLISHED",pub["id"],pub["link"],"IMAGE_IDS",[m["id"] for m in media])
+          PY
