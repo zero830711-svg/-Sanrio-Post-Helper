@@ -396,7 +396,7 @@ const lovelyWatch = (()=>{
     const amazon=ownLink(el('lovelyAmazon').value.trim(),'Amazon'),rakuten=ownLink(el('lovelyRakuten').value.trim(),'楽天');
     if(!amazon&&!rakuten&&!selected.overseas)throw new Error('自分のAmazonか楽天のリンクを入力してください。');
     const context={mode:'product',overseas:!!selected.overseas,region:selected.region||'',title:selected.title,links:[...(amazon?[{kind:'amazon',url:amazon}]:[]),...(rakuten?[{kind:'rakuten',url:rakuten}]:[])]},facts=selected.manufacturerInfo?.facts||{},info=selected.productInfo||{};
-    const rows=[context.title,info.description?'楽天販売ページの商品説明：'+info.description:'',...(selected.overseas?['海外の公式一覧への掲載地域：'+regionName(selected.region),'日本国内販売・海外限定・価格・在庫・発売日：未確認']:[]),...Object.entries(facts).filter(([key])=>!/素材|価格|在庫|JAN|商品コード|掲載/.test(key)).map(([key,value])=>key+'：'+value),
+    const rows=[context.title,info.title?'販売ページの商品名：'+info.title:'',info.itemCode?'照合用の商品コード：'+info.itemCode:'',info.description?'楽天販売ページの商品説明：'+info.description:'',...(selected.overseas?['海外の公式一覧への掲載地域：'+regionName(selected.region),'日本国内販売・海外限定・価格・在庫・発売日：未確認']:[]),...Object.entries(facts).filter(([key])=>!/素材|価格|在庫|JAN|商品コード|掲載/.test(key)).map(([key,value])=>key+'：'+value),
       ...Object.entries(info.specs||{}).filter(([key])=>!/素材|価格|在庫|JAN|商品コード/.test(key)).map(([key,value])=>key+'：'+value),
       (info.contents||[]).length?'セット内容：'+info.contents.join(' / '):''];
     return {...context,text:rows.filter(Boolean).join('\n').slice(0,4000)};
@@ -413,15 +413,15 @@ const lovelyWatch = (()=>{
       postAiPending=true;button.disabled=true;status.textContent='AIで可愛い紹介文を作成中…';
       const facts=context.text, note=el('lovelyNote').value.trim();
       const evidence=[facts,note].filter(Boolean).join('\n');
-      const data=await newsAiPost('product-groq-draft',{...context,extendedProduct:true,text:'商品名・シリーズ名・確認済みの特徴から一つ選び、ファンが目を留める短い一言で紹介。資料にない機能・形・サイズ感や、見ていない写真の描写は加えない。ホルダーを収納用品と解釈しない。説明にあるデザイン・取り付け方・本体の寸法を必要に応じて自然な段落で紹介。撮影例のバッグは対象外。情報が少なければ短く。\n資料：'+evidence});
+      const data=await newsAiPost('product-groq-draft',{...context,extendedProduct:true,text:'商品情報\n資料：'+evidence});
       if(selected!==item||chooseSequence!==sequence)return;
       if(!data.configured)throw new Error('ニュースの「AI設定」にGroqのキーを保存してください。');
-      if(typeof data.text==='string'&&unsupportedProductClaim(data.text.split(/(?:Amazon：|楽天：)/)[0],evidence))data.text=productDraft(item,context.links.find(l=>l.kind==='amazon')?.url,context.links.find(l=>l.kind==='rakuten')?.url);
+      if(data.generation!=='verified-rewrite'||(typeof data.text==='string'&&unsupportedProductClaim(data.text.split(/(?:Amazon：|楽天：)/)[0],evidence)))throw new Error('商品情報との一致を確認できませんでした。本文は変更していません。');
       if(typeof data.text!=='string'||!data.text.trim())throw new Error('AI文を取得できませんでした。');
       if(context.links.some(link=>!data.text.includes(link.url))||!/#pr\s*$/.test(data.text))throw new Error('紹介リンク・PR表記を確認できませんでした。');
       if(el('lovelyPostText').value!==before||linkSignature()!==signature){status.textContent='編集中の本文・リンクを優先しました。AI文は反映していません。';return;}
       el('lovelyPostText').value=data.text;postEdited=true;postLinks=signature;postStale=false;el('lovelyConfirmed').checked=false;persist();
-      status.textContent='AI生成済み。本文・写真・紹介リンクを確認して共有してください。';
+      status.textContent='AI生成済み（商品資料との照合済み）。本文・紹介リンクを確認してください。';
     }catch(e){if(!item||(selected===item&&chooseSequence===sequence))status.textContent=e.message;}
     finally{postAiPending=false;button.disabled=false;}
   }
@@ -729,3 +729,4 @@ const lovelyWatch = (()=>{
   }
   return {openProduct,overseasThumbnailUrl,thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,productDraft,postLength,productCharLength,savedRakuten,aiContext,aiFiles};
 })();
+
