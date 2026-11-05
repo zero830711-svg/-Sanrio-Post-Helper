@@ -41,3 +41,12 @@ test('manual entry form is absent from otaota news',async({page})=>{
  await expect(page.locator('#otaManualTitle, #otaManualUrl, #otaManualAdd')).toHaveCount(0);
  await expect(page.locator('#otaList')).toBeVisible();
 });
+
+test('filters unrelated fashion candidates while retaining character goods',async({page})=>{
+ const items=[{url:'https://prtimes.jp/1',title:'韓国発ベビー・キッズ服ブランド「モイモルン」POP UP STORE'},{url:'https://prtimes.jp/2',title:'THE FRANKIE SHOPが、H BEAUTY&YOUTHにてPOPUPを開催'},{url:'https://prtimes.jp/3',title:'Able Carry POP-UPイベントを開催'},{url:'https://prtimes.jp/4',title:'ちいかわの新作グッズとポップアップ'}];
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.route('**/otaota.php?**',r=>r.fulfill({json:{ok:true,items,failed:[],fetchedAt:'2026-11-05T00:00:00Z'}}));
+ await page.goto('/');await page.locator('#accountOta').click();await page.locator('#otaRefresh').click();
+ await expect(page.locator('#otaList')).toContainText('ちいかわ');await expect(page.locator('#otaList')).not.toContainText('モイモルン');await expect(page.locator('#otaList')).not.toContainText('FRANKIE');await expect(page.locator('#otaList')).not.toContainText('Able Carry');
+});
