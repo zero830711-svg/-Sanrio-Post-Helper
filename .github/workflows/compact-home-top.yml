@@ -24,7 +24,7 @@ jobs:
         run: python3 -m py_compile scripts/compact-home-top.py
       - name: Save homepage typography through REST
         run: python3 scripts/compact-home-top.py
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
