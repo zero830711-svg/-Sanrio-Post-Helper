@@ -27,7 +27,7 @@ jobs:
       LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
       LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Check bounded append and existing catalog preservation
         run: |
           python3 -m pip install --quiet Pillow
