@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Move exactly the 200 Gacha in English batch posts to WordPress Trash.
 
-This is intentionally narrow and never uses force=true. It refuses to act
-unless each live post is from one of the two known 100-post English batches.
-A retry is allowed only when a missing target is already in WordPress Trash.
+This is intentionally narrow and never uses force=true. It validates every
+live target against its original fixed WordPress ID before moving it to Trash.
+A retry accepts an absent target only when that same ID is already in Trash.
 """
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ import requests
 SITE = "https://sanrio-fan.site"
 CATEGORY_SLUG = "gacha-in-english"
 EXPECTED_COUNT = 200
+FIRST_POST_ID = 7639
 BATCH_FILES = (
     "blog/reviewed-gacha/100-english-products-2026-10-batch-01.json",
     "blog/reviewed-gacha/100-english-products-2026-10-batch-02.json",
@@ -27,7 +28,7 @@ def fail(message: str) -> None:
     raise SystemExit(f"STOP: {message}")
 
 
-def load_expected() -> set[str]:
+def load_expected() -> dict[str, int]:
     slugs: list[str] = []
     for filename in BATCH_FILES:
         payload = json.loads(Path(filename).read_text(encoding="utf-8"))
@@ -39,7 +40,7 @@ def load_expected() -> set[str]:
         slugs.extend(item.get("slug", "") for item in articles)
     if len(slugs) != EXPECTED_COUNT or len(set(slugs)) != EXPECTED_COUNT or any(not slug for slug in slugs):
         fail("the source batches do not produce 200 unique slugs")
-    return set(slugs)
+    return {slug: FIRST_POST_ID + offset for offset, slug in enumerate(slugs)}
 
 
 def get_json(session: requests.Session, path: str, **params) -> requests.Response:
@@ -76,34 +77,32 @@ def category_and_published(session: requests.Session) -> tuple[int, list[dict]]:
     return category_id, posts
 
 
-def confirm_in_trash(session: requests.Session, slugs: set[str]) -> None:
-    if not slugs:
+def confirm_in_trash(session: requests.Session, missing: dict[str, int]) -> None:
+    if not missing:
         return
     if session.auth is None:
-        fail(f"{len(slugs)} expected posts are missing; credentials are required to confirm they are in Trash")
-    for slug in sorted(slugs):
-        response = get_json(
-            session, "/wp-json/wp/v2/posts", slug=slug, status="trash",
-            context="edit", per_page=10,
-        )
-        matches = response.json()
-        if len(matches) != 1 or matches[0].get("slug") != slug or matches[0].get("status") != "trash":
-            fail(f"missing target is not confirmed in WordPress Trash: {slug}")
+        fail(f"{len(missing)} expected posts are missing; credentials are required to confirm Trash")
+    for slug, post_id in sorted(missing.items(), key=lambda item: item[1]):
+        trashed = get_json(session, f"/wp-json/wp/v2/posts/{post_id}", context="edit").json()
+        # WordPress may append __trashed to the slug, so status and immutable ID are used here.
+        if trashed.get("id") != post_id or trashed.get("status") != "trash":
+            fail(f"missing target is not confirmed in WordPress Trash: {slug} (ID {post_id})")
 
 
 def preflight(session: requests.Session) -> tuple[int, list[dict], int]:
     expected = load_expected()
     category_id, posts = category_and_published(session)
-    actual = {post["slug"] for post in posts}
-    unexpected = actual - expected
+    actual = {post["slug"]: post for post in posts}
+    unexpected = set(actual) - set(expected)
     if unexpected:
         fail(f"live English category has {len(unexpected)} unapproved post(s)")
-    missing = expected - actual
+    for slug, post in actual.items():
+        if post.get("id") != expected[slug]:
+            fail(f"live target ID changed: {slug}")
+        if post.get("status") != "publish" or category_id not in post.get("categories", []):
+            fail(f"live target has an unsafe state: {slug}")
+    missing = {slug: post_id for slug, post_id in expected.items() if slug not in actual}
     confirm_in_trash(session, missing)
-    if any(post.get("status") != "publish" for post in posts):
-        fail("a live target is not published")
-    if any(category_id not in post.get("categories", []) for post in posts):
-        fail("a fetched post does not belong to the target category")
     return category_id, sorted(posts, key=lambda post: post["id"]), len(missing)
 
 
@@ -123,19 +122,18 @@ def main() -> None:
 
     category_id, posts, already_trashed = preflight(session)
     print(
-        f"PRECHECK OK: {len(posts)} published targets match the approved batches; "
+        f"PRECHECK OK: {len(posts)} published targets have the expected IDs; "
         f"{already_trashed} target(s) are already in WordPress Trash."
     )
     if not apply:
         print("DRY RUN ONLY: no WordPress content was changed.")
         return
 
-    # Re-check immediately before mutation, then move only the confirmed live targets to Trash.
     category_id, posts, already_trashed = preflight(session)
     trashed_ids: list[int] = []
     for post in posts:
         current = get_json(session, f"/wp-json/wp/v2/posts/{post['id']}", context="edit").json()
-        if current.get("status") != "publish" or current.get("slug") != post["slug"]:
+        if current.get("id") != post["id"] or current.get("status") != "publish" or current.get("slug") != post["slug"]:
             fail(f"target changed before trashing: {post['id']}")
         response = session.delete(
             f"{SITE}/wp-json/wp/v2/posts/{post['id']}",
@@ -147,7 +145,7 @@ def main() -> None:
         if result.get("deleted") is not True:
             fail(f"WordPress did not confirm trashing post {post['id']}")
         after = get_json(session, f"/wp-json/wp/v2/posts/{post['id']}", context="edit").json()
-        if after.get("status") != "trash" or after.get("slug") != post["slug"]:
+        if after.get("id") != post["id"] or after.get("status") != "trash":
             fail(f"post was not confirmed in Trash: {post['id']}")
         trashed_ids.append(post["id"])
 
