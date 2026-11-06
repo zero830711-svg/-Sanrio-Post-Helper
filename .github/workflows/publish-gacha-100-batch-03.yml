@@ -1,11 +1,6 @@
 name: Publish 100 more Sanrio gacha articles - batch 3
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'blog/reviewed-gacha/100-products-2026-10-batch-03.json'
-      - '.github/workflows/publish-gacha-100-batch-03.yml'
-      - 'scripts/publish-gacha-100-articles.py'
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
