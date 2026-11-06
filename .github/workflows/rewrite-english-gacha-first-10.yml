@@ -24,5 +24,5 @@ jobs:
       - name: Verify exact existing pages before any change
         run: python3 scripts/rewrite-english-gacha-10.py blog/reviewed-gacha/english-rewrite-first-10.json
       - name: Apply and verify ten source-grounded rewrites
-        if: ${{ inputs.apply == 'true' }}
+        if: ${{ inputs.apply }}
         run: python3 scripts/rewrite-english-gacha-10.py blog/reviewed-gacha/english-rewrite-first-10.json --apply
