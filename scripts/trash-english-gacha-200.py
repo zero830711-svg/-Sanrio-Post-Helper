@@ -142,9 +142,19 @@ def main() -> None:
             fail(f"WordPress did not confirm trashing post {post['id']}")
         trashed_ids.append(post["id"])
 
-    _, remaining = live_category(session)
-    if remaining:
-        fail(f"{len(remaining)} published posts still remain in the English category")
+    category_response = get_json(session, "/wp-json/wp/v2/categories", slug=CATEGORY_SLUG, per_page=10)
+    category_id = category_response.json()[0]["id"]
+    remaining_response = get_json(
+        session,
+        "/wp-json/wp/v2/posts",
+        categories=category_id,
+        status="publish",
+        per_page=1,
+        page=1,
+    )
+    remaining_count = int(remaining_response.headers.get("X-WP-Total", "0"))
+    if remaining_count != 0:
+        fail(f"{remaining_count} published posts still remain in the English category")
     print(f"APPLY OK: moved {len(trashed_ids)} exact English posts to the WordPress Trash.")
     print("No post was permanently deleted.")
 
