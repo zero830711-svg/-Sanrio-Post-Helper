@@ -1,0 +1,21 @@
+name: Rewrite second 10 English Sanrio gacha guides
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-english-gacha-rewrite-second-10
+  cancel-in-progress: false
+jobs:
+  rewrite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify exact existing pages before any change
+        run: python3 scripts/rewrite-english-gacha-10.py blog/reviewed-gacha/english-rewrite-second-10.json
+      - name: Apply and verify ten source-grounded rewrites
+        run: python3 scripts/rewrite-english-gacha-10.py blog/reviewed-gacha/english-rewrite-second-10.json --apply
