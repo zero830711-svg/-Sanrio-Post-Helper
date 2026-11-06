@@ -1,11 +1,6 @@
 name: Publish 100 English Sanrio gacha articles - batch 1
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'blog/reviewed-gacha/100-english-products-2026-10-batch-01.json'
-      - '.github/workflows/publish-gacha-english-100-batch-01.yml'
-      - 'scripts/publish-gacha-english-100-batch-01.py'
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
