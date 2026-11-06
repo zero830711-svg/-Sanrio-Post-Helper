@@ -1,12 +1,6 @@
 name: Rewrite first 10 English Sanrio gacha guides
 on:
   workflow_dispatch:
-    inputs:
-      apply:
-        description: Apply the ten reviewed rewrites after preflight
-        required: true
-        default: "false"
-        type: boolean
 permissions:
   contents: read
 concurrency:
@@ -24,5 +18,4 @@ jobs:
       - name: Verify exact existing pages before any change
         run: python3 scripts/rewrite-english-gacha-10.py blog/reviewed-gacha/english-rewrite-first-10.json
       - name: Apply and verify ten source-grounded rewrites
-        if: ${{ inputs.apply }}
         run: python3 scripts/rewrite-english-gacha-10.py blog/reviewed-gacha/english-rewrite-first-10.json --apply
