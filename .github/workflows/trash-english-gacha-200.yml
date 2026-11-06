@@ -1,0 +1,21 @@
+name: Move 200 English gacha posts to Trash
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-trash-english-gacha-200
+  cancel-in-progress: false
+jobs:
+  trash:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Confirm the exact 200 English posts before any change
+        run: python3 scripts/trash-english-gacha-200.py
+      - name: Move only the confirmed English posts to Trash
+        run: python3 scripts/trash-english-gacha-200.py --apply
