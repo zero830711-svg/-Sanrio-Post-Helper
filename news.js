@@ -11,7 +11,7 @@ function newsStorageKey(name){return 'sanrioNews'+name+':'+(cloudSettings().url|
 function newsReadDrafts(){
  try{const data=JSON.parse(localStorage.getItem(newsStorageKey('Drafts'))||'null');if(data?.version!==1||!Array.isArray(data.entries))return new Map();
  return new Map(data.entries.slice(0,40).filter(e=>e&&typeof e.item?.url==='string'&&/^https:\/\//.test(e.item.url)&&typeof e.text==='string'&&e.text.length<=20000&&Array.isArray(e.item.images)).map(e=>{
- const item={...e.item,images:e.item.images.filter(u=>typeof u==='string'&&/^https:\/\//.test(u)).slice(0,20)};
+ const item={...e.item,images:e.item.images.filter(u=>typeof u==='string'&&/^https:\/\//.test(u)).slice(0,100)};
  const selected=Array.isArray(e.selected)?[...new Set(e.selected)].filter(i=>Number.isInteger(i)&&i>=0&&i<item.images.length).slice(0,e.collageMode?16:4):[];
  const collageIndices=(Array.isArray(e.collageIndices)?e.collageIndices:selected.slice(0,4)).filter(i=>selected.includes(i)).slice(0,4);
  const collageExtraGroups=Array.isArray(e.collageExtraGroups)?e.collageExtraGroups.slice(0,3).map(g=>Array.isArray(g)?g.filter(i=>selected.includes(i)&&!collageIndices.includes(i)).slice(0,4):[]):[];
