@@ -22,3 +22,6 @@ $bandai='<ul id="productList"><li><a href="https://www.bandai.co.jp/candy/produc
 $rows=ota_manufacturer_rows($bandai,'bandai');ota_check(count($rows)===1&&$rows[0]['otaTopic']==='chiikawa'&&!isset($rows[0]['image'])&&str_starts_with($rows[0]['thumbnail'],'https://www.bandai.co.jp/'));
 $arts='<a href="/items/item.html?n=Y904455"><p class="name">ディズニー フィギュア</p></a>';
 $rows=ota_manufacturer_rows($arts,'takara');ota_check(count($rows)===1&&$rows[0]['otaTopic']==='disney');
+
+$bandaiHtml=file_get_contents(__DIR__.'/bandai-candy-detail.html');$bandaiHtml=preg_replace('~(<div class="itemDetailWrapper[\\s\\S]*?<h2[^>]*>).*?(</h2>)~u','$1ちいかわ の新商品$2',$bandaiHtml,1);$v=ota_bandai_parse($bandaiHtml,'https://www.bandai.co.jp/candy/products/2026/4570117934759000.html');ota_check(count($v['images'])>0&&str_contains($v['title'],'ちいかわ'));
+$artsHtml=file_get_contents(__DIR__.'/arts-news-detail.html');$artsHtml=str_replace('2026年サンリオキャラクター大賞　キラキラツインチャーム','ポケモン キラキラツインチャーム',$artsHtml);$v=ota_arts_parse($artsHtml,'https://www.takaratomy-arts.co.jp/items/item.html?n=Y111372');ota_check(count($v['images'])>0&&str_contains($v['title'],'ポケモン'));
