@@ -50,3 +50,14 @@ test('filters unrelated fashion candidates while retaining character goods',asyn
  await page.goto('/');await page.locator('#accountOta').click();await page.locator('#otaRefresh').click();
  await expect(page.locator('#otaList')).toContainText('ちいかわ');await expect(page.locator('#otaList')).not.toContainText('モイモルン');await expect(page.locator('#otaList')).not.toContainText('FRANKIE');await expect(page.locator('#otaList')).not.toContainText('Able Carry');
 });
+
+test('AI draft uses actual link setting for length checks',async({page})=>{
+ const url='https://prtimes.jp/main/html/rd/p/000000001.000000001.html',text='あ'.repeat(130);
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.route('**/news.php?**',r=>r.fulfill({json:{ok:true,item:{images:[],facts:[]}}}));
+ await page.route('**/otaota.php?**',r=>r.fulfill({json:new URL(r.request().url()).searchParams.get('action')==='draft'?{ok:true,text}:{ok:true,items:[{url,title:'ちいかわ 新商品'}],failed:[],fetchedAt:'2026-11-07T00:00:00Z'}}));
+ await page.goto('/');await page.locator('#accountOta').click();await page.locator('#otaRefresh').click();await page.locator('#otaList').getByRole('button',{name:'投稿準備'}).click();
+ await page.locator('#otaAi').click();await expect(page.locator('#otaText')).toHaveValue(text);
+ await page.locator('#otaText').fill('元の文章');await page.locator('#otaIncludeLink').check();await page.locator('#otaAi').click();await expect(page.locator('#otaText')).toHaveValue('元の文章');await expect(page.locator('#otaEditorStatus')).toContainText('長すぎます');
+});
