@@ -114,3 +114,9 @@ test('filters opanchu usagi candidates independently',async({page})=>{
  await page.route('**/otaota.php?**',r=>r.fulfill({json:{ok:true,items:[{url:'https://prtimes.jp/1',title:'おぱんちゅうさぎ 新作ぬいぐるみ',source:'PR TIMES',otaTopic:'opanchu'},{url:'https://prtimes.jp/2',title:'ちいかわ 新作',source:'PR TIMES',otaTopic:'chiikawa'}],failed:[],fetchedAt:'2026-11-07T00:00:00Z'}}));
  await page.goto('/');await page.locator('#accountOta').click();await page.locator('#otaRefresh').click();await page.locator('[data-ota-category="opanchu"]').click();await expect(page.locator('#otaList')).toContainText('おぱんちゅうさぎ');await expect(page.locator('#otaList')).not.toContainText('ちいかわ');
 });
+
+test('filters Pingu candidates independently',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.route('**/otaota.php?**',r=>r.fulfill({json:{ok:true,items:[{url:'https://prtimes.jp/1',title:'ピングー 新作ぬいぐるみ',source:'PR TIMES',otaTopic:'pingu'},{url:'https://prtimes.jp/2',title:'Pingu 新作',source:'PR TIMES',otaTopic:'pingu'},{url:'https://prtimes.jp/3',title:'ちいかわ 新作',source:'PR TIMES',otaTopic:'chiikawa'}],failed:[],fetchedAt:'2026-11-07T00:00:00Z'}}));
+ await page.goto('/');await page.locator('#accountOta').click();await page.locator('#otaRefresh').click();await page.locator('[data-ota-category="pingu"]').click();await expect(page.locator('#otaList')).toContainText('ピングー');await expect(page.locator('#otaList')).toContainText('Pingu');await expect(page.locator('#otaList')).not.toContainText('ちいかわ');
+});
