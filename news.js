@@ -392,11 +392,11 @@ async function newsPrepare(url){
    const item={...d.item,images:d.item.images||[]};
    entry={item,text:newsDraft(item),files:item.images.map(()=>null),selected:item.images.map((_,i)=>i).slice(0,4),errors:[],loading:[],savedAt:Date.now()};
    newsState.drafts.set(url,entry);newsState.drafts.set(item.url,entry);
-  }else if(entry.item.instagram){
-   // Refresh the saved post's photo list without replacing edited text or selection.
+  }else{
+   // Add newly available article photos while preserving saved text, order and selections.
    try{
     const d=await newsRequest('detail',url);if(seq!==newsState.seq)return;
-    const images=d.item.images||[],previous=entry.item.images,files=entry.files;
+    const previous=entry.item.images,files=entry.files,images=[...new Set([...previous,...(d.item.images||[])])];
     entry.item={...d.item,images};entry.files=images.map(u=>{const old=previous.indexOf(u);return old>=0?files[old]:null;});
     entry.selected=entry.selected.filter(i=>i<images.length);entry.loading=[];entry.errors=[];entry.photoRefreshWarning='';
    }catch{entry.photoRefreshWarning='写真一覧は更新待ちです。保存済みの写真を表示しています。';}
