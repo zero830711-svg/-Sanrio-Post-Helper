@@ -38,9 +38,10 @@ function ota_manufacturer_rows(string $html,string $source):array {
   if(!$valid)continue;
   $node=$x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," itemName ") or contains(concat(" ",normalize-space(@class)," ")," itemBox__title ") or contains(concat(" ",normalize-space(@class)," ")," name ")]',$a)->item(0);
   $title=news_text($node?:$a);if(!$title){$image=$x->query('.//img[@alt]',$a)->item(0);$title=$image?$image->getAttribute('alt'):'';}
-  $title=trim($title);$topic=ota_topic($title);if(!$topic||ota_excluded($title)||mb_strlen($title)<3||mb_strlen($title)>180)continue;
+  $title=trim(preg_replace('/(?:価格|発売時期|発売日)\\s*[：:].*$/u','',$title)??$title);$topic=ota_topic($title);if(!$topic||ota_excluded($title)||mb_strlen($title)<3||mb_strlen($title)>180)continue;
   $period=news_extra_period(news_text($a));if(!$period)$period=news_bandai_period(news_text($a));if($period&&!news_extra_recent($period,time()))continue;
-  $rows[$url]=['url'=>$url,'title'=>$title,'source'=>$source==='bandai'?'バンダイ':'タカラトミーアーツ','otaTopic'=>$topic,'manufacturer'=>true,'manual'=>true,'date'=>'','schedule'=>$period?'発売時期：'.$period:''];
+  $thumb='';$img=$x->query('.//img',$a)->item(0);if($img){$src=trim($img->getAttribute('data-src')?:$img->getAttribute('src'));if(str_starts_with($src,'//'))$src='https:'.$src;elseif(str_starts_with($src,'/'))$src=(str_starts_with($url,'https://toy.bandai.co.jp/')?'https://toy.bandai.co.jp':($source==='bandai'?'https://www.bandai.co.jp':'https://www.takaratomy-arts.co.jp')).$src;elseif(str_starts_with($src,'../'))$src='https://www.takaratomy-arts.co.jp/'.substr($src,3);$thumb=news_image_url($src);}
+  $rows[$url]=['thumbnail'=>$thumb,'url'=>$url,'title'=>$title,'source'=>$source==='bandai'?'バンダイ':'タカラトミーアーツ','otaTopic'=>$topic,'manufacturer'=>true,'manual'=>true,'date'=>'','schedule'=>$period?'発売時期：'.$period:''];
  }
  return array_values($rows);
 }
