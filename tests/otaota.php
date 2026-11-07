@@ -10,6 +10,7 @@ ota_check(post_ai_weight(str_repeat('あ',100).$source)<=280);
 ota_check(post_ai_weight(str_repeat('あ',130))<=280);
 ota_check(post_ai_weight(str_repeat('あ',130).$source)>280);
 ota_check(post_ai_weight(str_repeat('あ',141))>280);
+ota_check(ota_topic("おぱんちゅうさぎ 新商品")==="opanchu");
 ota_check(ota_topic("mofusand 新商品")==="mofusand");
 ota_check(ota_topic("モフサンド 新商品")==="mofusand");
 ota_check(ota_topic("ちいかわの新作")==="chiikawa");
