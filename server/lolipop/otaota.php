@@ -38,9 +38,10 @@ function ota_manufacturer_rows(string $html,string $source):array {
   if(!$valid)continue;
   $node=$x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," itemName ") or contains(concat(" ",normalize-space(@class)," ")," itemBox__title ") or contains(concat(" ",normalize-space(@class)," ")," name ")]',$a)->item(0);
   $title=news_text($node?:$a);if(!$title){$image=$x->query('.//img[@alt]',$a)->item(0);$title=$image?$image->getAttribute('alt'):'';}
-  $title=trim($title);$topic=ota_topic($title);if(!$topic||ota_excluded($title)||mb_strlen($title)<3||mb_strlen($title)>180)continue;
+  $title=trim(preg_replace('/(?:価格|発売時期|発売日)\\s*[：:].*$/u','',$title)??$title);$topic=ota_topic($title);if(!$topic||ota_excluded($title)||mb_strlen($title)<3||mb_strlen($title)>180)continue;
   $period=news_extra_period(news_text($a));if(!$period)$period=news_bandai_period(news_text($a));if($period&&!news_extra_recent($period,time()))continue;
-  $rows[$url]=['url'=>$url,'title'=>$title,'source'=>$source==='bandai'?'バンダイ':'タカラトミーアーツ','otaTopic'=>$topic,'manufacturer'=>true,'manual'=>true,'date'=>'','schedule'=>$period?'発売時期：'.$period:''];
+  $thumb='';$img=$x->query('.//img',$a)->item(0);if($img){$src=trim($img->getAttribute('data-src')?:$img->getAttribute('src'));if(str_starts_with($src,'//'))$src='https:'.$src;elseif(str_starts_with($src,'/'))$src=(str_starts_with($url,'https://toy.bandai.co.jp/')?'https://toy.bandai.co.jp':($source==='bandai'?'https://www.bandai.co.jp':'https://www.takaratomy-arts.co.jp')).$src;elseif(str_starts_with($src,'../'))$src='https://www.takaratomy-arts.co.jp/'.substr($src,3);$thumb=news_image_url($src);}
+  $rows[$url]=['thumbnail'=>$thumb,'url'=>$url,'title'=>$title,'source'=>$source==='bandai'?'バンダイ':'タカラトミーアーツ','otaTopic'=>$topic,'manufacturer'=>true,'manual'=>true,'date'=>'','schedule'=>$period?'発売時期：'.$period:''];
  }
  return array_values($rows);
 }
@@ -50,6 +51,12 @@ function ota_manufacturer_list(string $source):array {
  else throw new RuntimeException('unknown source');
  $feeds=array_map(static fn($u)=>['url'=>$u,'kind'=>'html'],$urls);$html=news_fetch_feeds($feeds);$rows=[];$failed=[];
  foreach($html as $i=>$body){if($body===null){$failed[]='情報元'.($i+1);continue;}try{foreach(ota_manufacturer_rows($body,$source) as $item)$rows[$item['url']]=$item;}catch(Throwable $e){$failed[]='情報元'.($i+1);}}
+ $missing=[];foreach($rows as $url=>$item)if(empty($item['thumbnail']))$missing[]=$url;
+ if($missing){$detailFeeds=array_map(static fn($url)=>['url'=>$url,'kind'=>'html'],array_slice($missing,0,30));$details=news_fetch_feeds($detailFeeds);
+ foreach($detailFeeds as $i=>$feed){if(empty($details[$i]))continue;try{$x=news_doc($details[$i]);$canonical=news_text($x->query('//meta[@property="og:url"]/@content | //link[@rel="canonical"]/@href')->item(0));if(news_url($canonical)!==$feed['url'])continue;
+ foreach($x->query('//meta[@property="og:image"]/@content | //div[contains(concat(" ",normalize-space(@class)," ")," itemSlider ")]//img/@src | //div[contains(concat(" ",normalize-space(@class)," ")," images ")]//img/@src') as $node){$u=trim($node->nodeValue);if(str_starts_with($u,'/'))$u=(str_starts_with($feed['url'],'https://www.bandai.co.jp/')?'https://www.bandai.co.jp':'https://www.takaratomy-arts.co.jp').$u;$u=news_image_url($u);if($u){$rows[$feed['url']]['thumbnail']=$u;break;}}
+ }catch(Throwable $e){}}
+ }
  return ['items'=>array_slice(array_values($rows),0,80),'failed'=>$failed,'fetchedAt'=>gmdate('c')];
 }
 if(defined('OTAOTA_TEST'))return;
