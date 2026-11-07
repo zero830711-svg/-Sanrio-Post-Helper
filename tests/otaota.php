@@ -10,4 +10,7 @@ ota_check(post_ai_weight(str_repeat('あ',100).$source)<=280);
 ota_check(post_ai_weight(str_repeat('あ',130))<=280);
 ota_check(post_ai_weight(str_repeat('あ',130).$source)>280);
 ota_check(post_ai_weight(str_repeat('あ',141))>280);
+ota_check(ota_topic("ちいかわの新作")==="chiikawa");
+ota_check(ota_topic("Pokémonのグッズ")==="pokemon");
+ota_check(ota_topic("ディズニーの新作")==="");
 echo "otaota exclusion and URL checks passed\n";
