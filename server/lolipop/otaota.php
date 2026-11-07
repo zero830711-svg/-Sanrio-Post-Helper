@@ -26,6 +26,32 @@ function ota_list():array {
  $result=['items'=>$verified,'failed'=>$failed,'detailFailures'=>$detailFailures,'fetchedAt'=>gmdate('c')];
  if(!$failed&&!$detailFailures){file_put_contents($cache,json_encode($result,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);}return $result;
 }
+// Manufacturer pages are separate from Sanrio's feeds and never import article images.
+function ota_manufacturer_rows(string $html,string $source):array {
+ $x=news_doc($html);$rows=[];
+ foreach($x->query('//a[@href]') as $a){
+  $href=html_entity_decode(trim($a->getAttribute('href')),ENT_QUOTES|ENT_HTML5,'UTF-8');
+  if(str_starts_with($href,'../item/'))$href='https://toy.bandai.co.jp/ja/item/'.substr($href,8);
+  elseif(str_starts_with($href,'/'))$href=($source==='bandai'?'https://www.bandai.co.jp':'https://www.takaratomy-arts.co.jp').$href;
+  $url=news_url($href);if(!$url||isset($rows[$url]))continue;
+  $valid=$source==='bandai'?(str_starts_with($url,'https://www.bandai.co.jp/candy/products/')||str_starts_with($url,'https://toy.bandai.co.jp/ja/item/')):str_starts_with($url,'https://www.takaratomy-arts.co.jp/items/item.html?');
+  if(!$valid)continue;
+  $node=$x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," itemName ") or contains(concat(" ",normalize-space(@class)," ")," itemBox__title ") or contains(concat(" ",normalize-space(@class)," ")," name ")]',$a)->item(0);
+  $title=news_text($node?:$a);if(!$title){$image=$x->query('.//img[@alt]',$a)->item(0);$title=$image?$image->getAttribute('alt'):'';}
+  $title=trim($title);$topic=ota_topic($title);if(!$topic||ota_excluded($title)||mb_strlen($title)<3||mb_strlen($title)>180)continue;
+  $period=news_extra_period(news_text($a));if(!$period)$period=news_bandai_period(news_text($a));if($period&&!news_extra_recent($period,time()))continue;
+  $rows[$url]=['url'=>$url,'title'=>$title,'source'=>$source==='bandai'?'バンダイ':'タカラトミーアーツ','otaTopic'=>$topic,'manufacturer'=>true,'manual'=>true,'date'=>'','schedule'=>$period?'発売時期：'.$period:''];
+ }
+ return array_values($rows);
+}
+function ota_manufacturer_list(string $source):array {
+ if($source==='bandai')$urls=['https://www.bandai.co.jp/candy/characters/character465/index.html','https://www.bandai.co.jp/candy/characters/character330/index.html','https://toy.bandai.co.jp/ja/item/?series=chiikawa'];
+ elseif($source==='takara')$urls=array_map(static fn($q)=>'https://www.takaratomy-arts.co.jp/items/gacha/search.html?keyword='.rawurlencode($q).'&p=1',['ちいかわ','ポケモン','ディズニー','リラックマ','すみっコぐらし']);
+ else throw new RuntimeException('unknown source');
+ $feeds=array_map(static fn($u)=>['url'=>$u,'kind'=>'html'],$urls);$html=news_fetch_feeds($feeds);$rows=[];$failed=[];
+ foreach($html as $i=>$body){if($body===null){$failed[]='情報元'.($i+1);continue;}try{foreach(ota_manufacturer_rows($body,$source) as $item)$rows[$item['url']]=$item;}catch(Throwable $e){$failed[]='情報元'.($i+1);}}
+ return ['items'=>array_slice(array_values($rows),0,80),'failed'=>$failed,'fetchedAt'=>gmdate('c')];
+}
 if(defined('OTAOTA_TEST'))return;
 $config=require __DIR__.'/config.php';$origin=$_SERVER['HTTP_ORIGIN']??'';
 if(in_array($origin,$config['allowed_origins']??[],true)){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}
@@ -36,6 +62,7 @@ $token='';if(preg_match('/^Bearer\s+(.+)$/i',$_SERVER['HTTP_AUTHORIZATION']??'',
 try{
  $action=$_GET['action']??'list';
  if($action==='list'&&($_SERVER['REQUEST_METHOD']??'')==='GET')ota_out(['ok'=>true]+ota_list());
+ if(in_array($action,['bandai','takara'],true)&&($_SERVER['REQUEST_METHOD']??'')==='GET')ota_out(['ok'=>true]+ota_manufacturer_list($action));
  if($action==='draft'&&($_SERVER['REQUEST_METHOD']??'')==='POST'&&in_array($origin,$config['allowed_origins']??[],true)){
   $input=json_decode((string)file_get_contents('php://input',false,null,0,4096),true);$url=news_url((string)($input['url']??''));
   if(!$url||strpos($url,'https://prtimes.jp/')!==0)ota_out(['ok'=>false,'error'=>'PR TIMESの記事URLを確認してください。'],400);

@@ -17,3 +17,8 @@ ota_check(ota_topic("リラックマの新商品")==="sanx");
 ota_check(ota_topic("すみっコぐらしの新商品")==="sanx");
 ota_check(ota_topic("他社のお知らせ")==="");
 echo "otaota exclusion and URL checks passed\n";
+
+$bandai='<ul id="productList"><li><a href="https://www.bandai.co.jp/candy/products/2026/4570117923098000.html"><span class="itemName">ちいかわ 缶バッジ</span></a></li><li><a href="https://www.bandai.co.jp/candy/products/2026/4570117923098001.html"><span class="itemName">サンリオ クロミ</span></a></li></ul>';
+$rows=ota_manufacturer_rows($bandai,'bandai');ota_check(count($rows)===1&&$rows[0]['otaTopic']==='chiikawa'&&!isset($rows[0]['image']));
+$arts='<a href="/items/item.html?n=Y904455"><p class="name">ディズニー フィギュア</p></a>';
+$rows=ota_manufacturer_rows($arts,'takara');ota_check(count($rows)===1&&$rows[0]['otaTopic']==='disney');
