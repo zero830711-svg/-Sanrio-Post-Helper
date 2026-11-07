@@ -46,7 +46,7 @@ function news_doc(string $s):DOMXPath{$d=new DOMDocument();libxml_use_internal_e
 function news_text(?DOMNode $n):string{return trim(preg_replace('/\s+/u',' ',$n?$n->textContent:'')??'');}
 function news_detail(string $u):array{
  if(strpos($u,'https://www.instagram.com/p/')===0)return news_instagram_detail($u);
- $cache=sys_get_temp_dir().'/sph-news-v8-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-v9-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
  $a=strpos($u,'https://thankyoumart.jp/')===0?news_thankyou_detail($u):news_parse(news_fetch($u),$u);file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
 }
 function news_parse(string $html,string $u):array{
@@ -60,7 +60,7 @@ function news_parse(string $html,string $u):array{
  if(!$title||!$bodies->length)throw new RuntimeException('記事の本文を確認できませんでした。');
  $images=[];$lines=[];
  foreach($bodies as $body){
- foreach($x->query('.//img[@src]',$body)as $im){$v=news_image_url($im->getAttribute('src'));if($v&&!in_array($v,$images,true)&&count($images)<8)$images[]=$v;}
+ foreach($x->query('.//img[@src]',$body)as $im){$v=news_image_url($im->getAttribute('src'));if($v&&!in_array($v,$images,true)&&count($images)<100)$images[]=$v;}
  foreach($x->query('.//p | .//li | .//tr | .//dl | .//h2 | .//h3 | .//h4 | .//dt',$body)as $node){if(strtolower($node->nodeName)==='dl'&&$x->query('./dt',$node)->length)continue;$t=news_text($node);if(strtolower($node->nodeName)==='dt'){$dd=$x->query('following-sibling::dd[1]',$node)->item(0);if($dd)$t.='：'.news_text($dd);}if(strtolower($node->nodeName)==='tr'){$parts=[];foreach($x->query('./th | ./td',$node)as $cell)$parts[]=news_text($cell);$t=implode('：',$parts);}if(mb_strlen($t)>=4&&mb_strlen($t)<=600&&!in_array($t,$lines,true)&&count($lines)<60)$lines[]=$t;}
  }
  $date=news_text($x->query('//time/@datetime')->item(0));if(!$date)$date=news_text($x->query('//time')->item(0));
@@ -99,7 +99,7 @@ function news_furyu_parse(string $html,string $url):array{
  $images=[];
  // Only the requested product gallery; related products and character logos are excluded.
  $gallery=$x->query('//*[@id="mainImage"]/ancestor::div[contains(concat(" ",normalize-space(@class)," ")," detailblk ")][1]')->item(0);
- if($gallery)foreach($x->query('.//img[@src]',$gallery) as $img){$image=news_image_url($img->getAttribute('src'));if($image&&!in_array($image,$images,true)&&count($images)<8)$images[]=$image;}
+ if($gallery)foreach($x->query('.//img[@src]',$gallery) as $img){$image=news_image_url($img->getAttribute('src'));if($image&&!in_array($image,$images,true)&&count($images)<100)$images[]=$image;}
  $lines=array_column($row['facts'],'text');
  $container=$node->parentNode;
  foreach($x->query('.//table//tr',$container) as $tr){$label=news_text($x->query('./th',$tr)->item(0));$value=news_text($x->query('./td',$tr)->item(0));if(in_array($label,['種類','サイズ'],true)&&$value)$lines[]=$label.'：'.$value;}
@@ -108,7 +108,7 @@ function news_furyu_parse(string $html,string $url):array{
 
 function news_list_metadata(array $list):array{
  foreach($list['items'] as &$item){
-  $cache=sys_get_temp_dir().'/sph-news-v8-'.hash('sha256',__DIR__.$item['url']).'.json';
+  $cache=sys_get_temp_dir().'/sph-news-v9-'.hash('sha256',__DIR__.$item['url']).'.json';
   if(!is_file($cache)||filemtime($cache)<time()-900)continue;
   $detail=json_decode((string)file_get_contents($cache),true);
   if(is_array($detail)&&isset($detail['facts']))$item['facts']=$detail['facts'];
