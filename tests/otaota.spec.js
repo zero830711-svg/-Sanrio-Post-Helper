@@ -107,3 +107,10 @@ test('warns about a similar candidate from a previously viewed source without hi
  await page.route('**/otaota.php?**',r=>{const a=new URL(r.request().url()).searchParams.get('action');const item=a==='bandai'?{url:'https://www.bandai.co.jp/candy/products/2026/1.html',source:'バンダイ',title}:{url:'https://prtimes.jp/main/html/rd/p/1.2.html',source:'PR TIMES',title};return r.fulfill({json:{ok:true,items:[item],fetchedAt:'2026-11-07T00:00:00Z'}})});
  await page.goto('/');await page.locator('#accountOta').click();await page.locator('#otaRefresh').click();await page.locator('[data-ota-source="bandai"]').click();await expect(page.locator('#otaList')).toContainText('似た候補があります');await expect(page.locator('#otaList')).toContainText(title);await expect(page.locator('#otaList').getByRole('button',{name:'投稿準備'})).toBeVisible();
 });
+
+test('filters opanchu usagi candidates independently',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));
+ await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.route('**/otaota.php?**',r=>r.fulfill({json:{ok:true,items:[{url:'https://prtimes.jp/1',title:'おぱんちゅうさぎ 新作ぬいぐるみ',source:'PR TIMES',otaTopic:'opanchu'},{url:'https://prtimes.jp/2',title:'ちいかわ 新作',source:'PR TIMES',otaTopic:'chiikawa'}],failed:[],fetchedAt:'2026-11-07T00:00:00Z'}}));
+ await page.goto('/');await page.locator('#accountOta').click();await page.locator('#otaRefresh').click();await page.locator('[data-ota-category="opanchu"]').click();await expect(page.locator('#otaList')).toContainText('おぱんちゅうさぎ');await expect(page.locator('#otaList')).not.toContainText('ちいかわ');
+});

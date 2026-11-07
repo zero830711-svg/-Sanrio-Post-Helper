@@ -6,6 +6,7 @@ function ota_excluded(string $text): bool {
  return (bool)preg_match('/サンリオ|sanrio|ハローキティ|hello\s*kitty|マイメロ|クロミ|kuromi|シナモロール|シナモンロール|cinnamoroll|ポムポムプリン|ポチャッコ|ハンギョドン|けろけろけろっぴ|タキシードサム|バッドばつ丸|リトルツインスターズ|キキララ|ウサハナ|こぎみゅん|ぐでたま|あひるのペックル|チャーミーキティ|マロンクリーム|マイスウィートピアノ|ぼんぼんりぼん|ジュエルペット|リトルフォレストフェロォ|シナモン|リルリルフェアリル|シュガーバニーズ|ウィッシュミーメル|まるもふびより|ゴロピカドン|マイスウィートピアノ/iu', $text);
 }
 function ota_topic(string $text): string {
+ if(preg_match('/おぱんちゅうさぎ/iu',$text))return 'opanchu';
  if(preg_match('/mofusand|モフサンド/iu',$text))return 'mofusand';
  if(preg_match('/ちいかわ|chiikawa/iu',$text))return 'chiikawa';
  if(preg_match('/ポケモン|pokemon|pokémon/iu',$text))return 'pokemon';
@@ -14,9 +15,9 @@ function ota_topic(string $text): string {
  return '';
 }
 function ota_list():array {
- $cache=sys_get_temp_dir().'/otaota-news-list-five-topics-v1-'.hash('sha256',__DIR__).'.json';
+ $cache=sys_get_temp_dir().'/otaota-news-list-six-topics-v1-'.hash('sha256',__DIR__).'.json';
  if(is_file($cache)&&filemtime($cache)>time()-900){$data=json_decode((string)file_get_contents($cache),true);if(is_array($data)&&isset($data['items']))return $data;}
- $keywords=['ちいかわ','ポケモン','ディズニー','サンエックス','リラックマ','すみっコぐらし','mofusand','モフサンド'];
+ $keywords=['ちいかわ','ポケモン','ディズニー','サンエックス','リラックマ','すみっコぐらし','mofusand','モフサンド','おぱんちゅうさぎ'];
  $feeds=array_map(static fn($s)=>['url'=>'https://prtimes.jp/topics/keywords/'.rawurlencode($s),'kind'=>'html'],$keywords);
  $bodies=news_fetch_feeds($feeds);$rows=[];$failed=[];
  foreach($bodies as $i=>$html){if($html===null){$failed[]=$keywords[$i];continue;} foreach(news_html_rows($html) as $item){if(($item['source']??'')!=='PR TIMES'||ota_excluded($item['title']??''))continue;unset($item['image']);$rows[$item['url']]=$item;}}
@@ -48,7 +49,7 @@ function ota_manufacturer_rows(string $html,string $source):array {
 }
 function ota_manufacturer_list(string $source):array {
  if($source==='bandai')$urls=['https://www.bandai.co.jp/candy/characters/character465/index.html','https://www.bandai.co.jp/candy/characters/character330/index.html','https://toy.bandai.co.jp/ja/item/?series=chiikawa'];
- elseif($source==='takara')$urls=array_map(static fn($q)=>'https://www.takaratomy-arts.co.jp/items/gacha/search.html?keyword='.rawurlencode($q).'&p=1',['ちいかわ','ポケモン','ディズニー','リラックマ','すみっコぐらし','mofusand']);
+ elseif($source==='takara')$urls=array_map(static fn($q)=>'https://www.takaratomy-arts.co.jp/items/gacha/search.html?keyword='.rawurlencode($q).'&p=1',['ちいかわ','ポケモン','ディズニー','リラックマ','すみっコぐらし','mofusand','おぱんちゅうさぎ']);
  else throw new RuntimeException('unknown source');
  $feeds=array_map(static fn($u)=>['url'=>$u,'kind'=>'html'],$urls);$html=news_fetch_feeds($feeds);$rows=[];$failed=[];
  foreach($html as $i=>$body){if($body===null){$failed[]='情報元'.($i+1);continue;}try{foreach(ota_manufacturer_rows($body,$source) as $item)$rows[$item['url']]=$item;}catch(Throwable $e){$failed[]='情報元'.($i+1);}}
