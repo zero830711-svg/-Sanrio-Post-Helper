@@ -8,12 +8,14 @@ function ota_excluded(string $text): bool {
 function ota_topic(string $text): string {
  if(preg_match('/ちいかわ|chiikawa/iu',$text))return 'chiikawa';
  if(preg_match('/ポケモン|pokemon|pokémon/iu',$text))return 'pokemon';
+ if(preg_match('/ディズニー|disney|ミッキー|ミニー|ドナルドダック|ダッフィー|アナと雪の女王|トイ・ストーリー|トイストーリー/iu',$text))return 'disney';
+ if(preg_match('/サン[・ -]?エックス|san[ -]?x|リラックマ|コリラックマ|チャイロイコグマ|すみっコぐらし|たれぱんだ|じんべえさん|センチメンタルサーカス|まめゴマ/iu',$text))return 'sanx';
  return '';
 }
 function ota_list():array {
- $cache=sys_get_temp_dir().'/otaota-news-list-chiikawa-pokemon-v1-'.hash('sha256',__DIR__).'.json';
+ $cache=sys_get_temp_dir().'/otaota-news-list-four-topics-v1-'.hash('sha256',__DIR__).'.json';
  if(is_file($cache)&&filemtime($cache)>time()-900){$data=json_decode((string)file_get_contents($cache),true);if(is_array($data)&&isset($data['items']))return $data;}
- $keywords=['ちいかわ','ポケモン'];
+ $keywords=['ちいかわ','ポケモン','ディズニー','サンエックス','リラックマ','すみっコぐらし'];
  $feeds=array_map(static fn($s)=>['url'=>'https://prtimes.jp/topics/keywords/'.rawurlencode($s),'kind'=>'html'],$keywords);
  $bodies=news_fetch_feeds($feeds);$rows=[];$failed=[];
  foreach($bodies as $i=>$html){if($html===null){$failed[]=$keywords[$i];continue;} foreach(news_html_rows($html) as $item){if(($item['source']??'')!=='PR TIMES'||ota_excluded($item['title']??''))continue;unset($item['image']);$rows[$item['url']]=$item;}}
