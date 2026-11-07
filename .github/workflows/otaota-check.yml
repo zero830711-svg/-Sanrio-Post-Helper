@@ -27,6 +27,9 @@ jobs:
       - name: Probe manufacturer candidate retrieval
         run: |
           php -r 'define("OTAOTA_TEST",true);require "server/lolipop/otaota.php";foreach(["bandai","takara"] as $s){$r=ota_manufacturer_list($s);echo "$s: ".count($r["items"])." candidates; ".count($r["failed"])." failed pages; ".count(array_filter($r["items"],static fn($x)=>!empty($x["thumbnail"])))." with thumbnails\\n";foreach($r["items"] as $x)if(empty($x["thumbnail"]))echo "missing ".$x["url"]."\\n";}'
+      - name: Probe sample manufacturer product details
+        run: |
+          php -r 'define("OTAOTA_TEST",true);require "server/lolipop/otaota.php";foreach(["https://www.bandai.co.jp/candy/products/2027/4570117927898000.html","https://www.takaratomy-arts.co.jp/items/item.html?n=Y903304"] as $url){try{$x=ota_manufacturer_detail($url);echo $x["source"].": ".count($x["images"])." photos; ".count($x["paragraphs"])." facts\\n";}catch(Throwable $e){echo "failed: ".$e->getMessage()."\\n";exit(1);}}'
   backend-check:
     runs-on: ubuntu-latest
     env:
