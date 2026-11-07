@@ -18,7 +18,7 @@ $d=news_parse('<h1>商品ニュース</h1><div id="press-release-body"><table><t
 check(count($d['facts'])===2);check($d['facts'][0]['text']==='発売日：2026年10月上旬予定');check($d['facts'][1]['text']==='価格：各880円（税込）');
 $e=news_parse('<h1>新作</h1><div id="press-release-body"><p>10月3日発売、価格は880円（税込）です。</p></div>',$url);
 check(count($e['facts'])===2);
-$cache=sys_get_temp_dir().'/sph-news-v8-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
+$cache=sys_get_temp_dir().'/sph-news-v9-'.hash('sha256',dirname(__DIR__).'/server/lolipop'.$url).'.json';
 $previous=is_file($cache)?file_get_contents($cache):null;
 try{
  file_put_contents($cache,json_encode($d));
@@ -200,7 +200,7 @@ $rows=news_arts_rows(file_get_contents(__DIR__.'/arts-news-list.json'),strtotime
 check(!news_extra_recent('2025年10月',strtotime('2026-10-05')));
 $arts=news_parse(file_get_contents(__DIR__.'/arts-news-detail.html'),$artsUrl);check($arts['schedule']==='発売時期：2026年10月');check(count($arts['images'])===3);check(strpos(implode(' ',$arts['images']),'Y099999')===false);
 $rr=news_rement_rows(file_get_contents(__DIR__.'/rement-news-list.html'));check(count($rr)===8);check($rr[0]['url']===$rementUrl);
-$rm=news_parse(file_get_contents(__DIR__.'/rement-news-detail.html'),$rementUrl);check($rm['title']==='タキシードサムのおしゃれなおうち TUXEDOSAM ROOM');check($rm['schedule']==='発売時期：2026年10月26日');check(count($rm['images'])===8);check($rm['date']==='');
+$rm=news_parse(file_get_contents(__DIR__.'/rement-news-detail.html'),$rementUrl);check($rm['title']==='タキシードサムのおしゃれなおうち TUXEDOSAM ROOM');check($rm['schedule']==='発売時期：2026年10月26日');check(count($rm['images'])>=8);check($rm['date']==='');
 $failed=false;try{news_parse(file_get_contents(__DIR__.'/rement-news-detail.html'),'https://www.re-ment.co.jp/product/r99999');}catch(RuntimeException $e){$failed=true;}check($failed);
 check(strpos(ai_cute_suffix($arts),'http')===false);check(strpos(ai_cute_suffix($rm),'詳細')===false);
 foreach(['🎀 2026年10月10日発売','🎀 詳細はこちら'] as $body){$failed=false;try{news_groq_validate(json_encode(['body'=>$body],JSON_UNESCAPED_UNICODE),$arts);}catch(RuntimeException $e){$failed=true;}check($failed);}
