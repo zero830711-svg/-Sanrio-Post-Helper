@@ -39,7 +39,8 @@ function ota_manufacturer_rows(string $html,string $source):array {
   $node=$x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," itemName ") or contains(concat(" ",normalize-space(@class)," ")," itemBox__title ") or contains(concat(" ",normalize-space(@class)," ")," name ")]',$a)->item(0);
   $title=news_text($node?:$a);if(!$title){$image=$x->query('.//img[@alt]',$a)->item(0);$title=$image?$image->getAttribute('alt'):'';}
   $title=trim($title);$topic=ota_topic($title);if(!$topic||ota_excluded($title)||mb_strlen($title)<3||mb_strlen($title)>180)continue;
-  $rows[$url]=['url'=>$url,'title'=>$title,'source'=>$source==='bandai'?'バンダイ':'タカラトミーアーツ','otaTopic'=>$topic,'manufacturer'=>true,'manual'=>true,'date'=>''];
+  $period=news_extra_period(news_text($a));if(!$period)$period=news_bandai_period(news_text($a));if($period&&!news_extra_recent($period,time()))continue;
+  $rows[$url]=['url'=>$url,'title'=>$title,'source'=>$source==='bandai'?'バンダイ':'タカラトミーアーツ','otaTopic'=>$topic,'manufacturer'=>true,'manual'=>true,'date'=>'','schedule'=>$period?'発売時期：'.$period:''];
  }
  return array_values($rows);
 }
