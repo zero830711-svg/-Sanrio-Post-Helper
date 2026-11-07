@@ -59,6 +59,75 @@ function ota_manufacturer_list(string $source):array {
  }
  return ['items'=>array_slice(array_values($rows),0,80),'failed'=>$failed,'fetchedAt'=>gmdate('c')];
 }
+function ota_bandai_parse(string $html,string $url):array{
+ $x=news_doc($html);$candy=strpos($url,'https://www.bandai.co.jp/candy/')===0;
+ if(news_url(news_text($x->query('//meta[@property="og:url"]/@content')->item(0)))!==$url)throw new RuntimeException('バンダイの商品識別が一致しませんでした。');
+ $root=$x->query($candy?'//div[contains(concat(" ",normalize-space(@class)," ")," itemDetailWrapper ")]/ancestor::article[1]':'//div[contains(concat(" ",normalize-space(@class)," ")," item_detail ")]')->item(0);
+ if(!$root)throw new RuntimeException('バンダイの商品本体を確認できませんでした。');
+ $title=news_text($x->query($candy?'.//div[contains(concat(" ",normalize-space(@class)," ")," itemDetailWrapper ")]/h2':'.//div[contains(concat(" ",normalize-space(@class)," ")," item_title ")]',$root)->item(0));
+ if(!ota_topic($title)||ota_excluded($title))throw new RuntimeException('対象外の商品です。');
+ $times=[];$price='';$lines=[];
+ if($candy){foreach($x->query('.//table[contains(concat(" ",normalize-space(@class)," ")," itemDetailBox ")]//tr',$root) as $row){$label=news_text($x->query('./th',$row)->item(0));$td=$x->query('./td',$row)->item(0);if(!$td)continue;
+   // Footnotes, tax explanations and purchase buttons are not the product price.
+   $value='';foreach($td->childNodes as $child){if($child instanceof DOMElement&&in_array(strtolower($child->nodeName),['p','ul','a'],true))continue;$value.=$child->textContent;}$value=trim(preg_replace('/\s+/u',' ',$value)??'');
+   if($label==='発売日')$times[]=$value;if($label==='価格')$price=$value;if($label==='売場'&&$value)$lines[]='売場：'.$value;
+  }
+ }else{
+  foreach($x->query('.//div[contains(concat(" ",normalize-space(@class)," ")," price ")]/p',$root) as $p){$label=news_text($x->query('./span[contains(concat(" ",normalize-space(@class)," ")," price_label ")]',$p)->item(0));$value=news_text($p);if(in_array($label,['発売日','予約開始','予約終了'],true))$times[]=$value;if($label==='価格')$price=trim(preg_replace('/^価格\s*[：:]/u','',$value)??'');}
+ }
+ $schedule=news_bandai_schedule($times);$facts=[];if($schedule){$facts[]=['kind'=>'schedule','text'=>$schedule];$lines[]=$schedule;}if($price){$facts[]=['kind'=>'price','text'=>'価格：'.$price];$lines[]='価格：'.$price;}
+ $description=$x->query($candy?'.//div[contains(concat(" ",normalize-space(@class)," ")," post ")]':'.//div[contains(concat(" ",normalize-space(@class)," ")," description ")]',$root)->item(0);
+ if($description){$fragment=$description->ownerDocument->saveHTML($description);$fragment=preg_replace('~<(?:ul|p)[^>]*class="[^"]*(?:attentionList|marginTop2)[^"]*"[^>]*>.*?</(?:ul|p)>~su','',$fragment)??$fragment;$fragment=preg_replace('~<br\s*/?>~i',"\n",$fragment)??$fragment;
+  foreach(explode("\n",html_entity_decode(strip_tags($fragment),ENT_QUOTES|ENT_HTML5,'UTF-8')) as $line){$line=trim($line);if($line&&mb_strlen($line)<=600&&!preg_match('/(?:\(C\)|\(c\)|©|材質|素材)/u',$line))$lines[]=$line;}
+ }
+ $images=[];$nodes=$x->query($candy?'.//div[contains(concat(" ",normalize-space(@class)," ")," itemSlider ")]//img/@src':'.//ul[contains(concat(" ",normalize-space(@class)," ")," main_itemImgGallery ")]//img/@src',$root);
+ foreach($nodes as $node){$image=news_image_url($node->nodeValue);if($image&&!in_array($image,$images,true)&&count($images)<100)$images[]=$image;}
+ 
+ return ['url'=>$url,'source'=>$candy?'バンダイ キャンディ':'バンダイ おもちゃ','tipsOnly'=>true,'title'=>$title,'date'=>'','schedule'=>$schedule,'facts'=>$facts,'paragraphs'=>array_slice(array_unique($lines),0,60),'images'=>$images,'image'=>$images[0]??''];
+}
+
+function ota_arts_parse(string $html,string $url):array{
+ $x=news_doc(strpos($url,'https://www.eikoh-prize.jp/')===0?news_eikoh_utf8($html):$html);$arts=strpos($url,'https://www.takaratomy-arts.co.jp/')===0;$eikoh=strpos($url,'https://www.eikoh-prize.jp/')===0;$source=$arts?'タカラトミーアーツ':($eikoh?'エイコープライズ':'リーメント');
+ $identity=news_text($x->query('//meta[@property="og:url"]/@content | //link[@rel="canonical"]/@href')->item(0));if($eikoh?!news_eikoh_identity_matches($url,$identity):news_url($identity)!==$url)throw new RuntimeException('メーカーの商品識別が一致しませんでした。');
+ $root=$x->query($arts?'//section[@id="detail"]':($eikoh?'//div[@id="r_detailWrap"]':'//div[@id="items"]'))->item(0);if(!$root)throw new RuntimeException('メーカーの商品本体を確認できませんでした。');
+ $title=news_text($x->query($arts?'./div[contains(concat(" ",normalize-space(@class)," ")," head ")]/h2':($eikoh?'.//*[@id="itemInfo"]/h2':'.//h4'),$root)->item(0));
+ $lines=[];$facts=[];$period='';$price='';$images=[];
+ if($eikoh){
+  if(!$title||!preg_match('/サンリオ/u',$title))throw new RuntimeException('サンリオ商品名を確認できませんでした。');
+  $description=$x->query('.//*[contains(concat(" ",normalize-space(@class)," ")," detailTxt " )]',$root)->item(0);$all=news_text($description);
+  if(!preg_match('/(?:[1-9]|1[0-2])月(?:第?[1-5]週|上旬|中旬|下旬)(?:より順次登場|登場)/u',$all,$m))throw new RuntimeException('登場時期を確認できませんでした。');
+  $period='登場時期：'.$m[0];$facts[]=['kind'=>'schedule','text'=>$period];$lines[]=$period;
+  foreach($x->query('.//p | .//li | .//h2 | .//h3',$root) as $node){$line=news_text($node);if(mb_strlen($line)>=4&&mb_strlen($line)<=600&&!preg_match('/(?:掲載写真と商品|内容は予告なく)/u',$line))$lines[]=$line;}
+  $nodes=$x->query('.//*[@id="itemImg"]//img[@src] | ../*[@id="r_addImg"]//img[@src]',$root);
+  preg_match('~/shopdetail/([0-9]{12})/~',$url,$productId);
+  foreach($nodes as $node){$image=news_image_url($node->getAttribute('src'));if($image&&!str_starts_with((string)parse_url($image,PHP_URL_PATH),'/eikohprize/itemimages/'.$productId[1]))continue;if($image&&!in_array($image,$images??[],true))$images[]=$image;}
+  $images=$images??[];
+  if(!$images)throw new RuntimeException('商品写真を確認できませんでした。');
+  return ['url'=>$url,'source'=>$source,'tipsOnly'=>true,'title'=>$title,'date'=>'','schedule'=>$period,'facts'=>$facts,'paragraphs'=>array_slice(array_unique($lines),0,60),'images'=>array_slice($images,0,8),'image'=>$images[0]];
+ }
+ if($arts){
+  $head=news_text($x->query('./div[contains(concat(" ",normalize-space(@class)," ")," head ")]/p',$root)->item(0));$period=news_extra_period($head);
+  if(preg_match('/価格[：:]([^■]+)/u',$head,$m))$price=trim($m[1]);
+  foreach($x->query('.//div[contains(concat(" ",normalize-space(@class)," ")," summary ")]/p',$root) as $p){$text=news_text($p);if($text)$lines[]=$text;}
+ }else{
+  $category=news_text($x->query('.//p[contains(concat(" ",normalize-space(@class)," ")," cate ")]',$root)->item(0));if(strpos($category,'サンリオ')===false)throw new RuntimeException('サンリオ関連商品ではありません。');
+  foreach($x->query('.//div[contains(concat(" ",normalize-space(@class)," ")," infos ")]/div[contains(concat(" ",normalize-space(@class)," ")," info ")]',$root) as $row){$label=news_text($x->query('./p[contains(concat(" ",normalize-space(@class)," ")," item ")]',$row)->item(0));$value=news_text($x->query('./p[contains(concat(" ",normalize-space(@class)," ")," detail ")]',$row)->item(0));if($label==='発売日')$period=news_extra_period($value);if($label==='価格')$price=$value;if(in_array($label,['種類','商品'],true)&&$value)$lines[]=$label.'：'.$value;}
+ }
+ if(!$title||!ota_topic($title)||ota_excluded($title))throw new RuntimeException('対象外の商品です。');
+ if($period){$schedule='発売時期：'.$period;$facts[]=['kind'=>'schedule','text'=>$schedule];$lines[]=$schedule;}else $schedule='';
+ if($price){$facts[]=['kind'=>'price','text'=>'価格：'.$price];$lines[]='価格：'.$price;}
+ $images=[];$nodes=$x->query($arts?'.//div[contains(concat(" ",normalize-space(@class)," ")," images ")]//img/@src':'.//div[contains(concat(" ",normalize-space(@class)," ")," main_item ")]//img/@src | .//div[contains(concat(" ",normalize-space(@class)," ")," gallery ")]/a/@href',$root);
+ foreach($nodes as $node){$image=news_image_url(news_extra_abs($node->nodeValue,$arts?'arts':'rement'));if($arts&&$image){parse_str((string)parse_url($url,PHP_URL_QUERY),$query);if(strpos(basename((string)parse_url($image,PHP_URL_PATH)),($query['n']??'').'_' )!==0)continue;}if($image&&!in_array($image,$images,true)&&count($images)<100)$images[]=$image;}
+ return ['url'=>$url,'source'=>$source,'tipsOnly'=>true,'title'=>$title,'date'=>'','schedule'=>$schedule,'facts'=>$facts,'paragraphs'=>$lines,'images'=>$images,'image'=>$images[0]??''];
+}
+
+function ota_manufacturer_detail(string $url):array {
+ $canonical=news_url($url);
+ if(!$canonical||$canonical!==$url)throw new RuntimeException('メーカーのURLを確認してください。');
+ if(str_starts_with($url,'https://www.bandai.co.jp/candy/products/')||str_starts_with($url,'https://toy.bandai.co.jp/ja/item/'))return ota_bandai_parse(news_fetch($url),$url);
+ if(str_starts_with($url,'https://www.takaratomy-arts.co.jp/items/item.html?'))return ota_arts_parse(news_fetch($url),$url);
+ throw new RuntimeException('メーカーのURLを確認してください。');
+}
 if(defined('OTAOTA_TEST'))return;
 $config=require __DIR__.'/config.php';$origin=$_SERVER['HTTP_ORIGIN']??'';
 if(in_array($origin,$config['allowed_origins']??[],true)){header('Access-Control-Allow-Origin: '.$origin);header('Vary: Origin');}
@@ -70,10 +139,19 @@ try{
  $action=$_GET['action']??'list';
  if($action==='list'&&($_SERVER['REQUEST_METHOD']??'')==='GET')ota_out(['ok'=>true]+ota_list());
  if(in_array($action,['bandai','takara'],true)&&($_SERVER['REQUEST_METHOD']??'')==='GET')ota_out(['ok'=>true]+ota_manufacturer_list($action));
+ if($action==='manufacturer_detail'&&($_SERVER['REQUEST_METHOD']??'')==='POST'&&in_array($origin,$config['allowed_origins']??[],true)){
+  $input=json_decode((string)file_get_contents('php://input',false,null,0,4096),true);$url=news_url((string)($input['url']??''));if(!$url)ota_out(['ok'=>false,'error'=>'商品のURLを確認してください。'],400);
+  ota_out(['ok'=>true,'item'=>ota_manufacturer_detail($url)]);
+ }
+ if($action==='manufacturer_image'&&($_SERVER['REQUEST_METHOD']??'')==='GET'){
+  $url=news_url((string)($_GET['url']??''));if(!$url)ota_out(['ok'=>false,'error'=>'商品のURLを確認してください。'],400);$item=ota_manufacturer_detail($url);$i=filter_var($_GET['index']??0,FILTER_VALIDATE_INT);if($i===false||$i<0||!isset($item['images'][$i]))ota_out(['ok'=>false,'error'=>'写真がありません。'],400);
+  $bytes=news_fetch($item['images'][$i],6000000);$size=@getimagesizefromstring($bytes);if(!$size||!in_array($size['mime'],['image/jpeg','image/png','image/webp'],true)||$size[0]*$size[1]>30000000)throw new RuntimeException('画像形式を確認できませんでした。');header('Content-Type: '.$size['mime']);header('X-Content-Type-Options: nosniff');echo $bytes;exit;
+ }
+
  if($action==='draft'&&($_SERVER['REQUEST_METHOD']??'')==='POST'&&in_array($origin,$config['allowed_origins']??[],true)){
   $input=json_decode((string)file_get_contents('php://input',false,null,0,4096),true);$url=news_url((string)($input['url']??''));
-  if(!$url||strpos($url,'https://prtimes.jp/')!==0)ota_out(['ok'=>false,'error'=>'PR TIMESの記事URLを確認してください。'],400);
-  $item=news_detail($url);if(ota_excluded($item['title']."\n".implode("\n",$item['paragraphs']??[])))ota_out(['ok'=>false,'error'=>'サンリオ関連の記事は対象外です。'],400);
+  if(!$url)ota_out(['ok'=>false,'error'=>'記事のURLを確認してください。'],400);
+  $item=str_starts_with($url,'https://prtimes.jp/')?news_detail($url):ota_manufacturer_detail($url);if(ota_excluded($item['title']."\n".implode("\n",$item['paragraphs']??[])))ota_out(['ok'=>false,'error'=>'サンリオ関連の記事は対象外です。'],400);
   $settings=news_groq_settings();if(empty($settings['apiKey']))ota_out(['ok'=>false,'error'=>'Sanrio画面でGroqの設定を確認してください。'],400);
   $lock=fopen(sys_get_temp_dir().'/sph-groq-budget-'.hash('sha256',__DIR__),'c+');
   if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new RuntimeException('AI is busy');
