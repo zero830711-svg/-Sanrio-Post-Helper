@@ -61,3 +61,9 @@ test('AI draft uses actual link setting for length checks',async({page})=>{
  await page.locator('#otaAi').click();await expect(page.locator('#otaText')).toHaveValue(text);
  await page.locator('#otaText').fill('元の文章');await page.locator('#otaIncludeLink').check();await page.locator('#otaAi').click();await expect(page.locator('#otaText')).toHaveValue('元の文章');await expect(page.locator('#otaEditorStatus')).toContainText('長すぎます');
 });
+
+test('excludes game and specified franchise news while retaining character goods',async({page})=>{
+ const items=[{url:'https://prtimes.jp/1',title:'11月6日より初展示！ TEKKEN 8 ニーナ フィギュア'},{url:'https://prtimes.jp/2',title:'仮面ライダーカブト エポスカード 誕生'},{url:'https://prtimes.jp/3',title:'ノーゲーム・ノーライフ 白 のフィギュア'},{url:'https://prtimes.jp/4',title:'ポケモンと一緒にスポーツを楽しめるイベント'},{url:'https://prtimes.jp/5',title:'ディズニー新作ぬいぐるみ登場'},{url:'https://prtimes.jp/6',title:'ポケモンの新作ゲームを配信開始'}];
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));await page.route('**/otaota.php?**',r=>r.fulfill({json:{ok:true,items,failed:[],fetchedAt:'2026-11-07T00:00:00Z'}}));
+ await page.goto('/');await page.locator('#accountOta').click();await page.locator('#otaRefresh').click();const list=page.locator('#otaList');await expect(list).toContainText('ポケモンと一緒');await expect(list).toContainText('ディズニー');await expect(list).not.toContainText('TEKKEN');await expect(list).not.toContainText('仮面ライダー');await expect(list).not.toContainText('ノーゲーム');await expect(list).not.toContainText('新作ゲーム');
+});
