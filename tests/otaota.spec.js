@@ -100,3 +100,10 @@ test('retries detail and photo failures without losing the edited draft',async({
  await page.goto('/');await page.locator('#accountOta').click();await page.locator('[data-ota-source="bandai"]').click();await page.locator('#otaList').getByRole('button',{name:'投稿準備'}).click();await page.locator('#otaText').fill('編集中の文章');
  await expect(page.locator('#otaDetailRetry')).toBeVisible();await page.locator('#otaDetailRetry').click();await expect(page.locator('#otaImages img')).toHaveCount(1);await page.getByLabel('写真1を選択').check();await expect(page.locator('#otaPhotoRetry')).toBeVisible();await page.locator('#otaPhotoRetry').click();await expect(page.locator('#otaPhotoStatus')).toContainText('準備しました');await expect(page.locator('#otaText')).toHaveValue('編集中の文章');
 });
+
+test('warns about a similar candidate from a previously viewed source without hiding it',async({page})=>{
+ const title='ちいかわ きらきらリボンチャームグミ 新発売';
+ await page.addInitScript(()=>localStorage.setItem('sanrioCloudSyncKey','test-key'));await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));
+ await page.route('**/otaota.php?**',r=>{const a=new URL(r.request().url()).searchParams.get('action');const item=a==='bandai'?{url:'https://www.bandai.co.jp/candy/products/2026/1.html',source:'バンダイ',title}:{url:'https://prtimes.jp/main/html/rd/p/1.2.html',source:'PR TIMES',title};return r.fulfill({json:{ok:true,items:[item],fetchedAt:'2026-11-07T00:00:00Z'}})});
+ await page.goto('/');await page.locator('#accountOta').click();await page.locator('#otaRefresh').click();await page.locator('[data-ota-source="bandai"]').click();await expect(page.locator('#otaList')).toContainText('似た候補があります');await expect(page.locator('#otaList')).toContainText(title);await expect(page.locator('#otaList').getByRole('button',{name:'投稿準備'})).toBeVisible();
+});
