@@ -2,7 +2,7 @@
 const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
   let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',sourceMode='all',countryMode='all',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
-  let discoveryBatchAt='',batchEligible={};
+  let discoveryBatchAt='',batchEligible={},autoLoadFailed=false;
   const sectionMode='new';
   let rankingModel=new Map(),sortMode=state().sortMode==='date'?'date':'recommended';
   async function updateHistory(){const history=await dbGetAll();historyIds=usedIds(history);rankingModel=newProductRanking.build(history,CHARACTER_DEFS);}
@@ -200,7 +200,7 @@ const lovelyWatch = (()=>{
   function pagingControls(){
     const activeBusy=busy;
     el('lovelyRefresh').disabled=activeBusy;el('lovelyRefresh').textContent=sectionMode==='overseas'?'海外商品を確認':'新着商品を確認';
-    const button=el('lovelyMore');if(button){button.hidden=!Object.keys(selectedPages()).length;button.disabled=activeBusy;button.textContent=activeBusy?'読み込み中…':'もっと見る';}
+    const button=el('lovelyMore');if(button){const hasMore=Object.keys(selectedPages()).length>0;button.hidden=!loaded;button.disabled=activeBusy||!hasMore;button.textContent=activeBusy?'読み込み中…':!hasMore?'すべて表示しました':autoLoadFailed?'もう一度読み込む':'もっと見る';}
   }
   const sourceOf=item=>item.domesticNews?'news':item.overseas?'overseas':item.source==='楽天ファッション'?'fashion':item.source==='サンリオ公式 楽天市場店'?'sanrio':item.source==='スケーター'?'skater':item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
   const sourceName=source=>({overseas:'海外公式',fashion:'楽天ファッション',sanrio:'サンリオ公式 楽天市場店',skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ',news:'公式ニュース'}[source]||source);
@@ -225,9 +225,10 @@ const lovelyWatch = (()=>{
       }catch(e){nextPages[source]=page;errors.push(sourceName(source)+'：'+e.message);}
     }));
     const status=el('lovelyStatus');status.textContent='ブログ・メーカー・サンリオ公式楽天店・楽天ファッションの候補を確認しました。公式楽天店はAPI更新順で、新発売順ではありません。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
+    return errors.length===0&&partial.length===0;
   }
   async function refresh(){
-    if(busy)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
+    if(busy)return;autoLoadFailed=false;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
       await updateHistory();nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
       const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater','sanrio','fashion'].map(source=>[source,checks[source]?.initialized===true]));
@@ -244,8 +245,8 @@ const lovelyWatch = (()=>{
   async function more(){
     const pages=selectedPages();if(busy||!Object.keys(pages).length)return;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='次のページを確認中…';
     try{
-      await loadSources(pages,false);pageCount++;
-    }catch(e){el('lovelyStatus').textContent=e.message+' 「もっと見る」で再試行できます。'}
+      autoLoadFailed=!(await loadSources(pages,false));pageCount++;
+    }catch(e){autoLoadFailed=true;el('lovelyStatus').textContent=e.message+' 「もう一度読み込む」で再試行できます。'}
     finally{busy=false;pagingControls()}
   }
   function openEditor(url){
@@ -605,7 +606,16 @@ const lovelyWatch = (()=>{
   });
   el('rakutenRetry')?.addEventListener('click',()=>{if(selected){if(['グルマンディーズ','スケーター'].includes(selected.source)&&!selected.productInfo?.itemCode)choose(selected.url,true);else autoRakuten(selected)}});
   el('lovelyRefresh')?.addEventListener('click',refresh);
-  el('lovelyMore')?.addEventListener('click',more);
+  el('lovelyMore')?.addEventListener('click',()=>{autoLoadFailed=false;more();});
+  const moreButton=el('lovelyMore');
+  if(moreButton&&'IntersectionObserver' in window){
+    let wasVisible=false;
+    new IntersectionObserver(entries=>{for(const entry of entries){
+      const visible=entry.isIntersecting&&moreButton.getClientRects().length>0&&!el('lovelyBrowse').hidden&&el('lovelyEditor').hidden;
+      if(visible&&!wasVisible&&!busy&&!autoLoadFailed&&!moreButton.disabled)more();
+      wasVisible=visible;
+    }},{rootMargin:'0px 0px 200px 0px'}).observe(moreButton);
+  }
   el('lovelyBack')?.addEventListener('click',backToList);
   el('lovelyBackBottom')?.addEventListener('click',backToList);
   const sourceSelect=el('lovelySourceFilter');
