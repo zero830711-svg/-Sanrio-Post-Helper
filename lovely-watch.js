@@ -221,9 +221,10 @@ const lovelyWatch = (()=>{
         saved.sourceChecks[source]={initialized:previous.initialized===true||!data.partial,checkedAt:observedAt,recentUrls:[...recent].slice(-3000)};
         saved.firstSeen=Object.fromEntries(Object.entries(saved.firstSeen).slice(-3000));try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
         rows=[...merged.values()];if(data.partial){nextPages[source]=page;partial.push(sourceName(source));}else if(data.nextPage)nextPages[source]=data.nextPage;else delete nextPages[source];
-        loaded=true;render();
+        loaded=true;
       }catch(e){nextPages[source]=page;errors.push(sourceName(source)+'：'+e.message);}
     }));
+    if(loaded)render();
     const status=el('lovelyStatus');status.textContent='ブログ・メーカー・サンリオ公式楽天店・楽天ファッションの候補を確認しました。公式楽天店はAPI更新順で、新発売順ではありません。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
     return errors.length===0&&partial.length===0;
   }
@@ -637,7 +638,7 @@ const lovelyWatch = (()=>{
     render();
     try{await updateHistory();render()}catch(_){el('lovelyStatus').textContent='過去投稿の照合を更新できませんでした。新着を確認して再試行してください。'}
   });
-  document.addEventListener('sph-domestic-evidence',()=>{if(loaded)render();});
+  document.addEventListener('sph-domestic-evidence',()=>{if(loaded&&!busy)render();});
   el('domesticNewsLoad')?.addEventListener('click',async()=>{const button=el('domesticNewsLoad');button.disabled=true;try{const ok=await newsLoad();el('domesticNewsStatus').textContent=ok===false?el('newsStatus').textContent:newsState.items.length+'件のニュース資料を一覧に追加しました。'+newsSourceStatusLabel()+' 情報源ごとの取得状況は新作ニュースで確認できます。';render();}finally{button.disabled=false;}});
   el('lovelyList')?.addEventListener('error',e=>{const img=e.target;if(img.tagName==='IMG'&&img.closest('.lovely-thumb')){img.hidden=true;const fallback=img.nextElementSibling;if(fallback)fallback.hidden=false;}},true);
   el('lovelyList')?.addEventListener('click',e=>{const b=e.target.closest('[data-lovely-select]');if(b)choose(b.dataset.lovelySelect)});
