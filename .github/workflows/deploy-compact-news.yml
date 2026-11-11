@@ -1,0 +1,66 @@
+name: Deploy compact news source controls
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/deploy-compact-news.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+      LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+      LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
+      LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check source parsers
+        run: |
+          php -l server/lolipop/news.php
+          php tests/news-seven.php
+          php tests/news-parser.php
+      - name: Update news endpoint and verify source list
+        run: |
+          python3 - <<'PY'
+          import ftplib, hashlib, os, pathlib, ssl, subprocess, tempfile
+          from urllib.parse import urlsplit
+          host=os.environ['LOLIPOP_FTP_HOST']
+          username=os.environ['LOLIPOP_FTP_USER']
+          password=os.environ['LOLIPOP_FTP_PASSWORD']
+          directory=os.environ['LOLIPOP_TREND_DIR']
+          if not all([host,username,password,directory]): raise RuntimeError('FTP configuration is missing')
+          address=urlsplit(host if '://' in host else 'ftp://'+host)
+          if address.scheme not in ('ftp','ftps') or not address.hostname: raise RuntimeError('FTP host format is not supported')
+          ftp=ftplib.FTP_TLS(context=ssl.create_default_context(),timeout=35)
+          config_path=None
+          def blob_hash(data): return hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          try:
+              ftp.connect(address.hostname,address.port or 21)
+              ftp.login(username,password)
+              ftp.prot_p()
+              ftp.cwd(directory)
+              data=pathlib.Path('server/lolipop/news.php').read_bytes()
+              if blob_hash(data)!='b693d9e544b608cb648882bffd52883b0862aa2f': raise RuntimeError('Local news endpoint differs from the reviewed version')
+              chunks=[]
+              ftp.retrbinary('RETR news.php',chunks.append)
+              if blob_hash(b''.join(chunks)) not in {'771460ba95e8d6be119feab1a1622bd782856862','b693d9e544b608cb648882bffd52883b0862aa2f'}: raise RuntimeError('Server news endpoint differs from the reviewed version')
+              temp='.news.php.sph-compact-tmp'
+              from io import BytesIO
+              ftp.storbinary('STOR '+temp,BytesIO(data))
+              ftp.rename(temp,'news.php')
+              fd,config_path=tempfile.mkstemp(prefix='sph-config-',suffix='.php')
+              with os.fdopen(fd,'wb') as target: ftp.retrbinary('RETR config.php',target.write)
+              ftp.quit()
+              ftp=None
+              subprocess.run(['php','scripts/verify-seven-news.php',config_path],check=True)
+          finally:
+              if ftp is not None:
+                  try: ftp.close()
+                  except Exception: pass
+              if config_path:
+                  try: os.unlink(config_path)
+                  except FileNotFoundError: pass
+          PY
