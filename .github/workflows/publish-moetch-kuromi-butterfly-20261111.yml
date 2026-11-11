@@ -1,0 +1,64 @@
+name: Publish MOETCH Kuromi butterfly guide
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-moetch-kuromi-butterfly-20261111.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish via WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"]; p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p:raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None:h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=60) as r:return json.load(r)
+          slug="moetch-mini-kuromi-butterfly-figure"
+          for term in [slug,"暗夜蝶羽","MOETCH クロミ","クロミ 蝶"]:
+           rows=api("/posts?"+urllib.parse.urlencode({"search":term,"context":"edit","per_page":100,"_fields":"id,slug,status,title,link"}))
+           print("SEARCH",term,json.dumps(rows,ensure_ascii=False))
+           for row in rows:
+            t=html.unescape(row["title"]["rendered"]).lower()
+            if row["slug"]==slug or "暗夜蝶羽" in t or ("moetch" in t and "クロミ" in t and ("蝶" in t or "バタフライ" in t)):raise RuntimeError("Possible duplicate")
+          specs=[
+           ("9008","月夜の森を背景にした蝶の羽を持つ紫と黒のクロミのフィギュア","蝶の羽とドクロの飾りが印象的なクロミ。"),
+           ("9011","青と黒の蝶の羽をつけて座るクロミのフィギュア","羽の色や表情が異なるクロミたち。"),
+           ("9015","MOETCH MINI クロミ 蝶モチーフの通常6種類の一覧","通常カラーの6種類。"),
+           ("9016","MOETCH MINI クロミ 蝶モチーフの色違い6種類の一覧","青や紫を使った色違いの6種類。"),
+           ("9017","クロミのフィギュア全12種類と18個入りボックスの購入案内","画像に記載された種類と購入形式。")]
+          figs=[];media=[]
+          for i,(n,alt,cap) in enumerate(specs):
+           raw=Path("blog/editorial/moetch-kuromi-butterfly/IMG_"+n+".jpeg").read_bytes()
+           m=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="moetch-mini-kuromi-butterfly-%s.jpg"'%(i+1)})
+           api("/media/"+str(m["id"]),{"alt_text":alt})
+           media.append(m)
+           figs.append('<figure class="wp-block-image size-large"><img src="'+html.escape(m["source_url"],quote=True)+'" alt="'+html.escape(alt,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'｜画像出典：RED公式投稿より</figcaption></figure>')
+          title="クロミが蝶の妖精みたいに！MOETCH MINIのフィギュア全12種類を紹介"
+          desc="MOETCH MINIのクロミの蝶モチーフフィギュアを写真で紹介。通常・色違い全12種類、ブラインド販売と購入前の確認点をまとめました。"
+          content='<p>月夜の森で蝶のような羽を広げるクロミが幻想的！ MOETCH MINIのクロミのフィギュアは、黒や紫、青を基調にした姿とさまざまな表情が魅力です。提供された商品画像をもとに、種類や購入時のポイントを紹介します。</p>'+figs[0]+'<h2>蝶の羽とクロミらしいドクロに注目</h2><p>蝶のような羽や頭の飾りに、クロミのドクロを組み合わせたデザイン。立っている姿や座っている姿、ウインクや目を閉じた表情など、ひとつずつ見比べたくなります。</p>'+figs[1]+'<h2>通常6種類と色違い6種類</h2>'+figs[2]+'<p>通常カラーには「乌羽」「岚蝶」「碧蛾」「静蛾」「幽蝶」「夜鸦」の6種類が掲載されています。名称は画像の中国語表記です。</p>'+figs[3]+'<p>それぞれに色違いがあり、画像では通常6種類と合わせて全12種類と案内されています。青や紫のグラデーションにも注目です。</p><h2>単品とボックス購入の注意点</h2>'+figs[4]+'<p>単品は開封するまで中身が分からない包装です。画像の案内では1ボックス18個入り。通常の各種類の出現確率は1/9、色違いの各種類は1/18と記載されています。1ボックスで全12種類がそろうか、重複の有無は確認できないため、購入先で確認してください。</p><h2>日本での発売・価格は？</h2><p>発売日、価格、サイズ、日本国内の取扱店は確認できていません。海外から購入する場合は、配送先、送料、通貨、返品条件を販売元で確認しましょう。画像はイメージのため、実際の商品の仕様は購入先の説明をご確認ください。</p><p>画像に写る商品と一致する公式商品ページや販売ページは確認できていません。<a href="https://www.eslite.com/exhibitions/CU202512-00037" rel="noopener noreferrer">海外販売店のMOETCH商品一覧</a>はブランドの参考情報で、この商品の取扱いを示すものではありません。</p><h2>関連記事</h2><p><a href="https://sanrio-fan.site/miniso-kuromi-girls-club-plush-blind-box/">MINISO×クロミのマスコット紹介</a>や<a href="https://sanrio-fan.site/characters/">サンリオキャラクター一覧</a>もご覧ください。</p><p>※2026年11月11日確認時点。画像は提供されたRED投稿画像です。</p>'
+          a=api("/posts",{"slug":slug,"title":title,"excerpt":desc,"status":"draft","content":content,"featured_media":media[0]["id"]})
+          check=api("/posts/"+str(a["id"])+"?context=edit")
+          if check["status"]!="draft" or any(m["source_url"] not in check["content"]["raw"] for m in media):raise RuntimeError("Draft verification failed")
+          pub=api("/posts/"+str(a["id"]),{"status":"publish"})
+          if pub["status"]!="publish":raise RuntimeError("Publication failed")
+          print("PUBLISHED",pub["id"],pub["link"],"IMAGE_IDS",[m["id"] for m in media])
+          PY
