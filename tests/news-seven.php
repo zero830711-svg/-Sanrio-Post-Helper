@@ -38,4 +38,6 @@ try{news_parse($bad,$cases['kitan'][0]);throw new RuntimeException('mismatched c
 $bad=str_replace('サンリオ 時計','別キャラクター 時計',$details['kitan']);
 try{news_parse($bad,$cases['kitan'][0]);throw new RuntimeException('unrelated title accepted');}catch(RuntimeException $e){seven_check($e->getMessage()!=='unrelated title accepted','relevance on detail');}
 $future=news_seven_rows($cases['happy'][1],'happy')[0];$merged=news_merge_feeds([[$future]],strtotime('2026-11-11'));seven_check(count($merged)===1,'upcoming release not treated as future publication');
+seven_check(!array_filter(news_feeds(),static fn($feed)=>($feed['kind']??'')==='segafave'),'removed source must not be fetched');
+$retired=news_seven_rows($cases['segafave'][1],'segafave')[0];seven_check(news_merge_feeds([[$retired]],strtotime('2026-11-11'))===[],'removed source must not appear in news');
 echo "Seven source lists, detail pages, image boundaries, identity, and release dates passed.\n";

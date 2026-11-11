@@ -18,9 +18,9 @@ try{
   'Happyくじ'=>'https://www.h-kuji.com/goods/sanrio-holiday2026/',
   'キタンクラブ'=>'https://kitan.jp/products/sanrio_watch4/',
   'Qualia'=>'https://www.qualia-45.jp/product/view/2131',
-  'セガ フェイブ'=>'https://www.segafave.co.jp/news/260625_1/',
  ];
  $list=seven_live_request($key,'list');$failures=[];
+ if(isset($list['sourceStatuses']['セガ フェイブ'])||array_filter($list['items']??[],static fn($row)=>($row['source']??'')==='セガ フェイブ'))throw new RuntimeException('Removed source is still in the news list');
  foreach($targets as $name=>$url){
   $status=$list['sourceStatuses'][$name]['state']??'missing';$count=$list['sourceStatuses'][$name]['count']??0;
   try{

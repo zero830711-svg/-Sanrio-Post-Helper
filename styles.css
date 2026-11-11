@@ -485,6 +485,7 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #newsPanel .news-filter{display:block;margin:10px 0;font-size:13px;font-weight:700;color:var(--muted)}
 .news-filter-buttons{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
 .news-filter-button{min-height:34px;padding:5px 9px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--text);font-size:12px;font-weight:700;line-height:1.2}
+#newsSourceButtons .news-filter-button{min-height:32px;padding:4px 7px;font-size:11px}
 .news-filter-button[aria-pressed="true"]{background:var(--pink2);border-color:var(--pink);color:#74384f}
 .news-filter-button:focus-visible{outline:2px solid #8c4964;outline-offset:2px}
 
@@ -494,3 +495,4 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 /* Three compact search choices in product preparation. */
 :is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-search-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
 :is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-search-actions a{font-size:10px;line-height:1.25;padding:6px 3px}
+
