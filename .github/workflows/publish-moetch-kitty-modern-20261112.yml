@@ -1,0 +1,64 @@
+name: Publish MOETCH Kitty modern guide
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-moetch-kitty-modern-20261112.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish via WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"];p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p:raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None:h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=60) as r:return json.load(r)
+          slug="moetch-hello-kitty-modern-style-miniature-bow"
+          for term in [slug,"摩登风范","MOETCH キティ"]:
+           rows=api("/posts?"+urllib.parse.urlencode({"search":term,"context":"edit","per_page":100,"_fields":"id,slug,status,title,link"}))
+           print("SEARCH",term,json.dumps(rows,ensure_ascii=False))
+           for row in rows:
+            t=html.unescape(row["title"]["rendered"]).lower()
+            if row["slug"]==slug or "摩登风范" in t or ("moetch" in t and "キティ" in t and ("ミニチュア" in t or "モダン" in t)):raise RuntimeError("Possible duplicate")
+          specs=[
+           ("9069","MOETCH ハローキティ 摩登风范のリボン型ミニチュア一覧","モノトーンのリボン型ケースに、キティと小さなファッションの世界。"),
+           ("9070","リボン型ケースを開いたハローキティとコスメのミニチュア","底の留め具を押すとケースを開けられると案内されています。"),
+           ("9071","ストラップを付けて持ち歩くハローキティのリボン型ミニチュア","付属ストラップで掛け飾りとして楽しむイメージ。"),
+           ("9072","ハローキティ 摩登风范シリーズ通常6種類とシークレット1種類","通常6種類とシークレット1種類のデザイン。"),
+           ("9074","リボン型ケースに入ったハローキティと靴やアクセサリーのミニチュア","靴やアクセサリーなど、小さなディスプレイにも注目。")]
+          figs=[];media=[]
+          for i,(n,alt,cap) in enumerate(specs):
+           raw=Path("blog/editorial/moetch-kitty-modern/IMG_"+n+".jpeg").read_bytes()
+           m=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="moetch-hello-kitty-modern-bow-%s.jpg"'%(i+1)})
+           api("/media/"+str(m["id"]),{"alt_text":alt})
+           media.append(m)
+           figs.append('<figure class="wp-block-image size-large"><img src="'+html.escape(m["source_url"],quote=True)+'" alt="'+html.escape(alt,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'｜画像出典：RED公式投稿より</figcaption></figure>')
+          title="ハローキティのリボン型ミニチュア｜MOETCH「摩登风范」の全7デザイン"
+          desc="MOETCHのハローキティ「摩登风范」微盒Proを画像で紹介。リボン型ケースの中のファッション小物、通常6種とシークレット、購入前の確認点をまとめました。"
+          content='<p>リボンを開くと、ハローキティの小さなファッション空間が広がる！ MOETCHの「Hello Kitty款摩登风范系列微盒 Pro」は、モノトーンを基調にしたミニチュアです。提供されたRED投稿画像をもとに、デザインや購入前に知りたいことを紹介します。</p>'+figs[0]+'<h2>リボンの中はキティの小さなクローゼット</h2><p>黒を基調に、白いキティやゴールドのアクセントを組み合わせたデザイン。バッグ、靴、帽子、アクセサリー、コスメなどをイメージした小さな装飾が、それぞれ異なるシーンを彩っています。</p>'+figs[1]+'<p>画像では、ケース底の留め具を軽く押すと開けられると案内されています。写真に写る小物が取り外せるかどうかは確認できていません。</p><h2>掛け飾りにも置物にも</h2>'+figs[2]+'<p>画像にはストラップが付属し、掛け飾りと卓上の置物の両方で楽しめると記載されています。サイズやストラップの詳しい仕様は購入先の商品説明をご確認ください。</p><h2>通常6種類とシークレット1種類</h2>'+figs[3]+'<p>画像にはバッグ、香水、メイク、ジュエリー、靴、帽子をイメージした通常6種類と、シークレット1種類が掲載されています。シークレットはヒョウ柄風のキティとサングラスが目を引くデザインです。画像の中国語表記では「隐藏款」と案内されています。</p>'+figs[4]+'<h2>購入前に確認したいこと</h2><p>添付の投稿の商品欄にはブラインドボックスと記載されています。単品では希望の種類を選べない場合があります。1ボックスの入り数、重複の有無、シークレットの出現率は確認できていません。購入時に販売元の案内をご確認ください。</p><p>日本国内の発売日・販売場所・価格、商品の詳しいサイズは未確認です。投稿画面には「¥59」とありますが、通貨と販売条件を確認できていないため、日本円の価格としては掲載していません。海外からの購入時は配送対象、送料、通貨、返品条件もご確認ください。</p><p>この商品と一致する独立した公式商品ページは確認できていません。<a href="https://www.eslite.com/exhibitions/CU202512-00037" rel="noopener noreferrer">海外販売店のMOETCH商品一覧</a>はブランドの参考情報で、本商品の取扱いを示すものではありません。</p><h2>関連記事</h2><p><a href="https://sanrio-fan.site/moetch-hello-kitty-christmas-star-wish-mini/">MOETCHのハローキティ マスコット紹介</a>や<a href="https://sanrio-fan.site/characters/">サンリオキャラクター一覧</a>もあわせてご覧ください。</p><p>※2026年11月12日確認時点。画像は提供されたRED投稿画像です。</p>'
+          a=api("/posts",{"slug":slug,"title":title,"excerpt":desc,"status":"draft","content":content,"featured_media":media[0]["id"]})
+          check=api("/posts/"+str(a["id"])+"?context=edit")
+          if check["status"]!="draft" or any(m["source_url"] not in check["content"]["raw"] for m in media):raise RuntimeError("Draft verification failed")
+          pub=api("/posts/"+str(a["id"]),{"status":"publish"})
+          if pub["status"]!="publish":raise RuntimeError("Publication failed")
+          print("PUBLISHED",pub["id"],pub["link"],"IMAGE_IDS",[m["id"] for m in media])
+          PY
