@@ -42,11 +42,12 @@ function news_gashapon_parse(string $html,string $url):array{
  if(!$images)throw new RuntimeException('ガシャポンの商品写真を確認できませんでした。');
  return ['url'=>$url,'title'=>$title,'source'=>'ガシャポン公式','tipsOnly'=>true,'gashapon'=>true,'resale'=>$resale,'date'=>'','schedule'=>$schedule,'facts'=>$facts,'paragraphs'=>array_slice(array_unique($lines),0,60),'images'=>$images,'image'=>$images[0]];
 }
-function news_gashapon_enrich(array $rows,array &$warnings,array $rement=[]):array{
+function news_gashapon_enrich(array $rows,array &$warnings,array $rement=[],array $kitan=[]):array{
  // Share one concurrent detail batch with Re-Ment; do not add a third timeout stage.
- $rows=array_merge(array_slice($rows,0,30),$rement);$feeds=[];foreach($rows as $row)$feeds[]=['url'=>$row['url'],'kind'=>'detail'];$bodies=news_fetch_feeds($feeds);$result=[];
- foreach($rows as $i=>$row){try{if($bodies[$i]===null)throw new RuntimeException();$detail=($row['source']??'')==='リーメント'?news_extra_parse($bodies[$i],$row['url']):news_gashapon_parse($bodies[$i],$row['url']);if(!news_extra_recent(news_gashapon_period($detail['schedule']),time()))continue;
-   $cache=sys_get_temp_dir().'/sph-news-v8-'.hash('sha256',__DIR__.$row['url']).'.json';file_put_contents($cache,json_encode($detail,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);$result[]=$detail;
-  }catch(Throwable $e){$warnings[]=($row['source']??'')==='リーメント'?'リーメントの一部の商品情報を取得できませんでした。':'ガシャポン公式の一部の商品詳細を確認できませんでした。時間をおいて再試行してください。';}
+ $rows=array_merge(array_slice($rows,0,30),$rement,$kitan);$feeds=[];foreach($rows as $row)$feeds[]=['url'=>$row['url'],'kind'=>'detail'];$bodies=news_fetch_feeds($feeds);$result=[];
+ foreach($rows as $i=>$row){try{if($bodies[$i]===null)throw new RuntimeException();$source=$row['source']??'';$detail=$source==='リーメント'?news_extra_parse($bodies[$i],$row['url']):($source==='キタンクラブ'?news_seven_parse($bodies[$i],$row['url']):news_gashapon_parse($bodies[$i],$row['url']));$period=news_gashapon_period($detail['schedule']);if($source==='キタンクラブ'?($period&&!news_extra_recent($period,time())):!news_extra_recent($period,time()))continue;
+   $cache=sys_get_temp_dir().'/sph-news-'.($source==='キタンクラブ'?'v9':'v8').'-'.hash('sha256',__DIR__.$row['url']).'.json';file_put_contents($cache,json_encode($detail,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);$result[]=$detail;
+  }catch(Throwable $e){$warnings[]=($row['source']??'')==='リーメント'?'リーメントの一部の商品情報を取得できませんでした。':(($row['source']??'')==='キタンクラブ'?'キタンクラブの一部の商品詳細を確認できませんでした。':'ガシャポン公式の一部の商品詳細を確認できませんでした。時間をおいて再試行してください。');}
  }return $result;
 }
+

@@ -141,7 +141,7 @@ $stale=$pr[0];$stale['url']='https://prtimes.jp/main/html/rd/p/9.2.html';$stale[
 $unknown=$pr[0];$unknown['url']='https://prtimes.jp/main/html/rd/p/8.2.html';$unknown['date']='';
 $merged=news_merge_feeds([$many,$pr,$pr,[$stale,$unknown]],strtotime('2026-10-03'));
 check(count($merged)===62);check($merged[0]['source']==='PR TIMES');check(count(array_filter($merged,fn($item)=>$item['source']==='PR TIMES'))===2);
-check(count(news_feeds())===21);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='eikoh'))===1);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='furyu'))===2);check(strpos(news_feeds()[2]['url'],'page=2')!==false);
+check(count(news_feeds())===28);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='eikoh'))===1);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='furyu'))===2);check(strpos(news_feeds()[2]['url'],'page=2')!==false);
 echo "Expanded news sources, deduplication and quotas passed\n";
 
 $groqItem=['title'=>'クロミのリボンバッグ','url'=>'https://www.sanrio.co.jp/news/goods/test-20261003/','paragraphs'=>['リボン付きバッグ。価格は880円（税込）。']];
@@ -267,3 +267,4 @@ check(str_contains($productClean,'コスメポーチを紹介'));check(!preg_mat
 // News outside the product flow keeps its existing rejection rules.
 try{news_groq_validate(json_encode(['body'=>$intro.'素材：シリコン。'],JSON_UNESCAPED_UNICODE),$groqItem);check(false);}catch(RuntimeException $e){check(str_contains($e->getMessage(),'不要な仕様'));}
 echo "Product-only specification sentences omitted; Rakuten books, inline prose, empty-result protection, original links and news guards passed\n";
+

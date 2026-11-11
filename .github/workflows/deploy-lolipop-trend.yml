@@ -11,6 +11,7 @@ on:
       - "scripts/verify-sanrio-shop.php"
       - "tests/sanrio-shop.php"
       - "scripts/verify-deployed-news-extra.php"
+      - "scripts/verify-seven-news.php"
       - "scripts/verify-furyu-news.php"
       - "scripts/verify-bandai-news.php"
       - "scripts/verify-gashapon-news.php"
@@ -19,6 +20,8 @@ on:
       - "server/lolipop/news.php"
       - "server/lolipop/news-instagram.php"
       - "server/lolipop/news-extra.php"
+      - "server/lolipop/news-seven.php"
+      - "tests/news-seven.php"
       - "server/lolipop/news-bandai.php"
       - "server/lolipop/news-gashapon.php"
       - "server/lolipop/news-thankyou.php"
@@ -61,6 +64,8 @@ jobs:
           php -l server/lolipop/news.php
           php -l server/lolipop/news-instagram.php
           php -l server/lolipop/news-extra.php
+          php -l server/lolipop/news-seven.php
+          php tests/news-seven.php
           php -l server/lolipop/news-bandai.php
           php -l server/lolipop/news-gashapon.php
           php -l server/lolipop/news-thankyou.php
@@ -80,6 +85,7 @@ jobs:
           php -l server/lolipop/overseas.php
           php -l scripts/verify-product-ai.php
           php -l scripts/verify-deployed-news-extra.php
+          php -l scripts/verify-seven-news.php
 
       - name: Deploy PHP endpoints over FTPS
         shell: bash
@@ -101,6 +107,7 @@ jobs:
           cd "$LOLIPOP_TREND_DIR"
           put server/lolipop/competitor.php
           put server/lolipop/news-extra.php
+          put server/lolipop/news-seven.php
           put server/lolipop/news-bandai.php
           put server/lolipop/news-gashapon.php
           put server/lolipop/.thankyou-news-feed.xml -o .thankyou-news-feed.xml.tmp
@@ -116,6 +123,25 @@ jobs:
           put server/lolipop/overseas.php
           bye
           LFTP
+
+      - name: Verify seven new news sources
+        if: contains(github.event.head_commit.message, '[verify-seven]')
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          source_tmp=$(mktemp -d)
+          trap 'rm -rf "$source_tmp"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get config.php -o "$source_tmp/config.php"
+          bye
+          LFTP
+          php scripts/verify-seven-news.php "$source_tmp/config.php"
 
       - name: Verify three short product rewrites
         if: contains(github.event.head_commit.message, '[verify-short-product]')
@@ -204,4 +230,5 @@ jobs:
             printf 'Deployment checks failed for: %s\n' "${failed[*]}" >&2
             exit 1
           fi
+
 
