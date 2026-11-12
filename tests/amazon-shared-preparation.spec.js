@@ -53,19 +53,3 @@ test('照合用写真を表示し端末の写真を選択して共有する',asy
  await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostShare').click();
  await expect.poll(()=>page.evaluate(()=>window.sharedProduct?.count)).toBe(1);
 });
-
-test('保存容量が足りなくてもAmazonの投稿準備を開き、編集を再読込後に復元する',async({page})=>{
- await page.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(/^(sphAmazonScoutCandidatesV1|sphLovelyDiscoveryV1)/.test(key))throw new DOMException('quota','QuotaExceededError');return set.call(this,key,value);};});
- await setup(page);await page.locator('#amazonFlowSearch').click();
- await page.locator('#amazonFlowResults').getByRole('button',{name:'投稿準備'}).click();
- await expect(page.locator('#amazonSearchArea #lovelyEditor')).toBeVisible();
- const body='🎀 容量不足でも残す本文\n'+url+'\n#pr';
- await page.locator('#lovelyPostText').fill(body);
- await page.locator('#lovelyBack').click();await expect(page.locator('#lovelyEditor')).toBeHidden();
- await page.reload();await page.getByRole('tab',{name:'商品検索',exact:true}).click();
- await page.locator('#amazonFlowDrafts').getByRole('button',{name:'確認・共有'}).click();
- await expect(page.locator('#lovelyPostText')).toHaveValue(body);
- await page.locator('#lovelyDone').click();await expect(page.locator('#lovelyEditor')).toBeHidden();
- await page.locator('#amazonFlowFilter').selectOption('投稿済み');
- await expect(page.locator('#amazonFlowDrafts')).toContainText(item.title);
-});

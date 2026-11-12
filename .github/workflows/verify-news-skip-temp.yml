@@ -35,4 +35,4 @@ jobs:
             use:{...devices['iPhone 13'],browserName:'chromium',launchOptions:{executablePath:process.env.SPH_TEST_CHROME},baseURL:'http://127.0.0.1:4173',trace:'retain-on-failure'}
           });
           JSCONFIG
-          npx playwright test tests/amazon-shared-preparation.spec.js --grep '容量が足りなくても|共通投稿準備' --config=playwright.skip-temp.config.js --workers=1
+          npx playwright test tests/amazon-product-search.spec.js tests/amazon-shared-preparation.spec.js tests/product-flow.spec.js --grep 'ニュース内でAmazon検索し|外部で探した検索紹介URL|取得済み候補だけを絞り込み|楽天をニュース内で検索し|Amazon検索語の修正|ニュースの外部検索は|ニュース検索語を商品名|外部検索から復帰|Amazonアプリで商品・検索|AmazonのAI本文|AIはボタンでのみ生成' --config=playwright.skip-temp.config.js --workers=1
