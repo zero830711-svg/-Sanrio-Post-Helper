@@ -57,9 +57,10 @@ function open(row){
  current={...row};current.itemUrl=amazonUrl(row.itemUrl||row.affiliateUrl);
  if(!current.itemUrl){$('amazonFlowStatus').textContent='保存済み商品のAmazonリンクを確認してください。';current=null;return;}
  const chosen=amazonUrl(row.affiliateUrl)||(row.linkMode==='search'?amazonUrl(row.searchUrl):'')||current.itemUrl;
- let body=String(row.draft||row.body||'').trim();
- if(body&&!body.includes(chosen))body+='\n\n🛍️ Amazon：'+chosen;
- if(body&&!/(?:^|\s)#pr\s*$/i.test(body))body+='\n\n#pr';
+ let body=String(row.draft||row.body||'');
+ if(!row.sharedEditor)body=body.trim();
+ if(!row.sharedEditor&&body&&!body.includes(chosen))body+='\n\n🛍️ Amazon：'+chosen;
+ if(!row.sharedEditor&&body&&!/(?:^|\s)#pr\s*$/i.test(body))body+='\n\n#pr';
  const item={url:current.itemUrl,title:row.title,source:'Amazon検索',origin:'amazon-search',ownAmazon:chosen,ownRakuten:row.ownRakuten||'',note:row.note||'',
   postText:body,postEdited:!!body,previewImage:imageUrl(row.image||''),products:[],
   productInfo:{title:row.title,url:'',itemCode:'',images:[],specs:{},contents:[],checkedAt:new Date().toISOString()}};

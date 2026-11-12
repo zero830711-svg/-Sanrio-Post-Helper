@@ -59,7 +59,7 @@ test('保存容量が足りなくてもAmazonの投稿準備を開き、編集�
  await setup(page);await page.locator('#amazonFlowSearch').click();
  await page.locator('#amazonFlowResults').getByRole('button',{name:'投稿準備'}).click();
  await expect(page.locator('#amazonSearchArea #lovelyEditor')).toBeVisible();
- const body='🎀 容量不足でも残す本文\n'+url+'\n#pr';
+ const body='🎀 容量不足でも残す本文';
  await page.locator('#lovelyPostText').fill(body);
  await page.locator('#lovelyBack').click();await expect(page.locator('#lovelyEditor')).toBeHidden();
  await page.reload();await page.getByRole('tab',{name:'商品検索',exact:true}).click();
