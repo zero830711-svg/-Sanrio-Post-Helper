@@ -7,8 +7,34 @@ let autoLimit=20,autoCharacter='',autoCategory='',returnY=0,filterTimer=null,fil
 const text=v=>String(v||'').trim();
 function amazonUrl(value){try{const raw=String(value||'').trim(),u=new URL(raw);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['www.amazon.co.jp','amazon.co.jp','amzn.to','amzn.asia','a.co','link.amazon'].includes(u.hostname)?raw:'';}catch{return '';}}
 function imageUrl(value){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&['m.media-amazon.com','images-na.ssl-images-amazon.com','images-fe.ssl-images-amazon.com'].includes(u.hostname)?u.href:'';}catch{return '';}}
-function rows(){try{const a=JSON.parse(localStorage.getItem(LIST)||'[]');if(!Array.isArray(a))throw new Error();return a;}catch{storageOK=false;$('amazonFlowStatus').textContent='保存済み下書きを読み込めません。保存データを確認してください。';return [];}}
-function write(list){try{localStorage.setItem(LIST,JSON.stringify(list));storageOK=true;return true;}catch{storageOK=false;$('amazonFlowEditorStatus').textContent='下書きを保存できませんでした。端末の空き容量を確認してください。';return false;}}
+let fallbackRows=null,preparing=false,saveQueue=Promise.resolve();
+async function draftDatabase(list){
+ const db=await new Promise((resolve,reject)=>{
+  const req=indexedDB.open('sanrioAmazonDrafts',1);
+  req.onupgradeneeded=()=>req.result.createObjectStore('state');
+  req.onerror=()=>reject(req.error);req.onblocked=()=>reject(new Error('保存先を開けません'));
+  req.onsuccess=()=>resolve(req.result);
+ });
+ try{return await new Promise((resolve,reject)=>{
+  const tx=db.transaction('state',list===undefined?'readonly':'readwrite'),store=tx.objectStore('state');
+  const req=list===undefined?store.get(LIST):store.put(list,LIST);
+  tx.oncomplete=()=>resolve(req.result);tx.onerror=tx.onabort=()=>reject(tx.error);
+ });}finally{db.close();}
+}
+const draftsReady=draftDatabase().then(list=>{
+ if(Array.isArray(list)){fallbackRows=list;renderDrafts();renderAuto();renderSearch();}
+}).catch(()=>{});
+function rows(){if(fallbackRows)return fallbackRows.slice();try{const a=JSON.parse(localStorage.getItem(LIST)||'[]');if(!Array.isArray(a))throw new Error();storageOK=true;return a;}catch{storageOK=false;return [];}}
+async function write(list){
+ if(!fallbackRows){try{localStorage.setItem(LIST,JSON.stringify(list));storageOK=true;return true;}catch{}}
+ try{await draftDatabase(list);fallbackRows=list;storageOK=true;return true;}catch{return false;}
+}
+function queueSave(task){const next=saveQueue.then(task);saveQueue=next.catch(()=>{});return next;}
+function prepareNotice(button,message){
+ const host=button?.closest('article');
+ if(host){let note=host.querySelector('.amazon-prepare-notice');if(!note){note=document.createElement('p');note.className='backup-note amazon-prepare-notice';note.setAttribute('role','status');host.append(note);}note.textContent=message;}
+ else $('amazonManualStatus').textContent=message;
+}
 function searchLink(title,tag){if(!/^[a-zA-Z0-9_-]{1,80}-22$/.test(tag||''))return '';const u=new URL('https://www.amazon.co.jp/s');u.searchParams.set('k',title);u.searchParams.set('tag',tag);return u.href;}
 function link(){return !current||$('amazonFlowMode').value==='none'?'':$('amazonFlowMode').value==='search'?current.searchUrl:current.itemUrl;}
 function finalText(){const body=$('amazonFlowBody').value.trim().replace(/\s*#pr\b/giu,'').trim();return [body,link()?'🛍️ Amazonでチェック\n'+link():'',link()?'#pr':''].filter(Boolean).join('\n\n');}
@@ -18,12 +44,12 @@ function update(){
  for(const id of ['amazonFlowCopy','amazonFlowShare','amazonFlowDone'])$(id).disabled=!current||!$('amazonFlowBody').value.trim()||!storageOK;
  $('amazonFlowCopyLink').disabled=!url;
 }
-function save(mark){
+async function save(mark){
  if(!current)return false;const list=rows();if(!storageOK)return false;
  current.body=$('amazonFlowBody').value;current.linkMode=$('amazonFlowMode').value;current.affiliateUrl=link();current.draft=finalText();
  if(mark)current.status=mark;
  const index=list.findIndex(r=>r.id===current.id);if(index<0)list.push({...current});else list[index]={...list[index],...current};
- const ok=write(list);if(ok){$('amazonFlowEditorStatus').textContent='下書きを保存しました。';renderDrafts();renderAuto();renderSearch();}update();return ok;
+ const ok=await write(list);if(ok){$('amazonFlowEditorStatus').textContent='下書きを保存しました。';renderDrafts();renderAuto();renderSearch();}update();return ok;
 }
 function button(label,fn){const b=document.createElement('button');b.type='button';b.className='small-btn';b.textContent=label;b.onclick=fn;return b;}
 function open(row){
@@ -31,22 +57,24 @@ function open(row){
  current={...row};current.itemUrl=amazonUrl(row.itemUrl||row.affiliateUrl);
  if(!current.itemUrl){$('amazonFlowStatus').textContent='保存済み商品のAmazonリンクを確認してください。';current=null;return;}
  const chosen=amazonUrl(row.affiliateUrl)||(row.linkMode==='search'?amazonUrl(row.searchUrl):'')||current.itemUrl;
- let body=String(row.draft||row.body||'').trim();
- if(body&&!body.includes(chosen))body+='\n\n🛍️ Amazon：'+chosen;
- if(body&&!/(?:^|\s)#pr\s*$/i.test(body))body+='\n\n#pr';
- const item={url:current.itemUrl,title:row.title,source:'Amazon検索',origin:'amazon-search',ownAmazon:chosen,
+ let body=String(row.draft||row.body||'');
+ if(!row.sharedEditor)body=body.trim();
+ if(!row.sharedEditor&&body&&!body.includes(chosen))body+='\n\n🛍️ Amazon：'+chosen;
+ if(!row.sharedEditor&&body&&!/(?:^|\s)#pr\s*$/i.test(body))body+='\n\n#pr';
+ const item={url:current.itemUrl,title:row.title,source:'Amazon検索',origin:'amazon-search',ownAmazon:chosen,ownRakuten:row.ownRakuten||'',note:row.note||'',
   postText:body,postEdited:!!body,previewImage:imageUrl(row.image||''),products:[],
   productInfo:{title:row.title,url:'',itemCode:'',images:[],specs:{},contents:[],checkedAt:new Date().toISOString()}};
- function saveShared(draft,mark){
+ function saveShared(draft,mark,quiet=false){return queueSave(async()=>{
+  if(!draft||draft.url!==item.url)throw new Error('商品の下書きを確認できませんでした。');
   const list=rows();if(!storageOK)throw new Error('保存データを確認してください。');
-  const index=list.findIndex(x=>x.id===row.id);const entry={...(index>=0?list[index]:row),affiliateUrl:draft.ownAmazon||'',body:draft.postText||'',draft:draft.postText||'',image:row.image||'',status:mark||row.status||'未投稿',sharedEditor:true};
+  const index=list.findIndex(x=>x.id===row.id);const entry={...(index>=0?list[index]:row),affiliateUrl:draft.ownAmazon||'',ownRakuten:draft.ownRakuten||'',note:draft.note||'',body:draft.postText||'',draft:draft.postText||'',image:row.image||'',status:mark||list[index]?.status||row.status||'未投稿',sharedEditor:true};
   if(index>=0)list[index]=entry;else list.push(entry);
-  if(!write(list))throw new Error('端末に保存できませんでした。');
-  renderDrafts();renderAuto();renderSearch();
- }
+  if(!await write(list))throw new Error('端末に保存できませんでした。本文をコピーしてください。');
+  if(!quiet){renderDrafts();renderAuto();renderSearch();}
+ });}
  $('amazonFlowEditor').hidden=true;
  lovelyWatch.openProduct(item,{host:$('amazonSearchArea'),
-  onBack:draft=>saveShared(draft),onMark:(reason,draft)=>saveShared(draft,reason==='used'?'投稿済み':'見送り'),
+  onBack:draft=>saveShared(draft),onDraft:draft=>saveShared(draft,null,true),onMark:(reason,draft)=>saveShared(draft,reason==='used'?'投稿済み':'見送り'),
   onClose:()=>{current=null;window.scrollTo({top:returnY,behavior:'instant'});}
  });
  const search=amazonUrl(row.searchUrl);
@@ -54,16 +82,30 @@ function open(row){
  if(row.sourceUrl){const button=document.createElement('button');button.type='button';button.className='small-btn';button.id='amazonSharedToNews';button.textContent='元のニュースにAmazonリンクを追加';$('lovelyPostText').after(button);button.onclick=()=>{const link=$('lovelyAmazon').value.trim();if(link)document.dispatchEvent(new CustomEvent('sph-amazon-news-link',{detail:{sourceUrl:row.sourceUrl,link}}));};}
 }
 
-function prepare(item,tag,manual=false){
- const itemUrl=amazonUrl(item.url);if(!itemUrl||!text(item.title))return;
+async function prepare(item,tag,manual=false,trigger=null){
+ if(preparing)return false;
+ preparing=true;if(trigger)trigger.disabled=true;
+ try{
+ await draftsReady;
+ const itemUrl=amazonUrl(item.url);if(!itemUrl||!text(item.title))throw new Error('商品名とAmazonリンクを確認してください。');
  const asin=productAsin(itemUrl);
- const list=rows();if(!storageOK)return;
+ const list=rows();const readable=storageOK;
  const existing=list.find(row=>row.itemUrl===itemUrl||row.affiliateUrl===itemUrl||(asin&&productAsin(row.itemUrl||row.affiliateUrl)===asin));
  const pastedSearch=manual&&['www.amazon.co.jp','amazon.co.jp'].includes(new URL(itemUrl).hostname)&&/^\/s\/?$/.test(new URL(itemUrl).pathname);
  if(existing&&!existing.image&&imageUrl(item.image||''))existing.image=imageUrl(item.image);
  const entry=existing||{id:crypto.randomUUID(),title:text(item.title),itemUrl,affiliateUrl:itemUrl,searchUrl:manual?(pastedSearch?itemUrl:''):searchLink(item.title,tag),partnerTag:tag,sourceUrl:newsSource,manual,image:imageUrl(item.image||''),createdAt:new Date().toISOString(),status:'未投稿',body:'',linkMode:pastedSearch?'search':'item'};
- if(!existing){list.push(entry);if(!write(list))return false;}
- open(entry);return true;
+ if($('flowProvider').value!=='amazon'||$('productFlowPanel').hidden)return false;
+ open(entry);
+ const saved=existing||readable&&await queueSave(async()=>{
+  const latest=rows();if(!storageOK)return false;
+  if(latest.some(row=>row.id===entry.id))return true;
+  return write([...latest,entry]);
+ });
+ if(!saved)$('lovelyPostStatus').textContent='下書きを保存できませんでした。編集と本文コピーはできます。';
+ return !!saved;
+ }catch(error){prepareNotice(trigger,'投稿準備を開けませんでした：'+error.message);return false;}
+ finally{preparing=false;if(trigger)trigger.disabled=false;}
+
 }
 function renderDrafts(){
  const host=$('amazonFlowDrafts');host.replaceChildren();const filter=$('amazonFlowFilter').value;
@@ -113,10 +155,10 @@ function scheduleFilterSearch(){
  };
  $('amazonFilterStatus').textContent='「'+keywords+'」の検索を準備中です…';filterTimer=setTimeout(run,600);
 }
-function backToList(){if(current&&!save())return;$('amazonFlowEditor').hidden=true;current=null;window.scrollTo({top:returnY,behavior:'instant'});}
+async function backToList(){if(current&&!await save())return;$('amazonFlowEditor').hidden=true;current=null;window.scrollTo({top:returnY,behavior:'instant'});}
 function renderProduct(item,tag,host){
  const card=document.createElement('article');card.className='flow-card flow-source-card';const photo=imageUrl(item.image);if(photo){const img=document.createElement('img');img.src=photo;img.alt='商品照合用写真';img.loading='lazy';img.referrerPolicy='no-referrer';card.classList.add('has-image');card.append(img);}
- const title=document.createElement('h3');title.textContent=item.title;const a=document.createElement('a');amazonAppAnchor(a,item.url);a.textContent='アプリで開く';a.className='small-btn link-btn';a.rel='sponsored nofollow noopener noreferrer';const actions=document.createElement('div');actions.className='flow-source-actions';const web=document.createElement('a');const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);web.href=ios?item.url.replace(/^https:/,'googlechromes:'):item.url;if(!ios)web.target='_blank';else web.title='iPhoneではChromeで開きます';web.rel='noopener noreferrer';web.className='small-btn link-btn';web.textContent='ブラウザで開く';actions.append(a,web,button('投稿準備',()=>prepare(item,tag)));const state=document.createElement('p');state.className='backup-note';const saved=savedProduct(item);state.textContent=saved?(!saved.status||saved.status==='未投稿'?'下書きあり':saved.status):'未保存';card.append(title,state,actions);host.append(card);
+ const title=document.createElement('h3');title.textContent=item.title;const a=document.createElement('a');amazonAppAnchor(a,item.url);a.textContent='アプリで開く';a.className='small-btn link-btn';a.rel='sponsored nofollow noopener noreferrer';const actions=document.createElement('div');actions.className='flow-source-actions';const web=document.createElement('a');const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);web.href=ios?item.url.replace(/^https:/,'googlechromes:'):item.url;if(!ios)web.target='_blank';else web.title='iPhoneではChromeで開きます';web.rel='noopener noreferrer';web.className='small-btn link-btn';web.textContent='ブラウザで開く';actions.append(a,web,button('投稿準備',event=>prepare(item,tag,false,event.currentTarget)));const state=document.createElement('p');state.className='backup-note';const saved=savedProduct(item);state.textContent=saved?(!saved.status||saved.status==='未投稿'?'下書きあり':saved.status):'未保存';card.append(title,state,actions);host.append(card);
 }
 async function amazonRequest(action,data){
  const key=cloudSettings().key;if(!key)throw new Error('管理画面で同期キーを設定してください。');
@@ -167,12 +209,12 @@ async function search(more=false){
  }catch(e){$('amazonFlowStatus').textContent=e.name==='TimeoutError'?'Amazonへの接続が時間切れになりました。もう一度検索してください。':e.message;}
  finally{busy=false;searchControls();}
 }
-function manualAdd(){
+async function manualAdd(){
  const title=$('amazonManualTitle').value.trim(),url=amazonUrl($('amazonManualUrl').value);
  if(!title||title.length>500){$('amazonManualStatus').textContent='商品名を500文字以内で入力してください。';return;}
  if(!url||new URL(url).pathname==='/'){$('amazonManualStatus').textContent='日本のAmazon商品・検索結果・紹介リンクを入力してください。';return;}
  if(!$('amazonManualConfirmed').checked){$('amazonManualStatus').textContent='商品名とリンク先の一致を確認してください。';return;}
- const ok=prepare({title,url},'',true);$('amazonManualStatus').textContent=ok?'候補を保存しました。紹介リンクは貼り付けたURLのままです。':$('amazonFlowEditorStatus').textContent||'保存済みデータを確認してください。';if(ok)$('amazonManualConfirmed').checked=false;
+ const ok=await prepare({title,url},'',true,$('amazonManualAdd'));$('amazonManualStatus').textContent=ok?'候補を保存しました。紹介リンクは貼り付けたURLのままです。':$('amazonFlowEditorStatus').textContent||'保存済みデータを確認してください。';if(ok)$('amazonManualConfirmed').checked=false;
 }
 function provider(){const amazon=$('flowProvider').value==='amazon';$('flowProviderRakuten').setAttribute('aria-pressed',String(!amazon));$('flowProviderAmazon').setAttribute('aria-pressed',String(amazon));$('amazonSearchArea').hidden=!amazon;$('flowRakutenArea').hidden=amazon;try{localStorage.setItem(PROVIDER,amazon?'amazon':'rakuten');}catch{}if(amazon){renderDrafts();if(!$('productFlowPanel').hidden&&(!autoLoaded||autoNextAt<=Date.now()))loadAuto();}else document.dispatchEvent(new Event('sph-product-flow-tab'));}
 for(const [id,value] of [['flowProviderRakuten','rakuten'],['flowProviderAmazon','amazon']])$(id).onclick=()=>{$('flowProvider').value=value;provider();};
@@ -191,11 +233,11 @@ $('amazonFlowSearch').onclick=()=>search();$('amazonFlowMore').onclick=()=>searc
 $('amazonManualAdd').onclick=manualAdd;for(const id of ['amazonManualTitle','amazonManualUrl'])$(id).oninput=()=>{$('amazonManualConfirmed').checked=false;};
 $('amazonFlowFilter').onchange=renderDrafts;
 $('amazonFlowBody').oninput=()=>{update();save();};$('amazonFlowMode').onchange=()=>{update();save();};$('amazonFlowSave').onclick=()=>save();
-$('amazonFlowCopy').onclick=()=>{if(save())copyTextFromClick(finalText(),$('amazonFlowCopy'),'本文をコピーしました');};
+$('amazonFlowCopy').onclick=async()=>{if(await save())copyTextFromClick(finalText(),$('amazonFlowCopy'),'本文をコピーしました');};
 $('amazonFlowCopyLink').onclick=()=>copyTextFromClick(link(),$('amazonFlowCopyLink'),'Amazonリンクをコピーしました');
-$('amazonFlowShare').onclick=async()=>{if(!save())return;try{if(navigator.share)await navigator.share({text:finalText()});else copyTextFromClick(finalText(),$('amazonFlowShare'),'本文をコピーしました');}catch(e){if(e.name!=='AbortError')$('amazonFlowEditorStatus').textContent='共有できませんでした。本文コピーをご利用ください。';}};
-$('amazonFlowDone').onclick=()=>{if(save('投稿済み'))backToList();};$('amazonFlowSkip').onclick=()=>{if(save('見送り'))backToList();};
-$('amazonFlowToNews').onclick=()=>{if(save()&&link())document.dispatchEvent(new CustomEvent('sph-amazon-news-link',{detail:{sourceUrl:newsSource,link:link()}}));};
+$('amazonFlowShare').onclick=async()=>{if(!await save())return;try{if(navigator.share)await navigator.share({text:finalText()});else copyTextFromClick(finalText(),$('amazonFlowShare'),'本文をコピーしました');}catch(e){if(e.name!=='AbortError')$('amazonFlowEditorStatus').textContent='共有できませんでした。本文コピーをご利用ください。';}};
+$('amazonFlowDone').onclick=async()=>{if(await save('投稿済み'))backToList();};$('amazonFlowSkip').onclick=async()=>{if(await save('見送り'))backToList();};
+$('amazonFlowToNews').onclick=async()=>{if(await save()&&link())document.dispatchEvent(new CustomEvent('sph-amazon-news-link',{detail:{sourceUrl:newsSource,link:link()}}));};
 document.addEventListener('sph-amazon-product-search',event=>{newsSource=text(event.detail?.sourceUrl);$('amazonFlowQuery').value=text(event.detail?.title).slice(0,120)||'サンリオ';$('flowProvider').value='amazon';provider();setHomeView('flow');searchControls();update();$('amazonFlowQuery').scrollIntoView({block:'center',behavior:'instant'});});
 try{if(localStorage.getItem(PROVIDER)==='amazon'){$('flowProvider').value='amazon';provider();}}catch{}
 $('amazonFlowQuery').addEventListener('input',searchControls);
