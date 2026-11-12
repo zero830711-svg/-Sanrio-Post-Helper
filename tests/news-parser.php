@@ -190,6 +190,11 @@ $frows=news_furyu_rows(file_get_contents(__DIR__.'/furyu-list.html'));check(coun
 $fd=news_parse(file_get_contents(__DIR__.'/furyu-detail.html'),$furyuUrl);check($fd['title']==='クロミ たれ耳ロリータBIGぬいぐるみ');check($fd['schedule']==='2026年10月2週');check($fd['date']==='');check(count($fd['images'])===1);check(strpos($fd['images'][0],'22561')!==false);check(in_array('種類：1種',$fd['paragraphs'],true));
 $failed=false;try{news_parse(file_get_contents(__DIR__.'/furyu-detail.html'),'https://furyuprize.com/item/99999');}catch(RuntimeException $e){$failed=true;}check($failed);
 check(strpos(ai_cute_suffix($fd),'https://')===false);check(strpos(ai_cute_suffix($fd),'詳細')===false);check(strpos(ai_cute_suffix($fd),'#pr')===false);
+$sega=['source'=>'セガプラザ','prize'=>true,'tipsOnly'=>true,'title'=>'マイメロディ衣装ぬいぐるみ Vol.1','schedule'=>'2026年11月27日より順次登場','url'=>'https://segaplaza.jp/prize/test/'];
+foreach(['🎀 星の飾りが可愛いぬいぐるみ','🎀 星の飾りが可愛いぬいぐるみ'."\n".'11月28日より登場！'] as $body){
+ $out=news_groq_validate(json_encode(['body'=>$body],JSON_UNESCAPED_UNICODE),$sega);
+ check(str_contains($out,'2026年11月27日より順次登場'));check(!str_contains($out,'11月28日'));check(!str_contains($out,'フリュー'));
+}
 $good=news_groq_validate(json_encode(['body'=>'💜 クロミのたれ耳ロリータBIGぬいぐるみ✨\n2026年10月2週登場予定。店舗により時期が前後します。'],JSON_UNESCAPED_UNICODE),$fd);check(strpos($good,'https://')===false);
 foreach(['💜 10月2日登場','💜 10月2週登場予定','💜 詳細はこちら','💜 価格は1円'] as $bad){$failed=false;try{news_groq_validate(json_encode(['body'=>$bad],JSON_UNESCAPED_UNICODE),$fd);}catch(RuntimeException $e){$failed=true;}check($failed);}
 echo "FURYU identity, weekly schedule, photo scope and URL-free draft checks passed\n";

@@ -8,8 +8,8 @@ function newsProductId(url){
  if(p.hostname==='www.takaratomy-arts.co.jp'&&p.pathname==='/items/item.html')return 'arts:'+p.searchParams.get('n');}catch{}return '';
 }
 function newsStorageKey(name){return 'sanrioNews'+name+':'+(cloudSettings().url||DEFAULT_CLOUD_API_URL);}
-function newsReadDrafts(){
- try{const data=JSON.parse(localStorage.getItem(newsStorageKey('Drafts'))||'null');if(data?.version!==1||!Array.isArray(data.entries))return new Map();
+function newsReadDrafts(data){
+ try{if(data===undefined)data=JSON.parse(localStorage.getItem(newsStorageKey('Drafts'))||'null');if(data?.version!==1||!Array.isArray(data.entries))return new Map();
  return new Map(data.entries.slice(0,40).filter(e=>e&&typeof e.item?.url==='string'&&/^https:\/\//.test(e.item.url)&&typeof e.text==='string'&&e.text.length<=20000&&Array.isArray(e.item.images)).map(e=>{
  const item={...e.item,images:e.item.images.filter(u=>typeof u==='string'&&/^https:\/\//.test(u)).slice(0,100)};
  const selected=Array.isArray(e.selected)?[...new Set(e.selected)].filter(i=>Number.isInteger(i)&&i>=0&&i<item.images.length).slice(0,e.collageMode?16:4):[];
@@ -17,10 +17,37 @@ function newsReadDrafts(){
  const collageExtraGroups=Array.isArray(e.collageExtraGroups)?e.collageExtraGroups.slice(0,3).map(g=>Array.isArray(g)?g.filter(i=>selected.includes(i)&&!collageIndices.includes(i)).slice(0,4):[]):[];
  return [item.url,{...e,item,selected,collageIndices,collageExtraGroups,files:item.images.map(()=>null),loading:[],errors:[],aiPending:false,restored:true}];}));}catch{return new Map();}
 }
+const newsDraftStorage=new Map();
+function newsRestoreDrafts(){
+ const key=newsStorageKey('Drafts');
+ if(!newsDraftStorage.has(key)){
+  const store={fallback:false,queue:Promise.resolve(),revision:0};
+  newsDraftStorage.set(key,store);
+  store.ready=newsMarkDatabase(undefined,key).then(data=>{
+   if(data?.version!==1||!Array.isArray(data.entries)||key!==newsStorageKey('Drafts'))return;
+   store.fallback=true;
+   if(store.revision===0)newsState.drafts=newsReadDrafts(data);
+  }).catch(()=>{});
+ }
+ return newsDraftStorage.get(key).ready;
+}
 function newsSaveDrafts(){
  const unique=[...new Set(newsState.drafts.values())].filter(e=>!newsState.marks[e.item.url]).sort((a,b)=>(b.savedAt||0)-(a.savedAt||0)).slice(0,40);
  const entries=unique.map(e=>({item:e.item,text:e.text,replyText:e.replyText,includeLink:e.includeLink,searchQuery:e.searchQuery,affiliateLinks:e.affiliateLinks,affiliatePlacement:e.affiliatePlacement,affiliateBlock:e.affiliateBlock,confirmedRegion:e.confirmedRegion,regionBlock:e.regionBlock,postedUrl:e.postedUrl,selected:e.selected,collageMode:!!e.collageMode,collageIndices:e.collageIndices,collageExtraGroups:e.collageExtraGroups,aiDrafts:e.aiDrafts,aiChoice:e.aiChoice,aiAttempted:e.aiAttempted,aiStatus:e.aiStatus,photoReadings:e.photoReadings,savedAt:e.savedAt||Date.now()}));
- try{localStorage.setItem(newsStorageKey('Drafts'),JSON.stringify({version:1,entries}));if($('newsDraftStatus'))$('newsDraftStatus').textContent='準備を自動保存しました';return true;}catch{if($('newsDraftStatus'))$('newsDraftStatus').textContent='自動保存できませんでした。本文をコピーして残してください。';return false;}
+ const key=newsStorageKey('Drafts'),data={version:1,entries};
+ newsRestoreDrafts();
+ const store=newsDraftStorage.get(key),revision=++store.revision;
+ const status=message=>{if(store.revision===revision&&key===newsStorageKey('Drafts')&&$('newsDraftStatus'))$('newsDraftStatus').textContent=message;};
+ if(!store.fallback){
+  try{localStorage.setItem(key,JSON.stringify(data));status('準備を自動保存しました');return true;}
+  catch{store.fallback=true;}
+ }
+ status('下書きを端末に保存中…');
+ store.queue=store.queue.then(()=>newsMarkDatabase(data,key)).then(
+  ()=>status('準備を自動保存しました'),
+  ()=>status('自動保存できませんでした。本文をコピーして残してください。')
+ );
+ return true;
 }
 function newsSplitReply(text,item){
  const lines=String(text||'').split('\n');
@@ -373,7 +400,7 @@ function newsShowMarkNotice(message,error=false){
  if(!error)newsMarkNoticeTimer=setTimeout(()=>{notice.hidden=true;newsMarkNoticeTimer=null;},4000);
 }
 let newsMarkFallback=false,newsMarkReady,newsMarkPending=false;
-async function newsMarkDatabase(write){
+async function newsMarkDatabase(write,key='marks'){
  const db=await new Promise((resolve,reject)=>{
   const request=indexedDB.open('sanrioNewsStatus',1);
   request.onupgradeneeded=()=>request.result.createObjectStore('state');
@@ -383,7 +410,7 @@ async function newsMarkDatabase(write){
  });
  try{return await new Promise((resolve,reject)=>{
   const tx=db.transaction('state',write===undefined?'readonly':'readwrite'),store=tx.objectStore('state');
-  const request=write===undefined?store.get('marks'):store.put(write,'marks');
+  const request=write===undefined?store.get(key):store.put(write,key);
   tx.oncomplete=()=>resolve(request.result);tx.onerror=tx.onabort=()=>reject(tx.error);
  });}finally{db.close();}
 }
@@ -415,7 +442,7 @@ async function newsMark(url,kind){
  return true;
  }finally{newsMarkPending=false;}
 }
-async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const [d]=await Promise.all([newsRequest('list'),newsRestoreMarks()]);newsTrackItems(d.items);newsState.items=d.items;domesticCandidates.ingest(d.items);newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsState.instagramCollection=d.instagramCollection||{};newsRender();return true;}catch(e){$('newsStatus').textContent=e.message;return false;}finally{newsState.busy=false;}}
+async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const [d]=await Promise.all([newsRequest('list'),newsRestoreMarks(),newsRestoreDrafts()]);newsTrackItems(d.items);newsState.items=d.items;domesticCandidates.ingest(d.items);newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsState.instagramCollection=d.instagramCollection||{};newsRender();return true;}catch(e){$('newsStatus').textContent=e.message;return false;}finally{newsState.busy=false;}}
 async function newsPrepare(url){
  if(newsExternalPending&&newsExternalPending.owner!==url)newsExternalForget();
  newsInlineReset();
@@ -432,6 +459,7 @@ async function newsPrepare(url){
  newsClearCollagePreview();$('newsCollageRetry').hidden=true;$('newsCollageControls').hidden=true;
  $('newsDraftStatus').textContent='';$('newsEditorStatus').textContent='記事を確認中…';$('newsImages').replaceChildren();$('newsText').value='';
  try{
+  await newsRestoreDrafts();if(seq!==newsState.seq)return;
   let entry=newsState.drafts.get(url);
   if(!entry){
    const d=await newsRequest('detail',url);if(seq!==newsState.seq)return;
