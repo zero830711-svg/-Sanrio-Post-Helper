@@ -351,7 +351,7 @@ function newsRender(){
  if(item.image){img.src=item.image;img.onerror=()=>{img.hidden=true;};}else img.hidden=true;
  const btn=document.createElement('button');btn.type='button';btn.className='small-btn';btn.textContent='投稿準備';btn.addEventListener('click',()=>newsPrepare(item.url));
  const actions=document.createElement('div');actions.className='news-row-actions';actions.append(btn);
- if(!mark){const skip=document.createElement('button');skip.type='button';skip.className='small-btn news-row-skip';skip.textContent='見送り';skip.addEventListener('click',()=>{const y=window.scrollY;try{if(newsMark(item.url,'skip'))window.scrollTo({top:y,behavior:'auto'});}catch{newsShowMarkNotice('一覧を更新できませんでした。画面を更新して確認してください。',true);}});actions.append(skip);}
+ if(!mark){const skip=document.createElement('button');skip.type='button';skip.className='small-btn news-row-skip';skip.textContent='見送り';skip.addEventListener('click',async()=>{const y=window.scrollY;try{if(await newsMark(item.url,'skip'))window.scrollTo({top:y,behavior:'auto'});}catch{newsShowMarkNotice('一覧を更新できませんでした。画面を更新して確認してください。',true);}});actions.append(skip);}
  row.append(img,info,actions);
  if(mark){const restore=document.createElement('button');restore.type='button';restore.className='small-btn news-restore';restore.textContent='戻す';restore.addEventListener('click',()=>newsMark(item.url,null));actions.append(restore);}
  $('newsList').append(row);
@@ -372,19 +372,50 @@ function newsShowMarkNotice(message,error=false){
  notice.textContent=message;notice.classList.toggle('is-error',error);notice.hidden=false;
  if(!error)newsMarkNoticeTimer=setTimeout(()=>{notice.hidden=true;newsMarkNoticeTimer=null;},4000);
 }
-function newsMark(url,kind){
+let newsMarkFallback=false,newsMarkReady,newsMarkPending=false;
+async function newsMarkDatabase(write){
+ const db=await new Promise((resolve,reject)=>{
+  const request=indexedDB.open('sanrioNewsStatus',1);
+  request.onupgradeneeded=()=>request.result.createObjectStore('state');
+  request.onsuccess=()=>resolve(request.result);
+  request.onerror=()=>reject(request.error);
+  request.onblocked=()=>reject(new Error('News status database blocked'));
+ });
+ try{return await new Promise((resolve,reject)=>{
+  const tx=db.transaction('state',write===undefined?'readonly':'readwrite'),store=tx.objectStore('state');
+  const request=write===undefined?store.get('marks'):store.put(write,'marks');
+  tx.oncomplete=()=>resolve(request.result);tx.onerror=tx.onabort=()=>reject(tx.error);
+ });}finally{db.close();}
+}
+function newsRestoreMarks(){
+ return newsMarkReady??=newsMarkDatabase().then(marks=>{
+  if(marks&&typeof marks==='object'&&!Array.isArray(marks)){newsState.marks=marks;newsMarkFallback=true;}
+ }).catch(()=>{});
+}
+async function newsMark(url,kind){
+ if(newsMarkPending)return false;
+ newsMarkPending=true;
+ try{
+ await newsRestoreMarks();
  const entry=newsState.drafts.get(url),xUrl=entry?.postedUrl||'';
  if(kind==='done'&&xUrl&&!newsValidPostedUrl(xUrl)){$('newsEditorStatus').textContent='Xの投稿URLを確認してください。';return;}
  const group=newsGroups().find(g=>g.members.some(m=>m.url===url)),urls=group?group.members.map(m=>m.url):[url];
- const prev={...newsState.marks};for(const u of urls){if(kind)newsState.marks[u]={kind,at:new Date().toISOString(),...(kind==='done'&&xUrl?{xUrl}:{} )};else delete newsState.marks[u];}
- try{localStorage.setItem('sanrioNewsMarks',JSON.stringify(newsState.marks));}catch(e){newsState.marks=prev;$('newsEditorStatus').textContent='保存できませんでした。ブラウザの保存設定や空き容量を確認してください。';newsShowMarkNotice((kind==='skip'?'見送りを保存できませんでした。':'状態を保存できませんでした。')+'ブラウザの保存設定や空き容量を確認してください。',true);return false;}
+ const next={...newsState.marks};for(const u of urls){if(kind)next[u]={kind,at:new Date().toISOString(),...(kind==='done'&&xUrl?{xUrl}:{} )};else delete next[u];}
+ try{
+  if(!newsMarkFallback){
+   try{localStorage.setItem('sanrioNewsMarks',JSON.stringify(next));}
+   catch{await newsMarkDatabase(next);newsMarkFallback=true;}
+  }else await newsMarkDatabase(next);
+ }catch{if($('newsEditorStatus'))$('newsEditorStatus').textContent='状態を保存できませんでした。';newsShowMarkNotice((kind==='skip'?'見送りを保存できませんでした。':'状態を保存できませんでした。')+'ブラウザの保存設定や空き容量を確認してください。',true);return false;}
+ newsState.marks=next;
  const editing=newsState.item?.url===url;if(editing)newsReturn();
  if(kind&&urls.some(u=>newsState.drafts.has(u))){for(const u of urls)newsState.drafts.delete(u);newsSaveDrafts();}
  newsRender();if(editing)window.scrollTo({top:newsState.browseY,behavior:'instant'});
- if(kind==='skip')newsShowMarkNotice('見送りました');else if(kind===null)newsShowMarkNotice('一覧に戻しました');
+ if(kind==='skip')newsShowMarkNotice('見送りました');else if(kind==='done')newsShowMarkNotice('投稿済みにしました');else if(kind===null)newsShowMarkNotice('一覧に戻しました');
  return true;
+ }finally{newsMarkPending=false;}
 }
-async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsTrackItems(d.items);newsState.items=d.items;domesticCandidates.ingest(d.items);newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsState.instagramCollection=d.instagramCollection||{};newsRender();return true;}catch(e){$('newsStatus').textContent=e.message;return false;}finally{newsState.busy=false;}}
+async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const [d]=await Promise.all([newsRequest('list'),newsRestoreMarks()]);newsTrackItems(d.items);newsState.items=d.items;domesticCandidates.ingest(d.items);newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsState.instagramCollection=d.instagramCollection||{};newsRender();return true;}catch(e){$('newsStatus').textContent=e.message;return false;}finally{newsState.busy=false;}}
 async function newsPrepare(url){
  if(newsExternalPending&&newsExternalPending.owner!==url)newsExternalForget();
  newsInlineReset();
