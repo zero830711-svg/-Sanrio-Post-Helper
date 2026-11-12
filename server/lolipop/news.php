@@ -498,13 +498,29 @@ function news_product_supported_sentences(string $body,array $item):array{
  return [$result,$omitted];
 }
 
+function news_groq_clean_article_body(string $body):string{
+ // Only the application adds source URLs and hashtags to the finished draft.
+ $body=preg_replace('~\[([^\]\r\n]+)\]\(https?://[^\s)]+\)~u','$1',$body);
+ $body=preg_replace('~https?://[^\s<>」』）】、。]+~u','',$body);
+ $body=preg_replace('/(?<![\p{L}\p{N}])(?:#|＃)[\p{L}\p{N}_]+/u','',$body);
+ $body=preg_replace('/^[ \t]*```[^\r\n]*$/mu','',$body);
+ $body=preg_replace('/(?:※[0-9０-９]+(?![0-9０-９年月日円歳名個点種回枚])|[（(][*＊][0-9０-９]+[)）])/u','',$body);
+ $body=preg_replace('/^[ \t]*(?:🔗[ \t]*)?(?:詳細|詳しく|公式サイト|出典|引用元)(?:はこちら)?[：:]?[ \t]*$/mu','',$body);
+ return trim(preg_replace('/\n(?:[ \t]*\n){2,}/u',"\n\n",$body));
+}
+
 function news_groq_validate(string $json,array $item):string{
  // Accept only a JSON body string; an optional outer Markdown fence is cosmetic.
  $json=trim($json);
  if(preg_match('~^```(?:json)?\s*([\s\S]*?)\s*```$~iD',$json,$fence))$json=trim($fence[1]);
  $d=json_decode($json,true);
  if(!is_array($d)||!isset($d['body'])||!is_string($d['body'])||!trim($d['body']))throw new RuntimeException('AIの本文を読み取れませんでした。もう一度お試しください。本文は変更していません。');
- $body=news_photo_supported_sentences(trim($d['body']),$item);
+ $body=trim($d['body']);
+ if(!isset($item['mode'])&&empty($item['instagram'])){
+  $body=news_groq_clean_article_body($body);
+  if(!preg_match('/[\p{L}\p{N}]/u',$body))throw new RuntimeException('AI文に使える本文がありませんでした。本文は変更していません。');
+ }
+ $body=news_photo_supported_sentences($body,$item);
  [$body]=news_product_supported_sentences($body,$item);
  if(!empty($item['instagram'])&&in_array($item['instagramAccount']??'',['sanrio_kr','sanriogiftgatehk','sanrio_tw','sanrio.hk','hk_zip','khtoyy','childtoys.hk','7eleventw','7elevenhk','jy_enc','spaofriends','kiiwio.tw','7elevenkorea','roychefriends','hellokitty.india','miniso.official','toptoy.international','minilike_official','razer'],true)){
   $body=strtr($body,['一田會員購物日'=>'一田の会員向けお買い物セール','一田會員'=>'一田の会員','會員購物日'=>'会員向けお買い物セール','限定優惠'=>'期間限定の特典','購物日'=>'お買い物セール','購物'=>'お買い物','會員'=>'会員','優惠'=>'特典']);
@@ -589,9 +605,10 @@ function news_groq_draft(array $item):array{
   catch(RuntimeException $validation){
    $overseasInstagram=!empty($item['instagram'])&&in_array($item['instagramAccount']??'',['sanrio_kr','sanriogiftgatehk','sanrio_tw','sanrio.hk','hk_zip','khtoyy','childtoys.hk','7eleventw','7elevenhk','jy_enc','spaofriends','kiiwio.tw','7elevenkorea','roychefriends','hellokitty.india','miniso.official','toptoy.international','minilike_official','razer'],true);
    $unsupportedNumber=strpos($validation->getMessage(),'記事にない数値「')===0;
-   if($short||(!$overseasInstagram&&!$unsupportedNumber))throw $validation;
+   $formatError=strpos($validation->getMessage(),'AI文に不要なリンク・タグ・参照注記')===0||strpos($validation->getMessage(),'AI文に使える本文がありませんでした')===0;
+   if($short||(!$overseasInstagram&&!$unsupportedNumber&&!$formatError))throw $validation;
    $payload['messages'][]=['role'=>'assistant','content'=>(string)($d['choices'][0]['message']['content']??'')];
-   $payload['messages'][]=['role'=>'user','content'=>'前の本文は検査で不合格：'.$validation->getMessage().' 元資料にない数字を含む文は省き、確認できた事実だけで短く自然な投稿文を作り直してください。数字を別の数字に置き換えたり計算したりしないでください。'.($overseasInstagram?'中国語・広東語を日本語に訳し、韓国語のブランド名は資料にある英字表記を使ってください。':'').' JSONのbody文字列だけ返す。'];
+   $payload['messages'][]=['role'=>'user','content'=>'前の本文は検査で不合格：'.$validation->getMessage().' 元資料にない数字を含む文は省き、確認できた事実だけで短く自然な投稿文を作り直してください。数字を別の数字に置き換えたり計算したりしないでください。URL・ハッシュタグ・参照注記・コードブロックは出力しないでください。'.($overseasInstagram?'中国語・広東語を日本語に訳し、韓国語のブランド名は資料にある英字表記を使ってください。':'').' JSONのbody文字列だけ返す。'];
    $c=curl_init('https://api.groq.com/openai/v1/chat/completions');
    curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload),CURLOPT_HTTPHEADER=>['Content-Type: application/json','Authorization: Bearer '.$settings['apiKey']],CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>$overseasInstagram?45:18]);
    $repair=curl_exec($c);$repairStatus=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
