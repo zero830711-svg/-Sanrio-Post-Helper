@@ -59,9 +59,24 @@ test('一覧の見送りは同じ記事をまとめて保存し、画面に結�
 });
 
 test('見送りを保存できないときは一覧に残して画面内に理由を示す',async({page})=>{
- await page.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='sanrioNewsMarks')throw new DOMException('quota','QuotaExceededError');return set.call(this,key,value);};});
+ await page.addInitScript(()=>{const open=IDBFactory.prototype.open;IDBFactory.prototype.open=function(name,...args){if(name==='sanrioNewsStatus')throw new Error('storage disabled');return open.call(this,name,...args);};const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='sanrioNewsMarks')throw new DOMException('quota','QuotaExceededError');return set.call(this,key,value);};});
  await setup(page,r=>r.fulfill({json:{ok:true,items:[item]}}));
  await page.locator('#newsList').getByRole('button',{name:'見送り',exact:true}).click();
  await expect(page.locator('#newsList article')).toHaveCount(1);await expect(page.locator('#newsActionNotice')).toContainText('見送りを保存できませんでした');await expect(page.locator('#newsActionNotice')).toBeVisible();
  expect(await page.evaluate(()=>localStorage.getItem('sanrioNewsMarks'))).toBeNull();
+});
+
+test('容量超過時も詳細から投稿済みを保存し、再読込後に戻せる',async({page})=>{
+ await page.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='sanrioNewsMarks')throw new DOMException('quota','QuotaExceededError');return set.call(this,key,value);};});
+ await setup(page,r=>r.fulfill({json:{ok:true,items:[item],item}}));
+ await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
+ await expect(page.locator('#newsDone')).toBeEnabled();
+ await page.locator('#newsDone').click();
+ await expect(page.locator('#newsActionNotice')).toHaveText('投稿済みにしました');
+ await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
+ await page.locator('#newsFilterButtons').getByRole('button',{name:'投稿済み・見送り',exact:true}).click();
+ await page.locator('#newsList').getByRole('button',{name:'戻す',exact:true}).click();
+ await expect(page.locator('#newsActionNotice')).toHaveText('一覧に戻しました');
+ await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
+ await expect(page.locator('#newsList article')).toHaveCount(1);
 });
