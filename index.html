@@ -8,7 +8,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Sanrio Post Helper</title>
-<link rel="stylesheet" href="./styles.css?v=20261111-news-source-compact">
+<link rel="stylesheet" href="./styles.css?v=20261112-news-skip-feedback">
 <style>.home-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}</style>
 <style>
 #newsPhotoDialog{width:min(96vw,1000px);max-height:92dvh;border:1px solid #eadde5;border-radius:18px;padding:16px;background:#fff7fb;color:#29252d}
@@ -204,7 +204,7 @@
 </div>
 
 <div class="news-filter">表示<div id="newsFilterButtons" class="news-filter-buttons" role="group" aria-label="表示"></div><select id="newsFilter" hidden><option value="new">未投稿</option><option value="draft">準備中</option><option value="hidden">投稿済み・見送り</option><option value="all">すべて</option></select></div>
-<p id="newsStatus" class="backup-note" aria-live="polite"></p><div id="newsList"></div><button id="newsMore" class="small-btn" type="button" hidden>もっと見る</button>
+<p id="newsStatus" class="backup-note" aria-live="polite"></p><div id="newsActionNotice" class="news-action-notice" role="status" aria-live="polite" hidden></div><div id="newsList"></div><button id="newsMore" class="small-btn" type="button" hidden>もっと見る</button>
 </div><section id="newsEditor" hidden><aside id="newsReturnBar" hidden aria-label="外部ページから戻ったリンクの追加">
 <p id="newsReturnStatus" role="status"></p><div class="cloud-sync-actions"><button id="newsReturnPaste" type="button" class="small-btn">リンクを貼り付け</button><button id="newsReturnClose" type="button" class="small-btn">閉じる</button></div>
 <div id="newsReturnManual" hidden><label id="newsReturnLabel">確認したリンク<input id="newsReturnInput" type="url" inputmode="url" placeholder="https://"></label><button id="newsReturnApply" type="button" class="small-btn">このリンクを反映</button></div></aside><button id="newsBack" class="small-btn" type="button">一覧へ戻る</button><h3 id="newsTitle"></h3><div id="newsEvidenceEditor"></div><a id="newsSource" target="_blank" rel="noopener noreferrer"></a><p id="newsDate" class="backup-note"></p><div id="newsRelatedSources" class="news-related-sources" hidden aria-label="同じニュースの掲載元"></div>
@@ -597,7 +597,7 @@
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
 <script src="./otaota.js?v=20261111-less-redraw"></script>
 <script src="./news-collage.js?v=20261010-3452"></script>
-<script src="./news.js?v=20261107-refresh-saved-photos"></script>
+<script src="./news.js?v=20261112-news-skip-feedback"></script>
 <script src="./post-ai.js?v=20261005-3451"></script>
 <script>
 window.addEventListener("load",()=>{

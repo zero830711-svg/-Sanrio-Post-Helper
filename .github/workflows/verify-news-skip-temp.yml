@@ -1,0 +1,38 @@
+name: Verify news skip on mobile
+on:
+  push:
+    branches: ["codex/news-skip-20261112-01"]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Check skip persistence and performance
+        run: |
+          node --check news.js
+          node tests/news-progress.test.cjs
+          node tests/news-skip.test.cjs
+      - name: Install application test dependencies
+        run: npm ci
+      - name: Test mobile news controls in browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          chrome_bin=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          export SPH_TEST_CHROME="$chrome_bin"
+          cat > playwright.skip-temp.config.js <<'JSCONFIG'
+          const {defineConfig,devices}=require('@playwright/test');
+          module.exports=defineConfig({
+            testDir:'./tests', reporter:'list', retries:0,
+            webServer:{command:'python3 -m http.server 4173 --bind 127.0.0.1',url:'http://127.0.0.1:4173/',timeout:30000},
+            use:{...devices['iPhone 13'],browserName:'chromium',launchOptions:{executablePath:process.env.SPH_TEST_CHROME},baseURL:'http://127.0.0.1:4173',trace:'retain-on-failure'}
+          });
+          JSCONFIG
+          npx playwright test tests/news-speed.spec.js --config=playwright.skip-temp.config.js --workers=1

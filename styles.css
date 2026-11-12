@@ -488,6 +488,9 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #newsSourceButtons .news-filter-button{min-height:32px;padding:4px 7px;font-size:11px}
 .news-filter-button[aria-pressed="true"]{background:var(--pink2);border-color:var(--pink);color:#74384f}
 .news-filter-button:focus-visible{outline:2px solid #8c4964;outline-offset:2px}
+.news-action-notice{position:fixed;z-index:1000;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px);padding:10px 16px;border:1px solid var(--pink);border-radius:14px;background:#fff7fb;color:var(--text);box-shadow:0 4px 18px #33203324;font-size:13px;font-weight:700;line-height:1.5;text-align:center}
+.news-action-notice.is-error{border-color:#b34b61;color:#8b2742}
+.news-action-notice[hidden]{display:none}
 
 /* Compact source and product-period controls on the new-products panel. */
 #lovelyPanel .evidence-buttons button{min-height:32px;padding:4px 8px;font-size:12px;line-height:1.2;border-radius:9px}
