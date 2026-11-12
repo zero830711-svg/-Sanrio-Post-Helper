@@ -35,4 +35,4 @@ jobs:
             use:{...devices['iPhone 13'],browserName:'chromium',launchOptions:{executablePath:process.env.SPH_TEST_CHROME},baseURL:'http://127.0.0.1:4173',trace:'retain-on-failure'}
           });
           JSCONFIG
-          npx playwright test tests/news-speed.spec.js --config=playwright.skip-temp.config.js --workers=1
+          npx playwright test tests/news-speed.spec.js tests/amazon-shared-preparation.spec.js tests/amazon-product-search.spec.js tests/product-flow.spec.js --config=playwright.skip-temp.config.js --workers=1

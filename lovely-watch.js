@@ -49,7 +49,7 @@ const lovelyWatch = (()=>{
     const summary=el('lovelyLinkSummary');if(summary)summary.textContent='紹介リンク：'+[el('lovelyAmazon').value.trim()?'Amazon設定済み':'',el('lovelyRakuten').value.trim()?'楽天設定済み':''].filter(Boolean).join('・')+(!(el('lovelyAmazon').value.trim()||el('lovelyRakuten').value.trim())?'未設定':'（変更）');
     const retry=el('rakutenRetry');if(retry)retry.hidden=!!short||!!selected?.overseas;
   }
-  function persist(){
+  function persist(autosave=false){
     updatePostDraft();
     const value=state();value.draft=selected?{...selected,ownAmazon:el('lovelyAmazon').value.trim(),ownRakuten:el('lovelyRakuten').value.trim(),note:el('lovelyNote').value.trim(),postText:el('lovelyPostText').value,postEdited,postLinks,selectedPhotos:[...imageChoices],photoSignature:photoSignature(selected)}:null;
     if(selected){value.drafts=value.drafts||{};delete value.drafts[selected.url];value.drafts[selected.url]=value.draft;value.drafts=Object.fromEntries(Object.entries(value.drafts).slice(-20));rememberPreparation();}
@@ -60,7 +60,13 @@ const lovelyWatch = (()=>{
       value.shortLinks=Object.fromEntries(Object.entries(value.shortLinks).slice(-500));
     }else if(key&&value.shortLinks){delete value.shortLinks[key];}
     linkControls();
+    if(externalEditor?.onDraft){
+      const session=externalEditor;
+      if(autosave)session.onDraft(value.draft).catch(()=>{if(externalEditor===session)el('lovelyPostStatus').textContent='下書きを保存できませんでした。本文をコピーしてください。';});
+      return value.draft;
+    }
     try{localStorage.setItem(KEY,JSON.stringify(value))}catch(e){el('lovelyStatus').textContent='この端末への下書き保存に失敗しました。空き容量を確認してください。'}
+    return value.draft;
   }
   function endpoint(overseas=false){const u=new URL(cloudSettings().url);u.pathname=u.pathname.replace(/[^/]+$/,overseas?'overseas.php':'lovely-watch.php');u.search='';u.hash='';return u;}
   async function request(action,url='',payload=null,page=null,source='lovely',force=false){
@@ -256,10 +262,10 @@ const lovelyWatch = (()=>{
     el('lovelyEditor').scrollIntoView({block:'start'});el('lovelyBack').focus({preventScroll:true});
   }
   async function backToList(){
-    if(selected)persist();
+    const draft=selected?persist():null;
     if(externalEditor){
       const session=externalEditor;if(session.pending)return;session.pending=true;
-      try{await session.onBack?.(state().draft);if(externalEditor===session)releaseExternalEditor();}catch(error){session.pending=false;el('lovelyPostStatus').textContent='保存できませんでした：'+error.message;}
+      try{await session.onBack?.(draft);if(externalEditor===session)releaseExternalEditor();}catch(error){session.pending=false;el('lovelyPostStatus').textContent='保存できませんでした：'+error.message;}
       return;
     }
     el('lovelyEditor').hidden=true;el('lovelyBrowse').hidden=false;el('lovelyRestoreBox').hidden=false;
@@ -286,11 +292,11 @@ const lovelyWatch = (()=>{
     chooseSequence++;detailLoading=false;
     el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;el('lovelyRetailerRetry').disabled=false;
     const saved=state(),draft=saved.drafts?.[item.url];
-    if(!draft){
+    if(!draft&&item.origin!=='amazon-search'){
       saved.drafts=saved.drafts||{};saved.drafts[item.url]={...item,photoSignature:photoSignature(item)};
       try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
     }
-    const edits=draft?Object.fromEntries(['ownAmazon','ownRakuten','note','postText','postEdited','postLinks'].filter(key=>Object.hasOwn(draft,key)).map(key=>[key,draft[key]])):{};
+    const edits=draft&&!(item.origin==='amazon-search'&&item.postEdited)?Object.fromEntries(['ownAmazon','ownRakuten','note','postText','postEdited','postLinks'].filter(key=>Object.hasOwn(draft,key)).map(key=>[key,draft[key]])):{};
     edit({...item,...edits,origin:item.origin||'product-search'});
     if(item.origin==='amazon-search'){
       const input=el('lovelyPhotos');input.hidden=false;input.classList.remove('hidden');input.removeAttribute('aria-hidden');
@@ -422,7 +428,7 @@ const lovelyWatch = (()=>{
       if(typeof data.text!=='string'||!data.text.trim())throw new Error('AI文を取得できませんでした。');
       if(context.links.some(link=>!data.text.includes(link.url))||!/#pr\s*$/.test(data.text))throw new Error('紹介リンク・PR表記を確認できませんでした。');
       if(el('lovelyPostText').value!==before||linkSignature()!==signature){status.textContent='編集中の本文・リンクを優先しました。AI文は反映していません。';return;}
-      el('lovelyPostText').value=data.text;postEdited=true;postLinks=signature;postStale=false;el('lovelyConfirmed').checked=false;persist();
+      el('lovelyPostText').value=data.text;postEdited=true;postLinks=signature;postStale=false;el('lovelyConfirmed').checked=false;persist(true);
       status.textContent='AI生成済み（商品資料との照合済み）。本文・紹介リンクを確認してください。';
     }catch(e){if(!item||(selected===item&&chooseSequence===sequence))status.textContent=e.message;}
     finally{postAiPending=false;button.disabled=false;}
@@ -581,9 +587,9 @@ const lovelyWatch = (()=>{
   }
   async function hide(reason){if(!selected)return;
     if(externalEditor){
-      persist();
+      const draft=persist();
       const session=externalEditor;if(session.pending)return;session.pending=true;
-      try{await session.onMark?.(reason,state().draft);if(externalEditor===session)releaseExternalEditor();}catch(error){session.pending=false;el('lovelyPostStatus').textContent='記録できませんでした：'+error.message;}
+      try{await session.onMark?.(reason,draft);if(externalEditor===session)releaseExternalEditor();}catch(error){session.pending=false;el('lovelyPostStatus').textContent='記録できませんでした：'+error.message;}
       return;
     }chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;const s=state();s.hidden=s.hidden||{};
     const group=groupedItems(rows,historyIds,s.hidden,s.identities||{}).find(g=>g.articles.some(item=>item.url===selected.url));
@@ -695,7 +701,7 @@ const lovelyWatch = (()=>{
     try{savePastedRakuten(text);}
     catch(error){el('rakutenAutoStatus').textContent=error.message;event.currentTarget.setAttribute('aria-invalid','true');}
   });
-  for(const id of ['lovelyAmazon','lovelyRakuten','lovelyNote'])el(id)?.addEventListener('input',()=>{el('lovelyConfirmed').checked=false;persist()});
+  for(const id of ['lovelyAmazon','lovelyRakuten','lovelyNote'])el(id)?.addEventListener('input',()=>{el('lovelyConfirmed').checked=false;persist(true)});
   el('lovelyPhotos')?.addEventListener('change',async e=>{
     const incoming=Array.from(e.target.files||[]);editorGeneration++;imageBusy=0;uploadBusy=false;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyConfirmed').checked=false;
     if(selected)renderProduct(selected);
@@ -717,8 +723,8 @@ const lovelyWatch = (()=>{
     finally{if(generation===editorGeneration){imageBusy=0;uploadBusy=false;}}
   });
   el('lovelyShare')?.addEventListener('click',share);
-  el('lovelyPostText')?.addEventListener('input',()=>{postEdited=true;el('lovelyConfirmed').checked=false;persist();});
-  el('lovelyPostReset')?.addEventListener('click',()=>{updatePostDraft(true);el('lovelyConfirmed').checked=false;persist();});
+  el('lovelyPostText')?.addEventListener('input',()=>{postEdited=true;el('lovelyConfirmed').checked=false;persist(true);});
+  el('lovelyPostReset')?.addEventListener('click',()=>{updatePostDraft(true);el('lovelyConfirmed').checked=false;persist(true);});
   el('lovelyPostCopy')?.addEventListener('click',e=>{try{copyTextFromClick(readyPost(),e.currentTarget,'投稿文をコピーしました');}catch(error){el('lovelyPostStatus').textContent=error.message;}});
   el('lovelyPostShare')?.addEventListener('click',sharePost);
   el('lovelyPostAi')?.addEventListener('click',generateProductAi);
