@@ -587,11 +587,13 @@ function news_groq_draft(array $item):array{
   $d=json_decode($body,true);if(($d['choices'][0]['finish_reason']??'')!=='stop')throw new RuntimeException('生成が完了しませんでした。本文は変更していません。');
   try{$raw=(string)($d['choices'][0]['message']['content']??'');$draft=null;if($short){$draft=news_product_short_result($raw,$item,$choices);news_product_verify($draft,$choices,$model,$settings['apiKey']);$text=$draft['body'].ai_cute_suffix($item);}else $text=news_groq_validate($raw,$item);}
   catch(RuntimeException $validation){
-   if(empty($item['instagram'])||!in_array($item['instagramAccount']??'',['sanrio_kr','sanriogiftgatehk','sanrio_tw','sanrio.hk','hk_zip','khtoyy','childtoys.hk','7eleventw','7elevenhk','jy_enc','spaofriends','kiiwio.tw','7elevenkorea','roychefriends','hellokitty.india','miniso.official','toptoy.international','minilike_official','razer'],true))throw $validation;
+   $overseasInstagram=!empty($item['instagram'])&&in_array($item['instagramAccount']??'',['sanrio_kr','sanriogiftgatehk','sanrio_tw','sanrio.hk','hk_zip','khtoyy','childtoys.hk','7eleventw','7elevenhk','jy_enc','spaofriends','kiiwio.tw','7elevenkorea','roychefriends','hellokitty.india','miniso.official','toptoy.international','minilike_official','razer'],true);
+   $unsupportedNumber=strpos($validation->getMessage(),'記事にない数値「')===0;
+   if($short||(!$overseasInstagram&&!$unsupportedNumber))throw $validation;
    $payload['messages'][]=['role'=>'assistant','content'=>(string)($d['choices'][0]['message']['content']??'')];
-   $payload['messages'][]=['role'=>'user','content'=>'前の本文は検査で不合格：'.$validation->getMessage().' 元資料の事実だけを使って本文を修正してください。中国語・広東語の原語を括弧内やタイトルにも残さず、日本語に訳してください。會員→会員、購物→お買い物、優惠→特典、心水→お気に入り。一田は店舗名として残せます。韓国語のブランド名は資料にある英字表記を使う。記事にない数字や換算した割引率は削除する。JSONのbody文字列だけ返す。'];
+   $payload['messages'][]=['role'=>'user','content'=>'前の本文は検査で不合格：'.$validation->getMessage().' 元資料にない数字を含む文は省き、確認できた事実だけで短く自然な投稿文を作り直してください。数字を別の数字に置き換えたり計算したりしないでください。'.($overseasInstagram?'中国語・広東語を日本語に訳し、韓国語のブランド名は資料にある英字表記を使ってください。':'').' JSONのbody文字列だけ返す。'];
    $c=curl_init('https://api.groq.com/openai/v1/chat/completions');
-   curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload),CURLOPT_HTTPHEADER=>['Content-Type: application/json','Authorization: Bearer '.$settings['apiKey']],CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>45]);
+   curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload),CURLOPT_HTTPHEADER=>['Content-Type: application/json','Authorization: Bearer '.$settings['apiKey']],CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>$overseasInstagram?45:18]);
    $repair=curl_exec($c);$repairStatus=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
    if($repairStatus!==200||!is_string($repair))throw $validation;
    $repaired=json_decode($repair,true);

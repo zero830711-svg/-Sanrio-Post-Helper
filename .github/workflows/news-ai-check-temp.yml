@@ -1,0 +1,14 @@
+name: Verify news AI number handling
+on:
+  push:
+    branches: [codex/news-ai-number-20261112]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP and existing news tests
+        run: |
+          php -l server/lolipop/news.php
+          php tests/news-parser.php
+          php tests/product-short-rewrite.php
