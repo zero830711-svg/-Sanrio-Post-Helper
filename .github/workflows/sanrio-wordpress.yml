@@ -24,7 +24,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: python3 -m unittest discover -s blog/tests -p test_wordpress_rest.py -v
   wordpress:
     needs: test
@@ -35,6 +35,6 @@ jobs:
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
       RUN_MODE: ${{ contains(github.event.head_commit.message, '[publish-batch-3]') && 'publish' || inputs.mode || 'check' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Register products through standard REST API
         run: python3 scripts/publish-sanrio-products.py --mode "$RUN_MODE"

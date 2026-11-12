@@ -27,7 +27,7 @@ jobs:
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
       RUN_MODE: ${{ contains(github.event.head_commit.message, '[audit-character-pages]') && 'audit' || contains(github.event.head_commit.message, '[apply-character-guide-cards]') && 'apply' || inputs.mode || 'check' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Validate script
         run: python3 -m py_compile scripts/sync-character-guide-cards.py
       - name: Check or update character pages through standard REST API
