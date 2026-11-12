@@ -136,7 +136,9 @@ jobs:
           php -l scripts/verify-deployed-news-extra.php
 
       - name: Check news identity and saved progress
-        run: node tests/news-progress.test.cjs
+        run: |
+          node tests/news-progress.test.cjs
+          node tests/news-skip.test.cjs
 
       - name: Install locked dependencies
         run: npm ci
@@ -163,3 +165,4 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 14
+

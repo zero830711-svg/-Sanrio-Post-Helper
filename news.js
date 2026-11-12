@@ -199,7 +199,12 @@ function newsSetHomeView(view){
  if(instagram){$('newsSourceFilter').value='all';instagramLoadAccounts();}
  newsRender();
 }
+// Candidate grouping only depends on the fetched items and Instagram filters.
+// Reuse it when a mark changes so an iPhone does not compare every headline again.
+let newsGroupsCache=null;
 function newsGroups(){
+ const key=newsHomeView==='instagram'?JSON.stringify([$('instagramAccountFilter').value,$('instagramRegionFilter').value,$('instagramSearch').value]):'news';
+ if(newsGroupsCache?.items===newsState.items&&newsGroupsCache.key===key&&newsGroupsCache.accounts===newsState.instagramAccounts)return newsGroupsCache.groups;
  const groups=[],seen=new Set();
  for(const item of newsState.items){
   if(Boolean(item.instagram)!==(newsHomeView==='instagram'))continue;
@@ -214,7 +219,8 @@ function newsGroups(){
   const group=groups.find(g=>g.members.every(m=>newsSameStory(m,item)));
   if(group)group.members.push(item);else groups.push({members:[item]});
  }
- return groups.map(g=>{const item=g.members.find(m=>m.source==='サンリオ公式')||g.members[0];return {...item,members:g.members};});
+ const result=groups.map(g=>{const item=g.members.find(m=>m.source==='サンリオ公式')||g.members[0];return {...item,members:g.members};});
+ newsGroupsCache={items:newsState.items,key,accounts:newsState.instagramAccounts,groups:result};return result;
 }
 function newsGroupMark(item){return item.members.map(m=>newsState.marks[m.url]).find(Boolean);}
 function newsSourceLinks(url){
@@ -345,7 +351,7 @@ function newsRender(){
  if(item.image){img.src=item.image;img.onerror=()=>{img.hidden=true;};}else img.hidden=true;
  const btn=document.createElement('button');btn.type='button';btn.className='small-btn';btn.textContent='投稿準備';btn.addEventListener('click',()=>newsPrepare(item.url));
  const actions=document.createElement('div');actions.className='news-row-actions';actions.append(btn);
- if(!mark){const skip=document.createElement('button');skip.type='button';skip.className='small-btn news-row-skip';skip.textContent='見送り';skip.addEventListener('click',()=>{const y=window.scrollY;newsMark(item.url,'skip');window.scrollTo({top:y,behavior:'instant'});});actions.append(skip);}
+ if(!mark){const skip=document.createElement('button');skip.type='button';skip.className='small-btn news-row-skip';skip.textContent='見送り';skip.addEventListener('click',()=>{const y=window.scrollY;try{if(newsMark(item.url,'skip'))window.scrollTo({top:y,behavior:'auto'});}catch{newsShowMarkNotice('一覧を更新できませんでした。画面を更新して確認してください。',true);}});actions.append(skip);}
  row.append(img,info,actions);
  if(mark){const restore=document.createElement('button');restore.type='button';restore.className='small-btn news-restore';restore.textContent='戻す';restore.addEventListener('click',()=>newsMark(item.url,null));actions.append(restore);}
  $('newsList').append(row);
@@ -359,15 +365,24 @@ function newsKeepDraft(){
  if(entry){entry.text=$('newsText').value;entry.replyText=newsRemoveBlock($('newsReplyText').value,entry.affiliatePlacement!=='body'?newsAffiliateBlock(entry):'');if(entry.aiDrafts?.length)entry.aiDrafts[entry.aiChoice||0].text=entry.text;entry.selected=newsState.selected.slice();entry.savedAt=Date.now();newsSaveDrafts();}
 }
 function newsReturn(){newsExternalForget();newsInlineReset();newsKeepDraft();++newsState.seq;$('newsEditor').hidden=true;$('newsBrowse').hidden=false;newsState.item=null;newsRender();window.scrollTo({top:newsState.browseY,behavior:'instant'});}
+let newsMarkNoticeTimer=null;
+function newsShowMarkNotice(message,error=false){
+ const notice=$('newsActionNotice');if(!notice)return;
+ if(newsMarkNoticeTimer)clearTimeout(newsMarkNoticeTimer);
+ notice.textContent=message;notice.classList.toggle('is-error',error);notice.hidden=false;
+ if(!error)newsMarkNoticeTimer=setTimeout(()=>{notice.hidden=true;newsMarkNoticeTimer=null;},4000);
+}
 function newsMark(url,kind){
  const entry=newsState.drafts.get(url),xUrl=entry?.postedUrl||'';
  if(kind==='done'&&xUrl&&!newsValidPostedUrl(xUrl)){$('newsEditorStatus').textContent='Xの投稿URLを確認してください。';return;}
  const group=newsGroups().find(g=>g.members.some(m=>m.url===url)),urls=group?group.members.map(m=>m.url):[url];
  const prev={...newsState.marks};for(const u of urls){if(kind)newsState.marks[u]={kind,at:new Date().toISOString(),...(kind==='done'&&xUrl?{xUrl}:{} )};else delete newsState.marks[u];}
- try{localStorage.setItem('sanrioNewsMarks',JSON.stringify(newsState.marks));}catch(e){newsState.marks=prev;$('newsEditorStatus').textContent='保存できませんでした。端末の空き容量を確認してください。';return;}
+ try{localStorage.setItem('sanrioNewsMarks',JSON.stringify(newsState.marks));}catch(e){newsState.marks=prev;$('newsEditorStatus').textContent='保存できませんでした。ブラウザの保存設定や空き容量を確認してください。';newsShowMarkNotice((kind==='skip'?'見送りを保存できませんでした。':'状態を保存できませんでした。')+'ブラウザの保存設定や空き容量を確認してください。',true);return false;}
  const editing=newsState.item?.url===url;if(editing)newsReturn();
- if(kind){for(const u of urls)newsState.drafts.delete(u);newsSaveDrafts();}
+ if(kind&&urls.some(u=>newsState.drafts.has(u))){for(const u of urls)newsState.drafts.delete(u);newsSaveDrafts();}
  newsRender();if(editing)window.scrollTo({top:newsState.browseY,behavior:'instant'});
+ if(kind==='skip')newsShowMarkNotice('見送りました');else if(kind===null)newsShowMarkNotice('一覧に戻しました');
+ return true;
 }
 async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const d=await newsRequest('list');newsTrackItems(d.items);newsState.items=d.items;domesticCandidates.ingest(d.items);newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsState.instagramCollection=d.instagramCollection||{};newsRender();return true;}catch(e){$('newsStatus').textContent=e.message;return false;}finally{newsState.busy=false;}}
 async function newsPrepare(url){
@@ -405,7 +420,7 @@ async function newsPrepare(url){
   newsState.item=entry.item;newsState.files=entry.files;newsState.selected=entry.selected.slice();
   $('newsCollageMode').checked=!!entry.collageMode;$('newsCollageControls').hidden=entry.item.images.length<4;
   $('newsPhotoHint').textContent=(entry.photoRefreshWarning||'')+(entry.collageMode?'写真ごとに「まとめ画像1〜4」か「個別写真」を選択。まとめ画像は4枚ずつ、完成画像は合計4枚まで。':'4枚まで選択・「前へ／後へ」で並べ替え');
-  const listedItem=newsState.items.find(i=>i.url===url||i.url===entry.item.url);if(listedItem)listedItem.facts=entry.item.facts||[];
+  const listedItem=newsState.items.find(i=>i.url===url||i.url===entry.item.url);if(listedItem){listedItem.facts=entry.item.facts||[];newsGroupsCache=null;}
   newsSourceLinks(url);
   $('newsDone').disabled=false;$('newsSkip').disabled=false;
   domesticCandidates.ingest([entry.item]);domesticCandidates.editor(entry.item,'newsEvidenceEditor');
@@ -858,3 +873,4 @@ $('newsReturnClose').onclick=newsExternalForget;
 window.addEventListener('focus',()=>newsExternalResume());
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&newsExternalPending)newsExternalAway=true;else if(!document.hidden)newsExternalResume();});
 window.addEventListener('pageshow',()=>newsExternalResume(true));
+
