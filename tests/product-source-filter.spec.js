@@ -1,5 +1,5 @@
 const {test,expect}=require('@playwright/test');
-const names={lovely:'Lovely Fancy',hatakeyama:'畑山商事',gourmandise:'グルマンディーズ',skater:'スケーター',sanrio:'サンリオ公式 楽天市場店',fashion:'楽天ファッション'};
+const names={lovely:'Lovely Fancy',hatakeyama:'畑山商事',gourmandise:'グルマンディーズ',skater:'スケーター',nakajima:'ナカジママーケット',takarajima:'宝島チャンネル',sanrio:'サンリオ公式 楽天市場店',fashion:'楽天ファッション'};
 const item=(source,key,productIds=[])=>({source:names[source],url:'https://example.com/'+source+'/'+key,title:names[source]+' '+key,date:'2026-10-04',products:[],productIds,needsReview:true});
 const fresh=Object.fromEntries(Object.keys(names).map(source=>[source,item(source,'未紹介商品')]));
 const blogUsed=item('lovely','紹介済み商品',['rakuten:test:shared']);
@@ -20,21 +20,21 @@ async function setup(page,{pages=false,recent=false}={}){
   if(q.get('action')==='detail')return r.fulfill({json:{ok:true,item:{...fresh[source],url:q.get('url')}}});
   requests.push({source,page:p});
   const items=p===1?[fresh[source],...(source==='lovely'?[blogUsed]:source==='hatakeyama'?[makerUsed]:[])]:[item(source,'追加商品')];
-  return r.fulfill({json:{ok:true,items,nextPage:pages&&p===1?2:null}});
+  return r.fulfill({json:{ok:true,items,nextPage:pages&&p===1&&!['nakajima','takarajima'].includes(source)?2:null}});
  });
  await page.goto('/');await page.getByRole('tab',{name:'新着商品',exact:true}).click();await expect(page.locator('#lovelyRefresh')).toBeEnabled();
  return requests;
 }
-test('情報元を6種類で絞り、すべてへ戻すと統合一覧を表示する',async({page})=>{
- const requests=await setup(page);await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveCount(6);
+test('各情報元で絞り、すべてへ戻すと統合一覧を表示する',async({page})=>{
+ const requests=await setup(page);await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveCount(Object.keys(names).length);
  for(const source of Object.keys(names)){
   await page.locator('#lovelySourceButtons [data-source="'+source+'"]').click();
   await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveCount(1);
   await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveAttribute('data-lovely-select',fresh[source].url);
   await expect(page.locator('#lovelyCount')).toContainText('未紹介・要確認 1件');
  }
- await page.locator('#lovelySourceButtons [data-source="all"]').click();await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveCount(6);
- expect(requests).toHaveLength(6);
+ await page.locator('#lovelySourceButtons [data-source="all"]').click();await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveCount(Object.keys(names).length);
+ expect(requests).toHaveLength(Object.keys(names).length);
  for(const selector of ['#lovelySourceButtons button:first-child','#lovelyFilter']){
   const size=await page.locator(selector).boundingBox();expect(size.height).toBeGreaterThanOrEqual(44);
   expect(await page.locator(selector).evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(12);
@@ -65,7 +65,7 @@ test('情報元で絞ったもっと見るはその情報元のみを追加し�
 });
 test('前回確認後に追加と情報元の条件を同時に適用する',async({page})=>{
  await setup(page,{recent:true});await page.locator('#lovelyFilter').selectOption('recent');
- await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveCount(6);
+ await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveCount(Object.keys(names).length);
  await page.locator('#lovelySourceButtons [data-source="lovely"]').click();await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveCount(1);
  await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveAttribute('data-lovely-select',fresh.lovely.url);
  await expect(page.locator('#lovelyRecentHelp')).toBeVisible();
