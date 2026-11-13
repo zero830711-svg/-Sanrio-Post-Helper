@@ -22,7 +22,7 @@
 #instagramTools label{display:block;margin:10px 0}
 #instagramSearch,#instagramAddUrl{width:100%;box-sizing:border-box;padding:10px;border:1px solid #eadde5;border-radius:12px;font:inherit}
 @media(max-width:520px){#newsPhotoDialog .news-photo img{height:210px}.news-photo-dialog-head{align-items:flex-start}#newsPhotoDialog .small-btn{padding:10px}}
-</style><link rel="stylesheet" href="./product-flow.css?v=20261028-brand-compact">
+</style><link rel="stylesheet" href="./product-flow.css?v=20261113-rakuten-today">
 
 <style>
 .account-switch,.ota-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}.account-switch button,.ota-buttons button{font:inherit;font-size:.85rem;border:1px solid #e3cbd7;border-radius:14px;padding:8px 12px;background:white;color:#342a32}.account-switch button[aria-pressed="true"]{background:#f5dce9;border-color:#db8eb1}.ota-active> :not(.account-switch):not(#otaPanel):not(#otaHeader):not(#otaTabs){display:none!important}#otaPanel[hidden],#otaEditor[hidden]{display:none}#otaPanel label{display:block;margin:14px 0}#otaPanel input,#otaPanel textarea{display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:10px;border:1px solid #dfced7;border-radius:10px;font:inherit}.ota-row{padding:14px 0;border-bottom:1px solid #eadde5}.ota-row p{margin:6px 0}.ota-row a{margin-right:12px}.ota-row button{margin-top:8px}
@@ -90,6 +90,12 @@
 <div id="todayProgress" class="today-progress"></div>
 </div>
 </div>
+<section id="todayRakutenPanel" aria-labelledby="todayRakutenHeading" hidden>
+<h3 id="todayRakutenHeading">楽天の投稿候補</h3>
+<p id="todayRakutenStatus" class="backup-note" role="status"></p>
+<div id="todayRakutenList"></div>
+</section>
+<div id="todayRakutenEditor" hidden></div>
 <details id="domesticReusePanel" class="today-selection-help" open hidden><summary>発売・予約・更新に合わせた再紹介</summary><p id="domesticReuseStatus" class="backup-note"></p><div id="domesticReuseList"></div></details>
 <div id="todayList" class="today-list"></div>
 <button id="todayMore" class="small-btn" type="button" hidden>もっと見る</button><p id="todayMoreStatus" class="backup-note" aria-live="polite"></p>
@@ -614,7 +620,7 @@ window.addEventListener("load",()=>{
 });
 </script>
 <script src="./blog-export.js?v=20261018-catalog2"></script>
-<script src="./product-flow.js?v=20261023-shared-editor"></script>
+<script src="./product-flow.js?v=20261113-rakuten-today"></script>
 <script src="./amazon-product-search.js?v=20261112-amazon-drafts-2"></script>
 </body>
 </html>

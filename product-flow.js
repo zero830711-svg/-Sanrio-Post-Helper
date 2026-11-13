@@ -3,9 +3,9 @@
 const el=id=>document.getElementById(id);
 let entries=[],sources=[],sourceErrors=[],sourcePoolCount=0,sourceDisplayLimit=60,current=null,busy=false,files=[],dirty=false,requestSeq=0,sourceUpdatedAt=0,saveTimer=null,saving=false,photoPreviewEls=[],photoLabelEls=[],photoPreviewUrls=[],preparingPhotos=false,photoPreparationSeq=0;
 function endpoint(action){const u=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/product-flow.php'));u.searchParams.set('action',action);return u.href;}
-async function api(action,data){
+async function api(action,data,timeout=240000){
  const {key}=cloudSettings();if(!key)throw new Error('管理画面で同期キーを設定してください。');
- const r=await fetch(endpoint(action),{method:data===undefined?'GET':'POST',headers:{Authorization:'Bearer '+key,...(data===undefined?{}:{'Content-Type':'application/json'})},...(data===undefined?{}:{body:JSON.stringify(data)}),cache:'no-store',signal:AbortSignal.timeout(240000)});
+ const r=await fetch(endpoint(action),{method:data===undefined?'GET':'POST',headers:{Authorization:'Bearer '+key,...(data===undefined?{}:{'Content-Type':'application/json'})},...(data===undefined?{}:{body:JSON.stringify(data)}),cache:'no-store',signal:AbortSignal.timeout(timeout)});
  let d;try{d=await r.json();}catch{throw new Error('準備結果を確認できませんでした。「一覧を更新」で保存済み下書きを確認してください。');}
  if(!r.ok||d.ok===false)throw new Error(d.error||'下書きの準備を完了できませんでした。');return d;
 }
@@ -29,6 +29,99 @@ function closeEditor(){clearTimeout(saveTimer);++requestSeq;current=null;files=[
 function button(text,fn){const b=document.createElement('button');b.type='button';b.className='small-btn';b.textContent=text;b.onclick=fn;return b;}
 function anchor(text,url){const a=document.createElement('a');a.textContent=text;a.className='small-btn link-btn';a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;}
 function safeURL(s,roots){try{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&roots.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false;}}
+const TODAY_SKIP_KEY='sphTodayRakutenSkippedV1';
+const TODAY_CHARACTERS=/サンリオ|\bsanrio\b|ハローキティ|\bhello\s*kitty\b|マイメロ(?:ディ)?|クロミ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|リトルツインスターズ|キキララ|けろけろけろっぴ|タキシードサム|バッドばつ丸|あひるのペックル|ぐでたま|こぎみゅん|ウィッシュミーメル|ぼんぼんりぼん|チョコキャット|チャーミーキティ|マロンクリーム|ミュークルドリーミー|まるもふびより|みんなのたあ坊|おさるのもんきち|ウサハナ|はなまるおばけ|がおぱわるぅ|シュガーバニーズ|ジュエルペット/iu;
+const TODAY_OTHER=/スヌーピー|ピーナッツ|\b(?:snoopy|peanuts)\b|ディズニー|ミッキー|ちいかわ|ポケモン|すみっコぐらし|リラックマ|ミッフィー|アンパンマン|ドラえもん/iu;
+let todayPending=false,todayReading=false,todayReadAt=0,todayPosted=new Set(),todayData=null;
+function todaySkipSet(){
+ try{const value=JSON.parse(localStorage.getItem(TODAY_SKIP_KEY)||'[]');return new Set(Array.isArray(value)?value:[]);}catch{return new Set();}
+}
+function todayKey(item){return item.dedupeKey||item.code;}
+function todayCode(row){return row.item?.rakutenCode||row.item?.code;}
+function todayDraft(row){
+ const item=row.item||{};
+ return {code:todayCode(row),dedupeKey:item.rakutenDedupeKey,service:item.rakutenService,title:item.title,url:item.url,image:item.images?.[0],sourceAt:item.sourceAt,id:row.id};
+}
+function todayTitle(title){
+ return title.normalize('NFKC').trim().replace(/^(?:(?:[\[【]\s*)?(?:送料無料|送料込|NEW|新品|即納)(?:\s*[\]】])?[\s!！★☆]*)+/iu,'').trim();
+}
+function todayScore(item,title){
+ if(!TODAY_CHARACTERS.test(title)||TODAY_OTHER.test(title)||/中古|ジャンク|非公式|互換品|ハンドメイド/u.test(title))return 0;
+ if(item.service==='books')return /付録|ムック|MOOK|ファンブック/iu.test(title)?3:0;
+ if(item.service!=='market')return 0;
+ if(/ぬいぐるみ|マスコット|ガチャ|ガシャポン|カプセルトイ|食玩|フィギュア|フロッキー|リーメント|ぷちサンプル|付録/u.test(title))return 4;
+ return /アクリルスタンド|キーホルダー|チャーム|シール|ステッカー/u.test(title)?2:0;
+}
+function todayCandidates(){
+ if(!todayData)return [];
+ const skipped=todaySkipSet(),saved=(todayData.entries||[]).filter(row=>row.item?.rakuten===true);
+ const used=new Set(saved.filter(row=>row.mark).flatMap(row=>[todayCode(row),row.item.rakutenDedupeKey].filter(Boolean)));
+ const seen=new Set();
+ return [...saved.filter(row=>!row.mark).map(todayDraft),...(todayData.sources||[])].flatMap(item=>{
+  if(!item?.code||typeof item.title!=='string'||used.has(item.code)||used.has(todayKey(item))||
+     skipped.has(item.code)||skipped.has(todayKey(item))||todayPosted.has(item.code)||
+     !safeURL(item.url,['item.rakuten.co.jp','books.rakuten.co.jp'])||!safeURL(item.image,['r10s.jp','rakuten.co.jp']))return [];
+  const at=Number(item.sourceAt)*1000;
+  if(!Number.isFinite(at)||at<=Date.now()-14*86400000)return [];
+  const title=todayTitle(item.title),score=todayScore(item,title);
+  return score?[{...item,title,score}]:[];
+ }).sort((a,b)=>b.score-a.score||b.sourceAt-a.sourceAt).filter(item=>{
+  const key=todayKey(item);
+  if(seen.has(key)||seen.has(item.code))return false;
+  seen.add(key);seen.add(item.code);return true;
+ }).slice(0,5);
+}
+function renderTodayRakuten(){
+ const panel=el('todayRakutenPanel'),host=el('todayRakutenList');
+ const rows=todayCandidates();host.replaceChildren();
+ panel.hidden=!rows.length&&!el('todayRakutenStatus').textContent;
+ for(const item of rows){
+  const card=document.createElement('article');card.className='flow-card flow-source-card has-image';
+  const image=document.createElement('img');image.src=item.image;image.alt='';image.loading='lazy';image.referrerPolicy='no-referrer';
+  const title=document.createElement('h4');title.textContent=item.title;
+  const actions=document.createElement('div');actions.className='flow-source-actions';
+  const prepare=button('投稿準備',()=>prepareTodayRakuten(item));
+  const skip=button('見送り',()=>{
+   const skipped=todaySkipSet();skipped.add(item.code);skipped.add(todayKey(item));
+   try{localStorage.setItem(TODAY_SKIP_KEY,JSON.stringify([...skipped]));el('todayRakutenStatus').textContent='';}
+   catch{el('todayRakutenStatus').textContent='見送りを保存できませんでした。';}
+   renderTodayRakuten();
+  });
+  skip.classList.add('today-rakuten-skip');
+  for(const b of [prepare,skip]){b.disabled=todayPending;b.setAttribute('aria-label',b.textContent+'：'+item.title);}
+  actions.append(prepare,skip);card.append(image,title,actions);host.append(card);
+ }
+}
+async function refreshTodayRakuten(){
+ if(todayReading||todayPending||el('todayHomePanel').hidden||Date.now()-todayReadAt<5*60000)return;
+ try{if(!cloudSettings().key)return;}catch{return;}
+ todayReading=true;
+ const previous=todayData;
+ try{
+  const [data,history]=await Promise.allSettled([api('list',undefined,12000),dbGetAll()]);
+  if(history.status==='fulfilled')todayPosted=new Set(history.value.flatMap(row=>revenueProductIds(row)).filter(id=>id.startsWith('rakuten:')).map(id=>id.slice(8)));
+  if(data.status==='fulfilled'&&!todayPending&&todayData===previous){todayReadAt=Date.now();todayData=data.value;}
+  renderTodayRakuten();
+ }finally{todayReading=false;}
+}
+async function prepareTodayRakuten(item){
+ if(todayPending||busy)return;
+ todayPending=true;el('todayRakutenStatus').textContent='投稿準備を開いています…';renderTodayRakuten();
+ try{
+  let id=item.id;
+  if(id){
+   const row=todayData?.entries?.find(row=>row.id===id&&!row.mark);
+   if(!row)throw new Error('この候補は処理済みです。');
+   if(!entries.some(entry=>entry.id===id))entries=[row,...entries];
+  }else{
+   const result=await api('prepare-stock',{code:item.code});apply(result);id=result.entry?.id;
+  }
+  if(!id||!entries.some(row=>row.id===id&&!row.mark))throw new Error('商品を開けませんでした。');
+  if(!el('todayHomePanel').hidden)await open(id,true);
+  el('todayRakutenStatus').textContent='';
+ }catch(error){el('todayRakutenStatus').textContent='投稿準備を開けませんでした。'+error.message;}
+ finally{todayPending=false;renderTodayRakuten();}
+}
 const FLOW_SHORT_KEY='sphRakutenFlowShortLinksV1';
 function flowShortMap(){try{return JSON.parse(localStorage.getItem(FLOW_SHORT_KEY)||'{}')||{};}catch{return {};}}
 function flowShortKey(row){return String(row?.item?.code||row?.item?.url||'').slice(0,2048);}
@@ -44,6 +137,7 @@ function saveFlowShort(value){
 }
 function ready(row){return !!row.body&&!!row.match.link&&row.item.images?.length>0;}
 function apply(d){
+ if(Array.isArray(d.entries)&&Array.isArray(d.sources)){todayData=d;todayReadAt=Date.now();}
  entries=d.entries||entries;if(d.sources)sources=d.sources;if(Array.isArray(d.sourceErrors))sourceErrors=d.sourceErrors;if(Number.isFinite(Number(d.sourcePoolCount)))sourcePoolCount=Number(d.sourcePoolCount);if(d.sourceUpdatedAt)sourceUpdatedAt=Number(d.sourceUpdatedAt)*1000;
  if(typeof d.enabled==='boolean')el('flowAuto').checked=d.enabled;
  el('flowSettingsHint').textContent=[d.rakutenConfigured===false?'「楽天API設定」を保存してください。':'',d.aiConfigured===false?'新作ニュースの「AI設定」でGroqを設定してください。':''].filter(Boolean).join(' ');
@@ -83,6 +177,7 @@ function render(){
  }
  if(!rows.length){const p=document.createElement('p');p.className='backup-note';p.textContent='自動検索した候補から下書きを追加すると、ここに表示されます。';el('flowList').append(p);}
  renderSources();
+ renderTodayRakuten();
 }
 async function run(action,data,show=false){
  if(busy)return;busy=true;for(const b of el('productFlowPanel').querySelectorAll('button,input,select,textarea'))b.disabled=true;
@@ -102,7 +197,7 @@ async function getProductPhoto(row,index){const code=String(row.item.rakutenCode
 function resetPhotoPreviews(){photoPreviewUrls.forEach(url=>{try{URL.revokeObjectURL(url);}catch{}});photoPreviewUrls=[];photoPreviewEls=[];photoLabelEls=[];}
 function showPhotoFile(index,file){files[index]=file;const label=photoLabelEls[index];if(label&&/^\d+x\d+$/.test(file.imageDimensions||''))label.textContent='写真'+(index+1)+'（'+file.imageDimensions.replace('x','×')+'px・解像度確認済み）';const img=photoPreviewEls[index];if(!img)return;if(photoPreviewUrls[index])URL.revokeObjectURL(photoPreviewUrls[index]);const url=URL.createObjectURL(file);photoPreviewUrls[index]=url;img.src=url;}
 async function load(forceSources=false){
- if(busy||el('flowProvider')?.value==='amazon')return;
+ if(busy||todayPending||el('flowProvider')?.value==='amazon')return;
  try{
   const d=await api('list');apply(d);
   if(d.rakutenConfigured===false){status('楽天API設定を確認してください。');return;}
@@ -146,7 +241,7 @@ function updateFinal(){
  el('flowSavePhotos').disabled=busy||!count||current.selected.some(i=>!files[i]);
  el('flowCopy').disabled=busy||!body;
 }
-async function open(id){
+async function open(id,fromToday=false){
  let row=entries.find(r=>r.id===id);if(!row)return;
  if(dirty&&current&&current.id!==id){status('編集中の本文を「下書きを保存」で保存してから切り替えてください。');return;}
  if(row.item.rakutenService==='books'&&Date.now()-Number(row.item.galleryCheckedAt||0)>24*60*60*1000){
@@ -154,6 +249,7 @@ async function open(id){
   try{const data=await api('gallery',{id});apply(data);row=entries.find(r=>r.id===id)||row;}
   catch(e){status('追加写真を確認できませんでした：'+e.message);}
  }
+ if(fromToday&&el('todayHomePanel').hidden)return;
  let savedBody=row.edited===false&&!row.generatedOnRequest?'':row.body||'';
  const link=row.match.linkMode==='item'?(flowShort(row)||row.match.itemAffiliate||row.match.link||''):(row.match.link||'');
  if(savedBody&&link&&!savedBody.includes(link))savedBody=savedBody.replace(/(?:\s*#pr)+\s*$/i,'')+'\n\n楽天：'+link+'\n\n#pr';
@@ -168,12 +264,19 @@ async function open(id){
   const selected=draft.selectedPhotos||[];
   const result=await api('save',{id:row.id,body:draft.postText||'',selected,linkMode:row.match.linkMode});apply(result);
  }
- el('flowBrowse').hidden=true;el('flowEditor').hidden=true;
+ const host=el(fromToday?'todayRakutenEditor':'flowRakutenArea');
+ if(fromToday){host.hidden=false;el('todayHomePanel').classList.add('today-rakuten-editing');}
+ else{el('flowBrowse').hidden=true;el('flowEditor').hidden=true;}
  lovelyWatch.openProduct(product,{
-  host:el('flowRakutenArea'),fetchImage:index=>getProductPhoto(row,index),
+  host,fetchImage:index=>getProductPhoto(row,index),
   onBack:saveShared,
   onMark:async(reason,draft)=>{await saveShared(draft);apply(await api('mark',{id:row.id,mark:reason==='used'?'done':'skip'}));},
-  onClose:()=>{el('flowBrowse').hidden=false;render();window.scrollTo({top:scroll,behavior:'instant'});}
+  onClose:()=>{
+   if(fromToday){host.hidden=true;el('todayHomePanel').classList.remove('today-rakuten-editing');}
+   else el('flowBrowse').hidden=false;
+   render();
+   if(!el(fromToday?'todayHomePanel':'productFlowPanel').hidden)window.scrollTo({top:scroll,behavior:'instant'});
+  }
  });
 }
 
@@ -276,7 +379,11 @@ async function markCurrent(mark){
 el('flowDone').onclick=()=>markCurrent('done');
 el('flowSkip').onclick=()=>markCurrent('skip');
 document.addEventListener('sph-product-flow-tab',load);
-setInterval(()=>{if(!document.hidden&&!el('productFlowPanel').hidden)load();},5*60*1000);
+setInterval(()=>{if(!document.hidden){if(!el('productFlowPanel').hidden)load();else refreshTodayRakuten();}},5*60*1000);
+el('homeTodayTab').addEventListener('click',refreshTodayRakuten);
+document.querySelector('.home-tabs')?.addEventListener('keydown',()=>queueMicrotask(refreshTodayRakuten));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshTodayRakuten();});
 if(location.hash==='#new-product')setHomeView('flow');
+else refreshTodayRakuten();
 })();
 

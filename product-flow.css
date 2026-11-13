@@ -59,3 +59,14 @@
 #amazonSearchArea :is(#amazonFlowResults,#amazonAutoResults) .flow-source-card{padding:7px 0;gap:2px 8px}
 #amazonSearchArea :is(#amazonFlowResults,#amazonAutoResults) .flow-source-card h3{font-size:12px;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
 #amazonSearchArea :is(#amazonFlowResults,#amazonAutoResults) .flow-source-card p{font-size:11px;line-height:1.2}
+
+#todayRakutenPanel{margin:0 0 14px;padding:10px 12px;border:1px solid var(--line);border-radius:14px}
+#todayRakutenHeading{margin:0;font-size:16px}
+#todayRakutenStatus{margin:4px 0 0}
+#todayRakutenStatus:empty{display:none}
+#todayRakutenList .flow-source-card:last-child{border-bottom:0;padding-bottom:0}
+#todayRakutenList h4{grid-column:2;margin:0;font-size:13px;line-height:1.35;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+#todayRakutenList .small-btn{min-height:44px}
+#todayRakutenList .flow-source-card img{grid-row:1/span 2}
+#todayRakutenList .today-rakuten-skip{background:#fff}
+#todayHomePanel.today-rakuten-editing>:not(#todayRakutenEditor){display:none!important}
