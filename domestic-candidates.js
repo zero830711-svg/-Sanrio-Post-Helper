@@ -1,7 +1,7 @@
 /* Evidence for domestic products is additive; archive records and links are never rewritten. */
 const domesticCandidates=(()=>{
  const KEY='sphDomesticEvidenceV1',DAY=86400000;
- const official=['sanrio.co.jp','hatakeyamashoji.jp','gourmandise.co.jp','skater-onlineshop.com','furyu.jp','takaratomy-arts.co.jp','re-ment.co.jp','eikoh-prize.jp','bandai.co.jp','gashapon.jp','thankyoumart.jp','prtimes.jp'];
+ const official=['sanrio.co.jp','nakajima-market.com','store.tkj.jp','hatakeyamashoji.jp','gourmandise.co.jp','skater-onlineshop.com','furyu.jp','takaratomy-arts.co.jp','re-ment.co.jp','eikoh-prize.jp','bandai.co.jp','gashapon.jp','thankyoumart.jp','prtimes.jp'];
  function trusted(url){try{const u=new URL(url);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&official.some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch(_){return false;}}
  let cachedRaw=null,cachedValue={};
  function read(){try{const raw=localStorage.getItem(KEY)||'{}';if(raw!==cachedRaw){const v=JSON.parse(raw);cachedValue=v&&typeof v==='object'&&!Array.isArray(v)?v:{};cachedRaw=raw;}return cachedValue;}catch(_){return {};}}

@@ -148,7 +148,7 @@ const lovelyWatch = (()=>{
   }
   function visibleItems(items,ids,hidden){return groupedItems(items,ids,hidden).filter(x=>x.status!=='used').map(x=>x.item);}
   function thumbnailUrl(value){
-    try{const u=new URL(value);const allowed=(['image.rakuten.co.jp','shop.r10s.jp','tshop.r10s.jp'].includes(u.hostname)&&/^\/[a-zA-Z0-9_-]+\/cabinet\/[a-zA-Z0-9_/-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?_ex=[0-9]{1,4}x[0-9]{1,4})?$/.test(u.search)&&!u.hash)||(u.hostname==='www.skater-onlineshop.com'&&/^\/img\/goods\/(?:[SL]|[0-9])\/[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&!u.search&&!u.hash)||(u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname))||(u.hostname==='www.hatakeyamashoji.jp'&&/^\/wp\/wp-content\/uploads\/(?:[0-9]{4}\/[0-9]{2}\/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/.test(u.pathname))||(u.hostname==='makeshop-multi-images.akamaized.net'&&/^\/gourmandise\/itemimages\/[0-9]{12}[0-9]*_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?[0-9]+)?$/.test(u.search)&&!u.hash);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&allowed?u.href:''}catch(_){return ''}
+    try{const u=new URL(value);const allowed=(['image.rakuten.co.jp','shop.r10s.jp','tshop.r10s.jp'].includes(u.hostname)&&/^\/[a-zA-Z0-9_-]+\/cabinet\/[a-zA-Z0-9_/-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?_ex=[0-9]{1,4}x[0-9]{1,4})?$/.test(u.search)&&!u.hash)||(u.hostname==='www.skater-onlineshop.com'&&/^\/img\/goods\/(?:[SL]|[0-9])\/[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&!u.search&&!u.hash)||(u.hostname==='lovely-fancy.net'&&/^\/wp-content\/uploads\/[0-9]{4}\/[0-9]{2}\/[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|avif)$/.test(u.pathname))||(u.hostname==='www.hatakeyamashoji.jp'&&/^\/wp\/wp-content\/uploads\/(?:[0-9]{4}\/[0-9]{2}\/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/.test(u.pathname))||(u.hostname==='makeshop-multi-images.akamaized.net'&&/^\/(?:gourmandise|tkjstore|nakabc01)\/itemimages\/[0-9]{12}[0-9]*_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$/i.test(u.pathname)&&/^(?:\?[0-9]+)?$/.test(u.search)&&!u.hash);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&allowed?u.href:''}catch(_){return ''}
   }
   function thumbnailHtml(item){
     const url=thumbnailUrl(item.thumbnail)||(item.overseas?overseasThumbnailUrl(item.thumbnail):'');
@@ -173,7 +173,7 @@ const lovelyWatch = (()=>{
     render();
   }
   function render(){
-    const value=state(),newsRows=(typeof newsState!=='undefined'?newsState.items:[]).filter(i=>!newsState.marks[i.url]||newsState.marks[i.url].kind==='done').map(i=>({...i,domesticNews:true,domesticPosted:newsState.marks[i.url]?.kind==='done'})),groups=groupedItems([...rows,...newsRows].sort((a,b)=>compareItems(a,b,value.firstSeen||{})),historyIds,value.hidden||{},value.identities||{});
+    const value=state(),listedUrls=new Set(rows.map(item=>item.url)),newsRows=(typeof newsState!=='undefined'?newsState.items:[]).filter(i=>!listedUrls.has(i.url)&&(!newsState.marks[i.url]||newsState.marks[i.url].kind==='done')).map(i=>({...i,domesticNews:true,domesticPosted:newsState.marks[i.url]?.kind==='done'})),groups=groupedItems([...rows,...newsRows].sort((a,b)=>compareItems(a,b,value.firstSeen||{})),historyIds,value.hidden||{},value.identities||{});
     const sourceGroups=groups.flatMap(g=>{
       const matching=g.articles.filter(item=>!!item.overseas===(sectionMode==='overseas')&&(sectionMode==='overseas'||sourceMode==='all'||sourceOf(item)===sourceMode)&&(sectionMode!=='overseas'||countryMode==='all'||item.region===countryMode)).sort((a,b)=>compareItems(a,b,value.firstSeen||{}));
       return matching.length?[{...g,item:matching.includes(g.item)?g.item:matching[0]}]:[];
@@ -208,11 +208,11 @@ const lovelyWatch = (()=>{
     el('lovelyRefresh').disabled=activeBusy;el('lovelyRefresh').textContent=sectionMode==='overseas'?'海外商品を確認':'新着商品を確認';
     const button=el('lovelyMore');if(button){const hasMore=Object.keys(selectedPages()).length>0;button.hidden=!loaded;button.disabled=activeBusy||!hasMore;button.textContent=activeBusy?'読み込み中…':!hasMore?'すべて表示しました':autoLoadFailed?'もう一度読み込む':'もっと見る';}
   }
-  const sourceOf=item=>item.domesticNews?'news':item.overseas?'overseas':item.source==='楽天ファッション'?'fashion':item.source==='サンリオ公式 楽天市場店'?'sanrio':item.source==='スケーター'?'skater':item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
-  const sourceName=source=>({overseas:'海外公式',fashion:'楽天ファッション',sanrio:'サンリオ公式 楽天市場店',skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ',news:'公式ニュース'}[source]||source);
+  const sourceOf=item=>item.domesticNews?'news':item.overseas?'overseas':item.source==='ナカジママーケット'?'nakajima':item.source==='宝島チャンネル'?'takarajima':item.source==='楽天ファッション'?'fashion':item.source==='サンリオ公式 楽天市場店'?'sanrio':item.source==='スケーター'?'skater':item.source==='グルマンディーズ'?'gourmandise':item.source==='畑山商事'?'hatakeyama':'lovely';
+  const sourceName=source=>({overseas:'海外公式',nakajima:'ナカジママーケット',takarajima:'宝島チャンネル',fashion:'楽天ファッション',sanrio:'サンリオ公式 楽天市場店',skater:'スケーター',gourmandise:'グルマンディーズ',hatakeyama:'畑山商事',lovely:'ブログ',news:'公式ニュース'}[source]||source);
   function compareItems(a,b,seen){
     const stamp=item=>{const date=/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(item.date||'')?Date.parse(item.date):NaN;return Number.isFinite(date)?date:Date.parse(item.firstSeenAt||seen[item.url]||'1970-01-01');};
-    return stamp(b)-stamp(a)||({lovely:0,hatakeyama:1,gourmandise:2,skater:3,sanrio:4,fashion:5,news:6,overseas:6}[sourceOf(a)]-{lovely:0,hatakeyama:1,gourmandise:2,skater:3,sanrio:4,fashion:5,news:6,overseas:6}[sourceOf(b)])||(a.discoveryOrder||0)-(b.discoveryOrder||0)||String(a.url).localeCompare(String(b.url),'en');
+    return stamp(b)-stamp(a)||({lovely:0,hatakeyama:1,gourmandise:2,skater:3,nakajima:4,takarajima:4,sanrio:4,fashion:5,news:6,overseas:6}[sourceOf(a)]-{lovely:0,hatakeyama:1,gourmandise:2,skater:3,nakajima:4,takarajima:4,sanrio:4,fashion:5,news:6,overseas:6}[sourceOf(b)])||(a.discoveryOrder||0)-(b.discoveryOrder||0)||String(a.url).localeCompare(String(b.url),'en');
   }
   async function loadSources(pages,replace){
     const errors=[],partial=[],observedAt=discoveryBatchAt||new Date().toISOString();
@@ -231,15 +231,15 @@ const lovelyWatch = (()=>{
       }catch(e){nextPages[source]=page;errors.push(sourceName(source)+'：'+e.message);}
     }));
     if(loaded)render();
-    const status=el('lovelyStatus');status.textContent='ブログ・メーカー・サンリオ公式楽天店・楽天ファッションの候補を確認しました。公式楽天店はAPI更新順で、新発売順ではありません。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
+    const status=el('lovelyStatus');status.textContent='ブログ・メーカー・出版社・楽天の候補を確認しました。公式楽天店はAPI更新順で、新発売順ではありません。'+(partial.length?' '+partial.join('・')+'の一部は未取得です。「もっと見る」で再試行できます。':'')+(errors.length?' '+errors.join(' ／ '):'')+' ／ 最大15分のキャッシュ';
     return errors.length===0&&partial.length===0;
   }
   async function refresh(){
     if(busy)return;autoLoadFailed=false;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
       await updateHistory();nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
-      const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater','sanrio','fashion'].map(source=>[source,checks[source]?.initialized===true]));
-      await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1,sanrio:1},true);
+      const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater','nakajima','takarajima','sanrio','fashion'].map(source=>[source,checks[source]?.initialized===true]));
+      await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1,nakajima:1,takarajima:1,sanrio:1},true);
       await new Promise(resolve=>setTimeout(resolve,1100));await loadSources({fashion:1},true);
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;pagingControls()}
   }
@@ -337,7 +337,7 @@ const lovelyWatch = (()=>{
     el('lovelyRelatedArticles').innerHTML=group&&group.articles.length>1?'<details><summary>同じ商品のほかの記事</summary>'+group.articles.filter(a=>a.url!==item.url).map(a=>'<p><a target="_blank" rel="noopener noreferrer" href="'+escape(a.url)+'">'+escape(a.title)+'</a></p>').join('')+'</details>':'';
     el('lovelyConfirmationText').textContent=item.overseas?'商品と写真の一致、画像の利用可否、海外の掲載地域を確認しました（紹介リンクは任意）':'商品・セット内容と写真の一致、画像の利用可否、自分の紹介リンクを確認しました';
     el('lovelySource').href=item.url;el('lovelyPhotos').value='';el('lovelyPhotoCount').textContent='';el('lovelyPhotoCount').hidden=true;el('lovelyImageRetry').hidden=true;el('lovelyConfirmed').checked=false;
-    el('lovelySource').textContent=item.overseas?'海外の公式ページを確認':['楽天API','サンリオ公式 楽天市場店','楽天ファッション'].includes(item.source)?'楽天の販売ページを確認':['グルマンディーズ','スケーター'].includes(item.source)?'メーカーの商品ページを確認':item.source==='畑山商事'?'メーカーの記事を確認':'元記事を確認';
+    el('lovelySource').textContent=['nakajima','takarajima'].includes(sourceOf(item))?'公式ページを確認':item.overseas?'海外の公式ページを確認':['楽天API','サンリオ公式 楽天市場店','楽天ファッション'].includes(item.source)?'楽天の販売ページを確認':['グルマンディーズ','スケーター'].includes(item.source)?'メーカーの商品ページを確認':item.source==='畑山商事'?'メーカーの記事を確認':'元記事を確認';
     el('lovelyAmazon').value=item.ownAmazon||'';el('lovelyRakuten').value=item.origin==='product-search'?(item.ownRakuten||savedRakuten(item)||''):(savedRakuten(item)||item.ownRakuten||'');el('lovelyNote').value=item.note||'';
     el('lovelyProducts').innerHTML=(item.products||[]).map(p=>'<a class="small-btn link-btn" target="_blank" rel="noopener noreferrer" href="'+escape(p.url)+'">'+escape(p.store)+'の商品ページを確認</a>').join('')||'<p class="backup-note">主商品の直リンクを特定できませんでした。商品名で検索して確認してください。</p>';
     el('lovelyReview').textContent=item.needsReview?'主商品リンクは要確認です。自分で商品を特定してから進めてください。':'記事の主商品リンク候補です。販売ページで商品・セット内容を確認してください。';
@@ -519,7 +519,7 @@ const lovelyWatch = (()=>{
     }
   }
   async function choose(url,force=false){
-    if(typeof newsState!=='undefined'&&newsState.items.some(i=>i.url===url)){setHomeView('news');newsPrepare(url);return;}
+    if(!rows.some(item=>item.url===url)&&typeof newsState!=='undefined'&&newsState.items.some(i=>i.url===url)){setHomeView('news');newsPrepare(url);return;}
     if(!force&&selected?.url===url&&(detailLoading||Date.now()-(detailCache.get(url)?.time||0)<900000)){openEditor(url);return;}
     if(selected)persist();
     if(force)detailCache.delete(url);
@@ -528,11 +528,12 @@ const lovelyWatch = (()=>{
     if(cached&&Date.now()-cached.time<900000){el('lovelyRetailerRetry').disabled=false;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;edit({...cached.item,...(draft?.url===url?{ownAmazon:draft.ownAmazon,ownRakuten:draft.ownRakuten,note:draft.note,postText:draft.postText,postEdited:draft.postEdited,postLinks:draft.postLinks}:{})});autoRakuten(selected);return;}
     edit({...((draft?.url===url?draft:null)||rows.find(x=>x.url===url)||{title:'商品情報を確認中…'}),url});
     detailLoading=true;el('lovelyPhotos').disabled=true;el('lovelyConfirmed').disabled=true;el('lovelyRetailerRetry').disabled=true;
-    if(!force)el('lovelyProductInfo').textContent=selected.overseas?'海外の公式一覧で取得した資料を読み込み中…':'記事と楽天の商品ページを確認しています…';
+    if(!force)el('lovelyProductInfo').textContent=['nakajima','takarajima'].includes(sourceOf(selected))?'公式の商品情報を確認しています…':selected.overseas?'海外の公式一覧で取得した資料を読み込み中…':'記事と楽天の商品ページを確認しています…';
     el('lovelyStatus').textContent='商品情報を取得中…';
     try{
       const data=await request('detail',url,null,null,'lovely',force);
       if(sequence!==chooseSequence)return;
+      data.item.date=data.item.date||rows.find(item=>item.url===url)?.date||draft?.date||'';
       domesticCandidates.ingest([data.item]);domesticCandidates.editor(data.item,'lovelyEvidenceEditor');rememberIdentity(data.item);
       detailCache.delete(url);detailCache.set(url,{time:Date.now(),item:data.item});
       if(detailCache.size>20)detailCache.delete(detailCache.keys().next().value);
@@ -630,10 +631,10 @@ const lovelyWatch = (()=>{
   function syncSourceButtons(){if(sourceButtons)for(const button of sourceButtons.querySelectorAll('button'))button.setAttribute('aria-pressed',String(button.dataset.source===sourceSelect.value));}
   if(sourceButtons&&sourceSelect){for(const option of sourceSelect.options){const button=document.createElement('button');button.type='button';button.className='small-btn';button.dataset.source=option.value;button.textContent=option.textContent;sourceButtons.append(button);}sourceButtons.addEventListener('click',event=>{const button=event.target.closest('[data-source]');if(!button)return;sourceSelect.value=button.dataset.source;sourceSelect.dispatchEvent(new Event('change'));});}
   const savedSource=state().sourceFilter;
-  sourceMode=['all','lovely','hatakeyama','gourmandise','skater','sanrio','fashion','news'].includes(savedSource)?savedSource:'all';
+  sourceMode=['all','lovely','hatakeyama','gourmandise','skater','nakajima','takarajima','sanrio','fashion','news'].includes(savedSource)?savedSource:'all';
   if(sourceSelect)sourceSelect.value=sourceMode;syncSourceButtons();
   sourceSelect?.addEventListener('change',e=>{syncSourceButtons();
-    sourceMode=['all','lovely','hatakeyama','gourmandise','skater','sanrio','fashion','news'].includes(e.target.value)?e.target.value:'all';
+    sourceMode=['all','lovely','hatakeyama','gourmandise','skater','nakajima','takarajima','sanrio','fashion','news'].includes(e.target.value)?e.target.value:'all';
     const saved=state();saved.sourceFilter=sourceMode;
     try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
     render();pagingControls();

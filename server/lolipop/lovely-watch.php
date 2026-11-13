@@ -16,6 +16,8 @@ function lw_doc(string $html): DOMXPath {
 }
 function lw_text(?DOMNode $node): string { return trim(preg_replace('/\s+/u',' ', $node ? $node->textContent : '') ?? ''); }
 function lw_article_url(string $url): string {
+    $official=lw_official_source($url);
+    if($official&&preg_match(lw_official_sources()[$official]['detail'],$url))return $url;
     $hat=lw_hat_article_url($url);if($hat)return $hat;
     $gour=lw_gour_article_url($url);if($gour)return $gour;
     $skater=lw_skater_article_url($url);if($skater)return $skater;
@@ -161,6 +163,7 @@ function lw_rakuten(string $html,string $url): array {
     return ['title'=>$name,'url'=>$product['url'],'productId'=>$product['id'],'itemCode'=>$sku?:substr($product['id'],8),'jan'=>lw_meta($x,'itemprop','gtin13'),'description'=>mb_substr(trim(implode("\n",$lines??[])),0,2500),'specs'=>array_slice($specs,0,8,true),'contents'=>array_slice($contents,0,12),'images'=>array_values(array_unique($images)),'checkedAt'=>gmdate('c')];
 }
 function lw_enriched(string $html,string $url): array {
+    $official=lw_official_source($url);if($official)return lw_official_detail($html,$url,$official);
     if(lw_gour_article_url($url))return lw_gour_enriched($html,$url);
     if(lw_skater_article_url($url))return lw_skater_enriched($html,$url);
     if(lw_hat_article_url($url)){
@@ -182,7 +185,7 @@ function lw_enriched(string $html,string $url): array {
 }
 function lw_fetch(string $url,int $limit=1500000,bool $image=false): string {
     $p=lw_product($url);
-    if (!lw_list_url($url) && !lw_hat_list_url($url) && !lw_gour_list_url($url) && !lw_skater_list_url($url) && !lw_article_url($url) && !($p&&$p['store']==='楽天'&&$p['url']===$url) && !($image&&(lw_image_url($url)||lw_hat_image_url($url)))) throw new RuntimeException('対象外のURLです。');
+    if (!lw_official_source($url) && !preg_match('~^https://nakajima-market\.com/view/item/[0-9]{12}$~D',$url) && !lw_list_url($url) && !lw_hat_list_url($url) && !lw_gour_list_url($url) && !lw_skater_list_url($url) && !lw_article_url($url) && !($p&&$p['store']==='楽天'&&$p['url']===$url) && !($image&&(lw_image_url($url)||lw_hat_image_url($url)||lw_official_image($url)))) throw new RuntimeException('対象外のURLです。');
     $ch=curl_init($url); $body='';
     curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>18,CURLOPT_USERAGENT=>'SanrioPostHelper/3389 (personal product discovery)',CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_WRITEFUNCTION=>function($ch,$data) use (&$body,$limit){ if(strlen($body)+strlen($data)>$limit)return 0; $body.=$data;return strlen($data); }]);
     $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
@@ -657,6 +660,86 @@ function lw_fashion_data(array $data,array $settings,int $page,string $expectedU
     return ['items'=>array_values($items),'nextPage'=>$items&&$pages!==false&&$page<min(20,$pages)?$page+1:null,'page'=>$page,'order'=>'API更新順（発売順ではありません）'];
 }
 
+function lw_official_sources(): array {
+    return [
+        'nakajima'=>['name'=>'ナカジママーケット','list'=>'https://nakajima-market.com/view/news/list?page=1','detail'=>'~^https://nakajima-market\.com/view/news/[0-9]{14}$~D'],
+        'takarajima'=>['name'=>'宝島チャンネル','list'=>'https://store.tkj.jp/shop/shopbrand.html?search=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA','detail'=>'~^https://store\.tkj\.jp/shopdetail/[0-9]{12}/$~D'],
+    ];
+}
+function lw_official_source(string $url): string {
+    foreach(lw_official_sources() as $key=>$source){
+        if($url===$source['list']||preg_match($source['detail'],$url))return $key;
+    }
+    return '';
+}
+function lw_official_image(string $url): string {
+    return preg_match('~^https://makeshop-multi-images\.akamaized\.net/(?:tkjstore|nakabc01)/itemimages/[0-9]+_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$~Di',$url)?$url:'';
+}
+function lw_official_item(string $source,string $url,string $title,string $date='',string $thumbnail=''): array {
+    return ['source'=>lw_official_sources()[$source]['name'],'url'=>$url,'title'=>$title,'date'=>$date,'thumbnail'=>$thumbnail,'products'=>[],'productIds'=>[],'needsReview'=>true];
+}
+function lw_official_list(string $html,string $source): array {
+    $x=lw_doc($html);$items=[];
+    if($source==='nakajima'){
+        $links=$x->query('//dl[@class="information-list"]/dd/a');
+        foreach($links as $link){
+            $title=lw_text($link);
+            if(!preg_match('/サンリオ|キティ|クロミ|マイメロ|シナモ|ポムポムプリン|ポチャッコ|ハンギョドン|タキシードサム|けろけろけろっぴ|こぎみゅん|バッドばつ丸|ぐでたま|マシュマロみたいなふわふわにゃんこ/u',$title))continue;
+            if(!preg_match('/新商品|新登場|発売|予約|再販|再入荷/u',$title)||preg_match('/終了|延期|中止/u',$title))continue;
+            $url='https://nakajima-market.com'.$link->getAttribute('href');
+            $date=str_replace('/','-',lw_text($x->query('../../dt',$link)->item(0)));
+            if(lw_official_source($url)!==$source||!preg_match('/^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/D',$date))continue;
+            $items[$url]=lw_official_item($source,$url,$title,$date);
+        }
+    } else {
+        $links=$x->query('//*[@id="r_searchList"]//p[@class="name"]/a');
+        foreach($links as $link){
+            if(!preg_match('~^/shop/shopdetail\.html\?brandcode=([0-9]{12})(?:&|$)~D',$link->getAttribute('href'),$m))continue;
+            $title=lw_text($link);if($title==='')continue;
+            $url='https://store.tkj.jp/shopdetail/'.$m[1].'/';
+            $image=$x->query('../../../div[@class="imgWrap"]//img',$link)->item(0);
+            $items[$url]=lw_official_item($source,$url,$title,'',$image?lw_official_image($image->getAttribute('src')):'');
+        }
+    }
+    if(!$links->length)throw new RuntimeException('公式の候補一覧を確認できませんでした。');
+    return ['items'=>array_values($items),'nextPage'=>null];
+}
+function lw_official_detail(string $html,string $url,string $source): array {
+    $x=lw_doc($html);
+    $title=lw_meta($x,'property','og:title');
+    if($title==='')throw new RuntimeException('公式の商品情報を確認できませんでした。');
+    $title=preg_replace('/-宝島チャンネル$/u','',$title);
+    $image=lw_official_image(lw_meta($x,'property','og:image'));
+    $facts=['商品名'=>$title];
+    if($source==='takarajima'){
+        foreach($x->query('//body//text()[contains(.,"【発売日：") and not(ancestor::script or ancestor::style)]') as $node){
+            if(preg_match('~【発売日：(20[0-9]{2})/([0-9]{1,2})/([0-9]{1,2})】~u',$node->nodeValue,$m)&&checkdate((int)$m[2],(int)$m[3],(int)$m[1])){
+                $facts['発売日']=$m[1].'年'.$m[2].'月'.$m[3].'日';break;
+            }
+        }
+    }
+    if($source==='nakajima'){
+        foreach($x->query('//div[@class="info-detail-section"]//a[@href]') as $link){
+            $productUrl=$link->getAttribute('href');
+            if(!preg_match('~^https://nakajima-market\.com/view/item/[0-9]{12}$~D',$productUrl))continue;
+            try{
+                $product=lw_doc(lw_fetch($productUrl));
+                $imageNode=$product->query('//ul[@class="item-image-large"]//img')->item(0);
+                if($imageNode)$image=lw_official_image($imageNode->getAttribute('src'));
+                $name=lw_meta($product,'property','og:title');
+                if($name!=='')$facts['商品名']=$name;
+            }catch(RuntimeException $e){
+                // The verified announcement remains available if a shop item has been removed.
+            }
+            break;
+        }
+    }
+    $item=lw_official_item($source,$url,$title,'',$image);
+    $item['productInfo']=['images'=>$image?[$image]:[],'checkedAt'=>gmdate('c')];
+    $item['manufacturerInfo']=['url'=>$url,'facts'=>$facts,'text'=>implode("\n",$facts),'checkedAt'=>gmdate('c')];
+    return $item;
+}
+
 // Fail explicitly if a payload cannot be encoded; never send or cache an empty body.
 function lw_json(array $data): string {return json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
 
@@ -690,8 +773,9 @@ try {
     if ($action==='list') {
         $page=$cron?1:filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
         if($page===false||$page<1||$page>20)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
-        $source=(string)($_GET['source']??'lovely');if(!in_array($source,['lovely','hatakeyama','gourmandise','skater','sanrio','fashion'],true))lw_out(['ok'=>false,'error'=>'情報元が不正です。'],400);
-        $url=$source==='fashion'?'https://www.rakuten.co.jp/?fashion-page='.$page:($source==='sanrio'?'https://www.rakuten.co.jp/sanrio/?page='.$page:($source==='skater'?lw_skater_page_url($page):($source==='gourmandise'?lw_gour_page_url($page):($source==='hatakeyama'?lw_hat_page_url($page):lw_page_url($page)))));
+        $source=(string)($_GET['source']??'lovely');if(!in_array($source,array_merge(['lovely','hatakeyama','gourmandise','skater','sanrio','fashion'],array_keys(lw_official_sources())),true))lw_out(['ok'=>false,'error'=>'情報元が不正です。'],400);
+        if(isset(lw_official_sources()[$source])&&$page!==1)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
+        $url=lw_official_sources()[$source]['list']??($source==='fashion'?'https://www.rakuten.co.jp/?fashion-page='.$page:($source==='sanrio'?'https://www.rakuten.co.jp/sanrio/?page='.$page:($source==='skater'?lw_skater_page_url($page):($source==='gourmandise'?lw_gour_page_url($page):($source==='hatakeyama'?lw_hat_page_url($page):lw_page_url($page))))));
     }
     elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=(($_GET['source']??'')==='fashion'?lw_fashion_url((string)($_GET['url']??'')):'')?:lw_sanrio_url((string)($_GET['url']??''))?:lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
@@ -716,9 +800,11 @@ try {
             $result=array_merge(['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>'サンリオ公式 楽天市場店'],lw_sanrio_data(lw_gour_search('',$sanrioSettings,'sanrio',$action==='list'?$page:1,$sanrioCode),$sanrioSettings,$action==='list'?$page:1,$action==='list'?'':$url,$sanrioCode));
         }else{
         $html=lw_fetch($url);
-        $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>lw_skater_article_url($url)||lw_skater_list_url($url)?'スケーター':(lw_gour_article_url($url)||lw_gour_list_url($url)?'グルマンディーズ':(lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy'))];
+        $official=lw_official_source($url);
+        $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>$official?lw_official_sources()[$official]['name']:(lw_skater_article_url($url)||lw_skater_list_url($url)?'スケーター':(lw_gour_article_url($url)||lw_gour_list_url($url)?'グルマンディーズ':(lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy')))];
         if($action==='list'){
-            if($source==='hatakeyama')$result=array_merge($result,lw_hat_discover($html,$page));
+            if($official)$result=array_merge($result,lw_official_list($html,$official));
+            elseif($source==='hatakeyama')$result=array_merge($result,lw_hat_discover($html,$page));
             elseif($source==='gourmandise')$result=array_merge($result,lw_gour_list($html,$page));
             elseif($source==='skater')$result=array_merge($result,lw_skater_list($html,$page));
             else{$result['items']=lw_list($html,true);$result['nextPage']=lw_next_page($html,$page);}
