@@ -29,7 +29,7 @@ const lovelyWatch = (()=>{
     if(saved.draft?.overseas||overseasUrl(saved.draft?.url))delete saved.draft;
     for(const key of ['drafts','firstSeen','hidden','identities','viewed'])if(saved[key]&&typeof saved[key]==='object')for(const [url,item] of Object.entries(saved[key]))if(item?.overseas||overseasUrl(url)||overseasUrl(item?.url))delete saved[key][url];
     if(saved.sourceChecks)delete saved.sourceChecks.overseas;
-    if(saved.sourceFilter==='overseas')saved.sourceFilter='all';
+    if(['overseas','fashion'].includes(saved.sourceFilter))saved.sourceFilter='all';
     delete saved.countryFilter;
     try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
   }
@@ -173,7 +173,7 @@ const lovelyWatch = (()=>{
     render();
   }
   function render(){
-    const value=state(),listedUrls=new Set(rows.map(item=>item.url)),newsRows=(typeof newsState!=='undefined'?newsState.items:[]).filter(i=>!listedUrls.has(i.url)&&(!newsState.marks[i.url]||newsState.marks[i.url].kind==='done')).map(i=>({...i,domesticNews:true,domesticPosted:newsState.marks[i.url]?.kind==='done'})),groups=groupedItems([...rows,...newsRows].sort((a,b)=>compareItems(a,b,value.firstSeen||{})),historyIds,value.hidden||{},value.identities||{});
+    const value=state(),listedUrls=new Set(rows.map(item=>item.url)),newsRows=(typeof newsState!=='undefined'?newsState.items:[]).filter(i=>!listedUrls.has(i.url)&&(!newsState.marks[i.url]||newsState.marks[i.url].kind==='done')).map(i=>({...i,domesticNews:true,domesticPosted:newsState.marks[i.url]?.kind==='done'})),groups=groupedItems([...rows.filter(item=>item.source!=='楽天ファッション'),...newsRows].sort((a,b)=>compareItems(a,b,value.firstSeen||{})),historyIds,value.hidden||{},value.identities||{});
     const sourceGroups=groups.flatMap(g=>{
       const matching=g.articles.filter(item=>!!item.overseas===(sectionMode==='overseas')&&(sectionMode==='overseas'||sourceMode==='all'||sourceOf(item)===sourceMode)&&(sectionMode!=='overseas'||countryMode==='all'||item.region===countryMode)).sort((a,b)=>compareItems(a,b,value.firstSeen||{}));
       return matching.length?[{...g,item:matching.includes(g.item)?g.item:matching[0]}]:[];
@@ -202,7 +202,7 @@ const lovelyWatch = (()=>{
     try{localStorage.setItem(KEY,JSON.stringify(s))}catch(_){}
     render();
   }
-  function selectedPages(){if(sectionMode==='overseas')return {};return sourceMode==='all'?{...nextPages}:(nextPages[sourceMode]?{[sourceMode]:nextPages[sourceMode]}:{});}
+  function selectedPages(){if(sectionMode==='overseas')return {};const pages=Object.fromEntries(Object.entries(nextPages).filter(([source])=>source!=='fashion'));return sourceMode==='all'?pages:(pages[sourceMode]?{[sourceMode]:pages[sourceMode]}:{});}
   function pagingControls(){
     const activeBusy=busy;
     el('lovelyRefresh').disabled=activeBusy;el('lovelyRefresh').textContent=sectionMode==='overseas'?'海外商品を確認':'新着商品を確認';
@@ -238,9 +238,8 @@ const lovelyWatch = (()=>{
     if(busy)return;autoLoadFailed=false;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
       await updateHistory();nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
-      const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater','nakajima','takarajima','sanrio','fashion'].map(source=>[source,checks[source]?.initialized===true]));
+      const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater','nakajima','takarajima','sanrio'].map(source=>[source,checks[source]?.initialized===true]));
       await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1,nakajima:1,takarajima:1,sanrio:1},true);
-      await new Promise(resolve=>setTimeout(resolve,1100));await loadSources({fashion:1},true);
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;pagingControls()}
   }
   function setSection(mode){
@@ -631,10 +630,10 @@ const lovelyWatch = (()=>{
   function syncSourceButtons(){if(sourceButtons)for(const button of sourceButtons.querySelectorAll('button'))button.setAttribute('aria-pressed',String(button.dataset.source===sourceSelect.value));}
   if(sourceButtons&&sourceSelect){for(const option of sourceSelect.options){const button=document.createElement('button');button.type='button';button.className='small-btn';button.dataset.source=option.value;button.textContent=option.textContent;sourceButtons.append(button);}sourceButtons.addEventListener('click',event=>{const button=event.target.closest('[data-source]');if(!button)return;sourceSelect.value=button.dataset.source;sourceSelect.dispatchEvent(new Event('change'));});}
   const savedSource=state().sourceFilter;
-  sourceMode=['all','lovely','hatakeyama','gourmandise','skater','nakajima','takarajima','sanrio','fashion','news'].includes(savedSource)?savedSource:'all';
+  sourceMode=['all','lovely','hatakeyama','gourmandise','skater','nakajima','takarajima','sanrio','news'].includes(savedSource)?savedSource:'all';
   if(sourceSelect)sourceSelect.value=sourceMode;syncSourceButtons();
   sourceSelect?.addEventListener('change',e=>{syncSourceButtons();
-    sourceMode=['all','lovely','hatakeyama','gourmandise','skater','nakajima','takarajima','sanrio','fashion','news'].includes(e.target.value)?e.target.value:'all';
+    sourceMode=['all','lovely','hatakeyama','gourmandise','skater','nakajima','takarajima','sanrio','news'].includes(e.target.value)?e.target.value:'all';
     const saved=state();saved.sourceFilter=sourceMode;
     try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
     render();pagingControls();
