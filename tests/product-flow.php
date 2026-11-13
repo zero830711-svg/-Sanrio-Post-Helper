@@ -84,13 +84,19 @@ pf_check(in_array(['KIRIMIちゃん. タオル',1],$expansionQueries,true),'Simp
 // Apply the seller exclusion before grouping and to old cached drafts.
 pf_check(pf_blocked_shop(['shopName'=>'TSJショップ'])&&pf_blocked_shop(['shop'=>'ＴＳＪ ショップ'])&&pf_blocked_shop(['shop'=>'TSJショップ 楽天市場店']),'Excluded seller name was not recognized');
 pf_check(!pf_blocked_shop(['shop'=>'ヨツバ商店 楽天市場店'])&&!pf_blocked_shop(['shop'=>'TSJ商品取扱店']),'Unrelated seller was excluded');
+pf_check(pf_blocked_shop(['shopName'=>'アイテムストア 大阪本店 楽天市場店']),'Itemstore name variant was not recognized');
+pf_check(pf_blocked_shop(['shopCode'=>'itemstore-oosaka'])&&pf_blocked_shop(['itemCode'=>'itemstore-oosaka:mascot']),'Itemstore API identifier was not recognized');
+pf_check(!pf_blocked_shop(['url'=>'https://item.rakuten.co.jp/itemstore-oosaka-other/mascot/']),'A similar but unrelated seller was excluded');
 $blockedOffer=['code'=>'blocked:item','shop'=>'TSJショップ','service'=>'market','title'=>'クロミのぬいぐるみ','url'=>'https://item.rakuten.co.jp/blocked/item/','affiliate'=>'https://hb.afl.rakuten.co.jp/hgc/'.$aid.'/?pc=blocked','images'=>['https://image.rakuten.co.jp/blocked/cabinet/item.jpg'],'sourceAt'=>time()];
 $otherOffer=array_replace($blockedOffer,['code'=>'normal:item','shop'=>'ヨツバ商店','url'=>'https://item.rakuten.co.jp/normal/item/']);
 $blockedDraft=['id'=>'blocked','item'=>['rakuten'=>true,'url'=>$blockedOffer['url'],'paragraphs'=>['販売店：TSJショップ']],'createdAt'=>time(),'body'=>'保存済み本文'];
-$original=['sourcePool'=>[$blockedOffer,$otherOffer],'entries'=>['blocked'=>$blockedDraft]];
+$itemstoreUrl='https://item.rakuten.co.jp/itemstore-oosaka/mascot/';
+$itemstoreOffer=array_replace($otherOffer,['code'=>'itemstore-oosaka:mascot','url'=>$itemstoreUrl,'shop'=>'']);
+$itemstoreDraft=['id'=>'itemstore','item'=>['rakuten'=>true,'url'=>$itemstoreUrl],'createdAt'=>time(),'body'=>'保存済み本文'];
+$original=['sourcePool'=>[$blockedOffer,$itemstoreOffer,$otherOffer],'entries'=>['blocked'=>$blockedDraft,'itemstore'=>$itemstoreDraft]];
 $public=pf_public($original);
 pf_check(count($public['sources'])===1&&$public['sources'][0]['shop']==='ヨツバ商店'&&$public['sourcePoolCount']===1,'Cached excluded seller remained visible or affected counts');
-pf_check($public['entries']===[]&&$original['entries']['blocked']['body']==='保存済み本文','Excluded draft remained visible or saved data was deleted');
+pf_check($public['entries']===[]&&$original['entries']['blocked']['body']==='保存済み本文'&&$original['entries']['itemstore']['body']==='保存済み本文','Excluded draft remained visible or saved data was deleted');
 $rawBlocked=['shopName'=>'TSJショップ','itemName'=>'サンリオ クロミ','itemCode'=>'blocked:item','itemUrl'=>$blockedOffer['url']];
 pf_check(pf_stock_rows(['items'=>[$rawBlocked]],[],[])===[],'New excluded seller offer entered the pool');
 pf_check(pf_match(['items'=>[$rawBlocked]],['jan'=>'','model'=>'','keyword'=>'クロミ'],'クロミ',['affiliateId'=>$aid])['candidates']===[],'Excluded seller remained in matching offers');
