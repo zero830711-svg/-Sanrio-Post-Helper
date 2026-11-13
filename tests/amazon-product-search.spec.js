@@ -81,7 +81,7 @@ test('ニュース内でAmazon検索し、楽天リンクと編集本文を保�
  const source={url:'https://prtimes.jp/main/html/rd/p/000000122.000013308.html',title:'ニュースのキティ',source:'PR TIMES',paragraphs:['商品の紹介です。'],images:[]};
  await page.route('**/news.php?**',r=>r.fulfill({json:new URL(r.request().url()).searchParams.get('action')==='list'?{ok:true,items:[source]}:{ok:true,item:source}}));
  await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
- await page.locator('#newsText').fill('編集済みニュース本文');await page.getByText('楽天・Amazonリンクを追加',{exact:true}).click();
+ await page.locator('#newsText').fill('編集済みニュース本文');await page.locator('#newsAffiliateDetails > summary').click();
  await page.locator('#newsAffiliateRakuten').fill('https://a.r10.to/test');await page.locator('#newsAffiliateSave').click();await openNewsSearch(page,'amazon');
  await expect(page.locator('#newsInlineQuery')).toHaveValue(source.title);await expect(page.locator('#productFlowPanel')).toBeHidden();await expect(page.locator('#newsInlineResults article')).toHaveCount(1);await page.locator('#newsInlineResults').getByRole('button',{name:'紹介リンクを追加'}).click();
  await expect(page.locator('#newsPanel')).toBeVisible();await expect(page.locator('#newsAffiliateAmazon')).toHaveValue(url);await expect(page.locator('#newsAffiliateRakuten')).toHaveValue('https://a.r10.to/test');
@@ -153,7 +153,7 @@ async function openInlineNews(page){
  await page.route('**/news.php?**',r=>{const action=new URL(r.request().url()).searchParams.get('action');return action==='image'?r.fulfill({contentType:'image/png',body:png}):r.fulfill({json:action==='list'?{ok:true,items:[source]}:{ok:true,item:source}});});
  await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
  await page.locator('#newsImages input[type=checkbox]').first().check();
- await page.locator('#newsText').fill('写真と一緒に残す手直し本文');await page.getByText('楽天・Amazonリンクを追加',{exact:true}).click();
+ await page.locator('#newsText').fill('写真と一緒に残す手直し本文');await page.locator('#newsAffiliateDetails > summary').click();
  return {...data,source};
 }
 test('楽天をニュース内で検索し5件ずつ表示、短縮リンクと写真を保持し検索紹介URLを原文追加する',async({page})=>{
@@ -167,14 +167,14 @@ test('楽天をニュース内で検索し5件ずつ表示、短縮リンクと�
  await page.locator('#newsInlineSearchLink').click();await expect(page.locator('#newsAffiliateRakuten')).toHaveValue(search);await expect(page.locator('#newsAffiliateAmazon')).toHaveValue('https://amzn.to/keep');
  await expect(page.locator('#newsText')).toHaveValue('写真と一緒に残す手直し本文');expect(await page.evaluate(()=>newsState.selected)).toEqual(selected);await expect(page.locator('#newsReplyText')).toHaveValue(new RegExp('test%2520query'));await expect(page.locator('#productFlowPanel')).toBeHidden();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
- await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsFilterButtons').getByRole('button',{name:'準備中',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();await page.getByText('楽天・Amazonリンクを追加',{exact:true}).click();await expect(page.locator('#newsAffiliateRakuten')).toHaveValue(search);expect(await page.evaluate(()=>newsState.selected)).toEqual(selected);
+ await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsFilterButtons').getByRole('button',{name:'準備中',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();await page.locator('#newsAffiliateDetails > summary').click();await expect(page.locator('#newsAffiliateRakuten')).toHaveValue(search);expect(await page.evaluate(()=>newsState.selected)).toEqual(selected);
 });
 test('Amazon検索語の修正・検索紹介リンク・エラーと遅い応答を別のニュースへ反映しない',async({page})=>{
  await openInlineNews(page);let calls=0,release;
  await page.route('**/amazon-creators.php?action=search',async r=>{calls++;if(calls===2){await new Promise(resolve=>release=resolve);return r.fulfill({json:{ok:true,items:[item],partnerTag:'test-22'}});}return r.fulfill({json:{ok:true,items:[item],partnerTag:'test-22',hasMore:false}});});
  await openNewsSearch(page,'amazon');await expect(page.locator('#newsInlineResults article')).toHaveCount(1);
  await page.locator('#newsInlineQuery').fill('サム ROOM');await page.locator('#newsInlineRun').click();await expect.poll(()=>calls).toBe(2);
- await page.locator('#newsBackBottom').click();release();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();if(!await page.locator('#newsAffiliateAmazon').isVisible())await page.getByText('楽天・Amazonリンクを追加',{exact:true}).click();await expect(page.locator('#newsInlinePanel')).toBeHidden();await expect(page.locator('#newsAffiliateAmazon')).toHaveValue('');
+ await page.locator('#newsBackBottom').click();release();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();if(!await page.locator('#newsAffiliateAmazon').isVisible())await page.locator('#newsAffiliateDetails > summary').click();await expect(page.locator('#newsInlinePanel')).toBeHidden();await expect(page.locator('#newsAffiliateAmazon')).toHaveValue('');
  await openNewsSearch(page,'amazon');await expect(page.locator('#newsInlineSearchLink')).toBeEnabled();await page.locator('#newsInlineSearchLink').click();await expect(page.locator('#newsAffiliateAmazon')).toHaveValue(/tag=test-22/);await expect(page.locator('#newsText')).toHaveValue('写真と一緒に残す手直し本文');
 });
 
@@ -184,9 +184,8 @@ test('ニュースの外部検索はChromeへ開き、短縮リンクを原文�
  const query=encodeURIComponent('サム ROOM & 限定');
  await expect(page.locator('#newsRakutenOpen')).toHaveAttribute('href','googlechromes://search.rakuten.co.jp/search/mall/'+query+'/');
  await expect(page.locator('#newsAmazonOpen')).toHaveAttribute('href','com.amazon.mobile.shopping.web://www.amazon.co.jp/s?k='+query);
- await expect(page.locator('#newsRakutenPortal')).toHaveAttribute('href','googlechromes://affiliate.rakuten.co.jp/');
+ await expect(page.locator('#newsRakutenPortal, #newsRakutenCopy')).toHaveCount(0);
  await page.evaluate(()=>{window.clipboardValue='https://a.r10.to/hPfTZE';Object.defineProperty(navigator,'clipboard',{configurable:true,value:{readText:async()=>window.clipboardValue,writeText:async value=>{window.copiedValue=value;}}});});
- await page.locator('#newsRakutenCopy').click();expect(await page.evaluate(()=>window.copiedValue)).toBe('https://search.rakuten.co.jp/search/mall/'+query+'/');
  await page.locator('#newsRakutenPaste').click();await expect(page.locator('#newsAffiliateRakuten')).toHaveValue('https://a.r10.to/hPfTZE');
  await page.evaluate(()=>window.clipboardValue='https://amzn.asia/d/short?test=1');await page.locator('#newsAmazonPaste').click();await expect(page.locator('#newsAffiliateAmazon')).toHaveValue('https://amzn.asia/d/short?test=1');
  await expect(page.locator('#newsReplyText')).toHaveValue(/https:\/\/a.r10.to\/hPfTZE/);await expect(page.locator('#newsReplyText')).toHaveValue(/https:\/\/amzn.asia\/d\/short\?test=1/);

@@ -825,20 +825,12 @@ function newsExternalSearch(kind){
  return kind==='rakuten'?'https://search.rakuten.co.jp/search/mall/'+encodeURIComponent(query)+'/':'https://www.amazon.co.jp/s?k='+encodeURIComponent(query);
 }
 function newsExternalRender(){
- newsExternalAnchor($('newsRakutenOpen'),newsExternalSearch('rakuten'),'楽天の検索ページを開く');
+ newsExternalAnchor($('newsRakutenOpen'),newsExternalSearch('rakuten'),'楽天で検索');
  newsExternalAnchor($('newsAmazonOpen'),newsExternalSearch('amazon'),'Amazonの検索ページを開く');
  $('newsAmazonWebOpen').href=newsExternalSearch('amazon');
- newsExternalAnchor($('newsRakutenPortal'),'https://affiliate.rakuten.co.jp/','楽天アフィリエイトを開く');
 }
 $('newsExternalQuery').oninput=newsExternalQueryChanged;
-for(const [id,kind] of [['newsRakutenOpen','rakuten'],['newsAmazonOpen','amazon'],['newsAmazonWebOpen','amazon'],['newsRakutenPortal','rakuten']])$(id).addEventListener('click',()=>newsExternalLeave(kind));
-$('newsRakutenCopy').onclick=async()=>{
- const entry=newsCollageEntry(),status=$('newsAffiliateStatus');if(!entry)return;
- const value=$('newsAffiliateRakuten').value.trim()||newsExternalSearch('rakuten');
- if(!newsValidAffiliate(value,'rakuten')){status.textContent='楽天のリンクを確認してください。';return;}
- try{await navigator.clipboard.writeText(value);if(newsCollageEntry()===entry)status.textContent='楽天URLをコピーしました。楽天アフィリエイトで貼り付けて短縮リンクを作成してください。';}
- catch{status.textContent='コピーできませんでした。楽天リンク欄のURLを選択してコピーしてください。';}
-};
+for(const [id,kind] of [['newsRakutenOpen','rakuten'],['newsAmazonOpen','amazon'],['newsAmazonWebOpen','amazon']])$(id).addEventListener('click',()=>newsExternalLeave(kind));
 async function newsPasteAffiliate(kind){
  const entry=newsCollageEntry(),input=$(kind==='rakuten'?'newsAffiliateRakuten':'newsAffiliateAmazon');if(!entry)return;
  try{
