@@ -12,10 +12,9 @@ function newsReadDrafts(data){
  try{if(data===undefined)data=JSON.parse(localStorage.getItem(newsStorageKey('Drafts'))||'null');if(data?.version!==1||!Array.isArray(data.entries))return new Map();
  return new Map(data.entries.slice(0,40).filter(e=>e&&typeof e.item?.url==='string'&&/^https:\/\//.test(e.item.url)&&typeof e.text==='string'&&e.text.length<=20000&&Array.isArray(e.item.images)).map(e=>{
  const item={...e.item,images:e.item.images.filter(u=>typeof u==='string'&&/^https:\/\//.test(u)).slice(0,100)};
- const selected=Array.isArray(e.selected)?[...new Set(e.selected)].filter(i=>Number.isInteger(i)&&i>=0&&i<item.images.length).slice(0,e.collageMode?16:4):[];
- const collageIndices=(Array.isArray(e.collageIndices)?e.collageIndices:selected.slice(0,4)).filter(i=>selected.includes(i)).slice(0,4);
- const collageExtraGroups=Array.isArray(e.collageExtraGroups)?e.collageExtraGroups.slice(0,3).map(g=>Array.isArray(g)?g.filter(i=>selected.includes(i)&&!collageIndices.includes(i)).slice(0,4):[]):[];
- return [item.url,{...e,item,selected,collageIndices,collageExtraGroups,files:item.images.map(()=>null),loading:[],errors:[],aiPending:false,restored:true}];}));}catch{return new Map();}
+ const collageSize=e.collageSize===6?6:e.collageMode?4:0;
+ const selected=Array.isArray(e.selected)?[...new Set(e.selected)].filter(i=>Number.isInteger(i)&&i>=0&&i<item.images.length).slice(0,4*(collageSize||1)):[];
+ return [item.url,{...e,item,selected,collageSize,collageMode:!!collageSize,files:item.images.map(()=>null),loading:[],errors:[],aiPending:false,restored:true}];}));}catch{return new Map();}
 }
 const newsDraftStorage=new Map();
 function newsRestoreDrafts(){
@@ -33,7 +32,7 @@ function newsRestoreDrafts(){
 }
 function newsSaveDrafts(){
  const unique=[...new Set(newsState.drafts.values())].filter(e=>!newsState.marks[e.item.url]).sort((a,b)=>(b.savedAt||0)-(a.savedAt||0)).slice(0,40);
- const entries=unique.map(e=>({item:e.item,text:e.text,replyText:e.replyText,includeLink:e.includeLink,searchQuery:e.searchQuery,affiliateLinks:e.affiliateLinks,affiliatePlacement:e.affiliatePlacement,affiliateBlock:e.affiliateBlock,confirmedRegion:e.confirmedRegion,regionBlock:e.regionBlock,postedUrl:e.postedUrl,selected:e.selected,collageMode:!!e.collageMode,collageIndices:e.collageIndices,collageExtraGroups:e.collageExtraGroups,aiDrafts:e.aiDrafts,aiChoice:e.aiChoice,aiAttempted:e.aiAttempted,aiStatus:e.aiStatus,photoReadings:e.photoReadings,savedAt:e.savedAt||Date.now()}));
+ const entries=unique.map(e=>({item:e.item,text:e.text,replyText:e.replyText,includeLink:e.includeLink,searchQuery:e.searchQuery,affiliateLinks:e.affiliateLinks,affiliatePlacement:e.affiliatePlacement,affiliateBlock:e.affiliateBlock,confirmedRegion:e.confirmedRegion,regionBlock:e.regionBlock,postedUrl:e.postedUrl,selected:e.selected,collageMode:!!e.collageMode,collageSize:e.collageSize,aiDrafts:e.aiDrafts,aiChoice:e.aiChoice,aiAttempted:e.aiAttempted,aiStatus:e.aiStatus,photoReadings:e.photoReadings,savedAt:e.savedAt||Date.now()}));
  const key=newsStorageKey('Drafts'),data={version:1,entries};
  newsRestoreDrafts();
  const store=newsDraftStorage.get(key),revision=++store.revision;
@@ -259,20 +258,20 @@ function newsSourceLinks(url){
 }
 
 function newsCollageEntry(){return newsState.item&&newsState.drafts.get(newsState.item.url);}
+function newsCollageSize(entry=newsCollageEntry()){return entry?.collageSize===6?6:entry?.collageMode?4:0;}
 function newsCollageGroups(){
- const e=newsCollageEntry();return [e?.collageIndices||[],...(e?.collageExtraGroups||[])].slice(0,4).map(g=>newsState.selected.filter(i=>g.includes(i)));
+ const size=newsCollageSize(),groups=[];
+ if(size)for(let i=0;i<newsState.selected.length;i+=size)groups.push(newsState.selected.slice(i,i+size));
+ return groups;
 }
-function newsCollageIndices(group=0){return newsCollageGroups()[group]||[];}
-function newsCollageSingles(){const grouped=newsCollageGroups().flat();return newsState.selected.filter(i=>!grouped.includes(i));}
-function newsCollageKey(){return newsCollageGroups().map(g=>g.join(',')).join('|');}
-function newsCollageComplete(){const groups=newsCollageGroups().filter(g=>g.length);return groups.length>0&&groups.every(g=>g.length===4)&&groups.length+newsCollageSingles().length<=4;}
-function newsChosenFiles(){const e=newsCollageEntry();if(!e?.collageMode)return newsState.selected.map(i=>newsState.files[i]).filter(Boolean);if(!newsCollageComplete()||e.collageKey!==newsCollageKey())return [];return [...(e.collageFiles||[]),...newsCollageSingles().map(i=>newsState.files[i]).filter(Boolean)];}
-function newsPhotoReady(){const e=newsCollageEntry();return newsState.selected.every(i=>!!newsState.files[i])&&(!e?.collageMode||newsCollageComplete()&&e.collageKey===newsCollageKey()&&!!e.collageFiles);}
+function newsCollageKey(){return newsCollageSize()+':'+newsState.selected.join(',');}
+function newsChosenFiles(){const e=newsCollageEntry();if(!newsCollageSize(e)||!newsState.selected.length)return newsState.selected.map(i=>newsState.files[i]).filter(Boolean);return e.collageKey===newsCollageKey()?e.collageFiles||[]:[];}
+function newsPhotoReady(){const e=newsCollageEntry();return newsState.selected.every(i=>!!newsState.files[i])&&(!newsCollageSize(e)||!newsState.selected.length||e.collageKey===newsCollageKey()&&!!e.collageFiles);}
 function newsClearCollagePreview(){const box=$('newsCollagePreview');for(const img of box.querySelectorAll('img'))URL.revokeObjectURL(img.src);box.replaceChildren();box.hidden=true;box.dataset.key='';}
 function newsComposePhotos(entry){
- const key=newsCollageKey(),groups=newsCollageGroups();if(entry.collageKey===key&&entry.collageFiles||entry.collagePending===key||entry.collageFailed===key)return;
- entry.collagePending=key;const files=groups.map(g=>g.map(i=>entry.files[i]));
- (async()=>{const output=[];for(const [i,group] of files.entries()){if(!group.length)continue;const result=await newsCollageFiles(group);output.push(new File([result[0]],'news-collage-'+(i+1)+'.png',{type:'image/png'}));}return output;})().then(result=>{if(entry.collagePending===key){entry.collageKey=key;entry.collageFiles=result;}}).catch(()=>{if(entry.collagePending===key)entry.collageFailed=key;}).finally(()=>{
+ const key=newsCollageKey(),groups=newsCollageGroups();if(entry.collageKey===key&&entry.collageFiles||entry.collagePending||entry.collageFailed===key)return;
+ entry.collagePending=key;
+ newsCollageFiles(groups.flat().map(i=>entry.files[i]),newsCollageSize(entry)).then(result=>{if(entry.collagePending===key){entry.collageKey=key;entry.collageFiles=result;}}).catch(()=>{if(entry.collagePending===key)entry.collageFailed=key;}).finally(()=>{
   if(entry.collagePending===key)entry.collagePending=null;
   if(newsCollageEntry()===entry)newsPhotoStatus();
  });
@@ -280,16 +279,15 @@ function newsComposePhotos(entry){
 function newsPhotoStatus(){
  if(!newsState.item)return;
  const entry=newsCollageEntry(),total=newsState.selected.length,mode=!!entry?.collageMode,groups=newsCollageGroups().filter(g=>g.length);
- if(mode&&newsCollageComplete()&&newsState.selected.every(i=>!!newsState.files[i]))newsComposePhotos(entry);
+ if(mode&&total&&newsState.selected.every(i=>!!newsState.files[i]))newsComposePhotos(entry);
  const ready=newsPhotoReady();
  $('newsShare').disabled=!ready;$('newsSavePhotos').disabled=!ready||!newsState.selected.length;
  const loaded=newsState.selected.filter(i=>!!newsState.files[i]).length,failed=newsState.selected.filter(i=>entry?.errors?.[i]).length;
  $('newsEditorStatus').textContent=failed?'選んだ写真を取得できませんでした。写真の「再試行」を押すか、選択を外してください。':loaded<total?'本文は編集できます。選んだ写真を準備中（'+loaded+' / '+total+'枚）':total?'選んだ写真 '+loaded+'枚を準備。本文と画像を確認して共有してください。':'本文を編集できます。使う写真を選んでください。';
- if(mode&&!newsCollageComplete())$('newsEditorStatus').textContent='使うまとめ画像には4枚ずつ選んでください。完成画像と個別写真は合計4枚までです。';
- else if(mode&&loaded===total&&!failed)$('newsEditorStatus').textContent=entry.collageFailed===newsCollageKey()?'まとめ画像を作れませんでした。再作成するか、まとめる設定を外してください。':ready?'まとめ画像'+groups.length+'枚＋個別写真'+newsCollageSingles().length+'枚を準備しました。完成画像を確認してください。':'写真をまとめています…';
+ if(mode&&total&&loaded===total&&!failed)$('newsEditorStatus').textContent=entry.collageFailed===newsCollageKey()?'まとめ画像を作れませんでした。再作成するか、個別写真に切り替えてください。':ready?'共有する写真を'+groups.length+'枚にまとめました。完成画像を確認してください。':'写真をまとめています…';
  $('newsCollageRetry').hidden=!(mode&&entry.collageFailed===newsCollageKey());
- const preview=$('newsCollagePreview'),previewKey=mode&&ready?newsCollageKey()+'|'+newsState.selected.join(','):'';
- if(preview.dataset.key!==previewKey){newsClearCollagePreview();if(previewKey){preview.hidden=false;preview.dataset.key=previewKey;for(const [i,file] of newsChosenFiles().entries()){const img=document.createElement('img');img.src=URL.createObjectURL(file);img.alt=i<groups.length?'共有するまとめ画像 '+(i+1):'共有する個別写真 '+(i-groups.length+1);preview.append(img);}}}
+ const preview=$('newsCollagePreview'),previewKey=mode&&ready&&total?newsCollageKey()+'|'+newsState.selected.join(','):'';
+ if(preview.dataset.key!==previewKey){newsClearCollagePreview();if(previewKey){preview.hidden=false;preview.dataset.key=previewKey;for(const [i,file] of newsChosenFiles().entries()){const img=document.createElement('img');img.src=URL.createObjectURL(file);img.alt=groups[i].length>1?'共有するまとめ画像 '+(i+1):'共有する個別写真 '+(i+1);preview.append(img);}}}
  entry?.item.images.forEach((_,i)=>{const status=$('newsPhotoStatus'+i),retry=$('newsPhotoRetry'+i);if(status)status.textContent=entry.loading?.[i]?'写真を準備中…':entry.errors?.[i]?'取得失敗。再試行できます。':entry.files[i]?'写真を準備しました':'';if(retry){retry.hidden=!entry.errors?.[i];retry.disabled=!!entry.loading?.[i]||!newsState.selected.includes(i);}});
 }
 function newsPhotoArrived(entry,index){
@@ -307,34 +305,19 @@ function newsLoadPhotos(entry){
  });
 }
 function newsPhotosRender(){
- $('newsPhotoSelectionSummary').textContent='選択 '+newsState.selected.length+'枚・'+(newsCollageEntry()?.collageMode?'まとめ '+newsCollageGroups().map((g,i)=>g.length?(i+1)+'：'+g.length+'/4枚':'').filter(Boolean).join('・'):'個別写真は4枚まで');
+ const size=newsCollageSize(),limit=4*(size||1);
+ $('newsPhotoSelectionSummary').textContent='選択 '+newsState.selected.length+' / '+limit+'枚'+(size?'・完成 '+newsCollageGroups().length+'枚':'');
  const box=$('newsImages');box.replaceChildren();const entry=newsState.drafts.get(newsState.item.url);
- [...newsState.selected,...newsState.files.map((_,i)=>i).filter(i=>!newsState.selected.includes(i))].forEach(i=>{const file=newsState.files[i];
+ const indices=newsState.files.map((_,i)=>i);
+ (size?indices:[...newsState.selected,...indices.filter(i=>!newsState.selected.includes(i))]).forEach(i=>{const file=newsState.files[i];
  const card=document.createElement('div');card.className='news-photo';
  const img=document.createElement('img');img.alt='記事の写真 '+(i+1);img.dataset.newsPhoto=String(i);img.referrerPolicy='no-referrer';img.loading='lazy';
  if(file){const u=URL.createObjectURL(file);img.src=u;img.onload=()=>URL.revokeObjectURL(u);img.onerror=()=>URL.revokeObjectURL(u);}else img.src=newsState.item.images[i];
  const label=document.createElement('label');
  const pos=newsState.selected.indexOf(i);
- if(entry.collageMode){
-  const select=document.createElement('select');select.setAttribute('aria-label','写真'+(i+1)+'の使い方');
-  for(const [value,text] of [['none','使わない'],['collage','まとめ画像1'],['collage2','まとめ画像2'],['collage3','まとめ画像3'],['collage4','まとめ画像4'],['single','個別写真で使う']]){const option=document.createElement('option');option.value=value;option.textContent=text;select.append(option);}
-  const groups=newsCollageGroups(),group=groups.findIndex(g=>g.includes(i));
-  select.value=pos<0?'none':group<0?'single':group===0?'collage':'collage'+(group+1);
-  const previous=select.value;
-  select.addEventListener('change',()=>{
-   const next=Array.from({length:4},(_,k)=>(newsCollageGroups()[k]||[]).filter(n=>n!==i));
-   const singles=newsCollageSingles().filter(n=>n!==i);
-   if(select.value==='single')singles.push(i);
-   else if(select.value!=='none'){const target=select.value==='collage'?0:Number(select.value.slice(7))-1;if(next[target].length>=4){select.value=previous;$('newsEditorStatus').textContent='それぞれのまとめ画像は4枚まで選べます。';return;}next[target].push(i);}
-   if(next.filter(g=>g.length).length+singles.length>4){select.value=previous;$('newsEditorStatus').textContent='完成するまとめ画像と個別写真は合計4枚まで選べます。';return;}
-   entry.collageIndices=next[0];entry.collageExtraGroups=next.slice(1);
-   if(select.value==='none')newsState.selected=newsState.selected.filter(n=>n!==i);else if(pos<0)newsState.selected.push(i);
-   newsKeepDraft();newsLoadPhotos(entry);newsPhotosRender();newsPhotoStatus();
-  });label.append(select);
- }else{
-  const check=document.createElement('input');check.type='checkbox';check.checked=pos>=0;label.append(check,document.createTextNode(pos>=0?(pos+1)+'枚目':'使わない'));
-  check.addEventListener('change',()=>{if(check.checked){if(newsState.selected.length>=4){check.checked=false;$('newsEditorStatus').textContent='写真は4枚まで選べます。';return;}newsState.selected.push(i);}else newsState.selected=newsState.selected.filter(n=>n!==i);newsKeepDraft();newsLoadPhotos(entry);newsPhotosRender();newsPhotoStatus();});
- }
+ const check=document.createElement('input');check.type='checkbox';check.checked=pos>=0;
+ label.append(check,document.createTextNode(pos<0?'選ぶ':(pos+1)+'枚目'+(size?'・まとめ '+(Math.floor(pos/size)+1):'')));
+ check.addEventListener('change',()=>{if(check.checked){if(newsState.selected.length>=limit){check.checked=false;$('newsEditorStatus').textContent='写真は'+limit+'枚まで選べます。';return;}newsState.selected.push(i);}else newsState.selected=newsState.selected.filter(n=>n!==i);newsKeepDraft();newsLoadPhotos(entry);newsPhotosRender();newsPhotoStatus();});
  const controls=document.createElement('div');controls.className='news-photo-controls';
  ['前へ','後へ'].forEach((text,n)=>{const b=document.createElement('button');b.type='button';b.className='small-btn';b.textContent=text;b.setAttribute('aria-label','写真'+(i+1)+'を'+text);b.disabled=pos<0||(n===0?pos===0:pos===newsState.selected.length-1);b.onclick=()=>{const target=pos+(n===0?-1:1);[newsState.selected[pos],newsState.selected[target]]=[newsState.selected[target],newsState.selected[pos]];newsKeepDraft();newsPhotosRender();newsPhotoStatus();};controls.append(b);});
  const status=document.createElement('p');status.id='newsPhotoStatus'+i;status.className='backup-note';status.setAttribute('aria-live','polite');
@@ -477,8 +460,8 @@ async function newsPrepare(url){
   }
   if(seq!==newsState.seq)return;
   newsState.item=entry.item;newsState.files=entry.files;newsState.selected=entry.selected.slice();
-  $('newsCollageMode').checked=!!entry.collageMode;$('newsCollageControls').hidden=entry.item.images.length<4;
-  $('newsPhotoHint').textContent=(entry.photoRefreshWarning||'')+(entry.collageMode?'写真ごとに「まとめ画像1〜4」か「個別写真」を選択。まとめ画像は4枚ずつ、完成画像は合計4枚まで。':'4枚まで選択・「前へ／後へ」で並べ替え');
+  $('newsCollageControls').hidden=entry.item.images.length<2;
+  newsSyncCollageMode(entry);
   const listedItem=newsState.items.find(i=>i.url===url||i.url===entry.item.url);if(listedItem){listedItem.facts=entry.item.facts||[];newsGroupsCache=null;}
   newsSourceLinks(url);
   $('newsDone').disabled=false;$('newsSkip').disabled=false;
@@ -575,11 +558,16 @@ $('newsGroqSave').addEventListener('click',async()=>{const input=$('newsGroqKey'
 
 window.addEventListener('pagehide',newsKeepDraft);
 
-$('newsCollageMode').addEventListener('change',()=>{
- const entry=newsCollageEntry();if(!entry)return;entry.collageMode=$('newsCollageMode').checked;
- newsState.selected=newsState.selected.slice(0,4);entry.collageIndices=newsState.selected.slice();entry.collageExtraGroups=[];
- entry.collageFailed=null;$('newsPhotoHint').textContent=entry.collageMode?'写真ごとに「まとめ画像1〜4」か「個別写真」を選択。まとめ画像は4枚ずつ、完成画像は合計4枚まで。':'4枚まで選択・「前へ／後へ」で並べ替え';
- newsKeepDraft();newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();
+function newsSyncCollageMode(entry){
+ const size=newsCollageSize(entry);
+ for(const button of $('newsCollageControls').querySelectorAll('button'))button.setAttribute('aria-pressed',String(Number(button.dataset.collageSize)===size));
+ $('newsPhotoHint').textContent=(entry.photoRefreshWarning||'')+(size?'チェックした順に'+size+'枚ずつ自動でまとめます。余りも共有できます。':'個別写真は4枚まで。「前へ／後へ」で並べ替えできます。');
+}
+for(const button of $('newsCollageControls').querySelectorAll('button'))button.addEventListener('click',()=>{
+ const entry=newsCollageEntry(),size=Number(button.dataset.collageSize);if(!entry||size===newsCollageSize(entry))return;
+ const limit=4*(size||1);if(newsState.selected.length>limit){$('newsEditorStatus').textContent='この設定では'+limit+'枚までです。先に写真の選択を減らしてください。';return;}
+ entry.collageSize=size;entry.collageMode=!!size;entry.collageFailed=null;
+ newsSyncCollageMode(entry);newsKeepDraft();newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();
 });
 $('newsCollageRetry').addEventListener('click',()=>{const entry=newsCollageEntry();if(entry){entry.collageFailed=null;newsPhotoStatus();}});
 

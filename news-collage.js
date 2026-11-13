@@ -1,8 +1,9 @@
 // Use downloaded originals; contain each image without cropping or changing it.
-async function newsCollageFiles(files){
+async function newsCollageFiles(files,size=4){
+ size=size===6?6:4;
  const output=[];
- for(let start=0;start<files.length;start+=4){
-  const group=files.slice(start,start+4);if(group.length===1){output.push(group[0]);continue;}
+ for(let start=0;start<files.length;start+=size){
+  const group=files.slice(start,start+size);if(group.length===1){output.push(group[0]);continue;}
   const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=Math.ceil(group.length/2)*800;
   const ctx=canvas.getContext('2d');if(!ctx)throw new Error('画像をまとめられませんでした。');
   ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -14,7 +15,7 @@ async function newsCollageFiles(files){
    }finally{URL.revokeObjectURL(url);}
   }
   const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('PNGを作れませんでした。')),'image/png'));
-  output.push(new File([blob],'news-collage-'+(Math.floor(start/4)+1)+'.png',{type:'image/png'}));canvas.width=canvas.height=0;
+  output.push(new File([blob],'news-collage-'+(Math.floor(start/size)+1)+'.png',{type:'image/png'}));canvas.width=canvas.height=0;
  }
  return output;
 }

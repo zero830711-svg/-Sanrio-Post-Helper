@@ -6,22 +6,15 @@ async function setup(page,source=item){
  await page.route('**/api2580.php?**',r=>r.fulfill({json:{ok:true,items:[]}}));await page.route('**/news.php?**',r=>{const a=new URL(r.request().url()).searchParams.get('action');return a==='image'?r.fulfill({contentType:'image/png',body:png}):r.fulfill({json:a==='list'?{ok:true,items:[source]}:{ok:true,item:source}});});
  await page.goto('/');await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();await expect(page.locator('#newsShare')).toBeEnabled();
 }
-function usePhoto(page,n,value){return page.getByRole('combobox',{name:'写真'+n+'の使い方',exact:true}).selectOption(value);}
-test('選んだ4枚のまとめ画像と3枚の個別写真だけをPNGで共有する',async({page})=>{
- await setup(page);await page.locator('#newsCollageMode').check();await expect(page.locator('#newsCollagePreview img')).toHaveCount(1);
- for(let n=5;n<=7;n++)await usePhoto(page,n,'single');
- await expect(page.locator('#newsCollagePreview img')).toHaveCount(4);await expect(page.locator('#newsShare')).toBeEnabled();await expect(page.locator('#newsEditorStatus')).toContainText('まとめ画像1枚＋個別写真3枚');
- await usePhoto(page,8,'single');await expect(page.getByRole('combobox',{name:'写真8の使い方',exact:true})).toHaveValue('none');
- await usePhoto(page,8,'collage');await expect(page.getByRole('combobox',{name:'写真8の使い方',exact:true})).toHaveValue('none');
- await page.locator('#newsShare').click();expect(await page.evaluate(()=>window.sharedCollage)).toEqual(['news-collage-1.png','news-5.png','news-6.png','news-7.png'].map(name=>({name,type:'image/png'})));
- await usePhoto(page,1,'none');await expect(page.locator('#newsShare')).toBeDisabled();await usePhoto(page,8,'collage');await expect(page.locator('#newsShare')).toBeEnabled();expect(await page.evaluate(()=>newsCollageIndices())).toEqual([1,2,3,7]);
- await page.locator('#newsShare').click();expect((await page.evaluate(()=>window.sharedCollage)).map(f=>f.name)).toEqual(['news-collage-1.png','news-5.png','news-6.png','news-7.png']);
- await page.locator('#newsCollageMode').uncheck();await expect(page.locator('#newsCollagePreview')).not.toBeVisible();await expect(page.locator('#newsShare')).toBeEnabled();expect(await page.evaluate(()=>newsState.selected.length)).toBe(4);
-});
-test('混在した写真の選択と順番を再起動後も復元し、設定が縦に伸びない',async({page})=>{
- await setup(page);await page.locator('#newsCollageMode').check();for(let n=5;n<=7;n++)await usePhoto(page,n,'single');await expect(page.locator('#newsShare')).toBeEnabled();await page.getByRole('button',{name:'写真2を前へ',exact:true}).click();await expect(page.locator('#newsShare')).toBeEnabled();
- await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();await page.locator('#newsFilterButtons').getByRole('button',{name:'準備中',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();await expect(page.locator('#newsCollageMode')).toBeChecked();await expect(page.locator('#newsShare')).toBeEnabled();expect(await page.evaluate(()=>newsState.selected)).toEqual([1,0,2,3,4,5,6]);expect(await page.evaluate(()=>newsCollageIndices())).toEqual([1,0,2,3]);await expect(page.locator('#newsCollagePreview img')).toHaveCount(4);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- const control=await page.locator('#newsCollageControls').boundingBox(),check=await page.locator('#newsCollageMode').boundingBox();expect(control.height).toBeLessThan(65);expect(check.width).toBe(20);expect(check.height).toBe(20);
+function choose(page,n){return page.locator('.news-photo').filter({has:page.getByAltText('記事の写真 '+n,{exact:true})}).getByRole('checkbox').check();}
+function mode(page,size){return page.locator('#newsCollageControls [data-collage-size="'+size+'"]');}
+test('4枚モードは余り1枚を個別に共有する',async({page})=>{
+ await setup(page);
+ await mode(page,4).click();await choose(page,8);
+ await expect(page.locator('#newsImages select')).toHaveCount(0);
+ await expect(page.locator('#newsCollagePreview img')).toHaveCount(2);
+ await page.locator('#newsShare').click();
+ expect((await page.evaluate(()=>window.sharedCollage)).map(f=>f.name)).toEqual(['news-collage-1.png','news-8.png']);
 });
 test('縦横比と写真の順番を保ち、切り取りせず2×2に配置する',async({page})=>{
  await page.goto('/');await page.waitForFunction(()=>typeof newsCollageFiles==='function');
@@ -32,25 +25,20 @@ test('縦横比と写真の順番を保ち、切り取りせず2×2に配置す�
  expect(result.width).toBe(1600);expect(result.height).toBe(1600);expect(result.centers).toEqual([[255,0,0,255],[0,255,0,255],[0,0,255,255],[255,255,0,255]]);expect(result.margins).toEqual([[255,255,255,255],[255,255,255,255]]);
 });
 
-test('8枚を二つのまとめ画像に振り分け、9枚目以降とグループを復元する',async({page})=>{
- const source={...item,url:'https://www.sanrio.co.jp/news/goods/twenty-photos/',images:Array.from({length:20},(_,i)=>'https://example.invalid/'+i+'.png')};
- await setup(page,source);
- await expect(page.locator('#newsImages .news-photo')).toHaveCount(20);
- await expect(page.locator('#newsCollageMode')).not.toBeChecked();
- await page.locator('#newsCollageMode').check();for(let n=5;n<=8;n++)await usePhoto(page,n,'collage2');
- await expect(page.locator('#newsShare')).toBeEnabled();await expect(page.locator('#newsCollagePreview img')).toHaveCount(2);await expect(page.locator('#newsEditorStatus')).toContainText('まとめ画像2枚＋個別写真0枚');
- await page.locator('#newsShare').click();expect((await page.evaluate(()=>window.sharedCollage)).map(f=>f.name)).toEqual(['news-collage-1.png','news-collage-2.png']);
- for(let n=17;n<=20;n++)await usePhoto(page,n,'collage3');
- await expect(page.locator('#newsShare')).toBeEnabled();await expect(page.locator('#newsCollagePreview img')).toHaveCount(3);
+test('6枚ずつ選択順に自動でまとめ、7枚目と並べ替えを再読込後も保持する',async({page})=>{
+ await setup(page);
+ await mode(page,6).click();
+ for(const n of [8,6,7])await choose(page,n);
+ await page.getByRole('button',{name:'写真8を前へ',exact:true}).click();
+ await expect(page.locator('#newsCollagePreview img')).toHaveCount(2);
+ expect(await page.evaluate(()=>newsCollageGroups())).toEqual([[0,1,2,7,3,5],[6]]);
+ const dimensions=await page.locator('#newsCollagePreview img').first().evaluate(async img=>{await img.decode();return [img.naturalWidth,img.naturalHeight];});
+ expect(dimensions).toEqual([1600,2400]);
  await page.reload();await page.getByRole('tab',{name:'新作ニュース',exact:true}).click();
- await page.locator('#newsFilterButtons').getByRole('button',{name:'準備中',exact:true}).click();await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
- await expect(page.locator('#newsImages .news-photo')).toHaveCount(20);await expect(page.locator('#newsShare')).toBeEnabled();await expect(page.locator('#newsCollagePreview img')).toHaveCount(3);
- expect(await page.evaluate(()=>newsCollageIndices(1))).toEqual([4,5,6,7]);expect(await page.evaluate(()=>newsCollageIndices(2))).toEqual([16,17,18,19]);
- await usePhoto(page,20,'none');await expect(page.locator('#newsShare')).toBeDisabled();await expect(page.locator('#newsCollagePreview')).toBeHidden();
- await usePhoto(page,16,'collage3');await expect(page.locator('#newsShare')).toBeEnabled();
- for(let n=9;n<=12;n++)await usePhoto(page,n,'collage4');await expect(page.locator('#newsShare')).toBeEnabled();await expect(page.locator('#newsCollagePreview img')).toHaveCount(4);
- await usePhoto(page,13,'single');await expect(page.getByRole('combobox',{name:'写真13の使い方',exact:true})).toHaveValue('none');
- await page.locator('#newsShare').click();expect((await page.evaluate(()=>window.sharedCollage)).map(f=>f.name)).toEqual(['news-collage-1.png','news-collage-2.png','news-collage-3.png','news-collage-4.png']);
+ await page.locator('#newsFilterButtons').getByRole('button',{name:'準備中',exact:true}).click();
+ await page.locator('#newsList').getByRole('button',{name:'投稿準備',exact:true}).click();
+ await expect(mode(page,6)).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('#newsCollagePreview img')).toHaveCount(2);
+ expect(await page.evaluate(()=>newsCollageGroups())).toEqual([[0,1,2,7,3,5],[6]]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
-
