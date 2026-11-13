@@ -828,6 +828,8 @@ function newsExternalRender(){
  newsExternalAnchor($('newsRakutenOpen'),newsExternalSearch('rakuten'),'楽天で検索');
  newsExternalAnchor($('newsAmazonOpen'),newsExternalSearch('amazon'),'Amazonの検索ページを開く');
  $('newsAmazonWebOpen').href=newsExternalSearch('amazon');
+ $('newsRakutenOpen').textContent='楽天検索';
+ $('newsAmazonOpen').textContent='Amazonアプリ';
 }
 $('newsExternalQuery').oninput=newsExternalQueryChanged;
 for(const [id,kind] of [['newsRakutenOpen','rakuten'],['newsAmazonOpen','amazon'],['newsAmazonWebOpen','amazon']])$(id).addEventListener('click',()=>newsExternalLeave(kind));

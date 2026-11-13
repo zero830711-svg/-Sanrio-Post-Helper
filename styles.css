@@ -499,3 +499,7 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 :is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-search-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
 :is(#lovelyPanel,.lovely-editor-host) #lovelyEditor .lovely-search-actions a{font-size:10px;line-height:1.25;padding:6px 3px}
 
+
+/* Keep the three news search destinations together on narrow screens. */
+.news-external-search-row{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1fr) minmax(0,1.2fr);gap:4px}
+#newsPanel #newsEditor .news-external-search-row .small-btn{min-width:0;min-height:44px;box-sizing:border-box;padding:6px 2px;font-size:clamp(10px,3.4vw,13px);white-space:nowrap;text-align:center;display:flex;align-items:center;justify-content:center}
