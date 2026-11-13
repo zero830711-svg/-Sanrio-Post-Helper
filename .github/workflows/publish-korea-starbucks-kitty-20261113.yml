@@ -1,0 +1,59 @@
+name: Publish Korea Starbucks Kitty Christmas guide
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-korea-starbucks-kitty-20261113.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish via WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"];p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p:raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None:h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=60) as r:return json.load(r)
+          slug="korea-starbucks-hello-kitty-christmas-2026"
+          for term in [slug,"韓国スタバ ハローキティ","トフィーチョコレート"]:
+           rows=api("/posts?"+urllib.parse.urlencode({"search":term,"context":"edit","per_page":100,"_fields":"id,slug,status,title,link"}))
+           print("SEARCH",term,json.dumps(rows,ensure_ascii=False))
+           for row in rows:
+            t=html.unescape(row["title"]["rendered"]).lower()
+            if row["slug"]==slug or ("キティ" in t and ("スタバ" in t or "スターバックス" in t) and ("2026" in t or "トフィー" in t)):raise RuntimeError("Possible duplicate")
+          specs=[["IMG_9176.jpeg","韓国スタバのハローキティのドリンクとクリスマスグッズ","赤と緑のクリスマスコーデ。"],["IMG_9174.jpeg","赤いリボンを載せたハローキティ トフィーチョコレート","ホイップクリームにキティの赤いリボン。"],["IMG_9172.jpeg","サンタ姿のハローキティを飾った煙突型バウムクーヘンといちごの断面","煙突をイメージしたケーキ。"],["LineCamera_20261112_202015_933.jpeg","韓国スタバのハローキティのタンブラーやバッグなどの告知画像","公式告知のグッズ画像をまとめたもの。"]]
+          figs=[];media=[]
+          for i,(n,alt,cap) in enumerate(specs):
+           raw=(Path("blog/editorial/korea-starbucks-kitty")/n).read_bytes()
+           m=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="korea-starbucks-hello-kitty-christmas-%s.jpg"'%(i+1)})
+           api("/media/"+str(m["id"]),{"alt_text":alt})
+           media.append(m)
+           figs.append('<figure class="wp-block-image size-large"><img src="'+html.escape(m["source_url"],quote=True)+'" alt="'+html.escape(alt,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'｜画像出典：スターバックス韓国公式Instagramより</figcaption></figure>')
+          title="韓国スタバ×ハローキティのクリスマス2026｜11月19日発売・ケーキ予約とグッズ"
+          desc="韓国スターバックスとハローキティの2026年クリスマス。11月19日発売のトフィーチョコレート、グッズの販売先、ケーキの予約方法と受取日を紹介。"
+          content="<p>韓国スターバックスの2026年クリスマスに、ハローキティが登場。<strong>ドリンクとグッズは11月19日（木）から、ホールケーキは11月13日（金）から予約受付</strong>と案内されています。赤いリボンのドリンク、サンタ姿のキティを飾ったケーキ、グッズの購入方法をまとめました。</p>"+figs[0]+"<h2>11月19日発売のハローキティ トフィーチョコレート</h2><p>「헬로키티 토피 초콜릿」は、香ばしいトフィーと濃厚なチョコレートを合わせたドリンク。ホイップクリームにキティの赤いリボンを飾った、クリスマスらしい一杯です。</p>"+figs[1]+"<h2>煙突型のクリスマスケーキはアプリで予約</h2><p>「헬로키티 굴뚝쿠헨」は、煙突をイメージしたバウムクーヘンにカスタードクリームといちごを詰めたホールケーキ。サンタ姿のキティが顔を出します。</p><ul><li>予約期間は11月13日（金）〜12月11日（金）。数量限定で、完売次第早期終了する場合があります。</li><li>韓国スターバックスアプリの「サイレンオーダー」からホールケーキ予約ページへ。オンライン事前予約制です。</li><li>受取日は12月19日（土）〜12月27日（日）の間で指定します。</li></ul><p>店頭受取のケーキ予約者には、受取時にサンタ ベアリスタのキャンドルが贈られると案内されています。リワード会員向けの事前予約10％割引クーポンと、対象カード決済の10％請求割引・アメリカーノ1＋1クーポンは、いずれも11月13日〜26日の案内です。利用条件はアプリでご確認ください。</p>"+figs[2]+"<h2>クリスマスグッズは11月19日午前7時から</h2><p>告知画像には、赤いリボン付きのタンブラー、キティのぬいぐるみ、ブラウンのバッグ、クリスマスツリーに飾ったキティのモチーフなどが写っています。</p>"+figs[3]+"<p>韓国時間の11月19日（木）午前7時から購入できると案内されたオンライン販売先は、スターバックスアプリ内オンラインストア、カカオトークのギフト、SSG.COM、ネイバーブランドストア、Gマーケット、29CM、MUSINSA、W CONCEPTです。</p><p><strong>591mLのSS With Hello Kittyキャンプカップタンブラーは、レッド・クリーム・チョコの3色とも別途発売予定</strong>です。写真に写るカラーを狙っている場合は、後日の発売案内をご確認ください。</p><h2>日本での販売は？</h2><p>上記は韓国スターバックスの告知です。日本での展開、各商品の価格、別途発売品の日程は確認できていません。購入や予約の前に、最新情報と販売先ごとの条件をご確認ください。</p><p>出典：<a href=\"https://www.instagram.com/starbuckskorea/\">スターバックス韓国公式Instagram（@starbuckskorea）</a></p><p>関連記事：<a href=\"https://sanrio-fan.site/hello-kitty-favorite-ribbon-2026-guide/\">ハローキティのお気に入りデザイン2026</a></p>"
+          a=api("/posts",{"slug":slug,"title":title,"excerpt":desc,"status":"draft","content":content,"featured_media":media[0]["id"]})
+          check=api("/posts/"+str(a["id"])+"?context=edit")
+          if check["status"]!="draft" or any(m["source_url"] not in check["content"]["raw"] for m in media):raise RuntimeError("Draft verification failed")
+          pub=api("/posts/"+str(a["id"]),{"status":"publish"})
+          if pub["status"]!="publish":raise RuntimeError("Publication failed")
+          print("PUBLISHED",pub["id"],pub["link"],"IMAGE_IDS",[m["id"] for m in media])
+          PY
