@@ -67,14 +67,14 @@ function pf_safe_affiliate(string $url):bool{
  $p=parse_url($url);return ($p['scheme']??'')==='https'&&($p['host']??'')==='hb.afl.rakuten.co.jp'&&!isset($p['user'])&&!isset($p['pass'])&&!isset($p['port'])&&preg_match('~^/hgc/[a-zA-Z0-9._-]{8,128}/?$~D',$p['path']??'');
 }
 function pf_blocked_shop(array $row):bool{
- $shopId='itemstore-oosaka';
- if(strtolower(trim((string)($row['shopCode']??'')))===$shopId)return true;
+ $shopIds=['itemstore-oosaka','speedwagon'];
+ if(in_array(strtolower(trim((string)($row['shopCode']??''))),$shopIds,true))return true;
  foreach([$row['itemCode']??'', $row['code']??'', $row['item']['rakutenCode']??''] as $code){
-  if(str_starts_with(strtolower((string)$code),$shopId.':'))return true;
+  if(in_array(strtolower(explode(':',(string)$code,2)[0]),$shopIds,true))return true;
  }
  foreach([$row['itemUrl']??'', $row['url']??'', $row['item']['url']??''] as $url){
   $parts=parse_url((string)$url);
-  if(strtolower($parts['host']??'')==='item.rakuten.co.jp'&&str_starts_with(strtolower($parts['path']??''),'/'.$shopId.'/'))return true;
+  if(strtolower($parts['host']??'')==='item.rakuten.co.jp'&&in_array(strtolower(explode('/',ltrim($parts['path']??'','/'),2)[0]),$shopIds,true))return true;
  }
  $names=[$row['shop']??'', $row['shopName']??'', $row['item']['shop']??''];
  // Older prepared drafts stored the seller in their matched offer and source paragraphs.
@@ -82,7 +82,7 @@ function pf_blocked_shop(array $row):bool{
   foreach($row['match']['candidates']??[] as $offer)if(($offer['url']??'')===($row['item']['url']??''))$names[]=$offer['shop']??'';
   foreach($row['item']['paragraphs']??[] as $line)if(preg_match('/^販売店[：:]\s*(.+)$/u',(string)$line,$m))$names[]=$m[1];
  }
- foreach($names as $name){$name=preg_replace('/[\s\x{3000}]+/u','',pf_normal((string)$name));if(preg_match('/^(?:tsjショップ|アイテムストア大阪本店)(?:楽天市場店)?$/u',$name))return true;}
+ foreach($names as $name){$name=preg_replace('/[\s\x{3000}]+/u','',pf_normal((string)$name));if(preg_match('/^(?:tsjショップ|アイテムストア大阪本店|spw)(?:楽天市場店)?$/u',$name))return true;}
  return false;
 }
 function pf_search(string $keyword,array $settings,int $page=1,bool $imageOnly=false):array{
