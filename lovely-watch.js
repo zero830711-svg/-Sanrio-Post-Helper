@@ -1,6 +1,7 @@
 /* Loaded without network activity; discovery starts only when its section opens. */
 const lovelyWatch = (()=>{
   const KEY='sphLovelyDiscoveryV1';
+  let fallbackMarks={},markPending=false;
   let rows=[],selected=null,files=[],historyIds=new Set(),busy=false,loaded=false,filterMode='new',sourceMode='all',countryMode='all',nextPages={},pageCount=0,listScroll=0,listItemUrl='';
   let discoveryBatchAt='',batchEligible={},autoLoadFailed=false;
   const sectionMode='new';
@@ -21,7 +22,6 @@ const lovelyWatch = (()=>{
     affiliateOpen.textContent='楽天アフィリエイトをChromeで開く';
   }
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  let fallbackMarks={},markPending=false;
   const markStore=new Promise((resolve,reject)=>{
     const request=indexedDB.open('sphNewProductMarks',1);
     request.onupgradeneeded=()=>request.result.createObjectStore('marks');
