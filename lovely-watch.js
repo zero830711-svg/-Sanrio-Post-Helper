@@ -21,11 +21,59 @@ const lovelyWatch = (()=>{
     affiliateOpen.textContent='楽天アフィリエイトをChromeで開く';
   }
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  function state(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+  let fallbackMarks={},markPending=false;
+  const markStore=new Promise((resolve,reject)=>{
+    const request=indexedDB.open('sphNewProductMarks',1);
+    request.onupgradeneeded=()=>request.result.createObjectStore('marks');
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error);
+    request.onblocked=()=>reject(new Error('記録用ストレージを開けません。'));
+  });
+  async function markTransaction(mode,run){
+    const db=await markStore;
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction('marks',mode),request=run(tx.objectStore('marks'));
+      tx.oncomplete=()=>resolve(request.result);
+      tx.onabort=()=>reject(tx.error);
+    });
+  }
+  const marksReady=markTransaction('readonly',store=>store.get('overrides')).then(saved=>{
+    fallbackMarks=saved||{};
+  }).catch(()=>{});
+  function localState(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){return {}}}
+  function state(){
+    const saved=localState(),overrides=Object.entries(fallbackMarks);
+    if(!overrides.length)return saved;
+    saved.hidden={...saved.hidden};
+    for(const [url,mark] of overrides){
+      if(mark===null){delete saved.hidden[url];continue;}
+      saved.hidden[url]=mark;
+      if(saved.draft?.url===url)saved.draft=null;
+      if(saved.drafts)delete saved.drafts[url];
+    }
+    return saved;
+  }
+  async function saveMarks(saved,changes){
+    if(!Object.keys(fallbackMarks).length){
+      try{localStorage.setItem(KEY,JSON.stringify(saved));return;}catch(_){}
+    }
+    // Keep the small status record writable even when Safari's localStorage is full.
+    let next;
+    await markTransaction('readwrite',store=>{
+      const request=store.get('overrides');
+      request.onsuccess=()=>{
+        next={...request.result,...changes};
+        store.put(next,'overrides');
+      };
+      return request;
+    });
+    fallbackMarks=next;
+  }
+  async function backupState(){await marksReady;return state();}
   // Remove discontinued discovery data without touching saved posts or domestic drafts.
+  const overseasUrl=url=>{try{return ['www.sanrio.com','www.toytronmall.co.kr','www.tarts-korea.co.kr','www.sanriogiftgate.com.hk'].includes(new URL(url).hostname);}catch(_){return false;}};
   function clearOverseasDiscovery(){
     const saved=state();
-    const overseasUrl=url=>{try{return ['www.sanrio.com','www.toytronmall.co.kr','www.tarts-korea.co.kr','www.sanriogiftgate.com.hk'].includes(new URL(url).hostname);}catch(_){return false;}};
     if(saved.draft?.overseas||overseasUrl(saved.draft?.url))delete saved.draft;
     for(const key of ['drafts','firstSeen','hidden','identities','viewed'])if(saved[key]&&typeof saved[key]==='object')for(const [url,item] of Object.entries(saved[key]))if(item?.overseas||overseasUrl(url)||overseasUrl(item?.url))delete saved[key][url];
     if(saved.sourceChecks)delete saved.sourceChecks.overseas;
@@ -237,7 +285,7 @@ const lovelyWatch = (()=>{
   async function refresh(){
     if(busy)return;autoLoadFailed=false;busy=true;el('lovelyRefresh').disabled=true;pagingControls();el('lovelyStatus').textContent='新着を確認中…';
     try{
-      await updateHistory();nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
+      await marksReady;await updateHistory();nextPages={};pageCount=1;discoveryBatchAt=new Date().toISOString();
       const checks=state().sourceChecks||{};batchEligible=Object.fromEntries(['lovely','hatakeyama','gourmandise','skater','nakajima','takarajima','sanrio'].map(source=>[source,checks[source]?.initialized===true]));
       await loadSources({lovely:1,hatakeyama:1,gourmandise:1,skater:1,nakajima:1,takarajima:1,sanrio:1},true);
     }catch(e){el('lovelyStatus').textContent=e.message}finally{busy=false;pagingControls()}
@@ -591,15 +639,41 @@ const lovelyWatch = (()=>{
       const session=externalEditor;if(session.pending)return;session.pending=true;
       try{await session.onMark?.(reason,draft);if(externalEditor===session)releaseExternalEditor();}catch(error){session.pending=false;el('lovelyPostStatus').textContent='記録できませんでした：'+error.message;}
       return;
-    }chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;const s=state();s.hidden=s.hidden||{};
-    const group=groupedItems(rows,historyIds,s.hidden,s.identities||{}).find(g=>g.articles.some(item=>item.url===selected.url));
-    s.hidden[selected.url]=reason;
-    if(group)for(const item of group.articles)s.hidden[item.url]=reason;
-    const entries=Object.entries(s.hidden);s.hidden=Object.fromEntries(entries.slice(-500));if(s.drafts)delete s.drafts[selected.url];preparations.delete(selected.url);s.draft=null;
-    try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){el('lovelyShareStatus').textContent='記録を保存できませんでした。';return}
-    editorGeneration++;imageBusy=0;uploadBusy=false;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';el('lovelyEditor').hidden=true;render();backToList();
+    }
+    if(markPending)return;
+    markPending=true;
+    const item=selected,status=el('lovelyShareStatus');
+    status.textContent='記録を保存中…';
+    try{
+      await marksReady;
+      const saved=state();
+      saved.hidden=saved.hidden||{};
+      const group=groupedItems(rows,historyIds,saved.hidden,saved.identities||{}).find(g=>g.articles.some(row=>row.url===item.url));
+      const changes=Object.fromEntries((group?.articles||[item]).map(row=>[row.url,reason]));
+      Object.assign(saved.hidden,changes);
+      if(saved.drafts)delete saved.drafts[item.url];
+      if(saved.draft?.url===item.url)saved.draft=null;
+      await saveMarks(saved,changes);
+    }catch(error){
+      status.textContent='この端末に記録を保存できませんでした。本文をコピーしてから、もう一度お試しください。';
+      return;
+    }finally{markPending=false;}
+    el('lovelyStatus').textContent=reason==='used'?'投稿済みとして記録しました。':'見送りとして記録しました。';
+    if(selected?.url!==item.url){render();return;}
+    chooseSequence++;detailLoading=false;el('lovelyPhotos').disabled=false;el('lovelyConfirmed').disabled=false;
+    preparations.delete(item.url);
+    editorGeneration++;imageBusy=0;uploadBusy=false;selected=null;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyPhotos').value='';
+    render();await backToList();
   }
-  el('lovelyPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open){if(!loaded)refresh();const draft=state().draft;if(!selected&&draft&&!['product-search','amazon-search'].includes(draft.origin)&&!!draft.overseas===(sectionMode==='overseas'))edit(draft)}});
+  el('lovelyPanel')?.addEventListener('toggle',async e=>{
+    if(!e.currentTarget.open)return;
+    const panel=e.currentTarget;
+    await marksReady;
+    if(!panel.open)return;
+    if(!loaded)refresh();
+    const draft=state().draft;
+    if(!selected&&draft&&!['product-search','amazon-search'].includes(draft.origin)&&!!draft.overseas===(sectionMode==='overseas'))edit(draft);
+  });
   el('rakutenSettingsPanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)settingsStatus()});
   el('rakutenSaveSettings')?.addEventListener('click',saveSettings);
   el('lovelyRakutenProductCopy')?.addEventListener('click',async()=>{
@@ -730,7 +804,23 @@ const lovelyWatch = (()=>{
   el('lovelyPostAi')?.addEventListener('click',generateProductAi);
   el('lovelyDone')?.addEventListener('click',()=>hide('used'));
   el('lovelySkip')?.addEventListener('click',()=>hide('skip'));
-  el('lovelyRestore')?.addEventListener('click',()=>{const s=state();for(const url of Object.keys(s.hidden||{})){let overseas=false;try{overseas=['www.sanrio.com','www.toytronmall.co.kr','www.tarts-korea.co.kr','www.sanriogiftgate.com.hk'].includes(new URL(url).hostname);}catch(_){}if(overseas===(sectionMode==='overseas'))delete s.hidden[url];}localStorage.setItem(KEY,JSON.stringify(s));render()});
+  el('lovelyRestore')?.addEventListener('click',async()=>{
+    if(markPending)return;
+    markPending=true;
+    try{
+      await marksReady;
+      const saved=state(),changes={};
+      for(const url of Object.keys(saved.hidden||{})){
+        if(overseasUrl(url)===(sectionMode==='overseas')){
+          delete saved.hidden[url];
+          changes[url]=null;
+        }
+      }
+      await saveMarks(saved,changes);
+      render();
+    }catch(error){el('lovelyStatus').textContent='候補の記録を戻せませんでした。もう一度お試しください。';}
+    finally{markPending=false;}
+  });
   function aiContext(){
     if(!selected||detailLoading)throw new Error('商品情報の取得が終わってから実行してください。');
     if(!el('lovelyConfirmed').checked)throw new Error('商品・写真・紹介リンクの確認欄にチェックしてください。');
@@ -744,6 +834,6 @@ const lovelyWatch = (()=>{
     if(!files.length)throw new Error('共有する写真を選んでください。');
     return files.slice();
   }
-  return {openProduct,overseasThumbnailUrl,thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,productDraft,postLength,productCharLength,savedRakuten,aiContext,aiFiles};
+  return {backupState,openProduct,overseasThumbnailUrl,thumbnailUrl,thumbnailHtml,groupedItems,candidateIds,visibleItems,usedIds,ownLink,prompt,productFacts,productDraft,postLength,productCharLength,savedRakuten,aiContext,aiFiles};
 })();
 

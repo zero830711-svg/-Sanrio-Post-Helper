@@ -106,3 +106,30 @@ test('Amazonを装ったドメインや認証情報付きURLは拒否し、編�
  for(const url of ['https://link.amazon.evil.test/B00Yq3m5X','https://user:pass@link.amazon/B00Yq3m5X','https://www.amazon.co.jp/s?k=kitty']){await page.locator('#lovelyAmazon').fill(url);await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostAiStatus')).toContainText('リンク');await expect(page.locator('#lovelyPostText')).toHaveValue('手動で編集した本文');}
  expect(calls).toBe(0);
 });
+
+for(const [button,mark] of [['lovelyDone','used'],['lovelySkip','skip']]){
+ test(`新着商品の ${mark} は端末の保存容量が上限でも再読み込み後に残る`,async({page})=>{
+  await page.addInitScript(()=>{
+   const setItem=Storage.prototype.setItem;
+   Storage.prototype.setItem=function(key,value){
+    if(key==='sphLovelyDiscoveryV1'&&sessionStorage.getItem('block-discovery-writes'))throw new DOMException('Storage is full','QuotaExceededError');
+    return setItem.call(this,key,value);
+   };
+  });
+  await setup(page);
+  await page.evaluate(()=>sessionStorage.setItem('block-discovery-writes','1'));
+  await page.locator('#'+button).click();
+  await expect(page.locator('#lovelyEditor')).toBeHidden();
+  await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveCount(0);
+  await page.reload();
+  await page.getByRole('tab',{name:'新着商品',exact:true}).click();
+  await expect.poll(()=>page.evaluate(async url=>(await lovelyWatch.backupState()).hidden[url],item.url)).toBe(mark);
+  await expect(page.locator('#lovelyRefresh')).toBeEnabled();
+  await expect(page.locator('#lovelyEditor')).toBeHidden();
+  await expect(page.locator('#lovelyList [data-lovely-select]')).toHaveCount(0);
+  if(mark==='used'){
+   await page.locator('#lovelyFilter').selectOption('used');
+   await expect(page.locator('#lovelyList')).toContainText(item.title);
+  }
+ });
+}

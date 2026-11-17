@@ -3936,7 +3936,11 @@ $("exportBackup").addEventListener("click",async()=>{
   const items=await dbGetAll();
   const exportedAt=new Date().toISOString();
   let candidateData;
-  try{candidateData=candidateBackup.collect();}catch(e){alert("候補データを読み込めないためバックアップを保存できません。"+e.message);return;}
+  try{
+    candidateData=candidateBackup.collect();
+    const discovery=await lovelyWatch.backupState();
+    if(Object.keys(discovery).length)candidateData.sphLovelyDiscoveryV1=discovery;
+  }catch(e){alert("候補データを読み込めないためバックアップを保存できません。"+e.message);return;}
   const payload={version:2,exportedAt,items,candidateData};
   const blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
   const file=new File([blob],"sanrio-post-helper-backup.json",{type:"application/json"});
