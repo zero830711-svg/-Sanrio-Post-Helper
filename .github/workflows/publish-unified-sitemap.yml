@@ -1,0 +1,26 @@
+name: Publish unified Sanrio sitemap
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/publish-unified-sitemap.py
+      - .github/workflows/publish-unified-sitemap.yml
+  schedule:
+    - cron: '23 */3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-site-config
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/publish-unified-sitemap.py --publish
+        env:
+          LOLIPOP_FTP_HOST: ${{ secrets.LOLIPOP_FTP_HOST }}
+          LOLIPOP_FTP_USER: ${{ secrets.LOLIPOP_FTP_USER }}
+          LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
