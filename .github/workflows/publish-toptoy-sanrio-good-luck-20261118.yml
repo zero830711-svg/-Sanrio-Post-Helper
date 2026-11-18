@@ -1,0 +1,62 @@
+name: Publish TOPTOY Sanrio good luck guide
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-toptoy-sanrio-good-luck-20261118.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish via WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"];p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p:raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None:h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=60) as r:return json.load(r)
+          slug="toptoy-sanrio-knock-good-luck-plush"
+          for term in [slug,"敲敲好运"]:
+           rows=api("/posts?"+urllib.parse.urlencode({"search":term,"context":"edit","per_page":100,"_fields":"id,slug,status,title,link"}))
+           print("SEARCH",term,json.dumps(rows,ensure_ascii=False))
+           for row in rows:
+            if row["slug"]==slug or "敲敲好运" in html.unescape(row["title"]["rendered"]):raise RuntimeError("Possible duplicate")
+          specs=json.loads("[[\"9369\",\"ハローキティ\",\"白いふわふわの衣装に赤いリボンを合わせ、クマの顔をかたどった小槌を抱えたハローキティ。丸い手足とピンクのほっぺが、やさしい雰囲気です。\"],[\"9370\",\"ウサハナ\",\"黄色をベースに、ブルーとピンクの耳が映えるウサハナ。手元には白いウサギの顔をモチーフにしたカラフルな小槌が添えられています。\"],[\"9371\",\"マイメロディ（青い小槌）\",\"ピンクに包まれたマイメロディは、青いネズミの顔をモチーフにした小槌を抱えています。小さく開いた口元にも注目です。\"],[\"9372\",\"ポチャッコ\",\"ミントカラーの衣装に茶色の耳を合わせたポチャッコ。黄色いアヒルの顔の小槌が、淡い配色のアクセントになっています。\"],[\"9373\",\"クロミ\",\"ラベンダー色のふわふわな衣装から、黒いとんがり耳がのぞくクロミ。ピンクのドクロと紫の小槌を組み合わせ、甘さの中にもクロミらしさが光ります。\"],[\"9374\",\"シナモロール\",\"水色の衣装に白い長い耳を合わせたシナモロール。茶色のクマの顔の小槌を抱え、ブルーのお顔のパーツも涼しげです。\"],[\"9375\",\"マイメロディ（ピンクの小槌）\",\"こちらのマイメロディは、ピンクのもこもこした頭のキャラクターをかたどった小槌を持つデザイン。同じピンクでも、小物の違いで印象が変わります。\"],[\"9376\",\"ポムポムプリン\",\"やわらかな黄色でまとまったポムポムプリン。白と茶色の犬の顔をモチーフにした小槌を抱えた、あたたかみのあるデザインです。\"],[\"9377\",\"ハローキティ（シークレット）\",\"「隐藏款 Secret」と紹介されているのは、ピンクのリボンを付けたハローキティ。小槌のクマもピンクで、お顔の目やひげは紫色。通常の赤いリボンのデザインとは違う、淡い色合いが楽しめます。\"]]")
+          figs=[];media=[]
+          for i,(n,label,cap) in enumerate(specs):
+           alt="TOP TOY 敲敲好运シリーズの"+label+"のぬいぐるみ掛け飾り"
+           raw=Path("blog/editorial/toptoy-good-luck/IMG_"+n+".jpeg").read_bytes()
+           m=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="toptoy-sanrio-good-luck-%s.jpg"'%(i+1)})
+           api("/media/"+str(m["id"]),{"alt_text":alt,"caption":cap})
+           media.append(m)
+           figs.append('<figure class="wp-block-image size-large"><img src="'+html.escape(m["source_url"],quote=True)+'" alt="'+html.escape(alt,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'｜画像出典：TOPTOYのRED投稿（提供画像）</figcaption></figure>')
+          title="TOP TOYのサンリオ「敲敲好运」｜小槌を抱えたふわふわマスコットが11月20日発売"
+          desc="TOP TOYのサンリオキャラクターズ「敲敲好运」シリーズを9枚の写真で紹介。キティやクロミ、シナモロールたちのぬいぐるみ掛け飾りと、11月20日の発売告知・中国向け価格をまとめました。"
+          content='<p>ふわふわの衣装に身を包み、小さな小槌をぎゅっと抱えたサンリオキャラクターたち。TOP TOYの「三丽鸥家族敲敲好运系列毛绒挂件盲盒」は、ころんとした姿がかわいいぬいぐるみ掛け飾りのブラインドボックスです。</p><p>提供されたTOPTOYのRED投稿では、11月20日からオンライン・実店舗で順次販売予定と案内されています。写真で紹介されたデザインと、中国向けの発売情報をまとめました。</p><h2>小槌を抱えた、パステルカラーのサンリオたち</h2><p>シリーズ名の「敲敲好运」は、たたいて幸運を呼び込むようなニュアンス。投稿でも、小槌をコンコンと鳴らして悩みを払い、幸運を増やすという楽しいイメージで紹介されています。実際の開運効果や音が出る機能を示すものではありません。</p><p>丸みのあるシルエット、動物の顔のような刺しゅうをあしらったフード、キャラクターごとに異なる小槌が見どころ。長めの毛並みとつやのある小物の組み合わせが、写真でも目を引きます。</p>'
+          for i,(_,label,cap) in enumerate(specs):
+           content+='<h2>'+html.escape(label)+'</h2>'+figs[i]
+          content+='<h2>発売日・価格・販売情報</h2><table><tbody><tr><th>商品名（中国語）</th><td>三丽鸥家族敲敲好运系列毛绒挂件盲盒</td></tr><tr><th>ブランド</th><td>TOP TOY</td></tr><tr><th>発売告知</th><td>11月20日から順次販売予定</td></tr><tr><th>単品価格</th><td>79元（中国人民元）</td></tr><tr><th>まとめ売りの表記価格</th><td>632元（中国人民元／告知では「端」と表記）</td></tr><tr><th>販売先の案内</th><td>TOP TOYのオンライン・実店舗</td></tr></tbody></table><p>以上は提供された中国向け告知の内容です。日本国内の発売日・販売店・日本円価格は確認できていません。まとめ売りの入り数や重複の有無、シークレットの出現率、サイズ、素材の詳細は、購入先の商品説明をご確認ください。</p><p>ブラインドボックス商品のため、希望のデザインを選べるかどうかも販売条件の確認が必要です。海外から購入する場合は、日本への配送可否や送料もあわせて確認しましょう。</p><p>ブランド情報は<a href="https://www.toptoyglobal.com/" rel="noopener noreferrer">TOP TOY公式サイト</a>でご覧いただけます。本シリーズの発売日・価格は、添付のRED投稿をもとに記載しています。</p><h2>ほかのTOP TOY・サンリオグッズもチェック</h2><p><a href="https://sanrio-fan.site/toptoy-hello-kitty-classic-clock-blind-box/">TOP TOYのハローキティ クラシック時計ブラインドボックス</a>や、<a href="https://sanrio-fan.site/toptoy-sanrio-halloween-mischief-night/">TOP TOYのサンリオ ハロウィーンシリーズ</a>も紹介しています。お気に入りのキャラクターを探すなら、<a href="https://sanrio-fan.site/characters/">サンリオキャラクター一覧</a>もどうぞ。</p><p>※2026年11月18日作成。提供されたTOPTOYのRED投稿・商品画像をもとに紹介しています。画像内の背景や撮影小物が商品に含まれるとは限りません。</p>'
+          a=api("/posts",{"slug":slug,"title":title,"excerpt":desc,"status":"draft","content":content,"featured_media":media[0]["id"]})
+          check=api("/posts/"+str(a["id"])+"?context=edit")
+          if check["status"]!="draft" or any(m["source_url"] not in check["content"]["raw"] for m in media):raise RuntimeError("Draft verification failed")
+          pub=api("/posts/"+str(a["id"]),{"status":"publish"})
+          if pub["status"]!="publish":raise RuntimeError("Publication failed")
+          print("PUBLISHED",pub["id"],pub["link"],"IMAGE_IDS",[m["id"] for m in media])
+          PY
