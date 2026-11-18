@@ -1,0 +1,60 @@
+name: Publish AREAX Sanrio dream spirits guide
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-areax-sanrio-dream-spirits-20261118.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish via WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"];p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p:raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None:h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=60) as r:return json.load(r)
+          slug="areax-mini-sanrio-dream-spirits-egg-light"
+          for term in [slug,"梦境精灵"]:
+           rows=api("/posts?"+urllib.parse.urlencode({"search":term,"context":"edit","per_page":100,"_fields":"id,slug,status,title,link"}))
+           print("SEARCH",term,json.dumps(rows,ensure_ascii=False))
+           for row in rows:
+            if row["slug"]==slug or "梦境精灵" in html.unescape(row["title"]["rendered"]):raise RuntimeError("Possible duplicate")
+          specs=json.loads("[[\"9381\",\"AREAX mini サンリオ梦境精灵シリーズ全7種類のエッグ型ライト\",\"リボン付きの台座に、キャンドル風の飾りを載せたエッグ型ケース。7キャラクターがそれぞれの小さな世界を彩ります。\"],[\"9382\",\"ピンクのエッグ型ケースに入ったマイメロディの梦境精灵ライト\",\"マイメロディはピンクを基調に、ミント色のリボンを組み合わせたデザイン。座った姿や足裏のピンクもかわいいポイントです。\"],[\"9383\",\"キャンドル風の上部を回して点灯するシナモロールのエッグ型ライト\",\"シナモロールの紹介画像では、上部を回す操作と、キャンドル上部・ケース内のシーンの両方が光ることを案内しています。\"],[\"9384\",\"ピンクと黄色のエッグ型ケースに入ったハローキティのライト\",\"ハローキティはピンクと黄色の組み合わせ。リボンを付けたキティのまわりに、小さなハートや星の装飾が並びます。\"],[\"9385\",\"AREAX梦境精灵の通常6種類とシークレットのシナモロールの一覧\",\"ラインアップ画像には通常6種類と、シークレットのシナモロールを掲載。種類ごとの比率も記載されています。\"]]")
+          figs=[];media=[]
+          for i,(n,alt,cap) in enumerate(specs):
+           raw=Path("blog/editorial/areax-dream-spirits/IMG_"+n+".jpeg").read_bytes()
+           m=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="areax-sanrio-dream-spirits-%s.jpg"'%(i+1)})
+           api("/media/"+str(m["id"]),{"alt_text":alt,"caption":cap})
+           media.append(m)
+           figs.append('<figure class="wp-block-image size-large"><img src="'+html.escape(m["source_url"],quote=True)+'" alt="'+html.escape(alt,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'｜画像出典：AREAXのRED投稿（提供画像）</figcaption></figure>')
+          title="AREAX miniのサンリオ「梦境精灵」｜たまご型ライト全7種、シナモロールはシークレット"
+          desc="AREAX miniのサンリオ「梦境精灵」シリーズを写真5枚で紹介。キャンドル風のエッグ型ライト、通常6種とシークレットのシナモロール、画像に記載された点灯操作や出現比率をまとめました。"
+          sections=json.loads("[\"<p>たまご型のケースの中に、サンリオキャラクターたちの小さな夢の世界。AREAX miniの「三丽鸥家族梦境精灵系列」は、キャンドルを思わせる飾りと、リボン付きの台座が目を引くシリーズです。</p><p>キャラクターを囲むカラフルな装飾に、光る仕掛けもプラス。提供されたAREAXのRED投稿・商品画像をもとに、全7種類のデザインと特徴を紹介します。</p>\",\"<h2>キャンドル風のたまごに、小さなサンリオの世界</h2><p>上部には炎のような透明感のあるパーツ、正面にはハートを思わせる窓。ケースの中には座ったキャラクターと、星や月などの小さな装飾が詰め込まれています。</p><p>投稿では、パール調の光沢、色付きの透明パーツ、グラデーション塗装といった表現を紹介。キャラクターごとに変わる配色や、台座のリボンまでじっくり眺めたくなります。</p><h2>ピンクとミントがかわいいマイメロディ</h2>\",\"<h2>上部とケース内が光る、2か所のライト</h2><p>シナモロールの紹介画像には「旋转蜡烛」「烛顶＆场景均可亮灯」とあり、キャンドル風の上部を回す操作と、上部・内部シーンの両方が点灯することが案内されています。</p><p>シナモロールはブルーやラベンダーを基調としたケースに、黄色い星を組み合わせたデザイン。白いお顔や長い耳が、淡い色の空間に映えます。</p>\",\"<p>本物の火を使うキャンドルではなく、キャンドルをモチーフにしたライトとして紹介されています。電源方式、必要な電池、連続点灯時間、点灯モードの詳細は、添付資料では確認できていません。</p><h2>ハローキティはピンクと黄色の華やかな配色</h2>\",\"<h2>通常6種類とシークレット1種類の全7種</h2><p>ラインアップはハローキティ、クロミ、マイメロディ、ポムポムプリン、ポチャッコ、ハンギョドンの通常6種類。シナモロールは「隐藏款」と記載されたシークレットです。</p><p>クロミは紫と黄色、ポムポムプリンはオレンジと黄色、ポチャッコは緑、ハンギョドンはミントとラベンダーなど、それぞれ違う色合いを楽しめます。ハンギョドンの背景に見える大きな三日月にも注目です。</p>\"]")
+          content="".join(sections[i]+figs[i] for i in range(5))
+          content+='<h2>画像に記載された種類別の比率</h2><table><thead><tr><th>キャラクター</th><th>区分</th><th>記載比率</th></tr></thead><tbody><tr><td>ハローキティ</td><td>通常</td><td>1/6</td></tr><tr><td>クロミ</td><td>通常</td><td>1/6</td></tr><tr><td>マイメロディ</td><td>通常</td><td>1/6</td></tr><tr><td>ポムポムプリン</td><td>通常</td><td>1/6</td></tr><tr><td>ポチャッコ</td><td>通常</td><td>1/8</td></tr><tr><td>ハンギョドン</td><td>通常</td><td>1/6</td></tr><tr><td>シナモロール</td><td>シークレット</td><td>1/24</td></tr></tbody></table><p>比率は提供されたラインアップ画像の表記です。ポチャッコは1/8と記載されており、ほかの通常デザインと異なります。購入数に応じて必ずその種類が出ることや、セット購入で全種類がそろうことを示すものではありません。</p><h2>発売日・価格・日本での販売について</h2><p>添付の投稿には、具体的な発売日や価格の記載はありません。日本国内での取扱店・発売日・日本円価格も確認できていません。</p><p>購入の際は、販売元の商品説明でサイズ、組み立ての有無、電源・電池の仕様をご確認ください。ブラインドボックスとして販売される場合は、種類の選択可否、1ボックスの入り数、重複の条件も確認しましょう。</p><p>商品名の照合用として、海外のブロック情報サイトにも<a href="https://brick4.com/set/55863/" rel="noopener noreferrer">「三丽鸥家族梦境精灵」の掲載</a>があります。こちらは第三者の情報ページで、販売ページではありません。本記事のデザイン・点灯機能・比率は、提供されたAREAXの告知画像をもとに紹介しています。</p><h2>小さなサンリオの世界を楽しむ関連記事</h2><p><a href="https://sanrio-fan.site/moetch-hello-kitty-modern-style-miniature-bow/">ハローキティのリボン型ミニチュア</a>や、<a href="https://sanrio-fan.site/moetch-mini-kuromi-butterfly-figure/">蝶をモチーフにしたクロミのフィギュア</a>も紹介しています。キャラクターから探す方は、<a href="https://sanrio-fan.site/characters/">サンリオキャラクター一覧</a>もご覧ください。</p><p>※2026年11月18日作成。提供されたRED投稿・商品画像に基づく紹介です。背景や撮影用の小物は商品に含まれるとは限りません。</p>'
+          a=api("/posts",{"slug":slug,"title":title,"excerpt":desc,"status":"draft","content":content,"featured_media":media[0]["id"]})
+          check=api("/posts/"+str(a["id"])+"?context=edit")
+          if check["status"]!="draft" or any(m["source_url"] not in check["content"]["raw"] for m in media):raise RuntimeError("Draft verification failed")
+          pub=api("/posts/"+str(a["id"]),{"status":"publish"})
+          if pub["status"]!="publish":raise RuntimeError("Publication failed")
+          print("PUBLISHED",pub["id"],pub["link"],"IMAGE_IDS",[m["id"] for m in media])
+          PY
