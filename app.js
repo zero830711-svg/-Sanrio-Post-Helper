@@ -1,4 +1,5 @@
 const $=id=>document.getElementById(id);
+const X_PHOTO_LIMIT=20;
 const clean=v=>(v||"").trim();
 const DB_NAME="sanrioPostHelperDB";
 const STORE="popularPosts";
@@ -3731,7 +3732,7 @@ $("detailDownloadAllPhotos")?.addEventListener("click",e=>downloadAllDetailPhoto
 $("detailMedia")?.addEventListener("change",e=>{
  const check=e.target.closest("[data-detail-select]");if(!check)return;
  const i=Number(check.dataset.detailSelect);
- if(check.checked){if(detailPhotoSelection.length>=4){check.checked=false;$("detailMediaStatus").textContent="写真は4枚まで選べます。";return;}detailPhotoSelection.push(i);}
+ if(check.checked){if(detailPhotoSelection.length>=X_PHOTO_LIMIT){check.checked=false;$("detailMediaStatus").textContent="写真は20枚まで選べます。";return;}detailPhotoSelection.push(i);}
  else detailPhotoSelection=detailPhotoSelection.filter(n=>n!==i);
  keepDetailPhotoChoice();
 });

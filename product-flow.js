@@ -201,7 +201,7 @@ function renderPhotos(){
   img.alt='写真'+(i+1);img.loading='lazy';img.referrerPolicy='no-referrer';
   const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=current.selected.includes(i);
   checkbox.onchange=async()=>{
-   if(checkbox.checked&&current.selected.length>=4){checkbox.checked=false;status('写真は4枚まで選択できます。');return;}
+   if(checkbox.checked&&current.selected.length>=X_PHOTO_LIMIT){checkbox.checked=false;status('写真は20枚まで選択できます。');return;}
    if(checkbox.checked)current.selected.push(i);else current.selected=current.selected.filter(n=>n!==i);
    dirty=true;updateFinal();queueAutoSave();const seq=requestSeq;
    if(checkbox.checked&&!files[i])try{const f=await getProductPhoto(current,i);if(seq===requestSeq){showPhotoFile(i,f);updateFinal();status('写真'+(i+1)+'を準備しました。');}}catch(error){status('写真'+(i+1)+'を準備できませんでした：'+(error?.message||'通信を確認してください。'));}

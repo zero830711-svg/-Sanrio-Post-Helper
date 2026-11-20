@@ -172,7 +172,7 @@
 </details>
 <p class="backup-note">商品情報とアフィリエイトリンクは楽天APIから自動取得しています。</p>
 <details><summary>原文を確認</summary><p id="flowOriginal"></p></details>
-<p class="backup-note">使う写真を4枚まで選択できます。楽天の候補画像は商品照合用です。</p>
+<p class="backup-note">使う写真を20枚まで選択できます。楽天の候補画像は商品照合用です。</p>
 <div id="flowPhotos" class="flow-photos"></div><p id="flowPhotoStatus" class="backup-note"></p><button id="flowPhotoRetry" type="button" class="small-btn">写真を再取得</button>
 <div class="cloud-sync-actions"><button id="flowSave" type="button" class="small-btn">今すぐ保存</button><button id="flowRetry" type="button" class="small-btn">保留した処理を再確認</button></div>
 <label>共有する本文（リンク・PR表記込み）<textarea id="flowFinal" rows="8" readonly></textarea></label>
@@ -225,8 +225,8 @@
 <label id="newsPhotoUseLabel" hidden><input id="newsPhotoUse" type="checkbox" checked> 写真の文字も使って生成（選択写真の先頭3枚まで）</label><details id="newsPhotoReadingsBox" hidden><summary>写真から読み取った情報（AI・要確認）</summary><p class="backup-note">読み違いがないか写真と照合してください。失敗した場合は「写真の文字も使って生成」を外して原文のみで生成できます。</p><div id="newsPhotoReadings"></div></details><p id="newsAiStatus" class="backup-note" aria-live="polite"></p><button id="newsAiRetry" class="small-btn" type="button" disabled>🎀 AIで投稿文を作る</button>
 <details id="newsGroqSettings"><summary>AI設定（Groq・初回のみ）</summary><p class="backup-note">Groqの無料APIキーをサーバーに保存します。</p><a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">GroqのAPIキーを作成</a><label>Groq APIキー<input id="newsGroqKey" type="password" autocomplete="off" placeholder="gsk_..."></label><button id="newsGroqSave" class="small-btn" type="button">設定を保存</button><p id="newsGroqStatus" class="backup-note" aria-live="polite"></p></details><details><summary>記事の情報を確認</summary><p id="newsFacts" class="backup-note"></p></details>
 <button id="newsComparePhotos" type="button" class="small-btn">写真を大きく比較・選択</button>
-<div id="newsPhotoAreaHome"><div id="newsPhotoArea"><div id="newsCollageControls" hidden><div class="news-filter-buttons" role="group" aria-label="写真のまとめ方"><button type="button" class="news-filter-button" data-collage-size="0" aria-pressed="true">個別写真</button><button type="button" class="news-filter-button" data-collage-size="4" aria-pressed="false">4枚ずつ</button><button type="button" class="news-filter-button" data-collage-size="6" aria-pressed="false">6枚ずつ</button></div></div><div id="newsCollagePreview" class="news-images" hidden></div><button id="newsCollageRetry" class="small-btn" type="button" hidden>まとめ画像を再作成</button>
-<p id="newsPhotoHint" class="backup-note detail-photo-hint">4枚まで選択・「前へ／後へ」で並べ替え</p><div id="newsImages" class="news-images"></div></div></div><dialog id="newsPhotoDialog" aria-labelledby="newsPhotoDialogTitle"><div class="news-photo-dialog-head"><h3 id="newsPhotoDialogTitle">写真を比較・選択</h3><button id="newsPhotoDialogClose" class="small-btn" type="button">選択を確定して閉じる</button></div><p id="newsPhotoSelectionSummary" class="backup-note" aria-live="polite"></p><div id="newsPhotoDialogArea"></div></dialog><p class="backup-note">画像の利用条件・商品との一致を元記事で確認してください。</p>
+<div id="newsPhotoAreaHome"><div id="newsPhotoArea"><div id="newsCollageControls" hidden><div class="news-filter-buttons" role="group" aria-label="写真のまとめ方"><button type="button" class="news-filter-button" data-collage-size="0" aria-pressed="true">個別写真（最大20枚）</button><button type="button" class="news-filter-button" data-collage-size="4" aria-pressed="false">4枚ずつ</button><button type="button" class="news-filter-button" data-collage-size="6" aria-pressed="false">6枚ずつ</button></div></div><div id="newsCollagePreview" class="news-images" hidden></div><button id="newsCollageRetry" class="small-btn" type="button" hidden>まとめ画像を再作成</button>
+<p id="newsPhotoHint" class="backup-note detail-photo-hint">20枚まで選択・「前へ／後へ」で並べ替え</p><div id="newsImages" class="news-images"></div></div></div><dialog id="newsPhotoDialog" aria-labelledby="newsPhotoDialogTitle"><div class="news-photo-dialog-head"><h3 id="newsPhotoDialogTitle">写真を比較・選択</h3><button id="newsPhotoDialogClose" class="small-btn" type="button">選択を確定して閉じる</button></div><p id="newsPhotoSelectionSummary" class="backup-note" aria-live="polite"></p><div id="newsPhotoDialogArea"></div></dialog><p class="backup-note">画像の利用条件・商品との一致を元記事で確認してください。</p>
 <button id="newsShare" class="small-btn primary" type="button" disabled>本文＋写真を共有</button>
 <div class="cloud-sync-actions prepare-secondary-actions"><button id="newsCopy" class="small-btn" type="button">投稿文をコピー</button><button id="newsSavePhotos" class="small-btn" type="button">写真を保存</button></div>
 <label>Xの投稿URL（任意）<input id="newsPostedUrl" type="url" inputmode="url" placeholder="投稿後にURLを貼り付けて記録"></label><div class="cloud-sync-actions prepare-finish-actions"><button id="newsDone" class="small-btn" type="button" disabled>投稿済み</button><button id="newsSkip" class="small-btn" type="button" disabled>見送る</button><button id="newsBackBottom" class="small-btn" type="button">一覧へ戻る</button></div><p class="backup-note">投稿済み・見送りはこの端末に保存。「表示」から戻せます。</p>
@@ -566,7 +566,7 @@
 <h3>写真・動画 <span class="detail-zoom-hint">写真をタップで拡大</span></h3>
 
 <p id="detailMediaStatus" class="detail-media-status" aria-live="polite"></p>
-<p class="backup-note">使う写真を4枚まで選択。「前へ／後へ」で順番を変更できます。</p><div id="detailMedia" class="detail-media"></div>
+<p class="backup-note">使う写真を20枚まで選択。「前へ／後へ」で順番を変更できます。</p><div id="detailMedia" class="detail-media"></div>
 <label class="small-btn">写真を追加<input id="candidatePhotos" type="file" accept="image/*" multiple style="display:block;max-width:100%"></label><p id="candidatePhotoStatus" class="backup-note" aria-live="polite"></p>
 <details class="backup-note"><summary>紹介リンクを修正・追加</summary><label>Amazon・楽天のリンク（1行に1本）<textarea id="candidateLinks" rows="4" style="width:100%;box-sizing:border-box"></textarea></label><button id="candidateLinksSave" class="small-btn" type="button">リンクを保存</button><p id="candidateEditStatus" aria-live="polite"></p></details>
 </section>
@@ -588,16 +588,16 @@
 <script async src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 <script src="./domestic-candidates.js?v=20261114-official-sources"></script>
 <script src="./candidate-backup.js?v=20261015-3533"></script>
-<script src="./app.js?v=20261117-product-marks"></script>
-<script src="./candidate-edit.js?v=20261010-3457"></script>
+<script src="./app.js?v=20261120-photos20"></script>
+<script src="./candidate-edit.js?v=20261120-photos20"></script>
 <script src="./amazon-reports.js?v=20261001-3390"></script>
 <script src="./revenue-insights.js?v=20260929-3366"></script>
 <script src="./new-product-ranking.js?v=20261005-3451"></script>
-<script src="./lovely-watch.js?v=20261117-product-marks-startup"></script>
+<script src="./lovely-watch.js?v=20261120-photos20"></script>
 <style>#lovelyPanel .lovely-row{padding:14px 0;border-bottom:1px solid #eadde5;display:flex;gap:12px;align-items:center}#lovelyPanel .lovely-row>div{flex:1;min-width:0}#lovelyPanel .lovely-row button{flex-shrink:0}#lovelyEditor label{display:block;margin:16px 0}#lovelyEditor input:not([type=checkbox]),#lovelyEditor textarea,#lovelyEditor select{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid #eadde5;border-radius:12px;font:inherit}#lovelyEditor[hidden]{display:none}#lovelyEditor{border-top:1px solid #eadde5;margin-top:16px;padding-top:16px}#lovelyPanel summary{cursor:pointer}#lovelyPanel a{overflow-wrap:anywhere}.lovely-product-images{display:flex;flex-wrap:wrap;gap:12px}.lovely-product-images>div{flex:1 1 140px;max-width:240px}.lovely-product-images img{width:100%;height:180px;object-fit:contain;border:1px solid #eadde5;border-radius:12px}.lovely-product-images button{margin-top:8px}#lovelyProductInfo ul{padding-left:22px;overflow-wrap:anywhere}</style>
-<script src="./otaota.js?v=20261111-less-redraw"></script>
+<script src="./otaota.js?v=20261120-photos20"></script>
 <script src="./news-collage.js?v=20261113-auto-6"></script>
-<script src="./news.js?v=20261113-news-search-row"></script>
+<script src="./news.js?v=20261120-photos20"></script>
 <script src="./post-ai.js?v=20261005-3451"></script>
 <script>
 window.addEventListener("load",()=>{
@@ -614,7 +614,7 @@ window.addEventListener("load",()=>{
 });
 </script>
 <script src="./blog-export.js?v=20261018-catalog2"></script>
-<script src="./product-flow.js?v=20261113-no-today-rakuten"></script>
+<script src="./product-flow.js?v=20261120-photos20"></script>
 <script src="./amazon-product-search.js?v=20261112-amazon-drafts-2"></script>
 </body>
 </html>

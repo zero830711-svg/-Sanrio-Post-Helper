@@ -13,7 +13,7 @@ function newsReadDrafts(data){
  return new Map(data.entries.slice(0,40).filter(e=>e&&typeof e.item?.url==='string'&&/^https:\/\//.test(e.item.url)&&typeof e.text==='string'&&e.text.length<=20000&&Array.isArray(e.item.images)).map(e=>{
  const item={...e.item,images:e.item.images.filter(u=>typeof u==='string'&&/^https:\/\//.test(u)).slice(0,100)};
  const collageSize=e.collageSize===6?6:e.collageMode?4:0;
- const selected=Array.isArray(e.selected)?[...new Set(e.selected)].filter(i=>Number.isInteger(i)&&i>=0&&i<item.images.length).slice(0,4*(collageSize||1)):[];
+ const selected=Array.isArray(e.selected)?[...new Set(e.selected)].filter(i=>Number.isInteger(i)&&i>=0&&i<item.images.length).slice(0,(collageSize?4*collageSize:X_PHOTO_LIMIT)):[];
  return [item.url,{...e,item,selected,collageSize,collageMode:!!collageSize,files:item.images.map(()=>null),loading:[],errors:[],aiPending:false,restored:true}];}));}catch{return new Map();}
 }
 const newsDraftStorage=new Map();
@@ -305,7 +305,7 @@ function newsLoadPhotos(entry){
  });
 }
 function newsPhotosRender(){
- const size=newsCollageSize(),limit=4*(size||1);
+ const size=newsCollageSize(),limit=size?4*size:X_PHOTO_LIMIT;
  $('newsPhotoSelectionSummary').textContent='選択 '+newsState.selected.length+' / '+limit+'枚'+(size?'・完成 '+newsCollageGroups().length+'枚':'');
  const box=$('newsImages');box.replaceChildren();const entry=newsState.drafts.get(newsState.item.url);
  const indices=newsState.files.map((_,i)=>i);
@@ -561,11 +561,11 @@ window.addEventListener('pagehide',newsKeepDraft);
 function newsSyncCollageMode(entry){
  const size=newsCollageSize(entry);
  for(const button of $('newsCollageControls').querySelectorAll('button'))button.setAttribute('aria-pressed',String(Number(button.dataset.collageSize)===size));
- $('newsPhotoHint').textContent=(entry.photoRefreshWarning||'')+(size?'チェックした順に'+size+'枚ずつ自動でまとめます。余りも共有できます。':'個別写真は4枚まで。「前へ／後へ」で並べ替えできます。');
+ $('newsPhotoHint').textContent=(entry.photoRefreshWarning||'')+(size?'チェックした順に'+size+'枚ずつ自動でまとめます。余りも共有できます。':'個別写真は20枚まで。「前へ／後へ」で並べ替えできます。');
 }
 for(const button of $('newsCollageControls').querySelectorAll('button'))button.addEventListener('click',()=>{
  const entry=newsCollageEntry(),size=Number(button.dataset.collageSize);if(!entry||size===newsCollageSize(entry))return;
- const limit=4*(size||1);if(newsState.selected.length>limit){$('newsEditorStatus').textContent='この設定では'+limit+'枚までです。先に写真の選択を減らしてください。';return;}
+ const limit=size?4*size:X_PHOTO_LIMIT;if(newsState.selected.length>limit){$('newsEditorStatus').textContent='この設定では'+limit+'枚までです。先に写真の選択を減らしてください。';return;}
  entry.collageSize=size;entry.collageMode=!!size;entry.collageFailed=null;
  newsSyncCollageMode(entry);newsKeepDraft();newsPhotosRender();newsLoadPhotos(entry);newsPhotoStatus();
 });

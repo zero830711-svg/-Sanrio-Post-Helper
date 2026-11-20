@@ -97,10 +97,10 @@ test('今日の候補を5件ずつ追加し、重複なく追加候補の詳細�
  expect(new Set(ids).size).toBe(11);
 });
 
-test('候補の写真を4枚まで選び、並べた順で共有・保存する',async({page})=>{
+test('候補の写真を20枚まで選び、並べた順で共有・保存する',async({page})=>{
  await seed(page);
  await page.evaluate(async()=>{
-  compactFixture.images=Array.from({length:5},(_,i)=>'https://example.invalid/photo-'+i+'.png');
+  compactFixture.images=Array.from({length:21},(_,i)=>'https://example.invalid/photo-'+i+'.png');
   imageBlob=async src=>new Blob([src],{type:'image/png'});
   legacyCopyText=()=>true;
   Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});
@@ -109,16 +109,20 @@ test('候補の写真を4枚まで選び、並べた順で共有・保存する'
   detailImageBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/png'}));detailJpegBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/jpeg'}));renderDetailPhotos();
  });
  await expect(page.locator('[data-detail-select]:checked')).toHaveCount(4);
- await page.locator('[data-detail-select="4"]').click();await expect(page.locator('[data-detail-select="4"]')).not.toBeChecked();
- await page.locator('[data-detail-select="0"]').uncheck();await page.locator('[data-detail-select="4"]').check();
+ for(let i=4;i<20;i++)await page.locator('[data-detail-select="'+i+'"]').check();
+ await expect(page.locator('[data-detail-select]:checked')).toHaveCount(20);
+ await page.locator('[data-detail-select="20"]').click();
+ await expect(page.locator('[data-detail-select="20"]')).not.toBeChecked();
+ await page.locator('[data-detail-select="0"]').uncheck();
+ await page.locator('[data-detail-select="20"]').check();
  for(let i=0;i<3;i++)await page.getByRole('button',{name:'写真5を前へ',exact:true}).click();
  await page.locator('#detailChatGPTShare').click();
- await expect.poll(()=>page.evaluate(()=>window.photoShare?.photos)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
+ await expect.poll(()=>page.evaluate(()=>window.photoShare?.photos)).toEqual([4,1,2,3,...Array.from({length:16},(_,i)=>i+5)].map(i=>'https://example.invalid/photo-'+i+'.png'));
  await page.evaluate(async()=>{await showTodayDetail(compactFixture);detailImageBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/png'}));detailJpegBlobs=compactFixture.images.map(src=>new Blob([src],{type:'image/jpeg'}));renderDetailPhotos();});
- expect(await page.evaluate(()=>detailPhotoSelection)).toEqual([4,1,2,3]);
+ expect(await page.evaluate(()=>detailPhotoSelection)).toEqual([4,1,2,3,...Array.from({length:16},(_,i)=>i+5)]);
  await page.locator('#detailDownloadAllPhotos').click();
- await expect.poll(()=>page.evaluate(()=>window.photoShare?.photos)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
- expect(await page.evaluate(()=>detailSelectedItem().images)).toEqual([4,1,2,3].map(i=>'https://example.invalid/photo-'+i+'.png'));
+ await expect.poll(()=>page.evaluate(()=>window.photoShare?.photos)).toEqual([4,1,2,3,...Array.from({length:16},(_,i)=>i+5)].map(i=>'https://example.invalid/photo-'+i+'.png'));
+ expect(await page.evaluate(()=>detailSelectedItem().images)).toEqual([4,1,2,3,...Array.from({length:16},(_,i)=>i+5)].map(i=>'https://example.invalid/photo-'+i+'.png'));
 });
 test('写真がない候補は写真付き候補の後に表示する',async({page})=>{
  await seed(page);

@@ -729,7 +729,7 @@ const lovelyWatch = (()=>{
     if(!Number.isInteger(index)||!selected?.productInfo?.images?.[index])return;
     if(b.checked){
       if(uploadBusy){editorGeneration++;uploadBusy=false;imageBusy=0;files=[];el('lovelyPhotos').value='';}
-      if(imageChoices.size>=4){b.checked=false;el('lovelyPhotoCount').textContent='写真は4枚まで選べます。';return;}
+      if(imageChoices.size>=X_PHOTO_LIMIT){b.checked=false;el('lovelyPhotoCount').textContent='写真は20枚まで選べます。';return;}
       if(!imageChoices.size&&files.length){files=[];el('lovelyPhotos').value='';}
       imageChoices.add(index);imageErrors.delete(index);
     }else{imageChoices.delete(index);imageFiles.delete(index);imageErrors.delete(index);const status=el('lovelyImageStatus'+index);if(status)status.textContent='';}
@@ -780,7 +780,7 @@ const lovelyWatch = (()=>{
     const incoming=Array.from(e.target.files||[]);editorGeneration++;imageBusy=0;uploadBusy=false;files=[];pickedImages.clear();imageChoices.clear();imageFiles.clear();imageErrors.clear();imageActive.clear();el('lovelyConfirmed').checked=false;
     if(selected)renderProduct(selected);
     el('lovelyImageRetry').hidden=true;
-    if(incoming.length>4||incoming.some(f=>!/^image\/(jpeg|png|webp)$/.test(f.type))||incoming.reduce((n,f)=>n+f.size,0)>20*1024*1024){e.target.value='';el('lovelyPhotoCount').textContent='JPEG・PNG・WebPを4枚以内、合計20MB以内で選んでください。';return}
+    if(incoming.length>X_PHOTO_LIMIT||incoming.some(f=>!/^image\/(jpeg|png|webp)$/.test(f.type))||incoming.reduce((n,f)=>n+f.size,0)>20*1024*1024){e.target.value='';el('lovelyPhotoCount').textContent='JPEG・PNG・WebPを20枚以内、合計20MB以内で選んでください。';return}
     const generation=editorGeneration;
     if(!incoming.length){el('lovelyPhotoCount').textContent='写真未添付';return;}
     uploadBusy=true;imageBusy=1;el('lovelyPhotoCount').textContent='写真をPNGで準備中…';
