@@ -334,8 +334,28 @@ function newsInstallFilterButtons(selectId,containerId){
 function newsSyncFilterButtons(selectId,containerId){const value=$(selectId)?.value;for(const button of $(containerId)?.querySelectorAll('button')||[])button.setAttribute('aria-pressed',String(button.dataset.value===value));}
 newsInstallFilterButtons('newsSourceFilter','newsSourceButtons');
 newsInstallFilterButtons('newsFilter','newsFilterButtons');
+function newsRecordSourceChecks(data,firstCheck){
+ const key=newsStorageKey('SourceChecks');
+ let history=newsState.sourceChecks||{};
+ try{history=JSON.parse(localStorage.getItem(key)||'null')||history;}catch{}
+ const checked=Date.parse(data.fetchedAt||'');
+ for(const [name,status] of Object.entries(data.sourceStatuses||{})){
+  const prev=history[name]||{};
+  if(checked && prev.checked>=checked)continue;
+  const fresh=new Set(data.items.filter(item=>item.source===name).map(item=>newsArticleKey(item.url)).filter(url=>newsState.added.has(url)));
+  history[name]={checked,lastOk:status.state==='ok'&&checked?checked:prev.lastOk||0,count:fresh.size,initial:firstCheck};
+ }
+ newsState.sourceChecks=history;
+ try{localStorage.setItem(key,JSON.stringify(history));}catch{}
+}
 function newsSourceStatusLabel(){
  const source=$('newsSourceFilter')?.value||'all';
+ const check=newsState.sourceChecks?.[source],status=newsState.sourceStatuses?.[source];
+ if(check&&status){
+  const time=check.lastOk?new Date(check.lastOk).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'未確認';
+  const result=status.state==='failed'?'取得失敗':(status.state==='partial'?'一部取得失敗 ・ ':'')+(check.initial?'初回取得':('今回初めて見つけた商品・記事 '+check.count+'件'));
+  return ' ・ 最終取得成功 '+time+' ・ '+result;
+ }
  const labels=Object.entries(newsState.sourceStatuses||{}).filter(([name,value])=>(source==='all'||name===source)&&['partial','failed'].includes(value?.state)).map(([name,value])=>name+'：'+(value.state==='partial'?'一部更新待ち':'更新待ち'));
  return labels.length?' ・ '+labels.join(' ／ '):Object.keys(newsState.sourceStatuses||{}).length?'':newsState.warnings.length?' ・ 一部の取得に失敗しました':'';
 }
@@ -425,7 +445,7 @@ async function newsMark(url,kind){
  return true;
  }finally{newsMarkPending=false;}
 }
-async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const [d]=await Promise.all([newsRequest('list'),newsRestoreMarks(),newsRestoreDrafts()]);newsTrackItems(d.items);newsState.items=d.items;domesticCandidates.ingest(d.items);newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsState.instagramCollection=d.instagramCollection||{};newsRender();return true;}catch(e){$('newsStatus').textContent=e.message;return false;}finally{newsState.busy=false;}}
+async function newsLoad(){if(newsState.busy)return;newsState.busy=true;$('newsStatus').textContent='ニュースを確認中…';try{const [d]=await Promise.all([newsRequest('list'),newsRestoreMarks(),newsRestoreDrafts()]);const firstCheck=!newsState.seen;newsTrackItems(d.items);newsRecordSourceChecks(d,firstCheck);newsState.items=d.items;domesticCandidates.ingest(d.items);newsState.instagramAccounts=d.instagramAccounts||[];newsState.accountsLoaded=true;instagramUpdateDropdown();newsState.history=await dbGetAll().catch(()=>[]);newsState.limit=5;newsState.warnings=d.warnings||[];newsState.sourceStatuses=d.sourceStatuses||{};newsState.instagramStatuses=d.instagramStatuses||[];newsState.instagramCollection=d.instagramCollection||{};newsRender();return true;}catch(e){$('newsStatus').textContent=e.message;return false;}finally{newsState.busy=false;}}
 async function newsPrepare(url){
  if(newsExternalPending&&newsExternalPending.owner!==url)newsExternalForget();
  newsInlineReset();
