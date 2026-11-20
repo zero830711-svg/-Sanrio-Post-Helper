@@ -83,7 +83,7 @@ function news_doc(string $s):DOMXPath{$d=new DOMDocument();libxml_use_internal_e
 function news_text(?DOMNode $n):string{return trim(preg_replace('/\s+/u',' ',$n?$n->textContent:'')??'');}
 function news_detail(string $u):array{
  if(strpos($u,'https://www.instagram.com/p/')===0)return news_instagram_detail($u);
- $cache=sys_get_temp_dir().'/sph-news-v11-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-v12-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
  $a=strpos($u,'https://thankyoumart.jp/')===0?news_thankyou_detail($u):news_parse(news_fetch($u),$u);file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
 }
 function news_parse(string $html,string $u):array{
@@ -148,7 +148,7 @@ function news_furyu_parse(string $html,string $url):array{
 
 function news_list_metadata(array $list):array{
  foreach($list['items'] as &$item){
-  $cache=sys_get_temp_dir().'/sph-news-v11-'.hash('sha256',__DIR__.$item['url']).'.json';
+  $cache=sys_get_temp_dir().'/sph-news-v12-'.hash('sha256',__DIR__.$item['url']).'.json';
   if(!is_file($cache)||filemtime($cache)<time()-900)continue;
   $detail=json_decode((string)file_get_contents($cache),true);
   if(is_array($detail)&&isset($detail['facts']))$item['facts']=$detail['facts'];
@@ -184,6 +184,25 @@ function news_catalog_detail_images(DOMXPath $xpath,string $url):array{
  foreach($attributes as $attribute){
   $image=news_catalog_image($attribute->nodeValue,$url);
   if($image)$images[$image]=$image;
+ }
+ $host=parse_url($url,PHP_URL_HOST);
+ $productPaths=[
+  'bsp-prize.jp'=>'~/(?:files|files_thumbnail)/.+/item/.+~i',
+  'benelic.com'=>'~^/capsuletoy/wp-content/uploads/[0-9]{4}/[0-9]{2}/~',
+  'www.sun-star-st.jp'=>'~/wp-content/uploads/[0-9]{4}/[0-9]{2}/~',
+  'kcompany.co.jp'=>'~/wp-content/uploads/[0-9]{4}/[0-9]{2}/~'
+ ];
+ if(isset($productPaths[$host])){
+  foreach($xpath->query('//main//img/@data-src | //main//img/@data-original | //main//img/@src | //article//img/@src') as $attribute){
+   $image=news_catalog_image($attribute->nodeValue,$url);
+   if($image&&parse_url($image,PHP_URL_HOST)===$host&&preg_match($productPaths[$host],(string)parse_url($image,PHP_URL_PATH))){
+    if($host==='bsp-prize.jp'){
+     $sku=basename(rtrim((string)parse_url($url,PHP_URL_PATH),'/'));
+     if(!preg_match('~/'.preg_quote($sku,'~').'[_\.]~',$image))continue;
+    }
+    $images[$image]=$image;
+   }
+  }
  }
  if(str_starts_with($url,'https://store.shopping.yahoo.co.jp/tsfa-shop/')){
   $sku=pathinfo((string)parse_url($url,PHP_URL_PATH),PATHINFO_FILENAME);
