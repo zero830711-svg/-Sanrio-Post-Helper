@@ -335,6 +335,7 @@ function newsInstallFilterButtons(selectId,containerId){
 function newsSyncFilterButtons(selectId,containerId){const value=$(selectId)?.value;for(const button of $(containerId)?.querySelectorAll('button')||[])button.setAttribute('aria-pressed',String(button.dataset.value===value));}
 newsInstallFilterButtons('newsSourceFilter','newsSourceButtons');
 newsInstallFilterButtons('newsFilter','newsFilterButtons');
+newsInstallFilterButtons('newsReleasePeriod','newsReleaseButtons');
 function newsRecordSourceChecks(data,firstCheck){
  const key=newsStorageKey('SourceChecks');
  let history=newsState.sourceChecks||{};
