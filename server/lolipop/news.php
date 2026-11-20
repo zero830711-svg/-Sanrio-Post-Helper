@@ -35,7 +35,7 @@ function news_url(string $u): string {
  if($h==='shop.harmonyland.jp'&&preg_match('~^/view/item/[0-9]+/?$~D',$path))return 'https://'.$h.$path;
  if($h==='amnibus.com'&&preg_match('~^/products/detail/[0-9]+/?$~D',$path))return 'https://'.$h.$path;
  if($h==='premiumstore.jp'&&$path==='/item_Detail.php'&&is_string($query['@DB_ID@']??null)&&ctype_digit($query['@DB_ID@']))return 'https://'.$h.$path.'?%40DB_ID%40='.$query['@DB_ID@'];
- if($h==='crux.jp'&&preg_match('~^/news/post-[0-9]+/?$~D',$path))return 'https://'.$h.$path;
+ if($h==='crux.jp'&&preg_match('~^/(?:news|character)/post-[0-9]+/?$~D',$path))return 'https://'.$h.$path;
  if($h==='www.sk-japan.co.jp'&&preg_match('~^/charatoru/(?:item|prize|news)/(?:detail[-/]?)?[a-zA-Z0-9_-]+/?$~D',$path))return 'https://'.$h.$path;
  if($h==='www.popmart.com'&&preg_match('~^/(?:jp|ja-JP)/products/(?:[a-zA-Z0-9_-]+/)?[a-zA-Z0-9_-]+/?$~D',$path))return 'https://'.$h.preg_replace('~^/ja-JP/~','/jp/',$path);
  $seven=news_seven_product_url($p);if($seven)return $seven;
@@ -201,7 +201,7 @@ function news_maker_catalogs():array{
   'harmony'=>['name'=>'ハーモニーランド','prefix'=>'https://shop.harmonyland.jp/view/item/','feed'=>'https://shop.harmonyland.jp/','allProducts'=>true],
   'amnibus'=>['name'=>'AMNIBUS','prefix'=>'https://amnibus.com/products/detail/','feed'=>'https://amnibus.com/products/list?categoryId=162'],
   'premiumstore'=>['name'=>'PremiumStore.jp','prefix'=>'https://premiumstore.jp/item_Detail.php','feed'=>'https://premiumstore.jp/item_List.php?%40ps%40=none&tag=%E3%82%B7%E3%83%8A%E3%83%A2%E3%83%AD%E3%83%BC%E3%83%AB'],
-  'crux'=>['name'=>'クラックス','prefix'=>'https://crux.jp/news/','feed'=>'https://crux.jp/news/'],
+  'crux'=>['name'=>'クラックス','prefix'=>'https://crux.jp/','feed'=>'https://crux.jp/news/'],
   'skjapan'=>['name'=>'エスケイジャパン','prefix'=>'https://www.sk-japan.co.jp/charatoru/','feed'=>'https://www.sk-japan.co.jp/charatoru'],
   'popmart'=>['name'=>'POP MART日本公式','prefix'=>'https://www.popmart.com/jp/products/','feed'=>'https://www.popmart.com/jp/new-arrivals'],
   'taito'=>['name'=>'タイトー','prefix'=>'https://www.taito.co.jp/prize/item/','feed'=>'https://www.taito.co.jp/prize'],
@@ -304,7 +304,7 @@ function news_source_statuses(array $attempts,array $rows):array{
  $result=[];foreach($attempts as $source=>$counts){$count=count(array_filter($rows,static fn($row)=>($row['source']??'')===$source));$failed=(int)($counts['failed']??0);$ok=(int)($counts['ok']??0);$result[$source]=['state'=>$failed?($ok&&$count?'partial':'failed'):'ok','count'=>$count];}return $result;
 }
 function news_list():array{
- $cache=sys_get_temp_dir().'/sph-news-list-makers-v18-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-list-makers-v19-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
  $feeds=news_feeds();$bodies=news_fetch_feeds($feeds);$lists=[];$errors=[];$gashapon=[];$rement=[];$kitan=[];$attempts=[];
  foreach($feeds as $i=>$feed){$source=news_feed_source($feed);$attempts[$source]=$attempts[$source]??['ok'=>0,'failed'=>0];try{
   if($feed['kind']==='thankyou')$lists[]=news_thankyou_snapshot($bodies[$i],time());
