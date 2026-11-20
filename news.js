@@ -408,6 +408,30 @@ function newsReleaseDates(item, today){
  }
  return dates;
 }
+const newsDetailThumbnails=new Map();
+const newsThumbnailObserver=new IntersectionObserver(entries=>{
+ for(const entry of entries){
+  if(!entry.isIntersecting)continue;
+  newsThumbnailObserver.unobserve(entry.target);
+  if(entry.target.isConnected)entry.target.loadNewsThumbnail();
+ }
+});
+function newsObserveThumbnail(row,img,item){
+ row.loadNewsThumbnail=()=>{
+  let pending=newsDetailThumbnails.get(item.url);
+  if(!pending){
+   pending=newsRequest('detail',item.url).then(data=>data.item?.images?.[0]||'').catch(()=>{newsDetailThumbnails.delete(item.url);return '';});
+   newsDetailThumbnails.set(item.url,pending);
+  }
+  pending.then(url=>{
+   if(!url||!row.isConnected)return;
+   img.onerror=()=>{img.hidden=true;};
+   img.onload=()=>{img.hidden=false;};
+   img.src=url;
+  });
+ };
+ newsThumbnailObserver.observe(row);
+}
 function newsRender(){
  newsSyncFilterButtons('newsSourceFilter','newsSourceButtons');newsSyncFilterButtons('newsFilter','newsFilterButtons');
  instagramRenderStatuses();instagramRenderCollection();
@@ -436,6 +460,7 @@ function newsRender(){
   }
   return Number(newsGroupNew(b))-Number(newsGroupNew(a))||newsGroupTime(b)-newsGroupTime(a);
  });
+ for(const row of $('newsList').children)newsThumbnailObserver.unobserve(row);
  $('newsList').replaceChildren();
  for(const item of visibleRows.slice(0,newsState.limit)){
  const row=document.createElement('article');row.className='news-row';
@@ -457,7 +482,13 @@ function newsRender(){
  if(mark?.kind==='done'){const stamp=document.createElement('span');stamp.className='backup-note';stamp.textContent='投稿記録：'+new Date(mark.at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'});info.append(stamp);if(newsValidPostedUrl(mark.xUrl)){const posted=document.createElement('a');posted.href=mark.xUrl;posted.textContent='投稿したXを確認';posted.target='_blank';posted.rel='noopener noreferrer';info.append(posted);}}
  const previous=instagramPreviouslyIntroduced(item);if(previous){const hint=document.createElement('details');const summary=document.createElement('summary');summary.textContent='紹介済み候補'+(/再販|再入荷|新色/.test(item.title)?'（更新情報か確認）':'');const description=document.createElement('p');description.className='backup-note';description.textContent='類似商品の過去投稿があります。新色・再販・販売地域の違いは手動で確認してください。';hint.append(summary,description);if(previous.xUrl&&/^https:\/\/(?:x.com|twitter.com)\//.test(previous.xUrl)){const link=document.createElement('a');link.href=previous.xUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent='過去の投稿を確認';hint.append(link);}info.append(hint);}
  const img=document.createElement('img');img.className='news-thumb';img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';
- if(item.image){img.src=item.image;img.onerror=()=>{img.hidden=true;};}else img.hidden=true;
+ if(item.image){
+  img.src=item.image;
+  img.onerror=()=>{img.hidden=true;if(item.tipsOnly)newsObserveThumbnail(row,img,item);};
+ }else{
+  img.hidden=true;
+  if(item.tipsOnly)newsObserveThumbnail(row,img,item);
+ }
  const btn=document.createElement('button');btn.type='button';btn.className='small-btn';btn.textContent='投稿準備';btn.addEventListener('click',()=>newsPrepare(item.url));
  const actions=document.createElement('div');actions.className='news-row-actions';actions.append(btn);
  if(!mark){const skip=document.createElement('button');skip.type='button';skip.className='small-btn news-row-skip';skip.textContent='見送り';skip.addEventListener('click',async()=>{const y=window.scrollY;try{if(await newsMark(item.url,'skip'))window.scrollTo({top:y,behavior:'auto'});}catch{newsShowMarkNotice('一覧を更新できませんでした。画面を更新して確認してください。',true);}});actions.append(skip);}
