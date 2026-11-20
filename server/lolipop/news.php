@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+const NEWS_DETAIL_CACHE_PREFIX='sph-news-v12-';
 require_once __DIR__.'/news-extra.php';
 require_once __DIR__.'/news-bandai.php';
 require_once __DIR__.'/news-gashapon.php';
@@ -83,7 +84,7 @@ function news_doc(string $s):DOMXPath{$d=new DOMDocument();libxml_use_internal_e
 function news_text(?DOMNode $n):string{return trim(preg_replace('/\s+/u',' ',$n?$n->textContent:'')??'');}
 function news_detail(string $u):array{
  if(strpos($u,'https://www.instagram.com/p/')===0)return news_instagram_detail($u);
- $cache=sys_get_temp_dir().'/sph-news-v12-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
+ $cache=sys_get_temp_dir().'/'.NEWS_DETAIL_CACHE_PREFIX.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
  $a=strpos($u,'https://thankyoumart.jp/')===0?news_thankyou_detail($u):news_parse(news_fetch($u),$u);file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
 }
 function news_parse(string $html,string $u):array{
@@ -148,7 +149,7 @@ function news_furyu_parse(string $html,string $url):array{
 
 function news_list_metadata(array $list):array{
  foreach($list['items'] as &$item){
-  $cache=sys_get_temp_dir().'/sph-news-v12-'.hash('sha256',__DIR__.$item['url']).'.json';
+  $cache=sys_get_temp_dir().'/'.NEWS_DETAIL_CACHE_PREFIX.hash('sha256',__DIR__.$item['url']).'.json';
   if(!is_file($cache)||filemtime($cache)<time()-900)continue;
   $detail=json_decode((string)file_get_contents($cache),true);
   if(is_array($detail)&&isset($detail['facts']))$item['facts']=$detail['facts'];
