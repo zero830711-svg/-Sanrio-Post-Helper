@@ -15,6 +15,25 @@ try{
  $config=require $argv[1];
  $key=(string)($config['sync_key']??'');if($key==='')throw new RuntimeException('同期キーを確認できません。');
  $list=deployed_news_extra_request($key,'list');
+ $photoSources=['ケイカンパニー','ティーズファクトリー','ロフト','バンプレストナビ','サンスター文具','ベネリックカプセルトイ'];
+ $photoFailures=[];
+ foreach($photoSources as $source){
+  $rows=array_values(array_filter($list['items']??[],static fn($row)=>($row['source']??'')===$source));
+  $thumbnails=count(array_filter($rows,static fn($row)=>!empty($row['image'])));
+  $photoCount=0;
+  foreach(array_slice($rows,0,3) as $row){
+   try{
+    $detail=deployed_news_extra_request($key,'detail',$row['url'])['item']??[];
+    $photoCount=count($detail['images']??[]);
+    if($photoCount)break;
+   }catch(RuntimeException $error){
+    echo '::warning title=商品写真::'.$source.'の商品詳細を取得できませんでした。'."\n";
+   }
+  }
+  echo $source.' 候補='.count($rows).' 一覧画像='.$thumbnails.' 確認した詳細画像='.$photoCount."\n";
+  if(!$photoCount)$photoFailures[]=$source;
+ }
+ if($photoFailures)echo '::warning title=商品写真::詳細画像を確認できなかった情報元 '.implode('、',$photoFailures)."\n";
  $targets=[
   'タカラトミーアーツ'=>'https://www.takaratomy-arts.co.jp/items/item.html?n=Y111372',
   'リーメント'=>'https://www.re-ment.co.jp/product/r70125',
