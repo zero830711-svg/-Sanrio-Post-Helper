@@ -368,16 +368,16 @@ function newsReleaseWindow(period, now=new Date()){
  const start=period==='today'?today:monday+(period==='next'?7*oneDay:0);
  return [start,start+(period==='today'?1:7)*oneDay];
 }
-function newsReleaseLabels(item, window){
+function newsReleaseDates(item, today){
  const lines=[item.schedule,...(item.facts||[]).filter(f=>f.kind==='schedule').map(f=>f.text),item.title];
- const currentYear=new Date(window[0]).getUTCFullYear();
+ const currentYear=new Date(today).getUTCFullYear();
  const publishedYear=String(item.date||'').match(/^(\d{4})[-/.]/)?.[1];
- const labels=new Set();
+ const dates=[];
  for(const raw of lines.filter(Boolean)){
   for(const line of String(raw).split(/[。！？\n]/)){
    const normalized=line.normalize('NFKC');
    if(!/発売|販売(?:開始|年月)|予約|登場/.test(normalized)&&raw!==item.schedule)continue;
-   if(/受付終了|予約締切|販売終了|発売中|予約受付中/.test(normalized)&&!/発売日|予約開始日|予約受付開始/.test(normalized))continue;
+   if(/受付終了|予約締切|販売終了|発売中|予約受付中|予約期間|予約受付期間/.test(normalized)&&!/発売日|予約開始日|予約受付開始/.test(normalized))continue;
    for(const match of normalized.matchAll(/(?:(20\d{2})年\s*)?(\d{1,2})月\s*(?:(\d{1,2})日|(上旬|中旬|下旬|第?[1-6]週))?|(?:(20\d{2})[-/])?(\d{1,2})\/(\d{1,2})(?!\d)/g)){
     const year=Number(match[1]||match[5]||publishedYear||currentYear);
     const month=Number(match[2]||match[6]), day=Number(match[3]||match[7]||0);
@@ -388,11 +388,16 @@ function newsReleaseLabels(item, window){
     const week=Number(part.match(/[1-6]/)?.[0]||0);
     const first=day||(week?(week-1)*7+1:part==='中旬'?11:part==='下旬'?21:1);
     const end=day||(week?Math.min(week*7,last):part==='上旬'?10:part==='中旬'?20:last);
-    if(first<=end&&Date.UTC(year,month-1,first)<window[1]&&Date.UTC(year,month-1,end)>=window[0])labels.add(line.trim());
+    if(first>end)continue;
+    if(/予約/.test(normalized)&&/発売|販売開始/.test(normalized))continue;
+    const kind=/予約/.test(normalized)?'予約開始':/登場/.test(normalized)||item.prize?'登場':'発売';
+    const when=match[0].trim();
+    const label=kind+' '+when+(/順次/.test(normalized)?'から順次':'')+(/予定/.test(normalized)?'予定':'');
+    dates.push({label,start:Date.UTC(year,month-1,first),end:Date.UTC(year,month-1,end)});
    }
   }
  }
- return [...labels];
+ return dates;
 }
 function newsRender(){
  newsSyncFilterButtons('newsSourceFilter','newsSourceButtons');newsSyncFilterButtons('newsFilter','newsFilterButtons');
@@ -401,15 +406,27 @@ function newsRender(){
  const filter=$('newsFilter').value;const sourceFilter=$('newsSourceFilter')?.value||'all';const rows=newsGroups().filter(i=>(sourceFilter==='all'||i.members.some(m=>m.source===sourceFilter))).filter(i=>filter==='draft'?newsGroupDraft(i)&&!newsGroupMark(i):filter==='all'||(filter==='hidden'?!!newsGroupMark(i):!newsGroupMark(i)));
  const period=$('newsReleasePeriod').value;
  const releaseWindow=period!=='all'&&newsHomeView!=='instagram'?newsReleaseWindow(period):null;
- const releaseLabels=new Map();
- if(releaseWindow){
-  for(const item of rows){
-   const members=item.members.filter(member=>sourceFilter==='all'||member.source===sourceFilter);
-   releaseLabels.set(item,[...new Set(members.flatMap(member=>newsReleaseLabels(member,releaseWindow)))]);
-  }
+ const today=newsReleaseWindow('today')[0];
+ const byRelease=newsHomeView!=='instagram'&&$('newsReleaseSort').value==='release';
+ const datesByItem=new Map();
+ const nearestByItem=new Map();
+ for(const item of rows){
+  if(newsHomeView==='instagram')break;
+  const dates=item.members.filter(member=>sourceFilter==='all'||member.source===sourceFilter).flatMap(member=>newsReleaseDates(member,today));
+  const matching=releaseWindow?dates.filter(date=>date.start<releaseWindow[1]&&date.end>=releaseWindow[0]):dates;
+  datesByItem.set(item,matching);
+  const upcoming=matching.filter(date=>date.end>=today).map(date=>Math.max(today,date.start));
+  nearestByItem.set(item,upcoming.length?Math.min(...upcoming):Infinity);
  }
- const visibleRows=releaseWindow?rows.filter(item=>releaseLabels.get(item).length):rows;
- visibleRows.sort((a,b)=>newsHomeView==='instagram'?instagramCompare(a,b,$('instagramSort').value):Number(newsGroupNew(b))-Number(newsGroupNew(a))||newsGroupTime(b)-newsGroupTime(a));
+ const visibleRows=releaseWindow?rows.filter(item=>datesByItem.get(item).length):rows;
+ visibleRows.sort((a,b)=>{
+  if(newsHomeView==='instagram')return instagramCompare(a,b,$('instagramSort').value);
+  if(byRelease){
+   const first=nearestByItem.get(a),second=nearestByItem.get(b);
+   if(first!==second)return first<second?-1:1;
+  }
+  return Number(newsGroupNew(b))-Number(newsGroupNew(a))||newsGroupTime(b)-newsGroupTime(a);
+ });
  $('newsList').replaceChildren();
  for(const item of visibleRows.slice(0,newsState.limit)){
  const row=document.createElement('article');row.className='news-row';
@@ -418,10 +435,18 @@ function newsRender(){
  const source=document.createElement('span');source.className='backup-note';
  const mark=newsGroupMark(item);
  source.textContent=(item.instagram?'地域：'+instagramRegion(item.instagramAccount)+' ・ ':'')+(newsGroupNew(item)?'NEW ・ ':'')+(newsGroupDraft(item)&&!mark?'準備中 ・ ':'')+[...new Set(item.members.map(m=>m.source))].join('・')+' ・ '+(item.gashapon?(item.resale?'再販':'ガシャポン情報'):item.tipsOnly?'公式新作情報'+(item.date?' ・ 発表 '+newsDateLabel(item.date):''):item.prize?'プライズ情報':item.date?'発表 '+newsDateLabel(item.date):'発表日未確認')+(mark?' ・ '+(mark.kind==='done'?'投稿済み':'見送り'):'');
- info.append(source,title);if(item.members.length>1){const badge=document.createElement('span');badge.className='backup-note';badge.textContent='同じ商品の掲載 '+item.members.length+'件・投稿準備で比較';info.append(badge);}
+ info.append(source);
+ const scheduleLabels=[...new Set((datesByItem.get(item)||[]).map(date=>date.label))];
+ const schedule=scheduleLabels.join(' ／ ')||item.members.map(newsScheduleLabel).find(Boolean);
+ if(schedule){
+  const note=document.createElement('span');
+  note.className='news-schedule';
+  note.textContent=schedule;
+  info.append(note);
+ }
+ info.append(title);if(item.members.length>1){const badge=document.createElement('span');badge.className='backup-note';badge.textContent='同じ商品の掲載 '+item.members.length+'件・投稿準備で比較';info.append(badge);}
  if(mark?.kind==='done'){const stamp=document.createElement('span');stamp.className='backup-note';stamp.textContent='投稿記録：'+new Date(mark.at).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'});info.append(stamp);if(newsValidPostedUrl(mark.xUrl)){const posted=document.createElement('a');posted.href=mark.xUrl;posted.textContent='投稿したXを確認';posted.target='_blank';posted.rel='noopener noreferrer';info.append(posted);}}
  const previous=instagramPreviouslyIntroduced(item);if(previous){const hint=document.createElement('details');const summary=document.createElement('summary');summary.textContent='紹介済み候補'+(/再販|再入荷|新色/.test(item.title)?'（更新情報か確認）':'');const description=document.createElement('p');description.className='backup-note';description.textContent='類似商品の過去投稿があります。新色・再販・販売地域の違いは手動で確認してください。';hint.append(summary,description);if(previous.xUrl&&/^https:\/\/(?:x.com|twitter.com)\//.test(previous.xUrl)){const link=document.createElement('a');link.href=previous.xUrl;link.target='_blank';link.rel='noopener noreferrer';link.textContent='過去の投稿を確認';hint.append(link);}info.append(hint);}
- const schedule=releaseWindow?releaseLabels.get(item).join(" ／ "):item.members.map(newsScheduleLabel).find(Boolean);if(schedule){const note=document.createElement('span');note.className='news-schedule';note.textContent=schedule;info.append(note);}
  const img=document.createElement('img');img.className='news-thumb';img.alt='';img.loading='lazy';img.referrerPolicy='no-referrer';
  if(item.image){img.src=item.image;img.onerror=()=>{img.hidden=true;};}else img.hidden=true;
  const btn=document.createElement('button');btn.type='button';btn.className='small-btn';btn.textContent='投稿準備';btn.addEventListener('click',()=>newsPrepare(item.url));
@@ -567,6 +592,7 @@ $('newsBackBottom').addEventListener('click',newsReturn);
 
 $('newsMore').addEventListener('click',()=>{const y=window.scrollY;newsState.limit+=5;newsRender();window.scrollTo({top:y,behavior:'instant'});});
 $('newsSourceFilter').addEventListener('change',()=>{newsState.limit=5;newsRender();});
+$('newsReleaseSort').addEventListener('change',()=>{newsState.limit=5;newsRender();});
 $('newsReleasePeriod').addEventListener('change',()=>{newsState.limit=5;newsRender();});
 $('newsFilter').addEventListener('change',()=>{newsState.limit=5;newsRender();});
 $('newsDone').addEventListener('click',()=>{if(newsState.item)newsMark(newsState.item.url,'done');});
