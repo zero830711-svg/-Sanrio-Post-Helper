@@ -83,7 +83,7 @@ function news_doc(string $s):DOMXPath{$d=new DOMDocument();libxml_use_internal_e
 function news_text(?DOMNode $n):string{return trim(preg_replace('/\s+/u',' ',$n?$n->textContent:'')??'');}
 function news_detail(string $u):array{
  if(strpos($u,'https://www.instagram.com/p/')===0)return news_instagram_detail($u);
- $cache=sys_get_temp_dir().'/sph-news-v10-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-v11-'.hash('sha256',__DIR__.$u).'.json';if(is_file($cache)&&filemtime($cache)>time()-900){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a))return $a;}
  $a=strpos($u,'https://thankyoumart.jp/')===0?news_thankyou_detail($u):news_parse(news_fetch($u),$u);file_put_contents($cache,json_encode($a,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX);@chmod($cache,0600);return $a;
 }
 function news_parse(string $html,string $u):array{
@@ -148,7 +148,7 @@ function news_furyu_parse(string $html,string $url):array{
 
 function news_list_metadata(array $list):array{
  foreach($list['items'] as &$item){
-  $cache=sys_get_temp_dir().'/sph-news-v10-'.hash('sha256',__DIR__.$item['url']).'.json';
+  $cache=sys_get_temp_dir().'/sph-news-v11-'.hash('sha256',__DIR__.$item['url']).'.json';
   if(!is_file($cache)||filemtime($cache)<time()-900)continue;
   $detail=json_decode((string)file_get_contents($cache),true);
   if(is_array($detail)&&isset($detail['facts']))$item['facts']=$detail['facts'];
@@ -163,33 +163,55 @@ function news_catalog_image(string $value,string $pageUrl):string{
  return news_image_url($value);
 }
 function news_catalog_thumbnail(DOMXPath $xpath,DOMElement $link,string $url):string{
- foreach($xpath->query('.//img/@data-src | .//img/@data-original | .//img/@src',$link) as $attribute){
-  $image=news_catalog_image($attribute->nodeValue,$url);
+ foreach(['data-original','data-src','data-lazy-src','src','data-srcset','srcset'] as $name){
+  foreach($xpath->query('.//img/@'.$name.' | .//source/@'.$name,$link) as $attribute){
+   $value=$attribute->nodeValue;
+   if(str_ends_with($name,'srcset'))$value=preg_split('/[\s,]+/',trim($value))[0];
+   $image=news_catalog_image($value,$url);
+   if($image)return $image;
+  }
+ }
+ foreach($xpath->query('./@style | .//*[@style]/@style',$link) as $attribute){
+  if(!preg_match('~url\(\s*["\x27]?([^"\x27)]+)~i',$attribute->nodeValue,$match))continue;
+  $image=news_catalog_image($match[1],$url);
   if($image)return $image;
  }
  return '';
 }
 function news_catalog_detail_images(DOMXPath $xpath,string $url):array{
  $images=[];
- foreach($xpath->query('//meta[@property="og:image"]/@content | //meta[@name="twitter:image"]/@content') as $attribute){
+ $attributes=$xpath->query('//meta[@property="og:image" or @property="og:image:secure_url" or @name="twitter:image"]/@content | //link[@rel="image_src"]/@href | //*[@itemprop="image"]/@content | //*[@itemprop="image"]/@src');
+ foreach($attributes as $attribute){
   $image=news_catalog_image($attribute->nodeValue,$url);
   if($image)$images[$image]=$image;
  }
- return array_values($images);
+ if(str_starts_with($url,'https://store.shopping.yahoo.co.jp/tsfa-shop/')){
+  $sku=pathinfo((string)parse_url($url,PHP_URL_PATH),PATHINFO_FILENAME);
+  $pattern='~^https://item-shopping\.c\.yimg\.jp/i/[a-z]/tsfa-shop_'.preg_quote($sku,'~').'(?:_[0-9]+)?$~iD';
+  foreach($xpath->query('//a/@href | //img/@data-src | //img/@src') as $attribute){
+   $image=news_catalog_image($attribute->nodeValue,$url);
+   if($image&&preg_match($pattern,$image))$images[$image]=$image;
+  }
+ }
+ return array_slice(array_values($images),0,20);
 }
 function news_yumeya_rows(string $html):array{
  $x=news_doc($html);
- $rows=[];
+ $rows=[];$thumbs=[];
  foreach($x->query('//a[@href]') as $a){
   $href=$a->getAttribute('href');
   if(str_starts_with($href,'/goods/'))$href='https://tokyo-yumeya.co.jp'.$href;
   $url=news_url($href);
   if(!str_starts_with($url,'https://tokyo-yumeya.co.jp/goods/'))continue;
+  $thumb=news_catalog_thumbnail($x,$a,$url);
+  if($thumb&&!isset($thumbs[$url]))$thumbs[$url]=$thumb;
   $title=news_text($a);
   if(!str_contains($title,'サンリオ'))$title=news_text($x->query('.//img/@alt',$a)->item(0));
   if(!str_contains($title,'サンリオ'))continue;
-  $rows[$url]=['url'=>$url,'source'=>'夢屋','tipsOnly'=>true,'title'=>$title,'image'=>news_catalog_thumbnail($x,$a,$url)?:($rows[$url]['image']??''),'date'=>''];
+  $rows[$url]=['url'=>$url,'source'=>'夢屋','tipsOnly'=>true,'title'=>$title,'image'=>'','date'=>''];
  }
+ foreach($rows as $url=>&$row)$row['image']=$thumbs[$url]??'';
+ unset($row);
  return array_values($rows);
 }
 function news_yumeya_detail(string $html,string $url):array{
@@ -243,7 +265,7 @@ function news_catalog_character(string $title):bool{
  return news_furyu_character($title)||str_contains($title,'チアリーチャム')||preg_match('/\b(?:SANRIO|KUROMI|HELLO KITTY|CINNAMOROLL|POMPOMPURIN|MY MELODY|HAPIDANBUI)\b/iu',$title)===1;
 }
 function news_maker_rows(string $html,array $maker):array{
- $x=news_doc($html);$rows=[];$products=0;
+ $x=news_doc($html);$rows=[];$thumbs=[];$products=0;
  foreach($x->query('//a[@href]') as $a){
   $href=$a->getAttribute('href');
   if(str_starts_with($href,'/')&&!str_starts_with($href,'//'))$href='https://'.parse_url($maker['prefix'],PHP_URL_HOST).$href;
@@ -253,13 +275,17 @@ function news_maker_rows(string $html,array $maker):array{
   if(!$url||!str_starts_with($url,$maker['prefix']))continue;
   if(isset($maker['companyId'])&&!str_ends_with($url,'.'.$maker['companyId'].'.html'))continue;
   $products++;
+  $thumb=news_catalog_thumbnail($x,$a,$url);
+  if($thumb&&!isset($thumbs[$url]))$thumbs[$url]=$thumb;
   $title=news_text($a);
   if(!$title||(empty($maker['allProducts'])&&!news_catalog_character($title)))$title=news_text($x->query('.//img/@alt',$a)->item(0));
   if(mb_strlen($title)<4||(empty($maker['allProducts'])&&!news_catalog_character($title)))continue;
   $schedule=news_catalog_schedule($title);
-  $rows[$url]=['url'=>$url,'source'=>$maker['name'],'tipsOnly'=>true,'title'=>mb_substr($title,0,180),'image'=>news_catalog_thumbnail($x,$a,$url)?:($rows[$url]['image']??''),'date'=>'','schedule'=>$schedule];
+  $rows[$url]=['url'=>$url,'source'=>$maker['name'],'tipsOnly'=>true,'title'=>mb_substr($title,0,180),'image'=>'','date'=>'','schedule'=>$schedule];
  }
  if(!$products)throw new RuntimeException('商品一覧を確認できませんでした。');
+ foreach($rows as $url=>&$row)$row['image']=$thumbs[$url]??'';
+ unset($row);
  return array_values($rows);
 }
 function news_catalog_schedule(string $text):string{
@@ -332,7 +358,7 @@ function news_source_statuses(array $attempts,array $rows):array{
  $result=[];foreach($attempts as $source=>$counts){$count=count(array_filter($rows,static fn($row)=>($row['source']??'')===$source));$failed=(int)($counts['failed']??0);$ok=(int)($counts['ok']??0);$result[$source]=['state'=>$failed?($ok&&$count?'partial':'failed'):'ok','count'=>$count];}return $result;
 }
 function news_list():array{
- $cache=sys_get_temp_dir().'/sph-news-list-makers-v20-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-list-makers-v21-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
  $feeds=news_feeds();$bodies=news_fetch_feeds($feeds);$lists=[];$errors=[];$gashapon=[];$rement=[];$kitan=[];$attempts=[];
  foreach($feeds as $i=>$feed){$source=news_feed_source($feed);$attempts[$source]=$attempts[$source]??['ok'=>0,'failed'=>0];try{
   if($feed['kind']==='thankyou')$lists[]=news_thankyou_snapshot($bodies[$i],time());
