@@ -146,6 +146,13 @@ foreach(array_keys(news_maker_catalogs()) as $kind){
  check(count(array_keys($configuredFeeds,$kind,true))===1);
 }
 check(count(array_keys($configuredFeeds,'yumeya',true))===1);
+$photoUrl='https://item-shopping.c.yimg.jp/i/n/tsfa-shop_sr5549443-46';
+$photoProduct='https://store.shopping.yahoo.co.jp/tsfa-shop/sr5549443-46.html';
+$catalogRows=news_maker_rows('<a href="'.$photoProduct.'"><img data-lazy-src="'.$photoUrl.'"></a><a href="'.$photoProduct.'">サンリオ マスコット</a>',news_maker_catalogs()['tsfactory']);
+check(count($catalogRows)===1&&$catalogRows[0]['image']===$photoUrl);
+$gallery=news_catalog_detail_images(news_doc('<a href="'.$photoUrl.'"></a><a href="'.$photoUrl.'_1"></a><a href="https://item-shopping.c.yimg.jp/i/n/tsfa-shop_other"></a>'),$photoProduct);
+check($gallery===[$photoUrl,$photoUrl.'_1']);
+
 check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='eikoh'))===1);check(count(array_filter(news_feeds(),fn($feed)=>$feed['kind']==='furyu'))===2);check(strpos(news_feeds()[2]['url'],'page=2')!==false);
 echo "Expanded news sources, deduplication and quotas passed\n";
 
