@@ -1,0 +1,53 @@
+name: Publish Sanrio Q Christmas guide
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-sanrio-q-christmas-20261121.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish via WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"];p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p:raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None:h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=60) as r:return json.load(r)
+          slug="korea-sanrio-q-christmas-gift-shop-2026"
+          if api("/posts?slug="+slug+"&context=edit"):raise RuntimeError("Article already exists")
+          items=json.loads("[[\"SanrioQクリスマスグッズのキービジュアル\",\"<p>クリスマスツリーの衣装から顔をのぞかせるキティやクロミが、韓国・ソウルのギフトショップに登場します。SanrioQ「산리오캐릭터즈 물음표 상점: Christmas Gift Shop」は、2026年11月25日（水）から12月27日（日）まで、龍山アイパークモールのリビングパーク6階で開催予定です。</p>\"],[\"着脱できるツリー衣装付きオーナメントキーリング全9種\",\"<h2>ツリー衣装を着せ替えられるキーリング</h2><p>星とカラフルな飾りが付いたツリー衣装は自由に着脱できます。ハローキティ、マイメロディ、クロミ、シナモロール、ポムポムプリン、ポチャッコ、チョコキャット、ハンギョドン、ウサハナの9キャラクターです。</p>\"],[\"クリスマスギフトショップマスコット全9種\",\"<h2>クリスマスのマスコットとスノーボール</h2><p>マスコットも同じ9キャラクター。赤いチェック柄の衣装やサンタ帽、ハート形の金具が目を引きます。</p>\"],[\"赤や緑の台座が付いたランダムスノーボール全9種\",\"<p>ランダムスノーボールは全9種類。リボン付きの台座の上に、冬の装いのキャラクターが並びます。</p>\"],[\"マグカップと3タイプのコースター\",\"<h2>マグカップ・コースター・冬の雑貨</h2><p>ツリー姿のキャラクターを描いたマグカップに、布製コースター2種、ティーコースター3種、ランダムラバーコースター6種がラインアップ。ティーコースターはハンギョドン、ハローキティ、ポチャッコです。</p>\"],[\"ランダム巾着ポーチ6種とクリスマススタンプセット\",\"<p>赤と緑のチェック柄の巾着ポーチはランダムで全6種。季節のカードにも使えそうなクリスマススタンプセットが紹介されています。</p>\"],[\"サンリオキャラクターズのキルティングベスト5柄\",\"<h2>キルティングベストとキティのパジャマ</h2><p>ベストはハローキティ、マイメロディ、ポムポムプリン、ウサハナ、ハンギョドンの5柄です。</p>\"],[\"ハローキティの長袖パジャマ上下セット6デザイン\",\"<p>ハローキティのパジャマは、ピンクのチェック柄やグレーのリボン柄など6デザイン。価格とサイズは添付の商品一覧に記載されていません。</p>\"],[\"缶ケースに詰めるDIYステッカーと購入特典の案内\",\"<h2>好きな19種類を選ぶDIYステッカー</h2><p>「PICK &amp; MIX」は、好きなステッカーをサンリオの缶ケースに入れてレジで会計する企画です。購入特典の切手風クリスマスステッカーは交換不可で、配布は在庫がなくなり次第終了する場合があります。</p>\"],[\"ステッカーの種類と選択数の一覧\",\"<table><thead><tr><th>ステッカー</th><th>選択数</th></tr></thead><tbody><tr><td>キャラクター</td><td>18種から9種</td></tr><tr><td>靴下モチーフのホログラム</td><td>9種から4種</td></tr><tr><td>オーナメントの透明ステッカー</td><td>9種から4種</td></tr><tr><td>集合イラスト</td><td>4種から2種</td></tr></tbody></table>\"]]")
+          nums=[9430,9431,9432,9433,9434,9435,9436,9438,9439,9440]
+          ids=[]
+          content=""
+          for n,(cap,section) in zip(nums,items):
+           raw=Path("blog/editorial/sanrio-q-christmas-2026/"+str(n)+".jpeg").read_bytes()
+           m=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="sanrio-q-christmas-2026-%s.jpg"'%n})
+           api("/media/"+str(m["id"]),{"alt_text":cap,"caption":cap})
+           ids.append(m["id"])
+           content+=section+'<figure class="wp-block-image size-large"><img src="'+html.escape(m["source_url"],quote=True)+'" alt="'+html.escape(cap,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'（画像出典：SanrioQの告知画像）</figcaption></figure>'
+          content+="<h2>営業時間と予約方法</h2><p>日〜木曜は10:30〜20:30、金・土曜と韓国の祝日は10:30〜21:00。月〜木曜は現地受付、金〜日曜と祝日は現地受付とNAVER事前予約を併用する予定です。事前予約は11月23日14:00開始と案内されています。</p><p><a href=\"https://www.instagram.com/p/DfRPTQnBTsb/\">サンリオコリアの開催予告</a> ／ <a href=\"https://www.thewklyn.com/schedule/?bmode=view&amp;idx=175789754\">会場・予約情報（THE WKLYN）</a></p><p>関連記事　<a href=\"https://sanrio-fan.site/korea-starbucks-hello-kitty-christmas-2026/\">韓国スターバックスのハローキティ クリスマス2026</a></p>"
+          p=api("/posts",{"slug":slug,"title":"韓国SanrioQのクリスマスポップアップ2026｜ソウル・龍山のグッズとステッカー企画","excerpt":"ソウル・龍山のSanrioQ Christmas Gift Shop。着脱できるツリー衣装付きキーリング、冬のマスコット、19種類を選ぶDIYステッカーを紹介します。","content":content,"featured_media":ids[0],"status":"draft"})
+          assert api("/posts/"+str(p["id"])+"?context=edit")["content"]["raw"].count("<figure")==10
+          p=api("/posts/"+str(p["id"]),{"status":"publish"})
+          assert p["status"]=="publish"
+          print("PUBLISHED",p["id"],p["link"])
+          PY
