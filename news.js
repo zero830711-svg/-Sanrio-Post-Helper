@@ -372,16 +372,21 @@ function newsReleaseDates(item, today){
  const lines=[item.schedule,...(item.facts||[]).filter(f=>f.kind==='schedule').map(f=>f.text),item.title];
  const currentYear=new Date(today).getUTCFullYear();
  const publishedYear=String(item.date||'').match(/^(\d{4})[-/.]/)?.[1];
+ const publishedMonth=Number(String(item.date||'').match(/^\d{4}[-/.](\d{1,2})/)?.[1]);
  const dates=[];
  for(const raw of lines.filter(Boolean)){
   for(const line of String(raw).split(/[。！？\n]/)){
    const normalized=line.normalize('NFKC');
-   if(!/発売|販売(?:開始|年月)|予約|登場/.test(normalized)&&raw!==item.schedule)continue;
+   if(!/発売|販売(?:開始|年月)|予約|登場|入荷/.test(normalized)&&raw!==item.schedule)continue;
    if(/受付終了|予約締切|販売終了|発売中|予約受付中|予約期間|予約受付期間/.test(normalized)&&!/発売日|予約開始日|予約受付開始/.test(normalized))continue;
    for(const match of normalized.matchAll(/(?:(20\d{2})年\s*)?(\d{1,2})月\s*(?:(\d{1,2})日|(上旬|中旬|下旬|第?[1-6]週))?|(?:(20\d{2})[-/])?(\d{1,2})\/(\d{1,2})(?!\d)/g)){
-    const year=Number(match[1]||match[5]||publishedYear||currentYear);
     const month=Number(match[2]||match[6]), day=Number(match[3]||match[7]||0);
     if(month<1||month>12)continue;
+    const explicitYear=match[1]||match[5];
+    const referenceMonth=publishedMonth||new Date(today).getUTCMonth()+1;
+    const futureHint=/予定|順次|入荷\s+予約|予約商品/.test(normalized);
+    const year=Number(explicitYear||publishedYear||currentYear)+
+     (!explicitYear&&futureHint&&referenceMonth>=10&&month<=3?1:0);
     const last=new Date(Date.UTC(year,month,0)).getUTCDate();
     if(day>last)continue;
     const part=match[4]||'';
@@ -389,10 +394,14 @@ function newsReleaseDates(item, today){
     const first=day||(week?(week-1)*7+1:part==='中旬'?11:part==='下旬'?21:1);
     const end=day||(week?Math.min(week*7,last):part==='上旬'?10:part==='中旬'?20:last);
     if(first>end)continue;
-    if(/予約/.test(normalized)&&/発売|販売開始/.test(normalized))continue;
-    const kind=/予約/.test(normalized)?'予約開始':/登場/.test(normalized)||item.prize?'登場':'発売';
+    const arrival=/入荷/.test(normalized);
+    const reservationStart=/予約(?:受付)?(?:の)?開始|予約解禁/.test(normalized);
+    const release=/発売|販売(?:開始|年月)/.test(normalized);
+    if(Number(arrival)+Number(reservationStart)+Number(release)>1)continue;
+    if(/予約/.test(normalized)&&!arrival&&!reservationStart&&!release)continue;
+    const kind=arrival?'入荷予定':reservationStart?'予約開始':/登場/.test(normalized)||item.prize?'登場':'発売';
     const when=match[0].trim();
-    const label=kind+' '+when+(/順次/.test(normalized)?'から順次':'')+(/予定/.test(normalized)?'予定':'');
+    const label=kind+' '+when+(/順次/.test(normalized)?'から順次':'')+(!arrival&&/予定/.test(normalized)?'予定':'');
     dates.push({label,start:Date.UTC(year,month-1,first),end:Date.UTC(year,month-1,end)});
    }
   }
