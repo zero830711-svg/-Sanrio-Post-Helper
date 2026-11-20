@@ -12,6 +12,11 @@ function news_url(string $u): string {
  if($h==='tokyo-yumeya.co.jp' && preg_match('~^/goods/(?:[a-zA-Z0-9_-]|%[0-9A-Fa-f]{2})+/?$~D',$path) && !isset($p['query']) && !isset($p['fragment']))return 'https://'.$h.rtrim($path,'/').'/';
  if($h==='kcompany.co.jp' && preg_match('~^/items/((?:[a-z0-9_-]|%[0-9a-f]{2}|[^\x00-\x7f])+)/?$~iuD',$path,$m) && !isset($p['query']) && !isset($p['fragment']))return 'https://'.$h.'/items/'.rawurlencode(rawurldecode($m[1])).'/';
  if($h==='store.shopping.yahoo.co.jp' && preg_match('~^/tsfa-shop/(?!search\.html$)[a-z0-9_-]+\.html$~iD',$path))return 'https://'.$h.$path;
+ $query=[];parse_str($p['query']??'',$query);
+ if(in_array($h,['taito.co.jp','www.taito.co.jp'],true)&&preg_match('~^/prize/item/([0-9]+)/?$~D',$path,$m))return 'https://www.taito.co.jp/prize/item/'.$m[1];
+ if(in_array($h,['animate-onlineshop.jp','www.animate-onlineshop.jp'],true)&&$path==='/products/detail.php'&&is_string($query['product_id']??null)&&ctype_digit($query['product_id']))return 'https://www.animate-onlineshop.jp/products/detail.php?product_id='.$query['product_id'];
+ if($h==='www.loft.co.jp'&&preg_match('~^/store/(?:g/g[a-zA-Z0-9_-]+|c/ccc[a-zA-Z0-9_-]+)/?$~D',$path))return 'https://'.$h.rtrim($path,'/').'/';
+ if($h==='www.shop-shimamura.com'&&preg_match('~^/disp/item/([0-9_-]+)/?$~D',$path,$m)&&($query['b']??'')==='avail')return 'https://'.$h.'/disp/item/'.$m[1].'/?b=avail';
  $seven=news_seven_product_url($p);if($seven)return $seven;
  if($h==='www.instagram.com'&&preg_match('~^/p/[A-Za-z0-9_-]+/$~D',$path)&&!isset($p['query'])&&!isset($p['fragment']))return 'https://'.$h.$path;
  if($h==='thankyoumart.jp'&&preg_match('~^/blogs/news/[a-zA-Z0-9_-]+$~D',$path)&&!isset($p['query'])&&!isset($p['fragment']))return 'https://'.$h.$path;
@@ -156,6 +161,10 @@ function news_yumeya_detail(string $html,string $url):array{
 }
 function news_maker_catalogs():array{
  return [
+  'taito'=>['name'=>'タイトー','prefix'=>'https://www.taito.co.jp/prize/item/','feed'=>'https://www.taito.co.jp/prize'],
+  'animate'=>['name'=>'アニメイト通販','prefix'=>'https://www.animate-onlineshop.jp/products/detail.php','feed'=>'https://www.animate-onlineshop.jp/products/list.php?mode=search&nd%5B%5D=7&ss=8&smt='.rawurlencode('サンリオ')],
+  'avail'=>['name'=>'アベイル','prefix'=>'https://www.shop-shimamura.com/disp/item/','feed'=>'https://www.shop-shimamura.com/disp/itemlist/?b=avail&popular_tag='.rawurlencode('サンリオ')],
+  'loft'=>['name'=>'ロフト','prefix'=>'https://www.loft.co.jp/store/','feed'=>'https://www.loft.co.jp/store/goods/search.aspx?search=x&keyword='.rawurlencode('サンリオ')],
   'kcompany'=>['name'=>'ケイカンパニー','prefix'=>'https://kcompany.co.jp/items/','feed'=>'https://kcompany.co.jp/items/'],
   'tsfactory'=>['name'=>'ティーズファクトリー','prefix'=>'https://store.shopping.yahoo.co.jp/tsfa-shop/','feed'=>'https://store.shopping.yahoo.co.jp/tsfa-shop/search.html?p='.rawurlencode('サンリオ').'&X=4']
  ];
@@ -166,16 +175,23 @@ function news_maker_rows(string $html,array $maker):array{
   $href=$a->getAttribute('href');
   if(str_starts_with($href,'/')&&!str_starts_with($href,'//'))$href='https://'.parse_url($maker['prefix'],PHP_URL_HOST).$href;
   elseif(preg_match('~^[a-z0-9_-]+\.html(?:\?|$)~i',$href))$href=$maker['prefix'].$href;
+  if($maker['name']==='アニメイト通販'&&str_starts_with($href,'detail.php?'))$href='https://www.animate-onlineshop.jp/products/'.$href;
   $url=news_url($href);
   if(!$url||!str_starts_with($url,$maker['prefix']))continue;
   $products++;
   $title=news_text($a);
   if(!news_furyu_character($title))$title=news_text($x->query('.//img/@alt',$a)->item(0));
   if(!news_furyu_character($title))continue;
-  $rows[$url]=['url'=>$url,'source'=>$maker['name'],'tipsOnly'=>true,'title'=>mb_substr($title,0,180),'image'=>'','date'=>''];
+  $schedule=news_catalog_schedule($title);
+  $rows[$url]=['url'=>$url,'source'=>$maker['name'],'tipsOnly'=>true,'title'=>mb_substr($title,0,180),'image'=>'','date'=>'','schedule'=>$schedule];
  }
  if(!$products)throw new RuntimeException('商品一覧を確認できませんでした。');
  return array_values($rows);
+}
+function news_catalog_schedule(string $text):string{
+ if(preg_match('~発売日[：:]\s*(20[0-9]{2}[/年][0-9]{1,2}(?:/[0-9]{1,2}|月(?:[0-9]{1,2}日|上旬|中旬|下旬|中)?))~u',$text,$m))return '発売日：'.$m[1];
+ if(preg_match('~([0-9]{1,2}月[0-9]{1,2}日)\s*(?:より|から)?順次登場(?:予定)?~u',$text,$m))return $m[0];
+ return '';
 }
 function news_maker_detail(string $html,string $url,string $name):array{
  $x=news_doc($html);
@@ -224,7 +240,7 @@ function news_html_rows(string $html):array{
  return array_values($rows);
 }
 function news_merge_feeds(array $lists,int $now):array{
- $sources=['サンリオ公式'=>[],'PR TIMES'=>[],'フリュー'=>[],'タカラトミーアーツ'=>[],'リーメント'=>[],'バンダイ キャンディ'=>[],'バンダイ おもちゃ'=>[],'ガシャポン公式'=>[],'サンキューマート'=>[],'エイコープライズ'=>[],'エフトイズ'=>[],'IP4'=>[],'セガプラザ'=>[],'Happyくじ'=>[],'キタンクラブ'=>[],'Qualia'=>[],'夢屋'=>[],'ケイカンパニー'=>[],'ティーズファクトリー'=>[]];
+ $sources=['サンリオ公式'=>[],'PR TIMES'=>[],'フリュー'=>[],'タカラトミーアーツ'=>[],'リーメント'=>[],'バンダイ キャンディ'=>[],'バンダイ おもちゃ'=>[],'ガシャポン公式'=>[],'サンキューマート'=>[],'エイコープライズ'=>[],'エフトイズ'=>[],'IP4'=>[],'セガプラザ'=>[],'Happyくじ'=>[],'キタンクラブ'=>[],'Qualia'=>[],'夢屋'=>[],'ケイカンパニー'=>[],'ティーズファクトリー'=>[],'タイトー'=>[],'アニメイト通販'=>[],'アベイル'=>[],'ロフト'=>[]];
  foreach($lists as $list)foreach($list as $item){$u=news_url((string)($item['url']??''));$source=$item['source']??'';if(!$u||!isset($sources[$source]))continue;
  $date=strtotime(str_replace('/','-',(string)($item['date']??'')))?:0;if($date&&($date<$now-90*86400||$date>$now+86400))continue;
  if(!isset($sources[$source][$u]))$sources[$source][$u]=$item;}
@@ -233,13 +249,13 @@ function news_merge_feeds(array $lists,int $now):array{
 }
 function news_feed_source(array $feed):string{
  $names=['official'=>'サンリオ公式','furyu'=>'フリュー','arts'=>'タカラトミーアーツ','rement'=>'リーメント','candy'=>'バンダイ キャンディ','toys'=>'バンダイ おもちゃ','gashapon'=>'ガシャポン公式','thankyou'=>'サンキューマート','eikoh'=>'エイコープライズ','ftoys'=>'エフトイズ','ip4'=>'IP4','segaplaza'=>'セガプラザ','happy'=>'Happyくじ','kitan'=>'キタンクラブ','qualia'=>'Qualia','yumeya'=>'夢屋','kcompany'=>'ケイカンパニー','tsfactory'=>'ティーズファクトリー'];
- return $names[$feed['kind']??'']??(strpos($feed['url']??'','https://prtimes.jp/')===0?'PR TIMES':'サンリオ公式');
+ return news_maker_catalogs()[$feed['kind']??'']['name']??$names[$feed['kind']??'']??(strpos($feed['url']??'','https://prtimes.jp/')===0?'PR TIMES':'サンリオ公式');
 }
 function news_source_statuses(array $attempts,array $rows):array{
  $result=[];foreach($attempts as $source=>$counts){$count=count(array_filter($rows,static fn($row)=>($row['source']??'')===$source));$failed=(int)($counts['failed']??0);$ok=(int)($counts['ok']??0);$result[$source]=['state'=>$failed?($ok&&$count?'partial':'failed'):'ok','count'=>$count];}return $result;
 }
 function news_list():array{
- $cache=sys_get_temp_dir().'/sph-news-list-makers-v14-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-list-makers-v15-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
  $feeds=news_feeds();$bodies=news_fetch_feeds($feeds);$lists=[];$errors=[];$gashapon=[];$rement=[];$kitan=[];$attempts=[];
  foreach($feeds as $i=>$feed){$source=news_feed_source($feed);$attempts[$source]=$attempts[$source]??['ok'=>0,'failed'=>0];try{
   if($feed['kind']==='thankyou')$lists[]=news_thankyou_snapshot($bodies[$i],time());
