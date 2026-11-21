@@ -336,6 +336,7 @@ function newsSyncFilterButtons(selectId,containerId){const value=$(selectId)?.va
 newsInstallFilterButtons('newsSourceFilter','newsSourceButtons');
 newsInstallFilterButtons('newsFilter','newsFilterButtons');
 newsInstallFilterButtons('newsReleasePeriod','newsReleaseButtons');
+newsInstallFilterButtons('newsReleaseSort','newsReleaseSortButtons');
 function newsRecordSourceChecks(data,firstCheck){
  const key=newsStorageKey('SourceChecks');
  let history=newsState.sourceChecks||{};
@@ -622,7 +623,6 @@ $('newsAiChoice').addEventListener('change',()=>{
  newsKeepDraft();entry.aiChoice=Number($('newsAiChoice').value);newsApplyGenerated(entry,entry.aiDrafts[entry.aiChoice].text);newsReplyRender(entry);$('newsText').value=entry.text;entry.savedAt=Date.now();newsSaveDrafts();
 });
 $('newsRefresh').addEventListener('click',newsLoad);
-$('newsOpen').addEventListener('click',()=>newsPrepare($('newsUrl').value.trim()));
 $('newsCopy').addEventListener('click',()=>copyTextFromClick($('newsText').value,$('newsCopy'),'投稿文をコピーしました'));
 $('newsShare').addEventListener('click',async()=>{const text=$('newsText').value.trim();if(!text||!newsPhotoReady())return;newsKeepDraft();const data={text,files:newsChosenFiles()};try{if(data.files.length&&navigator.canShare?.(data)){await navigator.share(data);$('newsEditorStatus').textContent='共有先でXを選び、本文・写真を確認して投稿してください。';}else if(navigator.share){await navigator.share({text});$('newsEditorStatus').textContent='本文を共有しました。写真は「写真を保存」から添付できます。';}else{copyTextFromClick(text,$('newsCopy'),'本文をコピーしました');window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text),'_blank','noopener');}}catch(e){if(e.name!=='AbortError')$('newsEditorStatus').textContent='共有できませんでした。投稿文をコピーし、写真を保存してXに添付してください。';}});
 $('newsSavePhotos').addEventListener('click',()=>{for(const f of newsChosenFiles()){const u=URL.createObjectURL(f),a=document.createElement('a');a.href=u;a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(u),60000);}});
