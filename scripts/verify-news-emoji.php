@@ -17,7 +17,7 @@ if($status!==200||empty($result['ok'])||($result['provider']??'')!=='groq'||empt
 $text=$result['text'];
 preg_match_all('/(?:\p{Emoji_Presentation}|\p{Emoji}\x{FE0F})\x{FE0F}?/u',$text,$matches);
 $emoji=array_map(static fn($symbol)=>str_replace("\u{FE0F}",'',$symbol),$matches[0]);
-if(count($emoji)<2||count($emoji)!==count(array_unique($emoji))||!str_contains($text,$article)||!str_contains($text,'#サンリオ')||!str_contains($text,'ポムポム')){
+if(!preg_match('/^[^【\n]+【[^】\n]*ポムポム[^】\n]*】[^\n]+$/u',explode("\n",$text)[0])||count($emoji)<2||count($emoji)!==count(array_unique($emoji))||!str_contains($text,$article)||!str_contains($text,'#サンリオ')||!str_contains($text,'ポムポム')){
  throw new RuntimeException('Live draft did not retain the expected emoji, source link, tag and subject.');
 }
 echo "Live Groq news draft passed.\n".$text."\n";
