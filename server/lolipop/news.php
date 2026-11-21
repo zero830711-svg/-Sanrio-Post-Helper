@@ -257,10 +257,6 @@ function news_maker_catalogs():array{
   'familymart'=>['name'=>'ファミリーマート','prefix'=>'https://www.family.co.jp/goods/','feed'=>'https://www.family.co.jp/goods/charakuji.html'],
   'eeo'=>['name'=>'eeo Store','prefix'=>'https://eeo.today/store/101/products/detail/','feed'=>'https://eeo.today/store/101/products/list?name=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA'],
   'puroland'=>['name'=>'ピューロランド','prefix'=>'https://www.puroland.jp/goods-feature/','feed'=>'https://www.puroland.jp/goods-feature/','allProducts'=>true],
-  'crux'=>['name'=>'クラックス','prefix'=>'https://crux.jp/','feed'=>'https://crux.jp/news/'],
-  'taito'=>['name'=>'タイトー','prefix'=>'https://www.taito.co.jp/prize/item/','feed'=>'https://www.taito.co.jp/prize'],
-  'animate'=>['name'=>'アニメイト通販','prefix'=>'https://www.animate-onlineshop.jp/products/detail.php','feed'=>'https://www.animate-onlineshop.jp/products/list.php?mode=search&nd%5B%5D=7&ss=8&smt='.rawurlencode('サンリオ')],
-  'avail'=>['name'=>'アベイル','prefix'=>'https://www.shop-shimamura.com/disp/item/','feed'=>'https://www.shop-shimamura.com/disp/itemlist/?b=avail&popular_tag='.rawurlencode('サンリオ')],
   'loft'=>['name'=>'ロフト','prefix'=>'https://www.loft.co.jp/store/','feed'=>'https://www.loft.co.jp/store/goods/search.aspx?search=x&keyword='.rawurlencode('サンリオ')],
   'kcompany'=>['name'=>'ケイカンパニー','prefix'=>'https://kcompany.co.jp/items/','feed'=>'https://kcompany.co.jp/items/'],
   'tsfactory'=>['name'=>'ティーズファクトリー','prefix'=>'https://store.shopping.yahoo.co.jp/tsfa-shop/','feed'=>'https://store.shopping.yahoo.co.jp/tsfa-shop/search.html?p='.rawurlencode('サンリオ').'&X=4']
@@ -348,7 +344,7 @@ function news_html_rows(string $html):array{
  return array_values($rows);
 }
 function news_merge_feeds(array $lists,int $now):array{
- $sources=['サンリオ公式'=>[],'PR TIMES'=>[],'フリュー'=>[],'タカラトミーアーツ'=>[],'リーメント'=>[],'バンダイ キャンディ'=>[],'バンダイ おもちゃ'=>[],'ガシャポン公式'=>[],'サンキューマート'=>[],'エイコープライズ'=>[],'エフトイズ'=>[],'IP4'=>[],'セガプラザ'=>[],'Happyくじ'=>[],'キタンクラブ'=>[],'Qualia'=>[],'夢屋'=>[],'ケイカンパニー'=>[],'ティーズファクトリー'=>[],'タイトー'=>[],'アニメイト通販'=>[],'アベイル'=>[],'ロフト'=>[],'ピューロランド'=>[],'クラックス'=>[],'バンプレストナビ'=>[],'ファミリーマート'=>[],'eeo Store'=>[],'ベネリックカプセルトイ'=>[],'サンスター文具'=>[]];
+ $sources=['サンリオ公式'=>[],'PR TIMES'=>[],'フリュー'=>[],'タカラトミーアーツ'=>[],'リーメント'=>[],'バンダイ キャンディ'=>[],'バンダイ おもちゃ'=>[],'ガシャポン公式'=>[],'サンキューマート'=>[],'エイコープライズ'=>[],'エフトイズ'=>[],'IP4'=>[],'セガプラザ'=>[],'Happyくじ'=>[],'キタンクラブ'=>[],'Qualia'=>[],'夢屋'=>[],'ケイカンパニー'=>[],'ティーズファクトリー'=>[],'ロフト'=>[],'ピューロランド'=>[],'バンプレストナビ'=>[],'ファミリーマート'=>[],'eeo Store'=>[],'ベネリックカプセルトイ'=>[],'サンスター文具'=>[]];
  foreach($lists as $list)foreach($list as $item){$u=news_url((string)($item['url']??''));$source=$item['source']??'';if(!$u||!isset($sources[$source]))continue;
  $date=strtotime(str_replace('/','-',(string)($item['date']??'')))?:0;if($date&&($date<$now-90*86400||$date>$now+86400))continue;
  if(!isset($sources[$source][$u]))$sources[$source][$u]=$item;}
@@ -363,7 +359,7 @@ function news_source_statuses(array $attempts,array $rows):array{
  $result=[];foreach($attempts as $source=>$counts){$count=count(array_filter($rows,static fn($row)=>($row['source']??'')===$source));$failed=(int)($counts['failed']??0);$ok=(int)($counts['ok']??0);$result[$source]=['state'=>$failed?($ok&&$count?'partial':'failed'):'ok','count'=>$count];}return $result;
 }
 function news_list():array{
- $cache=sys_get_temp_dir().'/sph-news-list-makers-v23-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-list-makers-v24-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
  $feeds=news_feeds();$bodies=news_fetch_feeds($feeds);$lists=[];$errors=[];$gashapon=[];$rement=[];$kitan=[];$attempts=[];
  foreach($feeds as $i=>$feed){$source=news_feed_source($feed);$attempts[$source]=$attempts[$source]??['ok'=>0,'failed'=>0];try{
   if($feed['kind']==='thankyou')$lists[]=news_thankyou_snapshot($bodies[$i],time());
