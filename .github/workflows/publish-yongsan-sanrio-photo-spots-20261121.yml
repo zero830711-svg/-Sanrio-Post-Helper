@@ -1,0 +1,58 @@
+name: Publish Yongsan Sanrio photo spots
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-yongsan-sanrio-photo-spots-20261121.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish via WordPress REST
+        run: |
+          python3 - <<'PY'
+          import os,json,base64,urllib.request,urllib.parse,html
+          from pathlib import Path
+          root="https://sanrio-fan.site/wp-json/wp/v2"
+          u=os.environ["SANRIO_WP_USER"];p=os.environ["SANRIO_WP_APP_PASSWORD"]
+          if not u or not p:raise RuntimeError("Missing credentials")
+          auth="Basic "+base64.b64encode((u+":"+p).encode()).decode()
+          def api(path,data=None,binary=None,headers=None):
+           body=binary if binary is not None else (json.dumps(data,ensure_ascii=False).encode() if data is not None else None)
+           h={"Authorization":auth,"User-Agent":"SanrioEditorialPublisher/1.0"}
+           if data is not None:h["Content-Type"]="application/json"
+           h.update(headers or {})
+           with urllib.request.urlopen(urllib.request.Request(root+path,data=body,headers=h),timeout=60) as r:return json.load(r)
+          slug="yongsan-iparkmall-sanrio-christmas-photo-spots-2026"
+          if api("/posts?slug="+slug+"&context=edit"):raise RuntimeError("Article already exists")
+          items=json.loads("[[\"夜のイルミネーションに囲まれた巨大ハローキティ\",\"<p>ソウルの龍山（ヨンサン）アイパークモールに、巨大なハローキティやツリーが登場。アイパークモールの告知によると、サンリオキャラクターズのクリスマス装飾は2026年11月13日（金）から12月27日（日）までです。写真を撮れる4か所を、駅からの行き方とあわせて紹介します。</p>\"],[\"龍山駅1番・2番出口と新龍山駅方面からの公式案内図\",\"<h2>龍山駅からは3階のドーパミンステーションが目印</h2><p>公式マップの「START!」は、3階のドーパミンステーション（도파민스테이션）側です。</p><ul><li><strong>龍山駅1番出口（용산역 1번 출구）</strong>を出たら右へ。パン屋「삼송빵집」の角で右に曲がります。</li><li><strong>龍山駅2番出口（용산역 2번 출구）</strong>を出たら左へ。アイパークモールのドーパミンステーション方面に進みます。</li><li><strong>新龍山駅（신용산역）方面</strong>からは、モール1階広場のエスカレーターで3階へ。3階に着いたら公式マップの1番・2番出口側のルートを目印にしてください。</li></ul>\"],[\"3階のウィッシュウォールとフォトブースの地図\",\"<h2>1. ウィッシュウォールとフォトブース｜3階</h2><p>ドーパミンステーションの屋外ポップアップ（외부팝업）にある撮影スポット。赤い外観と青いクリスマスのイラストが目印です。</p>\"],[\"3階と4階の連絡階段にある赤いギフトショップ風の装飾\",\"<h2>2. ザ・メリー・ギフトショップ｜3〜4階の連絡階段</h2><p>3階のフォトブース側から、4階「ザ・ガーデン」につながる階段へ。マイメロディとクロミが窓からのぞく赤いギフトショップ風の装飾と、光るツリーが並びます。</p>\"],[\"4階ザ・ガーデンの巨大ハローキティバルーンと案内図\",\"<h2>3. 巨大ハローキティとツリーの小道｜4階 ザ・ガーデン</h2><p>連絡階段を上がった先のザ・ガーデン（더 가든）には、大きな赤いリボンを付けたキティのバルーン。木々のイルミネーションと、窓が光る家の飾りも見どころです。</p>\"],[\"4階ザ・テラスの巨大クリスマスツリーバルーンと案内図\",\"<h2>4. 巨大クリスマスツリーバルーン｜4階 ザ・テラス</h2><p>ザ・ガーデンから同じ4階のザ・テラス（더 테라스）へ。大きなツリーには、クリスマスの靴下から顔を出すポチャッコやマイメロディたちが飾られています。</p>\"]]")
+          content=""
+          ids=[]
+          for i,(cap,section) in enumerate(items):
+           raw=Path("blog/editorial/yongsan-christmas-photo-spots/"+str(i)+".jpeg").read_bytes()
+           m=api("/media",binary=raw,headers={"Content-Type":"image/jpeg","Content-Disposition":'attachment; filename="yongsan-sanrio-christmas-photo-%s.jpg"'%(i+1)})
+           api("/media/"+str(m["id"]),{"alt_text":cap,"caption":cap})
+           ids.append(m["id"])
+           content+=section+'<figure class="wp-block-image size-large"><img src="'+html.escape(m["source_url"],quote=True)+'" alt="'+html.escape(cap,quote=True)+'" loading="lazy"><figcaption>'+html.escape(cap)+'（画像出典：アイパークモール公式Instagramの告知）</figcaption></figure>'
+          content+="<h2>グッズ売り場は6階、11月25日からの予定</h2><p>フォトスポットは3〜4階で11月13日から、SanrioQのグッズ販売はリビングパーク6階で11月25日（水）から12月27日（日）までの予定です。ツリー衣装付きキーリングやステッカー企画、入場案内は別記事で紹介しています。</p><p><a href=\"https://sanrio-fan.site/korea-sanrio-q-christmas-gift-shop-2026/\">SanrioQのクリスマスグッズ・予約情報</a></p><p>出典・画像提供元の案内　<a href=\"https://www.instagram.com/iparkmall/\">アイパークモール公式Instagram</a></p>"
+          p=api("/posts",{"slug":slug,"title":"韓国・龍山アイパークモールのサンリオクリスマス2026｜フォトスポット4か所と駅からの行き方","excerpt":"ソウル・龍山アイパークモールのサンリオクリスマス。巨大キティとツリーのフォトスポット4か所、龍山駅・新龍山駅からの行き方を公式マップ付きで紹介。","content":content,"featured_media":ids[0],"status":"draft"})
+          assert api("/posts/"+str(p["id"])+"?context=edit")["content"]["raw"].count("<figure")==6
+          p=api("/posts/"+str(p["id"]),{"status":"publish"})
+          assert p["status"]=="publish"
+          print("PUBLISHED",p["id"],p["link"])
+          existing=api("/posts/8622?context=edit")
+          raw=existing["content"]["raw"]
+          if slug not in raw:
+           link='<p>龍山駅からの行き方と撮影場所は、<a href="https://sanrio-fan.site/'+slug+'/">クリスマスのフォトスポット4か所と公式マップの日本語ガイド</a>をご覧ください。</p>'
+           api("/posts/8622",{"content":raw+link})
+          print("LINKED",existing["id"])
+          PY
