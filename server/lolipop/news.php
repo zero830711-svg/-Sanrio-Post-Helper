@@ -259,20 +259,13 @@ function news_maker_catalogs():array{
   'banpresto'=>['name'=>'バンプレストナビ','prefix'=>'https://bsp-prize.jp/item/','feed'=>'https://bsp-prize.jp/title/IP00003101/'],
   'familymart'=>['name'=>'ファミリーマート','prefix'=>'https://www.family.co.jp/goods/','feed'=>'https://www.family.co.jp/goods/charakuji.html'],
   'ensky'=>['name'=>'エンスカイショップ','prefix'=>'https://www.enskyshop.com/products/detail/','feed'=>'https://www.enskyshop.com/products/list?character_id=323'],
-  'kamio'=>['name'=>'カミオジャパン','prefix'=>'https://kamiojapan.jp/news/','feed'=>'https://kamiojapan.jp/news/'],
-  'molly'=>['name'=>'モーリーファンタジー／PALO','prefix'=>'https://prtimes.jp/main/html/rd/p/','feed'=>'https://prtimes.jp/main/html/searchrlp/company_id/60567','companyId'=>'000060567'],
-  'village'=>['name'=>'ヴィレッジヴァンガード','prefix'=>'https://www.village-v.co.jp/online/','feed'=>'https://www.village-v.co.jp/online/'],
-  'parco'=>['name'=>'PARCO','prefix'=>'https://shinsaibashi.parco.jp/event/detail/','feed'=>'https://shinsaibashi.parco.jp/event/'],
   'eeo'=>['name'=>'eeo Store','prefix'=>'https://eeo.today/store/101/products/detail/','feed'=>'https://eeo.today/store/101/products/list?name=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA'],
-  'birthdaybar'=>['name'=>'BIRTHDAY BAR','prefix'=>'https://www.palcloset.jp/display/article/detail/','feed'=>'https://www.palcloset.jp/display/article/list/?ak=NEWS&b=birthdaybar&bg=casual'],
   'sanrioshop'=>['name'=>'サンリオ公式通販本店','prefix'=>'https://shop.sanrio.co.jp/','feed'=>'https://shop.sanrio.co.jp/item?new=1','allProducts'=>true],
   'puroland'=>['name'=>'ピューロランド','prefix'=>'https://www.puroland.jp/goods-feature/','feed'=>'https://www.puroland.jp/goods-feature/','allProducts'=>true],
   'harmony'=>['name'=>'ハーモニーランド','prefix'=>'https://shop.harmonyland.jp/view/item/','feed'=>'https://shop.harmonyland.jp/','allProducts'=>true],
   'amnibus'=>['name'=>'AMNIBUS','prefix'=>'https://amnibus.com/products/detail/','feed'=>'https://amnibus.com/products/list?categoryId=162'],
   'premiumstore'=>['name'=>'PremiumStore.jp','prefix'=>'https://premiumstore.jp/item_Detail.php','feed'=>'https://premiumstore.jp/item_List.php?%40ps%40=none&tag=%E3%82%B7%E3%83%8A%E3%83%A2%E3%83%AD%E3%83%BC%E3%83%AB'],
   'crux'=>['name'=>'クラックス','prefix'=>'https://crux.jp/','feed'=>'https://crux.jp/news/'],
-  'skjapan'=>['name'=>'エスケイジャパン','prefix'=>'https://www.sk-japan.co.jp/charatoru/','feed'=>'https://www.sk-japan.co.jp/charatoru'],
-  'popmart'=>['name'=>'POP MART日本公式','prefix'=>'https://www.popmart.com/jp/products/','feed'=>'https://www.popmart.com/jp/new-arrivals'],
   'taito'=>['name'=>'タイトー','prefix'=>'https://www.taito.co.jp/prize/item/','feed'=>'https://www.taito.co.jp/prize'],
   'animate'=>['name'=>'アニメイト通販','prefix'=>'https://www.animate-onlineshop.jp/products/detail.php','feed'=>'https://www.animate-onlineshop.jp/products/list.php?mode=search&nd%5B%5D=7&ss=8&smt='.rawurlencode('サンリオ')],
   'avail'=>['name'=>'アベイル','prefix'=>'https://www.shop-shimamura.com/disp/item/','feed'=>'https://www.shop-shimamura.com/disp/itemlist/?b=avail&popular_tag='.rawurlencode('サンリオ')],
@@ -363,7 +356,7 @@ function news_html_rows(string $html):array{
  return array_values($rows);
 }
 function news_merge_feeds(array $lists,int $now):array{
- $sources=['サンリオ公式'=>[],'PR TIMES'=>[],'フリュー'=>[],'タカラトミーアーツ'=>[],'リーメント'=>[],'バンダイ キャンディ'=>[],'バンダイ おもちゃ'=>[],'ガシャポン公式'=>[],'サンキューマート'=>[],'エイコープライズ'=>[],'エフトイズ'=>[],'IP4'=>[],'セガプラザ'=>[],'Happyくじ'=>[],'キタンクラブ'=>[],'Qualia'=>[],'夢屋'=>[],'ケイカンパニー'=>[],'ティーズファクトリー'=>[],'タイトー'=>[],'アニメイト通販'=>[],'アベイル'=>[],'ロフト'=>[],'サンリオ公式通販本店'=>[],'ピューロランド'=>[],'ハーモニーランド'=>[],'AMNIBUS'=>[],'PremiumStore.jp'=>[],'クラックス'=>[],'エスケイジャパン'=>[],'POP MART日本公式'=>[],'ブシロードカプセル'=>[],'バンプレストナビ'=>[],'ファミリーマート'=>[],'エンスカイショップ'=>[],'カミオジャパン'=>[],'モーリーファンタジー／PALO'=>[],'ヴィレッジヴァンガード'=>[],'PARCO'=>[],'eeo Store'=>[],'BIRTHDAY BAR'=>[],'ベネリックカプセルトイ'=>[],'サンスター文具'=>[],'マリモクラフト'=>[],'ローソン'=>[]];
+ $sources=['サンリオ公式'=>[],'PR TIMES'=>[],'フリュー'=>[],'タカラトミーアーツ'=>[],'リーメント'=>[],'バンダイ キャンディ'=>[],'バンダイ おもちゃ'=>[],'ガシャポン公式'=>[],'サンキューマート'=>[],'エイコープライズ'=>[],'エフトイズ'=>[],'IP4'=>[],'セガプラザ'=>[],'Happyくじ'=>[],'キタンクラブ'=>[],'Qualia'=>[],'夢屋'=>[],'ケイカンパニー'=>[],'ティーズファクトリー'=>[],'タイトー'=>[],'アニメイト通販'=>[],'アベイル'=>[],'ロフト'=>[],'サンリオ公式通販本店'=>[],'ピューロランド'=>[],'ハーモニーランド'=>[],'AMNIBUS'=>[],'PremiumStore.jp'=>[],'クラックス'=>[],'ブシロードカプセル'=>[],'バンプレストナビ'=>[],'ファミリーマート'=>[],'エンスカイショップ'=>[],'eeo Store'=>[],'ベネリックカプセルトイ'=>[],'サンスター文具'=>[],'マリモクラフト'=>[],'ローソン'=>[]];
  foreach($lists as $list)foreach($list as $item){$u=news_url((string)($item['url']??''));$source=$item['source']??'';if(!$u||!isset($sources[$source]))continue;
  $date=strtotime(str_replace('/','-',(string)($item['date']??'')))?:0;if($date&&($date<$now-90*86400||$date>$now+86400))continue;
  if(!isset($sources[$source][$u]))$sources[$source][$u]=$item;}
@@ -378,7 +371,7 @@ function news_source_statuses(array $attempts,array $rows):array{
  $result=[];foreach($attempts as $source=>$counts){$count=count(array_filter($rows,static fn($row)=>($row['source']??'')===$source));$failed=(int)($counts['failed']??0);$ok=(int)($counts['ok']??0);$result[$source]=['state'=>$failed?($ok&&$count?'partial':'failed'):'ok','count'=>$count];}return $result;
 }
 function news_list():array{
- $cache=sys_get_temp_dir().'/sph-news-list-makers-v21-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
+ $cache=sys_get_temp_dir().'/sph-news-list-makers-v22-'.hash('sha256',__DIR__).'.json';if(is_file($cache)){$a=json_decode((string)file_get_contents($cache),true);if(is_array($a)&&filemtime($cache)>time()-(empty($a['warnings'])?900:60))return $a;}
  $feeds=news_feeds();$bodies=news_fetch_feeds($feeds);$lists=[];$errors=[];$gashapon=[];$rement=[];$kitan=[];$attempts=[];
  foreach($feeds as $i=>$feed){$source=news_feed_source($feed);$attempts[$source]=$attempts[$source]??['ok'=>0,'failed'=>0];try{
   if($feed['kind']==='thankyou')$lists[]=news_thankyou_snapshot($bodies[$i],time());
