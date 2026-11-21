@@ -17,7 +17,7 @@ jobs:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Verify descriptions, static products and existing character content
         run: |
           python3 -m unittest discover -s tests -p test_catalog_seo.py -v

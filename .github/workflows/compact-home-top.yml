@@ -19,7 +19,7 @@ jobs:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Validate syntax
         run: python3 -m py_compile scripts/compact-home-top.py
       - name: Save homepage typography through REST
