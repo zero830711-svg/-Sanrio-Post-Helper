@@ -506,3 +506,30 @@ textarea{resize:vertical}.primary{border:0;border-radius:14px;padding:14px;font-
 #newsPanel #newsEditor .news-external-search-row .small-btn{min-width:0;min-height:44px;box-sizing:border-box;padding:6px 2px;font-size:clamp(10px,3.4vw,13px);white-space:nowrap;text-align:center;display:flex;align-items:center;justify-content:center}
 
 .home-tabs.candidate-tabs > button{min-height:22px;padding:2px}
+
+#newsBrowse:has(#newsReleaseControls:not([hidden])) > .today-head {
+  align-items: center;
+  margin-bottom: 6px;
+}
+#newsBrowse:has(#newsReleaseControls:not([hidden])) > #newsBrowseDescription {
+  display: none;
+}
+#newsBrowse:has(#newsReleaseControls:not([hidden])) #newsRefresh {
+  min-height: 32px;
+  padding-block: 3px;
+}
+#newsPanel #newsReleaseControls {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 8px;
+  margin: 6px 0;
+}
+#newsReleaseControls .news-filter-buttons {
+  gap: 4px;
+  margin-top: 0;
+}
+#newsReleaseControls .news-filter-button {
+  min-height: 28px;
+  padding: 2px 6px;
+}
