@@ -175,7 +175,13 @@ $longText=news_groq_validate(json_encode(['body'=>$longNews],JSON_UNESCAPED_UNIC
 check(mb_strlen($longText)>300);check(str_contains($longText,$groqItem['url']));
 check(str_contains(news_groq_prompt($groqItem),'文字数制限なし'));
 check(!str_contains(news_groq_prompt($groqItem),'3〜6個'));
-check(str_contains(news_groq_prompt($groqItem),'カラー絵文字を両側'));
+check(str_contains(news_groq_prompt($groqItem),'タイトルの両側にカラー絵文字を1個ずつ'));
+check(str_contains(news_groq_prompt($groqItem),'同じ絵文字はタイトルから本文まで1回だけ'));
+$repeated="🎄🎀【コラボ開催】🎅💖\n\n💜💖 期間を確認\n💜💖 特典を確認🍮🍮\n\n💖✨💖✨💖\n📅 日程は公式へ";
+check(news_groq_unique_emoji($repeated,"\n\n📅 日程")==="🎄【コラボ開催】🎅\n\n💜 期間を確認\n特典を確認🍮\n\n日程は公式へ");
+check(news_groq_unique_emoji("🧑‍🎄 コラボ\n🧑‍🎄 詳細\n🛍️ お買い物", '')==="🧑‍🎄 コラボ\n詳細\n🛍️ お買い物");
+check(substr_count($longText,'💜')===1);
+check(substr_count($clean,'💖')===1);
 echo "Groq news: unlimited length, original link, unsupported numbers and invalid output checked\n";
 
 $groqProduct=post_ai_input(['mode'=>'product','title'=>'ウサハナ コスメポーチ','text'=>'サイズ：約200×130×55mm','links'=>[['kind'=>'rakuten','url'=>'https://hb.afl.rakuten.co.jp/hgc/'.str_repeat('a',500)]]]);

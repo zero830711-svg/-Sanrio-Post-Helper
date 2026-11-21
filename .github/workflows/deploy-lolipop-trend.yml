@@ -210,6 +210,9 @@ jobs:
           get config.php -o "$furyu_tmp/config.php"
           bye
           LFTP
+          if [[ "${{ contains(github.event.head_commit.message, '[verify-news-emoji]') }}" == "true" ]]; then
+            php scripts/verify-news-emoji.php "$furyu_tmp/config.php"
+          fi
           echo '::group::Verify Rakuten Fashion'
           php scripts/verify-sanrio-shop.php "$furyu_tmp/config.php" fashion
           echo '::endgroup::'
