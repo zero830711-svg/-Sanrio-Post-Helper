@@ -297,3 +297,28 @@ check(str_contains($productClean,'コスメポーチを紹介'));check(!preg_mat
 try{news_groq_validate(json_encode(['body'=>$intro.'素材：シリコン。'],JSON_UNESCAPED_UNICODE),$groqItem);check(false);}catch(RuntimeException $e){check(str_contains($e->getMessage(),'不要な仕様'));}
 echo "Product-only specification sentences omitted; Rakuten books, inline prose, empty-result protection, original links and news guards passed\n";
 
+
+$puroUrl='https://www.puroland.jp/goods-feature/embroidery_keychain/';
+$puroHtml=<<<'HTML'
+<title>刺繍キーホルダー | サンリオピューロランド</title>
+<header><a href="/goods/other/"><h4 class="c-card__name">別の商品</h4></a></header>
+<main>
+ <article><h1>刺繍キーホルダー</h1><div class="c-module-recommend__desc">
+ <p><b>2026年12月4日(金)～発売！</b></p><ul><li><p>掲載商品は品切れとなる場合があります。</p></li></ul>
+ </div></article>
+ <a class="c-card" href="/goods/kitty/"><h4 class="c-card__name">刺繍キーホルダー(ハローキティ)</h4><p class="c-card__price">880円<span>(税込)</span></p></a>
+ <a class="c-card" href="/goods/kuromi/"><h4 class="c-card__name">刺繍キーホルダー(クロミ)</h4><p class="c-card__price">880円<span>(税込)</span></p></a>
+ <h4 class="c-shop__name">エントランスショップ</h4>
+</main>
+HTML;
+$puro=news_parse($puroHtml,$puroUrl);
+check($puro['date']==='');
+check($puro['schedule']==='2026年12月4日(金)～発売！');
+check(array_column($puro['facts'],'text','kind')===['schedule'=>'2026年12月4日(金)～発売！','price'=>'各880円(税込)','shop'=>'エントランスショップ']);
+check(in_array('刺繍キーホルダー(クロミ) 880円(税込)',$puro['paragraphs'],true));
+check(!str_contains(implode(' ',$puro['paragraphs']),'別の商品'));
+$mixed=news_parse(str_replace('クロミ)</h4><p class="c-card__price">880円','クロミ)</h4><p class="c-card__price">990円',$puroHtml),$puroUrl);
+check(!in_array('price',array_column($mixed['facts'],'kind'),true));
+$puroDraft=news_groq_validate(json_encode(['body'=>"🧵【ピューロランドの刺繍キーホルダー】🎀\nハローキティやクロミがラインナップ。"],JSON_UNESCAPED_UNICODE),$puro);
+foreach(['12月4日','各880円','エントランスショップ','ハローキティ'] as $term)check(str_contains($puroDraft,$term));
+echo "Puroland official feature materials and draft passed\n";
