@@ -35,5 +35,5 @@ foreach(['12月4日','各880円','エントランスショップ'] as $term){
 if(!preg_match('/ハローキティ|マイメロディ|クロミ|ピアノ|シナモン|ポムポムプリン|ポチャッコ|ウサハナ/u',$text)){
  throw new RuntimeException('Generated Puroland draft did not use the official lineup.');
 }
-if(count(explode("\n",$text))>13)throw new RuntimeException('The Puroland draft listed too many separate lines.');
+if(count(explode("\n",$text))>9)throw new RuntimeException('The Puroland draft listed too many separate lines.');
 echo "Live Puroland draft passed:\n".$text."\n";
