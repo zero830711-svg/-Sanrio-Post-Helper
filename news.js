@@ -959,7 +959,8 @@ function newsExternalSearch(kind){
 function newsExternalRender(){
  newsExternalAnchor($('newsRakutenOpen'),newsExternalSearch('rakuten'),'楽天で検索');
  newsExternalAnchor($('newsAmazonOpen'),newsExternalSearch('amazon'),'Amazonの検索ページを開く');
- $('newsAmazonWebOpen').href=newsExternalSearch('amazon');
+ // Amazon excludes nodl=1 from its iOS Universal Links.
+ $('newsAmazonWebOpen').href=newsExternalSearch('amazon')+'&nodl=1';
  $('newsRakutenOpen').textContent='楽天検索';
  $('newsAmazonOpen').textContent='Amazonアプリ';
 }

@@ -191,7 +191,10 @@ function searchControls(){
  for(const b of $('amazonBrandButtons').querySelectorAll('button'))b.disabled=busy||autoBusy;
  $('amazonFlowMore').hidden=!searchMore;$('amazonFlowMore').disabled=busy||autoBusy||Date.now()<searchReadyAt||$('amazonFlowQuery').value.trim()!==searchKeyword;
  clearTimeout(searchTimer);if(Date.now()<searchReadyAt)searchTimer=setTimeout(searchControls,searchReadyAt-Date.now()+20);
- const u=new URL('https://www.amazon.co.jp/s');u.searchParams.set('k',$('amazonFlowQuery').value.trim()||'サンリオ');amazonAppAnchor($('amazonSearchExternal'),u.href,'Amazonアプリで検索');$('amazonSearchWeb').href=u.href;
+ const u=new URL('https://www.amazon.co.jp/s');u.searchParams.set('k',$('amazonFlowQuery').value.trim()||'サンリオ');
+ amazonAppAnchor($('amazonSearchExternal'),u.href,'Amazonアプリで検索');
+ u.searchParams.set('nodl','1');
+ $('amazonSearchWeb').href=u.href;
 }
 async function search(more=false){
  if(busy||autoBusy)return;const keywords=$('amazonFlowQuery').value.trim();if(!keywords||keywords.length>120){$('amazonFlowStatus').textContent='商品名を120文字以内で入力してください。';return;}
