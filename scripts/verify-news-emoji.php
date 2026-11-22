@@ -30,9 +30,10 @@ foreach($cases as [$article,$subject,$left,$right]){
 }
 
 foreach(['12月4日','各880円','エントランスショップ'] as $term){
- if(!str_contains($text,$term))throw new RuntimeException('Missing official Puroland fact: '.$term);
+ if(substr_count($text,$term)!==1)throw new RuntimeException('Missing or repeated official Puroland fact: '.$term);
 }
 if(!preg_match('/ハローキティ|マイメロディ|クロミ|ピアノ|シナモン|ポムポムプリン|ポチャッコ|ウサハナ/u',$text)){
  throw new RuntimeException('Generated Puroland draft did not use the official lineup.');
 }
+if(count(explode("\n",$text))>13)throw new RuntimeException('The Puroland draft listed too many separate lines.');
 echo "Live Puroland draft passed:\n".$text."\n";
