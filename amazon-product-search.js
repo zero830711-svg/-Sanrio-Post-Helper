@@ -62,18 +62,18 @@ function open(row){
  if(!row.sharedEditor&&body&&!body.includes(chosen))body+='\n\n🛍️ Amazon：'+chosen;
  if(!row.sharedEditor&&body&&!/(?:^|\s)#pr\s*$/i.test(body))body+='\n\n#pr';
  const item={url:current.itemUrl,title:row.title,source:'Amazon検索',origin:'amazon-search',ownAmazon:chosen,ownRakuten:row.ownRakuten||'',note:row.note||'',
-  postText:body,postEdited:!!body,previewImage:imageUrl(row.image||''),products:[],
-  productInfo:{title:row.title,url:'',itemCode:'',images:[],specs:{},contents:[],checkedAt:new Date().toISOString()}};
+  postText:body,postEdited:!!body,selectedPhotos:row.selectedPhotos,products:[],
+  productInfo:{title:row.title,url:'',itemCode:'',images:[imageUrl(row.image||'')].filter(Boolean),specs:{},contents:[],checkedAt:new Date().toISOString()}};
  function saveShared(draft,mark,quiet=false){return queueSave(async()=>{
   if(!draft||draft.url!==item.url)throw new Error('商品の下書きを確認できませんでした。');
   const list=rows();if(!storageOK)throw new Error('保存データを確認してください。');
-  const index=list.findIndex(x=>x.id===row.id);const entry={...(index>=0?list[index]:row),affiliateUrl:draft.ownAmazon||'',ownRakuten:draft.ownRakuten||'',note:draft.note||'',body:draft.postText||'',draft:draft.postText||'',image:row.image||'',status:mark||list[index]?.status||row.status||'未投稿',sharedEditor:true};
+  const index=list.findIndex(x=>x.id===row.id);const entry={...(index>=0?list[index]:row),affiliateUrl:draft.ownAmazon||'',ownRakuten:draft.ownRakuten||'',note:draft.note||'',body:draft.postText||'',draft:draft.postText||'',image:row.image||'',selectedPhotos:draft.selectedPhotos,status:mark||list[index]?.status||row.status||'未投稿',sharedEditor:true};
   if(index>=0)list[index]=entry;else list.push(entry);
   if(!await write(list))throw new Error('端末に保存できませんでした。本文をコピーしてください。');
   if(!quiet){renderDrafts();renderAuto();renderSearch();}
  });}
  $('amazonFlowEditor').hidden=true;
- lovelyWatch.openProduct(item,{host:$('amazonSearchArea'),
+ lovelyWatch.openProduct(item,{host:$('amazonSearchArea'),fetchImage:index=>amazonRequest('image',{url:item.productInfo.images[index]}),
   onBack:draft=>saveShared(draft),onDraft:draft=>saveShared(draft,null,true),onMark:(reason,draft)=>saveShared(draft,reason==='used'?'投稿済み':'見送り'),
   onClose:()=>{current=null;window.scrollTo({top:returnY,behavior:'instant'});}
  });
@@ -164,6 +164,7 @@ async function amazonRequest(action,data){
  const key=cloudSettings().key;if(!key)throw new Error('管理画面で同期キーを設定してください。');
  const endpoint=new URL((cloudSettings().url||DEFAULT_CLOUD_API_URL).replace(/\/api[0-9]*\.php(?:\?.*)?$/,'/amazon-creators.php'));endpoint.searchParams.set('action',action);
  const r=await fetch(endpoint.href,{method:data===undefined?'GET':'POST',headers:{Authorization:'Bearer '+key,...(data===undefined?{}:{'Content-Type':'application/json'})},...(data===undefined?{}:{body:JSON.stringify(data)}),cache:'no-store',signal:AbortSignal.timeout(65000)});
+ if(action==='image'&&r.ok)return r.blob();
  const d=await r.json();if(!r.ok||!d.ok){const stage=['authentication','product-search'].includes(d.stage)&&Number.isInteger(d.upstreamStatus)?'（'+(d.stage==='authentication'?'認証':'商品検索')+'／HTTP '+d.upstreamStatus+'）':'';throw new Error((d.error||'Amazonの商品を取得できませんでした。')+stage);}return d;
 }
 function applyAuto(d){

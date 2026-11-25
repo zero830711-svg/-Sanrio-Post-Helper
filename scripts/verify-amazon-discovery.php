@@ -35,6 +35,17 @@ try{
    sleep(5);$search=$request('search',true,['keywords'=>'サンリオ','page'=>$page]);
    if(($search['page']??0)!==$page||($search['pageSize']??0)!==10||!is_bool($search['hasMore']??null)||empty($search['items'])||count($search['items'])>10)throw new RuntimeException('Deployed Amazon search pagination metadata is invalid');
    foreach($search['items'] as $item){if(empty($item['title'])||parse_url($item['url']??'',PHP_URL_HOST)!=='www.amazon.co.jp')throw new RuntimeException('Invalid paginated Amazon product');}
+   if($page===1){
+    $images=array_values(array_filter(array_column($search['items'],'image')));
+    if(!$images)throw new RuntimeException('Amazon search returned no product photo to verify');
+    $c=curl_init($endpoint.'?action=image');
+    curl_setopt_array($c,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>25,CURLOPT_POSTFIELDS=>json_encode(['url'=>$images[0]],JSON_THROW_ON_ERROR),CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$key,'Origin: https://zero830711-svg.github.io','Content-Type: application/json']]);
+    $body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_RESPONSE_CODE);$mime=curl_getinfo($c,CURLINFO_CONTENT_TYPE);curl_close($c);
+    if($status!==200||!is_string($body)||!in_array($mime,['image/jpeg','image/png','image/webp'],true)||!@getimagesizefromstring($body)){
+     throw new RuntimeException('Amazon share photo endpoint failed (HTTP '.$status.')');
+    }
+    echo "Live Amazon product photo retrieved for share preparation\n";
+   }
    echo 'Amazon manual search page '.$page.' verified; '.count($search['items']).' products; requested page and ten-item limit active'."\n";
   }
  }

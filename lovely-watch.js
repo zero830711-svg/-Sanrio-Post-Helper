@@ -348,8 +348,6 @@ const lovelyWatch = (()=>{
     if(item.origin==='amazon-search'){
       const input=el('lovelyPhotos');input.hidden=false;input.classList.remove('hidden');input.removeAttribute('aria-hidden');
       const label=document.createElement('label');label.id='amazonSharedPhotoLabel';label.textContent='投稿用の写真を選ぶ';input.before(label);label.append(input);
-      if(item.previewImage){const img=document.createElement('img');img.src=item.previewImage;img.alt='商品照合用プレビュー';img.referrerPolicy='no-referrer';img.style.cssText='max-width:180px;max-height:180px;object-fit:contain';el('lovelyProductInfo').prepend(img);}
-      const note=document.createElement('p');note.className='backup-note';note.textContent='商品画像は照合用です。投稿にはご自身の写真や利用許可のある画像を選んでください。';el('lovelyProductInfo').append(note);
       el('lovelySource').textContent='Amazonの商品ページを確認';
       const app=document.createElement('a');app.id='amazonSharedApp';app.className='small-btn link-btn';app.rel='noopener noreferrer';amazonAppAnchor(app,item.url);el('lovelySource').after(app);
       const paste=document.createElement('button');paste.type='button';paste.id='amazonSharedPaste';paste.className='small-btn';paste.textContent='📋 貼り付けて置き換え';el('lovelyAmazon').after(paste);
@@ -372,7 +370,7 @@ const lovelyWatch = (()=>{
   function restorePreparation(item){
     const session=preparations.get(item.url),draft=state().drafts?.[item.url]||state().draft;
     const signature=photoSignature(item),same=session?.signature===signature;
-    const choices=same?session.choices: draft?.url===item.url&&draft.photoSignature===signature?draft.selectedPhotos||[]:[];
+    const choices=same?session.choices: draft?.url===item.url&&draft.photoSignature===signature?draft.selectedPhotos||[]:item.selectedPhotos||[];
     for(const index of choices){if(!item.productInfo?.images?.[index])continue;imageChoices.add(index);if(same&&session.files.has(index))imageFiles.set(index,session.files.get(index));const box=el('lovelyProductInfo').querySelector('[data-lovely-image="'+index+'"]');if(box)box.checked=true;}
     if(same&&!choices.length)files=session.uploaded.slice();
     el('lovelyConfirmed').checked=!!(same&&session.confirmed&&session.links===linkSignature());
@@ -520,7 +518,7 @@ const lovelyWatch = (()=>{
     const row=(key,value)=>'<div><dt>'+escape(key)+'</dt><dd>'+escape(value)+'</dd></div>';
     const specs=Object.entries(info.specs||{}).map(([key,value])=>row(key,value)).join('')+((info.contents||[]).length?row('セット内容',info.contents.join(' / ')):'');
     const details=(Number.isSafeInteger(item.priceAtFetch)?row('楽天API取得時の価格',item.priceAtFetch.toLocaleString('ja-JP')+'円（現在価格・在庫は販売ページで確認）'):'')+row('販売ページの商品名',info.title||'')+(info.itemCode?row('商品コード',info.itemCode):'')+(info.jan?row('JAN',info.jan):'');
-    root.innerHTML=manufacturerHtml+((info.itemCode||!manufacturer)?'<details class="lovely-product-facts"><summary>楽天の商品情報</summary><p class="lovely-product-checked">確認 '+escape(new Date(info.checkedAt).toLocaleString('ja-JP'))+'</p>'+(specs?'<dl class="lovely-facts-grid">'+specs+'</dl>':'')+'<dl class="lovely-facts-grid">'+details+'</dl><p class="backup-note">商品との一致を確認してください。価格・在庫は投稿依頼文に追加しません。</p></details>':'')+'<div class="lovely-product-images">'+(info.images||[]).map((url,index)=>'<div><a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escape(url)+'" alt="商品ページの画像候補 '+(index+1)+'" loading="lazy" decoding="async"></a><label><input type="checkbox" data-lovely-image="'+index+'"> この写真を共有する</label><p id="lovelyImageStatus'+index+'" class="backup-note" aria-live="polite"></p></div>').join('')+'</div><p class="backup-note">画像の利用可否を確認してから選んでください。別の商品・種類の写真は使わないでください。画像を取得できない場合は再試行してください。</p>';
+    root.innerHTML=manufacturerHtml+((info.itemCode||!manufacturer)?'<details class="lovely-product-facts"><summary>'+(item.origin==='amazon-search'?'Amazonの商品情報':'楽天の商品情報')+'</summary><p class="lovely-product-checked">確認 '+escape(new Date(info.checkedAt).toLocaleString('ja-JP'))+'</p>'+(specs?'<dl class="lovely-facts-grid">'+specs+'</dl>':'')+'<dl class="lovely-facts-grid">'+details+'</dl><p class="backup-note">商品との一致を確認してください。価格・在庫は投稿依頼文に追加しません。</p></details>':'')+'<div class="lovely-product-images">'+(info.images||[]).map((url,index)=>'<div><a href="'+escape(url)+'" target="_blank" rel="noopener noreferrer"><img src="'+escape(url)+'" alt="商品ページの画像候補 '+(index+1)+'" loading="lazy" decoding="async"></a><label><input type="checkbox" data-lovely-image="'+index+'"> この写真を共有する</label><p id="lovelyImageStatus'+index+'" class="backup-note" aria-live="polite"></p></div>').join('')+'</div><p class="backup-note">画像の利用可否を確認してから選んでください。別の商品・種類の写真は使わないでください。画像を取得できない場合は再試行してください。</p>';
   }
   function syncImages(){
     files=[...imageChoices].sort((a,b)=>a-b).map(i=>imageFiles.get(i)).filter(Boolean);

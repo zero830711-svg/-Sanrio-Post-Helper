@@ -45,10 +45,20 @@ test('AmazonのAI本文は押したときだけ生成し自分のリンクを保
  await page.locator('#amazonFlowSearch').click();await page.locator('#amazonFlowResults').getByRole('button',{name:'投稿準備'}).click();await page.locator('#lovelyAmazon').fill(link);
  expect(calls).toBe(0);await page.locator('#lovelyPostAi').click();await expect(page.locator('#lovelyPostText')).toHaveValue('🎀 商品紹介\n'+link+'\n#pr');expect(calls).toBe(1);
 });
-test('照合用写真を表示し端末の写真を選択して共有する',async({page})=>{
+test('Amazonの商品画像または端末の写真を選択して共有する',async({page})=>{
  await page.addInitScript(()=>{Object.defineProperty(navigator,'canShare',{value:()=>true,configurable:true});Object.defineProperty(navigator,'share',{value:async d=>window.sharedProduct={count:d.files.length,text:d.text},configurable:true})});
  await setup(page);await page.locator('#amazonFlowSearch').click();await page.locator('#amazonFlowResults').getByRole('button',{name:'投稿準備'}).click();
- await expect(page.locator('#lovelyProductInfo img[alt="商品照合用プレビュー"]')).toHaveAttribute('src',item.image);
+ await expect(page.locator('#lovelyProductInfo img[alt="商品ページの画像候補 1"]')).toHaveAttribute('src',item.image);
+ await page.route('**/amazon-creators.php?action=image',r=>{
+  expect(r.request().postDataJSON()).toEqual({url:item.image});
+  return r.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64')});
+ });
+ await page.locator('[data-lovely-image="0"]').check();
+ await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');
+ await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostShare').click();
+ await expect.poll(()=>page.evaluate(()=>window.sharedProduct?.count)).toBe(1);
+ await page.locator('[data-lovely-image="0"]').uncheck();
+ await page.evaluate(()=>delete window.sharedProduct);
  await page.locator('#lovelyPhotos').setInputFiles({name:'photo.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64')});
  await expect(page.locator('#lovelyPhotoCount')).toContainText('1枚準備済み');await page.locator('#lovelyConfirmed').check();await page.locator('#lovelyPostShare').click();
  await expect.poll(()=>page.evaluate(()=>window.sharedProduct?.count)).toBe(1);

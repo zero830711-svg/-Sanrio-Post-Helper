@@ -51,6 +51,22 @@ function am_error(int $status,bool $token):string{
  if($status===403)return $token?'Amazonの認証段階でアクセスを拒否されました。認証情報・バージョンとAmazon側の利用資格を確認してください。':'Amazonの認証は通りましたが、商品APIの利用権限をまだ確認できません。作成直後の反映待ちの可能性がありますが、このエラーだけでは断定できません。';
  return 'Amazonから商品情報を取得できませんでした（HTTP '.$status.'）。';
 }
+function am_product_image_url(string $url):bool{
+ return preg_match('~^https://(?:m\.media-amazon\.com|images-(?:na|fe)\.ssl-images-amazon\.com)/images/I/[A-Za-z0-9_.,%+()-]+\.(?:jpe?g|png|webp)$~iD',$url)===1;
+}
+function am_send_image(string $url):void{
+ $curl=curl_init($url);$body='';
+ curl_setopt_array($curl,[CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>20,CURLOPT_WRITEFUNCTION=>static function($curl,string $chunk)use(&$body):int{
+  if(strlen($body)+strlen($chunk)>6000000)return 0;
+  $body.=$chunk;return strlen($chunk);
+ }]);
+ $ok=curl_exec($curl);$status=curl_getinfo($curl,CURLINFO_RESPONSE_CODE);curl_close($curl);
+ $image=$ok&&$status===200?@getimagesizefromstring($body):false;
+ if(!$image||!in_array($image['mime'],['image/jpeg','image/png','image/webp'],true)||$image[0]*$image[1]>30000000){
+  throw new RuntimeException('Amazonの写真を取得できませんでした。再試行するか、端末の写真を選んでください。');
+ }
+ header('Content-Type: '.$image['mime']);echo $body;exit;
+}
 function am_results(array $data):array{
  $out=[];foreach(array_slice($data['searchResult']['items']??[],0,10) as $row){
   $title=$row['itemInfo']['title']['displayValue']??'';$url=$row['detailPageURL']??'';$image=$row['images']['primary']['medium']['url']??'';
@@ -133,6 +149,11 @@ try{
  if($method!=='POST')am_out(['ok'=>false,'error'=>'POSTで実行してください。'],405);
  if(!in_array($origin,$config['allowed_origins']??[],true))am_out(['ok'=>false,'error'=>'許可されたアプリから実行してください。'],403);
  $raw=(string)file_get_contents('php://input',false,null,0,8193);$d=json_decode($raw,true);if(strlen($raw)>8192||!is_array($d))am_out(['ok'=>false,'error'=>'入力内容を確認してください。'],400);
+ if($action==='image'){
+  $url=$d['url']??null;
+  if(!is_string($url)||!am_product_image_url($url))am_out(['ok'=>false,'error'=>'Amazonの商品画像URLを確認してください。'],400);
+  am_send_image($url);
+ }
  if($action==='settings'){$s=am_validate($d);am_write($path,$s);am_write(am_dir().'/auto.php',[]);$tokenPath=am_dir().'/token.php';if(is_file($tokenPath))unlink($tokenPath);am_out(['ok'=>true]+am_public($s));}
  if(!in_array($action,['search','discover'],true))am_out(['ok'=>false,'error'=>'操作を確認してください。'],400);
  $page=$d['page']??1;if($action==='search'&&(!is_int($page)||$page<1||$page>10))am_out(['ok'=>false,'error'=>'検索ページは1〜10で指定してください。'],400);

@@ -4,6 +4,8 @@ define('SPH_AMAZON_TEST',true);
 require __DIR__.'/../server/lolipop/amazon-creators.php';
 function check_am(bool $ok,string $message):void{if(!$ok)throw new RuntimeException($message);}
 function reject_am(callable $f):void{try{$f();}catch(RuntimeException $e){return;}throw new RuntimeException('Invalid credentials accepted');}
+check_am(am_product_image_url('https://m.media-amazon.com/images/I/A1+BC._AC_SL500_.jpg'),'Catalog image was rejected');
+foreach(['http://m.media-amazon.com/images/I/test.jpg','https://m.media-amazon.com.evil.test/images/I/test.jpg','https://m.media-amazon.com/images/I/test.svg','https://m.media-amazon.com/other/test.jpg'] as $bad)check_am(!am_product_image_url($bad),'Invalid image URL accepted');
 $settings=['credentialId'=>'amzn1.application-oa2-client.'.str_repeat('a',32),'secret'=>'FAKE_TEST_SECRET_NOT_REAL_123456','version'=>'3.3','partnerTag'=>'test-22'];
 check_am(am_validate($settings)===$settings,'Credential validation changed values');
 check_am(am_endpoint('3.3')==='https://api.amazon.co.jp/auth/o2/token','Japan token host mismatch');
