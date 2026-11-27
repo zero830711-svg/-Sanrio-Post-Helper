@@ -49,3 +49,17 @@ lw_check(count($takaraItems)===1&&$takaraItems[0]['url']==='https://store.shoppi
 lw_check($takaraItems[0]['jan']===$jan);
 lw_check(lw_official_image('https://item-shopping.c.yimg.jp/i/n/takaratomymall_4904810959199_i_20250723174904')!=='');
 echo "Takara storefront canonical product URLs and dated photos passed\n";
+
+$epochList='<div class="item_box"><div class="item_img"><img src="img/catalog/item/w162.jpg"></div><div class="itemname"><a href="item/w162.php">サンリオ スイーツパーティー</a></div><div class="brand_copy">© SANRIO CO., LTD.</div></div>';
+$epochItem=lw_retailer_list($epochList,'epoch')['items'][0];
+lw_check($epochItem['url']==='https://epoch.jp/ty/whip/item/w162.php');
+lw_check($epochItem['thumbnail']==='https://epoch.jp/ty/whip/img/catalog/item/w162.jpg');
+$epochProduct='<h1><img alt="サンリオ スイーツパーティー"></h1><img src="../img/catalog/item/box-w162.jpg"><div class="box_shop"><a href="https://joshinweb.jp/toy/32773/4905040323613.html">購入</a><a href="https://amzn.asia/d/Example">Amazon</a></div>';
+$epochDetail=lw_retailer_detail($epochProduct,$epochItem['url'],'epoch');
+lw_check($epochDetail['jan']==='4905040323613'&&$epochDetail['manufacturerAmazon']==='https://amzn.asia/d/Example');
+lw_check($epochDetail['productInfo']['images']===['https://epoch.jp/ty/whip/img/catalog/item/box-w162.jpg']);
+$sunUrl='https://shop.sun-star-st.jp/c/character/sanrio/sanrio-seal/s88221-3';
+$sunImg='https://sunstarst.itembox.cloud/product/001/000000000133/000000000133-01.jpg';
+$sunDetail=lw_retailer_detail('<meta property="og:title" content="サンリオ シール | サンスター文具公式オンラインストア"><meta property="og:image" content="'.$sunImg.'"><script type="application/ld+json">{"gtin13":"4901770758381"}</script>',$sunUrl,'sunstar');
+lw_check(lw_article_url($sunUrl)===$sunUrl&&$sunDetail['productInfo']['images']===[$sunImg]&&$sunDetail['jan']==='4901770758381');
+echo "Epoch manufacturer links and Sun-Star product identifiers passed\n";

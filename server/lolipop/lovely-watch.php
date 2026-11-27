@@ -669,9 +669,14 @@ function lw_retailer_sources(): array {
         'smallplanet'=>['name'=>'スモール・プラネット','list'=>'https://www.smallplanet-online.com/view/search?search_keyword=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA&sort=order','detail'=>'~^https://www\.smallplanet-online\.com/view/item/[0-9]{12}$~D'],
         'rement'=>['name'=>'リーメント','list'=>'https://www.re-ment.co.jp/product/brand.php?c=sanrio','detail'=>'~^https://www\.re-ment\.co\.jp/product/r[0-9]{4,8}$~D'],
         'shobido'=>['name'=>'粧美堂','list'=>'https://www.sho-bionlinestore.jp/c/character/sanrio?sort=latest','detail'=>'~^https://www\.sho-bionlinestore\.jp/c/character/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+){0,3}/(?i:[a-z]{1,5}[0-9]{4,8}(?:[-_][a-z0-9]+)?)$~D'],
+        'epoch'=>['name'=>'エポック社','list'=>'https://epoch.jp/ty/whip/catalog.php','detail'=>'~^https://epoch\.jp/ty/whip/item/w[0-9]{2,4}\.php$~D'],
+        'sunstar'=>['name'=>'サンスター文具','list'=>'https://shop.sun-star-st.jp/c/character/sanrio?sort=latest','detail'=>'~^https://shop\.sun-star-st\.jp/c/character/sanrio(?:/[a-z0-9_-]+){0,3}/s[0-9]{5,9}(?:-[a-z0-9]+)?$~Di'],
     ];
 }
 function lw_retailer_url(string $base,string $value): string {
+    if(parse_url($base,PHP_URL_HOST)==='epoch.jp'&&preg_match('~^(?:\.\./)?(?:item|img/catalog/item)/[a-z0-9_.-]+$~Di',$value)){
+        return 'https://epoch.jp/ty/whip/'.(str_starts_with($value,'../')?substr($value,3):$value);
+    }
     if(str_starts_with($value,'../'))$value=substr($value,2);
     if(str_starts_with($value,'//'))return 'https:'.$value;
     return str_starts_with($value,'/')?'https://'.parse_url($base,PHP_URL_HOST).$value:$value;
@@ -690,6 +695,8 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
         'smallplanet'=>'//div[contains(concat(" ",normalize-space(@class)," ")," item-list-image ")]/a[img]',
         'rement'=>'//a[starts-with(@href,"../product/r")][p[@class="name"]]',
         'shobido'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
+        'sunstar'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
+        'epoch'=>'//div[@class="item_box"]/div[@class="itemname"]/a[starts-with(@href,"item/w")]',
     ];
     if($mallFallback){
         $base=lw_retailer_sources()['takara']['fallback'];
@@ -699,7 +706,9 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
         $url=lw_retailer_url($base,$a->getAttribute('href'));
         if($mallFallback)$url=explode('?',$url,2)[0];
         if(!preg_match(lw_retailer_sources()[$source]['detail'],$url))continue;
-        $imageScope=$source==='shobido'?$a->parentNode->parentNode->parentNode->parentNode:$a;
+        $shopList=in_array($source,['shobido','sunstar'],true);
+        $imageScope=$shopList?$a->parentNode->parentNode->parentNode->parentNode:($source==='epoch'?$a->parentNode->parentNode:$a);
+        if($source==='epoch'&&!preg_match('/SANRIO CO\./i',lw_text($imageScope)))continue;
         $image=$x->query('.//img[@data-original or @data-src or @src]',$imageScope);
         $thumbnail='';$name='';
         foreach($image as $node){
@@ -707,7 +716,7 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
             $raw=$node->getAttribute('data-original')?:$node->getAttribute('data-src')?:$node->getAttribute('src');
             $thumbnail=lw_official_image(lw_retailer_url($base,$raw));if($thumbnail)break;
         }
-        $title=$source==='rement'?lw_text($x->query('./p[@class="name"]',$a)->item(0)):($source==='shobido'?lw_text($a):$name);
+        $title=$source==='rement'?lw_text($x->query('./p[@class="name"]',$a)->item(0)):($shopList||$source==='epoch'?lw_text($a):$name);
         if($title===''||!$thumbnail)continue;
         if(in_array($source,['smallplanet','takara'],true)&&!preg_match('/サンリオ|さんりお|キティ|クロミ|マイメロ|シナモ|ポムポムプリン|ポチャッコ|ハンギョドン|タキシードサム|ウサハナ|はなまるおばけ|シュガーバニーズ|けろけろけろっぴ|ぐでたま|リトルツインスターズ/u',$title))continue;
         $item=lw_official_item($source,$url,$title,'',$thumbnail);
@@ -724,6 +733,8 @@ function lw_retailer_detail(string $html,string $url,string $source): array {
         $title=preg_replace('/^タカラトミー（TAKARA TOMY）\s*|\s*:\s*タカラトミーモールYahoo!.*$/u','',$title);
     }
     if($source==='smallplanet')$title=lw_text($x->query('//h1[@class="item-name"]')->item(0))?:$title;
+    if($source==='epoch')$title=trim($x->query('//h1/img[@alt]')->item(0)?->getAttribute('alt')??'');
+    if($source==='sunstar')$title=preg_replace('/\s*\|\s*サンスター文具公式オンラインストア$/u','',$title);
     if($source==='rement')$title=lw_text($x->query('//h4')->item(0));
     if($source==='shobido')$title=lw_meta($x,'property','og:description')?preg_split('/。/u',lw_meta($x,'property','og:description'),2)[0]:$title;
     if(!$title)throw new RuntimeException('公式の商品名を確認できませんでした。');
@@ -735,6 +746,14 @@ function lw_retailer_detail(string $html,string $url,string $source): array {
         }
     }
     $images=$thumbnail?[$thumbnail]:[];
+    if($source==='epoch'){
+        $model=basename($url,'.php');
+        foreach(['img-','box-'] as $prefix){
+            $nodes=$x->query('//img[@src="../img/catalog/item/'.$prefix.$model.'.jpg"]');
+            if($nodes->length)$images[]='https://epoch.jp/ty/whip/img/catalog/item/'.$prefix.$model.'.jpg';
+        }
+        $thumbnail=$images[0]??'';
+    }
     if($source==='smallplanet'){
         foreach($x->query('//img[@class="item-image"]') as $node){
             $image=lw_official_image($node->getAttribute('src'));if($image)$images[]=$image;
@@ -751,6 +770,17 @@ function lw_retailer_detail(string $html,string $url,string $source): array {
         $text=lw_text($x->query('//body')->item(0));
         if(preg_match('/(?:JAN(?:コード)?|バーコード)[：:\s]*([0-9]{13})(?![0-9])/u',$text,$m))$ids[]=$m[1];
     }
+    if($source==='epoch'){
+        $facts['型番']='W-'.substr(basename($url,'.php'),1);
+        foreach($x->query('//div[contains(@class,"box_shop")]//a[@href]') as $link){
+            // The manufacturer's purchase links identify the packaging and exact JAN.
+            if(preg_match('~^https://joshinweb\.jp/toy/[0-9]+/(490504[0-9]{7})\.html$~D',$link->getAttribute('href'),$m))$ids[]=$m[1];
+        }
+    }
+    if($source==='sunstar'){
+        $model=lw_text($x->query('//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productNumber__number ")]')->item(0));
+        if($model)$facts['型番']=$model;
+    }
     $ids=array_values(array_unique($ids));$jan=count($ids)===1?$ids[0]:'';
     if($jan)$facts['JAN']=$jan;
     if($source==='shobido'&&count($ids)>1)$facts['JAN（柄別）']=implode(' / ',$ids);
@@ -758,6 +788,14 @@ function lw_retailer_detail(string $html,string $url,string $source): array {
     if(preg_match('/発売日[：:\s]*(20[0-9]{2}年\s*[0-9]{1,2}月\s*[0-9]{1,2}日)/u',$details,$m))$facts['発売時期']=$m[1];
     $item=lw_official_item($source,$url,$title,'',$thumbnail);
     $item['jan']=$jan;
+    if($source==='epoch'){
+        foreach($x->query('//div[contains(@class,"box_shop")]//a[@href]') as $link){
+            $storeUrl=$link->getAttribute('href');
+            if(preg_match('~^https://amzn\.asia/d/[a-zA-Z0-9]+$~D',$storeUrl)){
+                $item['manufacturerAmazon']=$storeUrl;break;
+            }
+        }
+    }
     $item['manufacturerInfo']=['url'=>$url,'facts'=>$facts,'text'=>implode("\n",$facts),'checkedAt'=>gmdate('c')];
     $item['productInfo']=['jan'=>$jan,'images'=>array_values(array_unique($images)),'checkedAt'=>gmdate('c')];
     return $item;
@@ -805,7 +843,7 @@ function lw_retailer_enriched(string $html,string $url,string $source): array {
     $item=lw_retailer_detail($html,$url,$source);$jan=$item['jan'];
     if(!$jan)return $item;
     $settings=lw_settings();
-    $shop=['takara'=>'','smallplanet'=>'sp-rendez-vous','rement'=>'','shobido'=>'cocobeaumo'][$source];
+    $shop=['takara'=>'','smallplanet'=>'sp-rendez-vous','rement'=>'','shobido'=>'cocobeaumo','epoch'=>'','sunstar'=>''][$source];
     $item['retailerStatus']='同じJANの商品リンクを確認できませんでした。検索から確認できます。';
     if($settings){
         try{
@@ -840,8 +878,9 @@ function lw_official_source(string $url): string {
     return '';
 }
 function lw_official_image(string $url): string {
+    if(preg_match('~^https://epoch\.jp/ty/whip/img/catalog/item/(?:box-|img-)?w[0-9]{2,4}\.(?:jpe?g|png|webp)$~Di',$url))return $url;
     if(preg_match('~^https://item-shopping\.c\.yimg\.jp/i/[jn]/takaratomymall_[0-9]{13}(?:_[a-z0-9]+){0,3}(?:\?resolution=[1-3]x)?$~Di',$url))return $url;
-    if(preg_match('~^https://(?:takaratomymall\.jp/img/goods/[A-Z0-9]/[0-9]{13}_[a-z0-9]+|www\.re-ment\.co\.jp/data/photo/product/t2?/[0-9]+|makeshop-multi-images\.akamaized\.net/smpweb/(?:itemimages/[0-9]{12}_[a-z0-9_-]+|shopimages/[0-9]{2}/[0-9]{2}/[0-9]+_[0-9]{12})|cocobeaumo\.itembox\.cloud/product/[0-9]{3}/[0-9]{12}/[0-9]{12}-[0-9]+)\.(?:jpe?g|png|webp)(?:\?[a-z0-9_=&-]+)?$~Di',$url))return $url;
+    if(preg_match('~^https://(?:takaratomymall\.jp/img/goods/[A-Z0-9]/[0-9]{13}_[a-z0-9]+|www\.re-ment\.co\.jp/data/photo/product/t2?/[0-9]+|makeshop-multi-images\.akamaized\.net/smpweb/(?:itemimages/[0-9]{12}_[a-z0-9_-]+|shopimages/[0-9]{2}/[0-9]{2}/[0-9]+_[0-9]{12})|(?:cocobeaumo|sunstarst)\.itembox\.cloud/product/[0-9]{3}/[0-9]{12}/[0-9]{12}-[0-9]+)\.(?:jpe?g|png|webp)(?:\?[a-z0-9_=&-]+)?$~Di',$url))return $url;
     return preg_match('~^https://makeshop-multi-images\.akamaized\.net/(?:tkjstore|nakabc01)/itemimages/[0-9]+_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$~Di',$url)?$url:'';
 }
 function lw_official_item(string $source,string $url,string $title,string $date='',string $thumbnail=''): array {

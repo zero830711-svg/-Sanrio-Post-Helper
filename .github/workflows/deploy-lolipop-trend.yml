@@ -124,8 +124,8 @@ jobs:
           bye
           LFTP
 
-      - name: Verify the four new product sources
-        if: contains(github.event.head_commit.message, '[verify-retailer-sources]')
+      - name: Verify new official product sources
+        if: contains(github.event.head_commit.message, '[verify-retailer-sources]') || contains(github.event.head_commit.message, '[verify-epoch-sunstar]')
         shell: bash
         run: |
           set -euo pipefail
@@ -152,7 +152,7 @@ jobs:
             return [$status,$raw];
           };
           $failed=false;
-          foreach(["takara","smallplanet","rement","shobido"] as $source){
+          foreach(array_slice($argv,2) as $source){
             [$status,$raw]=$request(["action"=>"list","source"=>$source]);
             $data=json_decode((string)$raw,true);
             if($status!==200||empty($data["items"][0]["thumbnail"])){
@@ -171,7 +171,7 @@ jobs:
             echo "$source: ".count($data["items"])." candidates, detail and image verified\n";
           }
           exit($failed?1:0);
-          ' "$verify_tmp/config.php"
+          ' "$verify_tmp/config.php" ${{ contains(github.event.head_commit.message, '[verify-epoch-sunstar]') && 'epoch sunstar' || 'takara smallplanet rement shobido' }}
 
       - name: Verify seven new news sources
         if: contains(github.event.head_commit.message, '[verify-seven]')
