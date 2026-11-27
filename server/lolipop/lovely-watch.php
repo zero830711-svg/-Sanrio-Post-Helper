@@ -188,9 +188,11 @@ function lw_fetch(string $url,int $limit=1500000,bool $image=false): string {
     if (!lw_official_source($url) && !preg_match('~^https://nakajima-market\.com/view/item/[0-9]{12}$~D',$url) && !lw_list_url($url) && !lw_hat_list_url($url) && !lw_gour_list_url($url) && !lw_skater_list_url($url) && !lw_article_url($url) && !($p&&$p['store']==='楽天'&&$p['url']===$url) && !($image&&(lw_image_url($url)||lw_hat_image_url($url)||lw_official_image($url)))) throw new RuntimeException('対象外のURLです。');
     $ch=curl_init($url); $body='';
     curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>18,CURLOPT_USERAGENT=>'SanrioPostHelper/3389 (personal product discovery)',CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_WRITEFUNCTION=>function($ch,$data) use (&$body,$limit){ if(strlen($body)+strlen($data)>$limit)return 0; $body.=$data;return strlen($data); }]);
+    $epoch=parse_url($url,PHP_URL_HOST)==='epoch.jp';
+    if($epoch)curl_setopt($ch,CURLOPT_IPRESOLVE,CURL_IPRESOLVE_V4);
     $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);$curlCode=curl_errno($ch);curl_close($ch);
     if ($ok===false || $status!==200) {
-        $detail=lw_official_source($url)==='takara'?($status?'（HTTP '.$status.'）':'（接続コード '.$curlCode.'）'):'';
+        $detail=($epoch||lw_official_source($url)==='takara')?($status?'（HTTP '.$status.'）':'（接続コード '.$curlCode.'）'):'';
         throw new RuntimeException('情報元に接続できませんでした'.$detail.'。時間を置いて再試行してください。');
     }
     return $body;
