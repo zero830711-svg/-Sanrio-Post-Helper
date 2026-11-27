@@ -188,9 +188,9 @@ function lw_fetch(string $url,int $limit=1500000,bool $image=false): string {
     if (!lw_official_source($url) && !preg_match('~^https://nakajima-market\.com/view/item/[0-9]{12}$~D',$url) && !lw_list_url($url) && !lw_hat_list_url($url) && !lw_gour_list_url($url) && !lw_skater_list_url($url) && !lw_article_url($url) && !($p&&$p['store']==='楽天'&&$p['url']===$url) && !($image&&(lw_image_url($url)||lw_hat_image_url($url)||lw_official_image($url)))) throw new RuntimeException('対象外のURLです。');
     $ch=curl_init($url); $body='';
     curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>18,CURLOPT_USERAGENT=>'SanrioPostHelper/3389 (personal product discovery)',CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_WRITEFUNCTION=>function($ch,$data) use (&$body,$limit){ if(strlen($body)+strlen($data)>$limit)return 0; $body.=$data;return strlen($data); }]);
-    $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
+    $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);$curlCode=curl_errno($ch);curl_close($ch);
     if ($ok===false || $status!==200) {
-        $detail=lw_official_source($url)==='takara'&&$status?'（HTTP '.$status.'）':'';
+        $detail=lw_official_source($url)==='takara'?($status?'（HTTP '.$status.'）':'（接続コード '.$curlCode.'）'):'';
         throw new RuntimeException('情報元に接続できませんでした'.$detail.'。時間を置いて再試行してください。');
     }
     return $body;
@@ -665,7 +665,7 @@ function lw_fashion_data(array $data,array $settings,int $page,string $expectedU
 
 function lw_retailer_sources(): array {
     return [
-        'takara'=>['name'=>'タカラトミー','list'=>'https://takaratomymall.jp/shop/c/cSanrioCh/','fallback'=>'https://takaratomymall.jp/shop/c/cSanrioCh_srd/','detail'=>'~^https://takaratomymall\.jp/shop/g/g[0-9]{13}/$~D'],
+        'takara'=>['name'=>'タカラトミー','list'=>'https://takaratomymall.jp/shop/c/cSanrioCh/','fallback'=>'https://store.shopping.yahoo.co.jp/takaratomymall/search.html?p=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA','detail'=>'~^https://(?:takaratomymall\.jp/shop/g/g[0-9]{13}/|store\.shopping\.yahoo\.co\.jp/takaratomymall/[0-9]{13}\.html)$~D'],
         'smallplanet'=>['name'=>'スモール・プラネット','list'=>'https://www.smallplanet-online.com/view/search?search_keyword=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA&sort=order','detail'=>'~^https://www\.smallplanet-online\.com/view/item/[0-9]{12}$~D'],
         'rement'=>['name'=>'リーメント','list'=>'https://www.re-ment.co.jp/product/brand.php?c=sanrio','detail'=>'~^https://www\.re-ment\.co\.jp/product/r[0-9]{4,8}$~D'],
         'shobido'=>['name'=>'粧美堂','list'=>'https://www.sho-bionlinestore.jp/c/character/sanrio?sort=latest','detail'=>'~^https://www\.sho-bionlinestore\.jp/c/character/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+){0,3}/(?i:[a-z]{1,5}[0-9]{4,8}(?:[-_][a-z0-9]+)?)$~D'],
@@ -683,7 +683,7 @@ function lw_retailer_doc(string $html,string $source): DOMXPath {
     }
     return lw_doc($html);
 }
-function lw_retailer_list(string $html,string $source): array {
+function lw_retailer_list(string $html,string $source,bool $mallFallback=false): array {
     $x=lw_retailer_doc($html,$source);$base=lw_retailer_sources()[$source]['list'];$items=[];
     $paths=[
         'takara'=>'//a[contains(concat(" ",normalize-space(@class)," ")," tt_product2-6 ") and starts-with(@href,"/shop/g/")]',
@@ -691,6 +691,10 @@ function lw_retailer_list(string $html,string $source): array {
         'rement'=>'//a[starts-with(@href,"../product/r")][p[@class="name"]]',
         'shobido'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
     ];
+    if($mallFallback){
+        $base=lw_retailer_sources()['takara']['fallback'];
+        $paths['takara']='//a[contains(@class,"ItemImageLink_SearchResultItemImageLink")][.//img]';
+    }
     foreach($x->query($paths[$source]) as $a){
         $url=lw_retailer_url($base,$a->getAttribute('href'));
         if(!preg_match(lw_retailer_sources()[$source]['detail'],$url))continue;
@@ -706,7 +710,7 @@ function lw_retailer_list(string $html,string $source): array {
         if($title===''||!$thumbnail)continue;
         if(in_array($source,['smallplanet','takara'],true)&&!preg_match('/サンリオ|さんりお|キティ|クロミ|マイメロ|シナモ|ポムポムプリン|ポチャッコ|ハンギョドン|タキシードサム|ウサハナ|はなまるおばけ|シュガーバニーズ|けろけろけろっぴ|ぐでたま|リトルツインスターズ/u',$title))continue;
         $item=lw_official_item($source,$url,$title,'',$thumbnail);
-        if($source==='takara'&&preg_match('~/g(4[59][0-9]{11})/$~D',$url,$m))$item['jan']=$m[1];
+        if($source==='takara'&&preg_match('~/(?:g)?(4[59][0-9]{11})(?:/|\.html)$~D',$url,$m))$item['jan']=$m[1];
         $items[$url]=$item;if(count($items)>=24)break;
     }
     if(!$items)throw new RuntimeException('公式の商品一覧から写真付きの候補を取得できませんでした。');
@@ -715,6 +719,9 @@ function lw_retailer_list(string $html,string $source): array {
 function lw_retailer_detail(string $html,string $url,string $source): array {
     $x=lw_retailer_doc($html,$source);
     $title=lw_meta($x,'property','og:title');
+    if($source==='takara'&&str_starts_with($url,'https://store.shopping.yahoo.co.jp/')){
+        $title=preg_replace('/^タカラトミー（TAKARA TOMY）\s*|\s*:\s*タカラトミーモールYahoo!.*$/u','',$title);
+    }
     if($source==='smallplanet')$title=lw_text($x->query('//h1[@class="item-name"]')->item(0))?:$title;
     if($source==='rement')$title=lw_text($x->query('//h4')->item(0));
     if($source==='shobido')$title=lw_meta($x,'property','og:description')?preg_split('/。/u',lw_meta($x,'property','og:description'),2)[0]:$title;
@@ -728,7 +735,7 @@ function lw_retailer_detail(string $html,string $url,string $source): array {
         $thumbnail=$images[0]??'';
     }
     $facts=['商品名'=>$title];$ids=[];
-    if($source==='takara'&&preg_match('~/g(4[59][0-9]{11})/$~D',$url,$m))$ids[]=$m[1];
+    if($source==='takara'&&preg_match('~/(?:g)?(4[59][0-9]{11})(?:/|\.html)$~D',$url,$m))$ids[]=$m[1];
     foreach($x->query('//script[@type="application/ld+json"]') as $node){
         preg_match_all('/"(?:gtin13|gtin)"\s*:\s*"?([0-9]{13})(?![0-9])/', $node->textContent,$m);
         array_push($ids,...$m[1]);
@@ -826,6 +833,7 @@ function lw_official_source(string $url): string {
     return '';
 }
 function lw_official_image(string $url): string {
+    if(preg_match('~^https://item-shopping\.c\.yimg\.jp/i/[jn]/takaratomymall_[0-9]{13}(?:_[a-z0-9]+)?(?:\?resolution=[1-3]x)?$~Di',$url))return $url;
     if(preg_match('~^https://(?:takaratomymall\.jp/img/goods/[A-Z0-9]/[0-9]{13}_[a-z0-9]+|www\.re-ment\.co\.jp/data/photo/product/t2?/[0-9]+|makeshop-multi-images\.akamaized\.net/smpweb/(?:itemimages/[0-9]{12}_[a-z0-9_-]+|shopimages/[0-9]{2}/[0-9]{2}/[0-9]+_[0-9]{12})|cocobeaumo\.itembox\.cloud/product/[0-9]{3}/[0-9]{12}/[0-9]{12}-[0-9]+)\.(?:jpe?g|png|webp)(?:\?[a-z0-9_=&-]+)?$~Di',$url))return $url;
     return preg_match('~^https://makeshop-multi-images\.akamaized\.net/(?:tkjstore|nakabc01)/itemimages/[0-9]+_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$~Di',$url)?$url:'';
 }
@@ -960,7 +968,7 @@ try {
         if($action==='list'&&$official==='takara'){
             try{$takaraList=lw_retailer_list(lw_fetch($url),'takara');}
             catch(RuntimeException $e){
-                $takaraList=lw_retailer_list(lw_fetch(lw_retailer_sources()['takara']['fallback']),'takara');
+                $takaraList=lw_retailer_list(lw_fetch(lw_retailer_sources()['takara']['fallback']),'takara',true);
             }
         }else $html=lw_fetch($url);
         $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>$official?lw_official_sources()[$official]['name']:(lw_skater_article_url($url)||lw_skater_list_url($url)?'スケーター':(lw_gour_article_url($url)||lw_gour_list_url($url)?'グルマンディーズ':(lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy')))];
