@@ -1118,6 +1118,7 @@ try {
     $cacheRevision=(lw_skater_article_url($url)||lw_gour_article_url($url))?'3439-api-product-url':(lw_skater_list_url($url)?'3430-utf8-titles':(lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer'));
     if(lw_hat_list_url($url)||lw_hat_article_url($url))$cacheRevision='3553-hat-image-filenames';
     if(lw_official_source($url)==='takara')$cacheRevision='retailer-takara-photo-2';
+    if(lw_official_source($url)==='gakken')$cacheRevision=$action==='list'?'gakken-list-1':'gakken-detail-1';
     if(lw_official_source($url)==='epoch')$cacheRevision='retailer-epoch-sanrio-1';
     $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|'.$cacheRevision.'|'.$url.'|'.$sanrioCode.'|'.($sanrio?hash('sha256',json_encode($sanrioSettings)):'').'|'.(lw_gour_article_url($url)||lw_skater_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
