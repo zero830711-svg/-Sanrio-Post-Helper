@@ -700,6 +700,8 @@ function lw_retailer_sources(): array {
         'shobido'=>['name'=>'粧美堂','list'=>'https://www.sho-bionlinestore.jp/c/character/sanrio?sort=latest','detail'=>'~^https://www\.sho-bionlinestore\.jp/c/character/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+){0,3}/(?i:[a-z]{1,5}[0-9]{4,8}(?:[-_][a-z0-9]+)?)$~D'],
         'epoch'=>['name'=>'エポック社','list'=>'https://epoch.jp/ty/whip/catalog.php','detail'=>'~^https://epoch\.jp/ty/whip/item/w[0-9]{2,4}\.php$~D'],
         'sunstar'=>['name'=>'サンスター文具','list'=>'https://shop.sun-star-st.jp/c/character/sanrio?sort=latest','detail'=>'~^https://shop\.sun-star-st\.jp/c/character/sanrio(?:/[a-z0-9_-]+){0,3}/s[0-9]{5,9}(?:-[a-z0-9]+)?$~Di'],
+        'kawada'=>['name'=>'カワダ','list'=>'https://kawadabase.com/shop/product_categories/sanrio','detail'=>'~^https://kawadabase\.com/shop/products/4972825[0-9]{6}$~D'],
+        'beverly'=>['name'=>'ビバリー','list'=>'https://be-en.co.jp/collections/sanrio-characters','detail'=>'~^https://be-en\.co\.jp/products/[a-z0-9][a-z0-9_-]{1,80}$~D'],
     ];
 }
 function lw_retailer_url(string $base,string $value): string {
@@ -726,6 +728,8 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
         'shobido'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
         'sunstar'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
         'epoch'=>'//div[@class="item_box"]/div[@class="itemname"]/a[starts-with(@href,"item/w")]',
+        'kawada'=>'//div[contains(concat(" ",normalize-space(@class)," ")," Common_ItemList01_Box ")]/a[.//img]',
+        'beverly'=>'//*[@id="product-grid"]//a[starts-with(@href,"/products/")][.//img]',
     ];
     if($mallFallback){
         $base=lw_retailer_sources()['takara']['fallback'];
@@ -750,6 +754,13 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
         if(in_array($source,['smallplanet','takara'],true)&&!preg_match('/サンリオ|さんりお|キティ|クロミ|マイメロ|シナモ|ポムポムプリン|ポチャッコ|ハンギョドン|タキシードサム|ウサハナ|はなまるおばけ|シュガーバニーズ|けろけろけろっぴ|ぐでたま|リトルツインスターズ/u',$title))continue;
         $item=lw_official_item($source,$url,$title,'',$thumbnail);
         if($source==='takara'&&preg_match('~/(?:g)?(4[59][0-9]{11})(?:/|\.html)$~D',$url,$m))$item['jan']=$m[1];
+        if($source==='kawada')$item['jan']=basename($url);
+        if($source==='beverly'){
+            $summary=lw_text($a->parentNode);
+            if(preg_match('/JANコード\s*(4977524[0-9]{6})(?![0-9])/u',$summary,$m))$item['jan']=$m[1];
+            if(preg_match('/(20[0-9]{2}年[0-9]{1,2}月[0-9]{1,2}日)発売予定/u',$summary,$m))$item['schedule']='発売時期：'.$m[1].'発売予定';
+        }
+
         $items[$url]=$item;if(count($items)>=24)break;
     }
     if(!$items)throw new RuntimeException('公式の商品一覧から写真付きの候補を取得できませんでした。');
@@ -762,12 +773,17 @@ function lw_retailer_detail(string $html,string $url,string $source): array {
         $title=preg_replace('/^タカラトミー（TAKARA TOMY）\s*|\s*:\s*タカラトミーモールYahoo!.*$/u','',$title);
     }
     if($source==='smallplanet')$title=lw_text($x->query('//h1[@class="item-name"]')->item(0))?:$title;
+    if($source==='kawada')$title=preg_replace('/\s*[｜|]\s*ナノブロックの公式専門店.*$/u','',$title);
     if($source==='epoch')$title=trim($x->query('//h1/img[@alt]')->item(0)?->getAttribute('alt')??'');
     if($source==='sunstar')$title=preg_replace('/\s*\|\s*サンスター文具公式オンラインストア$/u','',$title);
     if($source==='rement')$title=lw_text($x->query('//h4')->item(0));
     if($source==='shobido')$title=lw_meta($x,'property','og:description')?preg_split('/。/u',lw_meta($x,'property','og:description'),2)[0]:$title;
     if(!$title)throw new RuntimeException('公式の商品名を確認できませんでした。');
     $thumbnail=lw_official_image(lw_meta($x,'property','og:image'));
+    if(!$thumbnail&&$source==='beverly'){
+        $publishedImage=lw_meta($x,'property','og:image:secure_url')?:lw_meta($x,'property','og:image');
+        $thumbnail=lw_official_image(preg_replace('~^http://be-en\.co\.jp/~','https://be-en.co.jp/',$publishedImage));
+    }
     if(!$thumbnail&&$source==='takara'&&preg_match('~^https://store\.shopping\.yahoo\.co\.jp/takaratomymall/([0-9]{13})\.html$~D',$url,$m)){
         foreach($x->query('//img[@src]') as $node){
             $image=lw_official_image($node->getAttribute('src'));
@@ -790,6 +806,17 @@ function lw_retailer_detail(string $html,string $url,string $source): array {
         $thumbnail=$images[0]??'';
     }
     $facts=['商品名'=>$title];$ids=[];
+    if($source==='kawada'){
+        $ids[]=basename($url);
+        $model=lw_text($x->query('//p[@class="Code"]')->item(0));
+        if($model)$facts['型番']=$model;
+    }
+    if($source==='beverly'){
+        $facts['型番']=strtoupper(basename($url));
+        $release=lw_text($x->query('//*[contains(text(),"発売予定") and not(ancestor::script or ancestor::style)]')->item(0));
+        if(preg_match('/(20[0-9]{2}年[0-9]{1,2}月[0-9]{1,2}日)発売予定/u',$release,$m))$facts['発売時期']=$m[1].'発売予定';
+    }
+
     if($source==='takara'&&preg_match('~/(?:g)?(4[59][0-9]{11})(?:/|\.html)$~D',$url,$m))$ids[]=$m[1];
     foreach($x->query('//script[@type="application/ld+json"]') as $node){
         preg_match_all('/"(?:gtin13|gtin)"\s*:\s*"?([0-9]{13})(?![0-9])/', $node->textContent,$m);
@@ -872,7 +899,7 @@ function lw_retailer_enriched(string $html,string $url,string $source): array {
     $item=lw_retailer_detail($html,$url,$source);$jan=$item['jan'];
     if(!$jan)return $item;
     $settings=lw_settings();
-    $shop=['takara'=>'','smallplanet'=>'sp-rendez-vous','rement'=>'','shobido'=>'cocobeaumo','epoch'=>'','sunstar'=>''][$source];
+    $shop=['takara'=>'','smallplanet'=>'sp-rendez-vous','rement'=>'','shobido'=>'cocobeaumo','epoch'=>'','sunstar'=>'','kawada'=>'','beverly'=>''][$source];
     $item['retailerStatus']='同じJANの商品リンクを確認できませんでした。検索から確認できます。';
     if($settings){
         try{
@@ -908,6 +935,8 @@ function lw_official_source(string $url): string {
     return '';
 }
 function lw_official_image(string $url): string {
+    if(preg_match('~^https://d2w53g1q050m78\.cloudfront\.net/kawadabasecom/ec_assets/[a-f0-9]{40}-original\.(?:jpe?g|png|webp)?(?:\?[0-9]{1,15})?$~Di',$url))return $url;
+    if(preg_match('~^https://be-en\.co\.jp/cdn/shop/files/[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)(?:\?v=[0-9]{1,20}(?:&width=[0-9]{1,4})?)?$~Di',$url))return $url;
     if(preg_match('~^https://www\.sanrio\.co\.jp/wp-content/uploads/2026/(?:05|09)/[a-z0-9_-]*epoch-whipple-[a-z0-9_-]+\.(?:jpe?g|png|webp)$~Di',$url))return $url;
     if(preg_match('~^https://epoch\.jp/ty/whip/img/catalog/item/(?:box-|img-)?w[0-9]{2,4}\.(?:jpe?g|png|webp)$~Di',$url))return $url;
     if(preg_match('~^https://item-shopping\.c\.yimg\.jp/i/[jn]/takaratomymall_[0-9]{13}(?:_[a-z0-9]+){0,3}(?:\?resolution=[1-3]x)?$~Di',$url))return $url;
@@ -1051,7 +1080,7 @@ try {
                 $officialList=lw_retailer_list(lw_fetch(lw_retailer_sources()['takara']['fallback']),'takara',true);
             }
         }elseif($action==='list'&&$official==='epoch')$officialList=lw_epoch_list($url);
-        else $html=lw_fetch($url);
+        else $html=lw_fetch($url,$official==='beverly'?4000000:1500000);
         $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>$official?lw_official_sources()[$official]['name']:(lw_skater_article_url($url)||lw_skater_list_url($url)?'スケーター':(lw_gour_article_url($url)||lw_gour_list_url($url)?'グルマンディーズ':(lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy')))];
         if($action==='list'){
             if($official)$result=array_merge($result,$officialList??lw_official_list($html,$official));
