@@ -320,7 +320,9 @@ function lw_hat_list_url(string $url): bool {
 function lw_hat_image_url(string $url): string {
     $p=parse_url($url);
     if(($p['scheme']??'')!=='https'||($p['host']??'')!=='www.hatakeyamashoji.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port'])||isset($p['query'])||isset($p['fragment']))return '';
-    return preg_match('~^/wp/wp-content/uploads/(?:[0-9]{4}/[0-9]{2}/)?[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$~iD',$p['path']??'')?$url:'';
+    $path=rawurldecode($p['path']??'');
+    if(!preg_match('~^(/wp/wp-content/uploads/(?:[0-9]{4}/[0-9]{2}/)?)([\p{L}\p{M}\p{N}_-]+\.(?:jpe?g|png|webp))$~iuD',$path,$parts))return '';
+    return 'https://www.hatakeyamashoji.jp'.$parts[1].rawurlencode($parts[2]);
 }
 function lw_hat_list(string $html,int $page): array {
     $x=lw_doc($html);$boxes=$x->query('//div[contains(concat(" ",normalize-space(@class)," ")," top_news_box ")]//div[contains(concat(" ",normalize-space(@class)," ")," listbox ")]');
@@ -358,7 +360,7 @@ function lw_hat_discover(string $html,int $page): array {
     $list=lw_hat_list($html,$page);$items=[];$pending=[];$failed=0;
     // The list titles are truncated. Read each article once, with a short shared cache.
     foreach($list['urls'] as $url){
-        $cache=sys_get_temp_dir().'/sph-hat-'.hash('sha256',__DIR__.'|3415|'.$url).'.json';
+        $cache=sys_get_temp_dir().'/sph-hat-'.hash('sha256',__DIR__.'|3553|'.$url).'.json';
         $item=is_file($cache)&&filemtime($cache)>time()-900?json_decode((string)file_get_contents($cache),true):null;
         if(is_array($item)){if($item['products'])$items[]=$item;continue;}
         $pending[$url]=$cache;
@@ -1056,6 +1058,7 @@ try {
     if($sanrio&&$action!=='list'&&!preg_match($fashion?'/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D':'/^sanrio:[a-zA-Z0-9_-]+$/D',$sanrioCode))lw_out(['ok'=>false,'error'=>'公式店の商品コードを確認できません。新着一覧から選び直してください。'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
     $cacheRevision=(lw_skater_article_url($url)||lw_gour_article_url($url))?'3439-api-product-url':(lw_skater_list_url($url)?'3430-utf8-titles':(lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer'));
+    if(lw_hat_list_url($url)||lw_hat_article_url($url))$cacheRevision='3553-hat-image-filenames';
     if(lw_official_source($url)==='takara')$cacheRevision='retailer-takara-photo-2';
     if(lw_official_source($url)==='epoch')$cacheRevision='retailer-epoch-sanrio-1';
     $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|'.$cacheRevision.'|'.$url.'|'.$sanrioCode.'|'.($sanrio?hash('sha256',json_encode($sanrioSettings)):'').'|'.(lw_gour_article_url($url)||lw_skater_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';

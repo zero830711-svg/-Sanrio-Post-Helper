@@ -50,7 +50,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.11.28-3552";
+const APP_VERSION="2026.11.28-3553";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
