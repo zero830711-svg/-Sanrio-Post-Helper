@@ -1,6 +1,6 @@
 # Sanrio Post Helper
 
-**Current app: 2026.10.22-3545**
+[現在の公開版](version.json)
 
 iPhone中心で、過去のX投稿を分析・再利用するためのWebツールです。
 

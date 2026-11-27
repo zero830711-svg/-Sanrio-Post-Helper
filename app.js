@@ -50,7 +50,7 @@ function characterDefForQuery(query){
 }
 
 let trendRangeHours=24;
-const APP_VERSION="2026.10.22-3545";
+const APP_VERSION="2026.11.28-3548";
 let rewriteContextItems=[];
 let archiveFilter="all";
 let archiveView="posts";
@@ -3694,16 +3694,22 @@ $("dataHealth")?.addEventListener("click",e=>{
 async function checkLatestVersion(){
   const status=$("appVersionStatus");
   const btn=$("forceLatest");
+  const currentLabel="アプリ版 "+APP_VERSION;
+  if(status)status.textContent=currentLabel;
+  btn?.classList.remove("update-available");
   try{
     const res=await fetch("./version.json?ts="+Date.now(),{cache:"no-store"});
     if(!res.ok)return;
-    const data=await res.json();
-    const latest=String(data.version||"");
-    if(latest&&latest!==APP_VERSION){
-      if(status)status.textContent="新しい版 "+latest+" があります";
+    const {version:latest}=await res.json();
+    if(typeof latest!=="string"||!/^\d{4}\.\d{2}\.\d{2}-\d+$/.test(latest))return;
+    const [latestDate,latestBuild]=latest.split("-");
+    const [currentDate,currentBuild]=APP_VERSION.split("-");
+    const newer=latestDate>currentDate||(latestDate===currentDate&&Number(latestBuild)>Number(currentBuild));
+    if(newer){
+      if(status)status.textContent=currentLabel+" ／ 新しい版 "+latest+" があります";
       btn?.classList.add("update-available");
-    }else if(status){
-      status.textContent="アプリ版 "+APP_VERSION+"（最新）";
+    }else if(latest===APP_VERSION&&status){
+      status.textContent=currentLabel+"（最新）";
     }
   }catch(e){}
 }
