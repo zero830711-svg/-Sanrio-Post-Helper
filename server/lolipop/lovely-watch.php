@@ -703,6 +703,8 @@ function lw_retailer_sources(): array {
         'epoch'=>['name'=>'エポック社','list'=>'https://epoch.jp/ty/whip/catalog.php','detail'=>'~^https://epoch\.jp/ty/whip/item/w[0-9]{2,4}\.php$~D'],
         'sunstar'=>['name'=>'サンスター文具','list'=>'https://shop.sun-star-st.jp/c/character/sanrio?sort=latest','detail'=>'~^https://shop\.sun-star-st\.jp/c/character/sanrio(?:/[a-z0-9_-]+){0,3}/s[0-9]{5,9}(?:-[a-z0-9]+)?$~Di'],
         'kawada'=>['name'=>'カワダ','list'=>'https://kawadabase.com/shop/product_categories/sanrio','detail'=>'~^https://kawadabase\.com/shop/products/4972825[0-9]{6}$~D'],
+        'gakken'=>['name'=>'学研ステイフル','list'=>'https://www.gakkensf.co.jp/product/a11457/','detail'=>'~^https://www\.gakkensf\.co\.jp/product/[a-z]?[0-9]{5}/$~D'],
+        'bandai_toys'=>['name'=>'バンダイ（玩具・コスメ）','list'=>'https://toy.bandai.co.jp/ja/series/sanrio/item/','detail'=>'~^https://toy\.bandai\.co\.jp/ja/series/sanrio/item/01_[0-9]{1,8}/$~D'],
         'beverly'=>['name'=>'ビバリー','list'=>'https://be-en.co.jp/collections/sanrio-characters','detail'=>'~^https://be-en\.co\.jp/products/[a-z0-9][a-z0-9_-]{1,80}$~D'],
     ];
 }
@@ -721,8 +723,19 @@ function lw_retailer_doc(string $html,string $source): DOMXPath {
     }
     return lw_doc($html);
 }
-function lw_retailer_list(string $html,string $source,bool $mallFallback=false): array {
+function lw_retailer_list(string $html,string $source,bool $mallFallback=false,int $page=1): array {
     $x=lw_retailer_doc($html,$source);$base=lw_retailer_sources()[$source]['list'];$items=[];
+    if($source==='gakken'){
+        $first=lw_retailer_detail($html,$base,$source);
+        $items[$base]=$first;
+        foreach($x->query('//div[contains(@class,"c-article__recommend")]//a[p[@class="ttl"]]') as $a){
+            $url=$a->getAttribute('href');$title=lw_text($x->query('./p[@class="ttl"]',$a)->item(0));
+            if(!preg_match(lw_retailer_sources()[$source]['detail'],$url)||!preg_match('/サンリオ|クロミ|ハローキティ|マイメロ|シナモロール|ポムポムプリン|ポチャッコ/u',$title))continue;
+            $style=$x->query('.//span[@style]',$a)->item(0)?->getAttribute('style')??'';
+            if(preg_match("~url\\('([^']+)'\\)~",$style,$m)&&($image=lw_official_image($m[1])))$items[$url]=lw_official_item($source,$url,$title,'',$image);
+        }
+        return ['items'=>array_values($items),'nextPage'=>null];
+    }
     $paths=[
         'takara'=>'//a[contains(concat(" ",normalize-space(@class)," ")," tt_product2-6 ") and starts-with(@href,"/shop/g/")]',
         'rement'=>'//a[starts-with(@href,"../product/r")][p[@class="name"]]',
@@ -730,6 +743,7 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
         'sunstar'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
         'epoch'=>'//div[@class="item_box"]/div[@class="itemname"]/a[starts-with(@href,"item/w")]',
         'kawada'=>'//div[contains(concat(" ",normalize-space(@class)," ")," Common_ItemList01_Box ")]/a[.//img]',
+        'bandai_toys'=>'//ul[contains(@class,"productLists")]/li/a[.//img]',
         'beverly'=>'//*[@id="product-grid"]//a[starts-with(@href,"/products/")][.//img]',
     ];
     if($mallFallback){
@@ -737,6 +751,19 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
         $paths['takara']='//a[contains(@class,"ItemImageLink_SearchResultItemImageLink")][.//img]';
     }
     foreach($x->query($paths[$source]) as $a){
+        if($source==='bandai_toys'){
+            $href=$a->getAttribute('href');
+            if(!preg_match('~^\.\./item/(01_[0-9]{1,8})/$~D',$href,$m))continue;
+            $title=lw_text($x->query('.//p[@class="ttl"]',$a)->item(0));
+            if(!preg_match('/ハローキティ|クロミ|マイメロ|シナモロール|ポムポムプリン|ポチャッコ|ハンギョドン|HELLO KITTY|KUROMI|Make Up Palette/i',$title)||preg_match('/ランダム|ブラインド|ガシャポン|全[0-9０-９]+種/u',$title))continue;
+            $image=lw_official_image($x->query('.//img[@src]',$a)->item(0)?->getAttribute('src')??'');
+            if(!$image)continue;
+            $url=$base.$m[1].'/';
+            $item=lw_official_item($source,$url,$title,'',$image);
+            $item['schedule']=lw_text($x->query('.//p[@class="date"]',$a)->item(0));
+            $items[$url]=$item;
+            continue;
+        }
         $url=lw_retailer_url($base,$a->getAttribute('href'));
         if($mallFallback)$url=explode('?',$url,2)[0];
         if(!preg_match(lw_retailer_sources()[$source]['detail'],$url))continue;
@@ -764,6 +791,10 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
 
         $items[$url]=$item;if(count($items)>=24)break;
     }
+    if($source==='bandai_toys'&&$page<20){
+        $next=$x->query('//a[@class="prev_next" and contains(., "次へ")]')->length?$page+1:null;
+        return ['items'=>array_values($items),'nextPage'=>$next];
+    }
     if(!$items)throw new RuntimeException('公式の商品一覧から写真付きの候補を取得できませんでした。');
     return ['items'=>array_values($items),'nextPage'=>null];
 }
@@ -779,6 +810,8 @@ function lw_retailer_detail(string $html,string $url,string $source): array {
     if($source==='sunstar')$title=preg_replace('/\s*\|\s*サンスター文具公式オンラインストア$/u','',$title);
     if($source==='rement')$title=lw_text($x->query('//h4')->item(0));
     if($source==='shobido')$title=lw_meta($x,'property','og:description')?preg_split('/。/u',lw_meta($x,'property','og:description'),2)[0]:$title;
+    if($source==='gakken')$title=lw_text($x->query('//h1[@class="c-article__title"]')->item(0));
+    if($source==='bandai_toys')$title=lw_text($x->query('//div[@class="item_title"]/p')->item(0));
     if(!$title)throw new RuntimeException('公式の商品名を確認できませんでした。');
     $thumbnail=lw_official_image(lw_meta($x,'property','og:image'));
     if(!$thumbnail&&$source==='beverly'){
@@ -806,7 +839,25 @@ function lw_retailer_detail(string $html,string $url,string $source): array {
         }
         $thumbnail=$images[0]??'';
     }
+    if(in_array($source,['gakken','bandai_toys'],true)){
+        $scope=$source==='gakken'?'//div[@class="gallery__for"]':'//ul[contains(@class,"main_itemImgGallery")]';
+        foreach($x->query($scope.'//img[@src]') as $node){
+            $raw=$node->getAttribute('src');
+            if($image=lw_official_image($raw))$images[]=$image;
+        }
+        $thumbnail=$images[0]??'';
+    }
     $facts=['商品名'=>$title];$ids=[];
+    if($source==='gakken'){
+        $facts['型番']=strtoupper(basename($url));
+        if($facts['型番']==='A11457'&&str_contains($title,'マイメロ＆クロミのキラキラセット'))$ids[]='4905426716909';
+        $description=lw_text($x->query('//p[@class="c-article__txt"]')->item(0));
+        if($description)$facts['商品説明']=$description;
+    }
+    if($source==='bandai_toys'){
+        $release=lw_text($x->query('//p[@class="price_date"]')->item(0));
+        if(preg_match('/20[0-9]{2}年[0-9]{1,2}月(?:[0-9]{1,2}日|上旬|中旬|下旬)?/u',$release,$m))$facts['発売時期']=$m[0];
+    }
     if($source==='kawada'){
         $ids[]=basename($url);
         $model=lw_text($x->query('//p[@class="Code"]')->item(0));
@@ -900,7 +951,7 @@ function lw_retailer_enriched(string $html,string $url,string $source): array {
     $item=lw_retailer_detail($html,$url,$source);$jan=$item['jan'];
     if(!$jan)return $item;
     $settings=lw_settings();
-    $shop=['takara'=>'','smallplanet'=>'sp-rendez-vous','rement'=>'','shobido'=>'cocobeaumo','epoch'=>'','sunstar'=>'','kawada'=>'','beverly'=>''][$source];
+    $shop=['takara'=>'','smallplanet'=>'sp-rendez-vous','rement'=>'','shobido'=>'cocobeaumo','epoch'=>'','sunstar'=>'','kawada'=>'','beverly'=>'','gakken'=>'','bandai_toys'=>''][$source];
     $item['retailerStatus']='同じJANの商品リンクを確認できませんでした。検索から確認できます。';
     if($settings){
         try{
@@ -930,12 +981,18 @@ function lw_official_sources(): array {
 }
 function lw_official_source(string $url): string {
     if(isset(lw_epoch_announcements()[$url]))return 'epoch';
+    if(preg_match('~^https://toy\.bandai\.co\.jp/ja/series/sanrio/item/\?p=([2-9]|1[0-9]|20)&sort_key=&sort=&q=$~D',$url))return 'bandai_toys';
     foreach(lw_official_sources() as $key=>$source){
-        if($url===$source['list']||$url===($source['fallback']??null)||preg_match($source['detail'],$url))return $key;
+        if($url===($source['list']??null)||$url===($source['fallback']??null)||preg_match($source['detail'],$url))return $key;
     }
     return '';
 }
 function lw_official_image(string $url): string {
+    if(preg_match('~^https://(?:assets-toy\.bandai\.co\.jp/toy/ja/product/20[0-9]{2}/[0-9]{2}/[a-z0-9]+/[a-z0-9_-]+|bandai-a\.akamaihd\.net/bc/img/model/xl/[0-9]+_[0-9]+)\.(?:jpe?g|png|webp)$~Di',$url))return $url;
+    if(str_starts_with($url,'https://www.gakkensf.co.jp/wps/wp-content/uploads/')){
+        $url=preg_replace_callback('~[^\x21-\x7E]+~u',static fn(array $m):string=>rawurlencode($m[0]),$url)??'';
+    }
+    if(preg_match('~^https://www\.gakkensf\.co\.jp/wps/wp-content/uploads/20[0-9]{2}/[0-9]{2}/(?:[a-z0-9_.-]|%(?:[89a-f][0-9a-f]|20))+\.(?:jpe?g|png|webp)$~Di',$url))return $url;
     if(preg_match('~^https://d2w53g1q050m78\.cloudfront\.net/kawadabasecom/ec_assets/[a-f0-9]{40}-original\.(?:jpe?g|png|webp)?(?:\?[0-9]{1,15})?$~Di',$url))return $url;
     if(preg_match('~^https://be-en\.co\.jp/cdn/shop/files/[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)(?:\?v=[0-9]{1,20}(?:&width=[0-9]{1,4})?)?$~Di',$url))return $url;
     if(preg_match('~^https://www\.sanrio\.co\.jp/wp-content/uploads/2026/(?:05|09)/[a-z0-9_-]*epoch-whipple-[a-z0-9_-]+\.(?:jpe?g|png|webp)$~Di',$url))return $url;
@@ -1046,12 +1103,13 @@ try {
         $page=$cron?1:filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
         if($page===false||$page<1||$page>20)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
         $source=(string)($_GET['source']??'lovely');if(!in_array($source,array_merge(['lovely','hatakeyama','gourmandise','skater','sanrio','fashion'],array_keys(array_filter(lw_official_sources(),static fn(array $config):bool=>isset($config['list'])))),true))lw_out(['ok'=>false,'error'=>'情報元が不正です。'],400);
-        if(isset(lw_official_sources()[$source])&&$page!==1)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
+        if($source!=='bandai_toys'&&isset(lw_official_sources()[$source])&&$page!==1)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
         $url=lw_official_sources()[$source]['list']??($source==='fashion'?'https://www.rakuten.co.jp/?fashion-page='.$page:($source==='sanrio'?'https://www.rakuten.co.jp/sanrio/?page='.$page:($source==='skater'?lw_skater_page_url($page):($source==='gourmandise'?lw_gour_page_url($page):($source==='hatakeyama'?lw_hat_page_url($page):lw_page_url($page))))));
     }
     elseif ($action==='detail'||$action==='image'||$action==='affiliate') {$url=(($_GET['source']??'')==='fashion'?lw_fashion_url((string)($_GET['url']??'')):'')?:lw_sanrio_url((string)($_GET['url']??''))?:lw_article_url((string)($_GET['url']??''));if(!$url)lw_out(['ok'=>false,'error'=>'記事URLが不正です。'],400);}
     else lw_out(['ok'=>false,'error'=>'Unknown action'],400);
     $fashion=($_GET['source']??'')==='fashion';
+    if($action==='list'&&$source==='bandai_toys'&&$page>1)$url.='?p='.$page.'&sort_key=&sort=&q=';
     $sanrio=$fashion||($action==='list'&&$source==='sanrio')||lw_sanrio_url($url)!=='';
     $sanrioSettings=$sanrio?lw_settings():[];$sanrioCode=$sanrio&&$action!=='list'?(string)($_GET['code']??''):'';
     if($sanrio&&!$sanrioSettings)throw new RuntimeException('サンリオ公式店の取得には「使い方・API設定」で楽天API設定を保存してください。既存の下書きは保持しています。');
@@ -1081,6 +1139,8 @@ try {
             catch(RuntimeException $e){
                 $officialList=lw_retailer_list(lw_fetch(lw_retailer_sources()['takara']['fallback']),'takara',true);
             }
+        }elseif($action==='list'&&$official==='bandai_toys'){
+            $officialList=lw_retailer_list(lw_fetch($url),'bandai_toys',false,$page);
         }elseif($action==='list'&&$official==='epoch')$officialList=lw_epoch_list($url);
         else $html=lw_fetch($url,$official==='beverly'?4000000:1500000);
         $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>$official?lw_official_sources()[$official]['name']:(lw_skater_article_url($url)||lw_skater_list_url($url)?'スケーター':(lw_gour_article_url($url)||lw_gour_list_url($url)?'グルマンディーズ':(lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy')))];
