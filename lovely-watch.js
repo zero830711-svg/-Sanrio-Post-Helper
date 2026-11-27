@@ -264,7 +264,7 @@ const lovelyWatch = (()=>{
   }
   const manufacturerSources={takara:'タカラトミー',smallplanet:'スモール・プラネット',rement:'リーメント',shobido:'粧美堂',epoch:'エポック社',sunstar:'サンスター文具',kawada:'カワダ',beverly:'ビバリー'};
   const sourceNames={lovely:'ブログ',hatakeyama:'畑山商事',gourmandise:'グルマンディーズ',skater:'スケーター',nakajima:'ナカジママーケット',takarajima:'宝島チャンネル',...manufacturerSources,sanrio:'サンリオ公式 楽天市場店',fashion:'楽天ファッション',news:'公式ニュース',overseas:'海外公式'};
-  const discoverySources=Object.keys(sourceNames).filter(key=>!['fashion','news','overseas'].includes(key));
+  const discoverySources=Object.keys(sourceNames).filter(key=>!['fashion','news','overseas','smallplanet'].includes(key));
   const sourceOf=item=>item?.domesticNews?'news':item?.overseas?'overseas':Object.keys(sourceNames).find(key=>sourceNames[key]===item?.source)||'lovely';
   const sourceName=source=>sourceNames[source]||source;
   const fromManufacturer=item=>Object.hasOwn(manufacturerSources,sourceOf(item));
@@ -277,12 +277,12 @@ const lovelyWatch = (()=>{
     const errors=[],partial=[],warnings=[],observedAt=discoveryBatchAt||new Date().toISOString();
     await Promise.all(Object.entries(pages).map(async([source,page])=>{
       try{
-        const data=await request('list','',null,page,source);warnings.push(...(data.warnings||[]));domesticCandidates.ingest(data.items||[]);const merged=new Map((replace&&!data.partial?rows.filter(item=>sourceOf(item)!==source):rows).map(item=>[item.url,item]));
+        const data=await request('list','',null,page,source);warnings.push(...(data.warnings||[]));const items=(data.items||[]).filter(item=>sourceOf(item)!=='smallplanet');domesticCandidates.ingest(items);const merged=new Map((replace&&!data.partial?rows.filter(item=>sourceOf(item)!==source):rows).map(item=>[item.url,item]));
         const saved=state();saved.firstSeen=saved.firstSeen||{};
         saved.sourceChecks=saved.sourceChecks||{};
         const previous=saved.sourceChecks[source]||{},recent=new Set(replace?[]:previous.recentUrls||[]);
         const eligible=batchEligible[source]===true;
-        for(const [index,item] of (data.items||[]).entries()){merged.set(item.url,{...item,discoveryOrder:(page-1)*1000+index});if(!saved.firstSeen[item.url]){if(eligible)recent.add(item.url);saved.firstSeen[item.url]=item.firstSeenAt||observedAt;}}
+        for(const [index,item] of items.entries()){merged.set(item.url,{...item,discoveryOrder:(page-1)*1000+index});if(!saved.firstSeen[item.url]){if(eligible)recent.add(item.url);saved.firstSeen[item.url]=item.firstSeenAt||observedAt;}}
         saved.sourceChecks[source]={initialized:previous.initialized===true||!data.partial,checkedAt:observedAt,recentUrls:[...recent].slice(-3000)};
         saved.firstSeen=Object.fromEntries(Object.entries(saved.firstSeen).slice(-3000));try{localStorage.setItem(KEY,JSON.stringify(saved));}catch(_){}
         rows=[...merged.values()];if(data.partial){nextPages[source]=page;partial.push(sourceName(source));}else if(data.nextPage)nextPages[source]=data.nextPage;else delete nextPages[source];

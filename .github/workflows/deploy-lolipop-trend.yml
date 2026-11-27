@@ -171,7 +171,7 @@ jobs:
             echo "$source: ".count($data["items"])." candidates, detail and image verified\n";
           }
           exit($failed?1:0);
-          ' "$verify_tmp/config.php" ${{ contains(github.event.head_commit.message, '[verify-kawada-beverly]') && 'kawada beverly' || contains(github.event.head_commit.message, '[verify-epoch-sunstar]') && 'epoch sunstar' || 'takara smallplanet rement shobido' }}
+          ' "$verify_tmp/config.php" ${{ contains(github.event.head_commit.message, '[verify-kawada-beverly]') && 'kawada beverly' || contains(github.event.head_commit.message, '[verify-epoch-sunstar]') && 'epoch sunstar' || 'takara rement shobido' }}
 
       - name: Verify seven new news sources
         if: contains(github.event.head_commit.message, '[verify-seven]')

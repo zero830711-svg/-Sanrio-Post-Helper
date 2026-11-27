@@ -695,7 +695,7 @@ function lw_epoch_list(string $url): array {
 function lw_retailer_sources(): array {
     return [
         'takara'=>['name'=>'タカラトミー','list'=>'https://takaratomymall.jp/shop/c/cSanrioCh/','fallback'=>'https://store.shopping.yahoo.co.jp/takaratomymall/search.html?p=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA','detail'=>'~^https://(?:takaratomymall\.jp/shop/g/g[0-9]{13}/|store\.shopping\.yahoo\.co\.jp/takaratomymall/[0-9]{13}\.html)$~D'],
-        'smallplanet'=>['name'=>'スモール・プラネット','list'=>'https://www.smallplanet-online.com/view/search?search_keyword=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA&sort=order','detail'=>'~^https://www\.smallplanet-online\.com/view/item/[0-9]{12}$~D'],
+        'smallplanet'=>['name'=>'スモール・プラネット','detail'=>'~^https://www\.smallplanet-online\.com/view/item/[0-9]{12}$~D'],
         'rement'=>['name'=>'リーメント','list'=>'https://www.re-ment.co.jp/product/brand.php?c=sanrio','detail'=>'~^https://www\.re-ment\.co\.jp/product/r[0-9]{4,8}$~D'],
         'shobido'=>['name'=>'粧美堂','list'=>'https://www.sho-bionlinestore.jp/c/character/sanrio?sort=latest','detail'=>'~^https://www\.sho-bionlinestore\.jp/c/character/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+){0,3}/(?i:[a-z]{1,5}[0-9]{4,8}(?:[-_][a-z0-9]+)?)$~D'],
         'epoch'=>['name'=>'エポック社','list'=>'https://epoch.jp/ty/whip/catalog.php','detail'=>'~^https://epoch\.jp/ty/whip/item/w[0-9]{2,4}\.php$~D'],
@@ -723,7 +723,6 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
     $x=lw_retailer_doc($html,$source);$base=lw_retailer_sources()[$source]['list'];$items=[];
     $paths=[
         'takara'=>'//a[contains(concat(" ",normalize-space(@class)," ")," tt_product2-6 ") and starts-with(@href,"/shop/g/")]',
-        'smallplanet'=>'//div[contains(concat(" ",normalize-space(@class)," ")," item-list-image ")]/a[img]',
         'rement'=>'//a[starts-with(@href,"../product/r")][p[@class="name"]]',
         'shobido'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
         'sunstar'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
@@ -751,7 +750,7 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
         }
         $title=$source==='rement'?lw_text($x->query('./p[@class="name"]',$a)->item(0)):($shopList||$source==='epoch'?lw_text($a):$name);
         if($title===''||!$thumbnail)continue;
-        if(in_array($source,['smallplanet','takara'],true)&&!preg_match('/サンリオ|さんりお|キティ|クロミ|マイメロ|シナモ|ポムポムプリン|ポチャッコ|ハンギョドン|タキシードサム|ウサハナ|はなまるおばけ|シュガーバニーズ|けろけろけろっぴ|ぐでたま|リトルツインスターズ/u',$title))continue;
+        if($source==='takara'&&!preg_match('/サンリオ|さんりお|キティ|クロミ|マイメロ|シナモ|ポムポムプリン|ポチャッコ|ハンギョドン|タキシードサム|ウサハナ|はなまるおばけ|シュガーバニーズ|けろけろけろっぴ|ぐでたま|リトルツインスターズ/u',$title))continue;
         $item=lw_official_item($source,$url,$title,'',$thumbnail);
         if($source==='takara'&&preg_match('~/(?:g)?(4[59][0-9]{11})(?:/|\.html)$~D',$url,$m))$item['jan']=$m[1];
         if($source==='kawada')$item['jan']=basename($url);
@@ -1044,7 +1043,7 @@ try {
     if ($action==='list') {
         $page=$cron?1:filter_var($_GET['page']??1,FILTER_VALIDATE_INT);
         if($page===false||$page<1||$page>20)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
-        $source=(string)($_GET['source']??'lovely');if(!in_array($source,array_merge(['lovely','hatakeyama','gourmandise','skater','sanrio','fashion'],array_keys(lw_official_sources())),true))lw_out(['ok'=>false,'error'=>'情報元が不正です。'],400);
+        $source=(string)($_GET['source']??'lovely');if(!in_array($source,array_merge(['lovely','hatakeyama','gourmandise','skater','sanrio','fashion'],array_keys(array_filter(lw_official_sources(),static fn(array $config):bool=>isset($config['list'])))),true))lw_out(['ok'=>false,'error'=>'情報元が不正です。'],400);
         if(isset(lw_official_sources()[$source])&&$page!==1)lw_out(['ok'=>false,'error'=>'ページ番号が不正です。'],400);
         $url=lw_official_sources()[$source]['list']??($source==='fashion'?'https://www.rakuten.co.jp/?fashion-page='.$page:($source==='sanrio'?'https://www.rakuten.co.jp/sanrio/?page='.$page:($source==='skater'?lw_skater_page_url($page):($source==='gourmandise'?lw_gour_page_url($page):($source==='hatakeyama'?lw_hat_page_url($page):lw_page_url($page))))));
     }
