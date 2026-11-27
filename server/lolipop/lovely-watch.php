@@ -17,7 +17,7 @@ function lw_doc(string $html): DOMXPath {
 function lw_text(?DOMNode $node): string { return trim(preg_replace('/\s+/u',' ', $node ? $node->textContent : '') ?? ''); }
 function lw_article_url(string $url): string {
     $official=lw_official_source($url);
-    if($official&&preg_match(lw_official_sources()[$official]['detail'],$url))return $url;
+    if(isset(lw_epoch_announcements()[$url])||($official&&preg_match(lw_official_sources()[$official]['detail'],$url)))return $url;
     $hat=lw_hat_article_url($url);if($hat)return $hat;
     $gour=lw_gour_article_url($url);if($gour)return $gour;
     $skater=lw_skater_article_url($url);if($skater)return $skater;
@@ -665,6 +665,33 @@ function lw_fashion_data(array $data,array $settings,int $page,string $expectedU
     return ['items'=>array_values($items),'nextPage'=>$items&&$pages!==false&&$page<min(20,$pages)?$page+1:null,'page'=>$page,'order'=>'API更新順（発売順ではありません）'];
 }
 
+function lw_epoch_announcements(): array {
+    return [
+        'https://www.sanrio.co.jp/news/goods/mx-epoch-whipple-20260925/'=>'2026-09-25',
+        'https://www.sanrio.co.jp/news/goods/pn-epoch-whipple-20260514/'=>'2026-05-14',
+    ];
+}
+function lw_epoch_announcement(string $html,string $url): array {
+    $doc=lw_doc($html);
+    $title=preg_replace('/[｜|]サンリオ$/u','',lw_meta($doc,'property','og:title'));
+    $image=lw_official_image(lw_meta($doc,'property','og:image'));
+    if(!$title||!$image)throw new RuntimeException('サンリオ公式の商品情報を確認できませんでした。');
+    $item=lw_official_item('epoch',$url,$title,lw_epoch_announcements()[$url],$image);
+    $item['productInfo']=['images'=>[$image],'checkedAt'=>gmdate('c')];
+    return $item;
+}
+function lw_epoch_list(string $url): array {
+    try{return lw_retailer_list(lw_fetch($url),'epoch');}
+    catch(RuntimeException $error){
+        $items=[];
+        foreach(array_keys(lw_epoch_announcements()) as $announcement){
+            try{$items[]=lw_epoch_announcement(lw_fetch($announcement),$announcement);}
+            catch(RuntimeException $ignored){}
+        }
+        if(!$items)throw $error;
+        return ['items'=>$items,'nextPage'=>null,'warnings'=>['エポック社公式カタログに接続できなかったため、サンリオ公式の掲載商品を表示しています。']];
+    }
+}
 function lw_retailer_sources(): array {
     return [
         'takara'=>['name'=>'タカラトミー','list'=>'https://takaratomymall.jp/shop/c/cSanrioCh/','fallback'=>'https://store.shopping.yahoo.co.jp/takaratomymall/search.html?p=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA','detail'=>'~^https://(?:takaratomymall\.jp/shop/g/g[0-9]{13}/|store\.shopping\.yahoo\.co\.jp/takaratomymall/[0-9]{13}\.html)$~D'],
@@ -874,12 +901,14 @@ function lw_official_sources(): array {
     ];
 }
 function lw_official_source(string $url): string {
+    if(isset(lw_epoch_announcements()[$url]))return 'epoch';
     foreach(lw_official_sources() as $key=>$source){
         if($url===$source['list']||$url===($source['fallback']??null)||preg_match($source['detail'],$url))return $key;
     }
     return '';
 }
 function lw_official_image(string $url): string {
+    if(preg_match('~^https://www\.sanrio\.co\.jp/wp-content/uploads/2026/(?:05|09)/[a-z0-9_-]*epoch-whipple-[a-z0-9_-]+\.(?:jpe?g|png|webp)$~Di',$url))return $url;
     if(preg_match('~^https://epoch\.jp/ty/whip/img/catalog/item/(?:box-|img-)?w[0-9]{2,4}\.(?:jpe?g|png|webp)$~Di',$url))return $url;
     if(preg_match('~^https://item-shopping\.c\.yimg\.jp/i/[jn]/takaratomymall_[0-9]{13}(?:_[a-z0-9]+){0,3}(?:\?resolution=[1-3]x)?$~Di',$url))return $url;
     if(preg_match('~^https://(?:takaratomymall\.jp/img/goods/[A-Z0-9]/[0-9]{13}_[a-z0-9]+|www\.re-ment\.co\.jp/data/photo/product/t2?/[0-9]+|makeshop-multi-images\.akamaized\.net/smpweb/(?:itemimages/[0-9]{12}_[a-z0-9_-]+|shopimages/[0-9]{2}/[0-9]{2}/[0-9]+_[0-9]{12})|(?:cocobeaumo|sunstarst)\.itembox\.cloud/product/[0-9]{3}/[0-9]{12}/[0-9]{12}-[0-9]+)\.(?:jpe?g|png|webp)(?:\?[a-z0-9_=&-]+)?$~Di',$url))return $url;
@@ -916,6 +945,7 @@ function lw_official_list(string $html,string $source): array {
     return ['items'=>array_values($items),'nextPage'=>null];
 }
 function lw_official_detail(string $html,string $url,string $source): array {
+    if(isset(lw_epoch_announcements()[$url]))return lw_epoch_announcement($html,$url);
     if(isset(lw_retailer_sources()[$source]))return lw_retailer_enriched($html,$url,$source);
     $x=lw_doc($html);
     $title=lw_meta($x,'property','og:title');
@@ -999,6 +1029,7 @@ try {
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
     $cacheRevision=(lw_skater_article_url($url)||lw_gour_article_url($url))?'3439-api-product-url':(lw_skater_list_url($url)?'3430-utf8-titles':(lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer'));
     if(lw_official_source($url)==='takara')$cacheRevision='retailer-takara-photo-2';
+    if(lw_official_source($url)==='epoch')$cacheRevision='retailer-epoch-sanrio-1';
     $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|'.$cacheRevision.'|'.$url.'|'.$sanrioCode.'|'.($sanrio?hash('sha256',json_encode($sanrioSettings)):'').'|'.(lw_gour_article_url($url)||lw_skater_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
     $force=$action==='detail' && ($_GET['refresh']??'')==='1';
@@ -1013,16 +1044,17 @@ try {
             $result=array_merge(['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>'サンリオ公式 楽天市場店'],lw_sanrio_data(lw_gour_search('',$sanrioSettings,'sanrio',$action==='list'?$page:1,$sanrioCode),$sanrioSettings,$action==='list'?$page:1,$action==='list'?'':$url,$sanrioCode));
         }else{
         $official=lw_official_source($url);
-        $takaraList=null;
+        $officialList=null;
         if($action==='list'&&$official==='takara'){
-            try{$takaraList=lw_retailer_list(lw_fetch($url),'takara');}
+            try{$officialList=lw_retailer_list(lw_fetch($url),'takara');}
             catch(RuntimeException $e){
-                $takaraList=lw_retailer_list(lw_fetch(lw_retailer_sources()['takara']['fallback']),'takara',true);
+                $officialList=lw_retailer_list(lw_fetch(lw_retailer_sources()['takara']['fallback']),'takara',true);
             }
-        }else $html=lw_fetch($url);
+        }elseif($action==='list'&&$official==='epoch')$officialList=lw_epoch_list($url);
+        else $html=lw_fetch($url);
         $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>$official?lw_official_sources()[$official]['name']:(lw_skater_article_url($url)||lw_skater_list_url($url)?'スケーター':(lw_gour_article_url($url)||lw_gour_list_url($url)?'グルマンディーズ':(lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy')))];
         if($action==='list'){
-            if($official)$result=array_merge($result,$takaraList??lw_official_list($html,$official));
+            if($official)$result=array_merge($result,$officialList??lw_official_list($html,$official));
             elseif($source==='hatakeyama')$result=array_merge($result,lw_hat_discover($html,$page));
             elseif($source==='gourmandise')$result=array_merge($result,lw_gour_list($html,$page));
             elseif($source==='skater')$result=array_merge($result,lw_skater_list($html,$page));
