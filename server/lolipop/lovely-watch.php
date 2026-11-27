@@ -728,6 +728,12 @@ function lw_retailer_detail(string $html,string $url,string $source): array {
     if($source==='shobido')$title=lw_meta($x,'property','og:description')?preg_split('/。/u',lw_meta($x,'property','og:description'),2)[0]:$title;
     if(!$title)throw new RuntimeException('公式の商品名を確認できませんでした。');
     $thumbnail=lw_official_image(lw_meta($x,'property','og:image'));
+    if(!$thumbnail&&$source==='takara'&&preg_match('~^https://store\.shopping\.yahoo\.co\.jp/takaratomymall/([0-9]{13})\.html$~D',$url,$m)){
+        foreach($x->query('//img[@src]') as $node){
+            $image=lw_official_image($node->getAttribute('src'));
+            if($image&&preg_match('~/takaratomymall_'.$m[1].'(?:_|\?|$)~D',$image)){$thumbnail=$image;break;}
+        }
+    }
     $images=$thumbnail?[$thumbnail]:[];
     if($source==='smallplanet'){
         foreach($x->query('//img[@class="item-image"]') as $node){
@@ -951,6 +957,7 @@ try {
     if($sanrio&&$action!=='list'&&!preg_match($fashion?'/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D':'/^sanrio:[a-zA-Z0-9_-]+$/D',$sanrioCode))lw_out(['ok'=>false,'error'=>'公式店の商品コードを確認できません。新着一覧から選び直してください。'],400);
     // Shared public discovery cache lives outside the web directory. At most one fetch per URL per 15 minutes.
     $cacheRevision=(lw_skater_article_url($url)||lw_gour_article_url($url))?'3439-api-product-url':(lw_skater_list_url($url)?'3430-utf8-titles':(lw_gour_list_url($url)?'3422-thumbnails':'3420-manufacturer'));
+    if(lw_official_source($url)==='takara')$cacheRevision='retailer-takara-photo-2';
     $cache=sys_get_temp_dir().'/sph-lw-'.hash('sha256',__DIR__.'|'.$cacheRevision.'|'.$url.'|'.$sanrioCode.'|'.($sanrio?hash('sha256',json_encode($sanrioSettings)):'').'|'.(lw_gour_article_url($url)||lw_skater_article_url($url)?hash('sha256',json_encode(lw_settings())):'')).'.json';
     $lock=fopen($cache.'.lock','c');if(!$lock || !flock($lock,LOCK_EX))throw new RuntimeException('キャッシュを準備できませんでした。');
     $force=$action==='detail' && ($_GET['refresh']??'')==='1';
