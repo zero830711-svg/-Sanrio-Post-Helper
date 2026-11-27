@@ -43,3 +43,9 @@ lw_check(lw_retailer_rakuten_match(['items'=>[$bundle]],$jan,'official')===null)
 $unconfirmed=array_replace($rakutenItem,['itemCode'=>'official:toy','itemUrl'=>'https://item.rakuten.co.jp/official/toy/','itemCaption'=>'ほかの商品もあります '.$jan]);
 lw_check(lw_retailer_rakuten_match(['items'=>[$unconfirmed]],$jan,'official')===null);
 echo "JAN identity and bundle rejection passed\n";
+$takaraPage='<a class="ItemImageLink_SearchResultItemImageLink__link" href="https://store.shopping.yahoo.co.jp/takaratomymall/4904810959199.html?sc_i=fixture"><span><img alt="ぷにるんず サンリオキャラクターズ" src="https://item-shopping.c.yimg.jp/i/j/takaratomymall_4904810959199?resolution=2x"></span></a>';
+$takaraItems=lw_retailer_list($takaraPage,'takara',true)['items'];
+lw_check(count($takaraItems)===1&&$takaraItems[0]['url']==='https://store.shopping.yahoo.co.jp/takaratomymall/4904810959199.html');
+lw_check($takaraItems[0]['jan']===$jan);
+lw_check(lw_official_image('https://item-shopping.c.yimg.jp/i/n/takaratomymall_4904810959199_i_20250723174904')!=='');
+echo "Takara storefront canonical product URLs and dated photos passed\n";

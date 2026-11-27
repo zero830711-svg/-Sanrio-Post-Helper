@@ -834,7 +834,7 @@ function lw_official_source(string $url): string {
     return '';
 }
 function lw_official_image(string $url): string {
-    if(preg_match('~^https://item-shopping\.c\.yimg\.jp/i/[jn]/takaratomymall_[0-9]{13}(?:_[a-z0-9]+)?(?:\?resolution=[1-3]x)?$~Di',$url))return $url;
+    if(preg_match('~^https://item-shopping\.c\.yimg\.jp/i/[jn]/takaratomymall_[0-9]{13}(?:_[a-z0-9]+){0,3}(?:\?resolution=[1-3]x)?$~Di',$url))return $url;
     if(preg_match('~^https://(?:takaratomymall\.jp/img/goods/[A-Z0-9]/[0-9]{13}_[a-z0-9]+|www\.re-ment\.co\.jp/data/photo/product/t2?/[0-9]+|makeshop-multi-images\.akamaized\.net/smpweb/(?:itemimages/[0-9]{12}_[a-z0-9_-]+|shopimages/[0-9]{2}/[0-9]{2}/[0-9]+_[0-9]{12})|cocobeaumo\.itembox\.cloud/product/[0-9]{3}/[0-9]{12}/[0-9]{12}-[0-9]+)\.(?:jpe?g|png|webp)(?:\?[a-z0-9_=&-]+)?$~Di',$url))return $url;
     return preg_match('~^https://makeshop-multi-images\.akamaized\.net/(?:tkjstore|nakabc01)/itemimages/[0-9]+_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$~Di',$url)?$url:'';
 }
