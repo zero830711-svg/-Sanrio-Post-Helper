@@ -156,7 +156,7 @@ jobs:
             [$status,$raw]=$request(["action"=>"list","source"=>$source]);
             $data=json_decode((string)$raw,true);
             if($status!==200||empty($data["items"][0]["thumbnail"])){
-              $failed=true;echo "$source list failed (HTTP $status)\n";continue;
+              $failed=true;echo "$source list failed (HTTP $status): ".($data["error"]??"")."\n";continue;
             }
             $first=$data["items"][0];
             [$detailStatus,$detailRaw]=$request(["action"=>"detail","url"=>$first["url"]]);

@@ -189,7 +189,10 @@ function lw_fetch(string $url,int $limit=1500000,bool $image=false): string {
     $ch=curl_init($url); $body='';
     curl_setopt_array($ch,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>8,CURLOPT_TIMEOUT=>18,CURLOPT_USERAGENT=>'SanrioPostHelper/3389 (personal product discovery)',CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_WRITEFUNCTION=>function($ch,$data) use (&$body,$limit){ if(strlen($body)+strlen($data)>$limit)return 0; $body.=$data;return strlen($data); }]);
     $ok=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
-    if ($ok===false || $status!==200) throw new RuntimeException('情報元に接続できませんでした。時間を置いて再試行してください。');
+    if ($ok===false || $status!==200) {
+        $detail=lw_official_source($url)==='takara'&&$status?'（HTTP '.$status.'）':'';
+        throw new RuntimeException('情報元に接続できませんでした'.$detail.'。時間を置いて再試行してください。');
+    }
     return $body;
 }
 function lw_settings_path(): string { return __DIR__.'/.rakuten-settings.php'; }
@@ -662,7 +665,7 @@ function lw_fashion_data(array $data,array $settings,int $page,string $expectedU
 
 function lw_retailer_sources(): array {
     return [
-        'takara'=>['name'=>'タカラトミー','list'=>'https://takaratomymall.jp/shop/c/cSanrioCh/','detail'=>'~^https://takaratomymall\.jp/shop/g/g[0-9]{13}/$~D'],
+        'takara'=>['name'=>'タカラトミー','list'=>'https://takaratomymall.jp/shop/c/cSanrioCh/','fallback'=>'https://takaratomymall.jp/shop/c/cSanrioCh_srd/','detail'=>'~^https://takaratomymall\.jp/shop/g/g[0-9]{13}/$~D'],
         'smallplanet'=>['name'=>'スモール・プラネット','list'=>'https://www.smallplanet-online.com/view/search?search_keyword=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA&sort=order','detail'=>'~^https://www\.smallplanet-online\.com/view/item/[0-9]{12}$~D'],
         'rement'=>['name'=>'リーメント','list'=>'https://www.re-ment.co.jp/product/brand.php?c=sanrio','detail'=>'~^https://www\.re-ment\.co\.jp/product/r[0-9]{4,8}$~D'],
         'shobido'=>['name'=>'粧美堂','list'=>'https://www.sho-bionlinestore.jp/c/character/sanrio?sort=latest','detail'=>'~^https://www\.sho-bionlinestore\.jp/c/character/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+){0,3}/(?i:[a-z]{1,5}[0-9]{4,8}(?:[-_][a-z0-9]+)?)$~D'],
@@ -818,7 +821,7 @@ function lw_official_sources(): array {
 }
 function lw_official_source(string $url): string {
     foreach(lw_official_sources() as $key=>$source){
-        if($url===$source['list']||preg_match($source['detail'],$url))return $key;
+        if($url===$source['list']||$url===($source['fallback']??null)||preg_match($source['detail'],$url))return $key;
     }
     return '';
 }
@@ -952,11 +955,17 @@ try {
         }elseif($sanrio){
             $result=array_merge(['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>'サンリオ公式 楽天市場店'],lw_sanrio_data(lw_gour_search('',$sanrioSettings,'sanrio',$action==='list'?$page:1,$sanrioCode),$sanrioSettings,$action==='list'?$page:1,$action==='list'?'':$url,$sanrioCode));
         }else{
-        $html=lw_fetch($url);
         $official=lw_official_source($url);
+        $takaraList=null;
+        if($action==='list'&&$official==='takara'){
+            try{$takaraList=lw_retailer_list(lw_fetch($url),'takara');}
+            catch(RuntimeException $e){
+                $takaraList=lw_retailer_list(lw_fetch(lw_retailer_sources()['takara']['fallback']),'takara');
+            }
+        }else $html=lw_fetch($url);
         $result=['ok'=>true,'fetchedAt'=>gmdate('c'),'source'=>$official?lw_official_sources()[$official]['name']:(lw_skater_article_url($url)||lw_skater_list_url($url)?'スケーター':(lw_gour_article_url($url)||lw_gour_list_url($url)?'グルマンディーズ':(lw_hat_article_url($url)||lw_hat_list_url($url)?'畑山商事':'Lovely Fancy')))];
         if($action==='list'){
-            if($official)$result=array_merge($result,lw_official_list($html,$official));
+            if($official)$result=array_merge($result,$takaraList??lw_official_list($html,$official));
             elseif($source==='hatakeyama')$result=array_merge($result,lw_hat_discover($html,$page));
             elseif($source==='gourmandise')$result=array_merge($result,lw_gour_list($html,$page));
             elseif($source==='skater')$result=array_merge($result,lw_skater_list($html,$page));
