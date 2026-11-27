@@ -697,6 +697,7 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false):
     }
     foreach($x->query($paths[$source]) as $a){
         $url=lw_retailer_url($base,$a->getAttribute('href'));
+        if($mallFallback)$url=explode('?',$url,2)[0];
         if(!preg_match(lw_retailer_sources()[$source]['detail'],$url))continue;
         $imageScope=$source==='shobido'?$a->parentNode->parentNode->parentNode->parentNode:$a;
         $image=$x->query('.//img[@data-original or @data-src or @src]',$imageScope);
