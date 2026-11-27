@@ -67,15 +67,15 @@ function am_send_image(string $url):void{
  }
  header('Content-Type: '.$image['mime']);echo $body;exit;
 }
-function am_results(array $data):array{
+function am_results(array $data,bool $withEans=false):array{
  $out=[];foreach(array_slice($data['searchResult']['items']??[],0,10) as $row){
   $title=$row['itemInfo']['title']['displayValue']??'';$url=$row['detailPageURL']??'';$image=$row['images']['primary']['medium']['url']??'';
   $p=parse_url((string)$url);if(!is_string($title)||!$title||($p['scheme']??'')!=='https'||($p['host']??'')!=='www.amazon.co.jp'||isset($p['user'])||isset($p['pass'])||isset($p['port']))continue;
   $ip=parse_url((string)$image);if(($ip['scheme']??'')!=='https'||!in_array($ip['host']??'',['m.media-amazon.com','images-na.ssl-images-amazon.com','images-fe.ssl-images-amazon.com'],true)||isset($ip['user'])||isset($ip['pass'])||isset($ip['port']))$image='';
-  $out[]=['title'=>mb_substr($title,0,500),'url'=>$url,'image'=>$image];
+  $out[]=['title'=>mb_substr($title,0,500),'url'=>$url,'image'=>$image]+($withEans?['eans'=>array_values(array_unique($row['itemInfo']['externalIds']['eans']['displayValues']??[]))]:[]);
  }return $out;
 }
-function am_search(array $s,string $keywords,?callable $transport=null,int $page=1):array{
+function am_search(array $s,string $keywords,?callable $transport=null,int $page=1,bool $withEans=false):array{
  if($page<1||$page>10)throw new RuntimeException('検索ページは1〜10で指定してください。');
  $s=am_validate($s);$keywords=trim($keywords);if(!$keywords||mb_strlen($keywords)>120)throw new RuntimeException('検索語を120文字以内で入力してください。');
  $call=$transport??'am_http';$tokenPath=am_dir().'/token.php';$fingerprint=hash('sha256',json_encode($s));$cache=$transport?[]:am_read($tokenPath);
@@ -85,12 +85,12 @@ function am_search(array $s,string $keywords,?callable $transport=null,int $page
   $token=$r['data']['access_token']??'';if($r['status']!==200||!is_string($token)||!preg_match('/^[\x21-\x7E]{10,10000}$/D',$token))throw new AmConnectionException($r['status'],true);
   if(!$transport)am_write($tokenPath,['fingerprint'=>$fingerprint,'token'=>$token,'expires'=>time()+min(3600,max(0,(int)($r['data']['expires_in']??0)))]);
  }
- $r=$call('https://creatorsapi.amazon/catalog/v1/searchItems',['keywords'=>$keywords,'searchIndex'=>'All','itemCount'=>10,'itemPage'=>$page,'marketplace'=>'www.amazon.co.jp','partnerTag'=>$s['partnerTag'],'resources'=>['itemInfo.title','images.primary.medium']],['Authorization: Bearer '.$token,'x-marketplace: www.amazon.co.jp']);
+ $r=$call('https://creatorsapi.amazon/catalog/v1/searchItems',['keywords'=>$keywords,'searchIndex'=>'All','itemCount'=>10,'itemPage'=>$page,'marketplace'=>'www.amazon.co.jp','partnerTag'=>$s['partnerTag'],'resources'=>$withEans?['itemInfo.title','itemInfo.externalIds']:['itemInfo.title','images.primary.medium']],['Authorization: Bearer '.$token,'x-marketplace: www.amazon.co.jp']);
  if($r['status']!==200){if(!$transport&&$r['status']===401&&is_file($tokenPath))unlink($tokenPath);throw new AmConnectionException($r['status'],false);}
  if(!isset($r['data']['searchResult'])||!is_array($r['data']['searchResult']))throw new RuntimeException('Amazonの商品検索結果を確認できませんでした。');
  $total=$r['data']['searchResult']['totalResultCount']??null;if(!is_int($total)||$total<0)$total=null;
  $rawCount=count($r['data']['searchResult']['items']??[]);
- return ['connected'=>true,'items'=>am_results($r['data']),'partnerTag'=>$s['partnerTag'],'page'=>$page,'pageSize'=>10,'totalResults'=>$total,'hasMore'=>$page<10&&$rawCount>0&&($total!==null?$total>$page*10:$rawCount>=10)];
+ return ['connected'=>true,'items'=>am_results($r['data'],$withEans),'partnerTag'=>$s['partnerTag'],'page'=>$page,'pageSize'=>10,'totalResults'=>$total,'hasMore'=>$page<10&&$rawCount>0&&($total!==null?$total>$page*10:$rawCount>=10)];
 }
 // Shared server-side discovery cache: URLs/text expire within 24 hours; no image bytes.
 function am_asin(string $url):string{

@@ -32,3 +32,14 @@ lw_check(lw_fashion_data(['items'=>[$fashionRow]],['affiliateId'=>'fixture'],1,$
 $bad=$fashionRow;$bad['itemName']='別の商品';
 $rejected=false;try{lw_fashion_item($bad,['affiliateId'=>'fixture']);}catch(RuntimeException $e){$rejected=true;}lw_check($rejected);
 echo "Fashion cross-brand discovery, deduplication, photos and exact identity passed\n";
+
+// Exact JAN matching stays separate from keyword results and bundles.
+$jan='4904810959199';
+$rakutenItem=['itemCode'=>'official:'.$jan,'itemName'=>'ぷにるんず サンリオキャラクターズ','itemUrl'=>'https://item.rakuten.co.jp/official/'.$jan.'/'];
+lw_check(lw_retailer_rakuten_match(['items'=>[$rakutenItem]],$jan,'official')===$rakutenItem);
+lw_check(lw_retailer_rakuten_match(['items'=>[$rakutenItem]],$jan,'another')===null);
+$bundle=array_replace($rakutenItem,['itemName'=>'ぷにるんず 2個セット']);
+lw_check(lw_retailer_rakuten_match(['items'=>[$bundle]],$jan,'official')===null);
+$unconfirmed=array_replace($rakutenItem,['itemCode'=>'official:toy','itemUrl'=>'https://item.rakuten.co.jp/official/toy/','itemCaption'=>'ほかの商品もあります '.$jan]);
+lw_check(lw_retailer_rakuten_match(['items'=>[$unconfirmed]],$jan,'official')===null);
+echo "JAN identity and bundle rejection passed\n";

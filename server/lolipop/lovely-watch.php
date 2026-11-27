@@ -480,7 +480,7 @@ function lw_gour_match(array $data,array $variants): ?array {
     return count($matches)===1?array_values($matches)[0]:null;
 }
 function lw_gour_search(string $keyword,array $settings,string $shopCode='gourmandise',int $page=1,string $code=''): array {
-    if(!in_array($shopCode,['gourmandise','casmin','sanrio','fashion'],true))throw new RuntimeException('対象外の楽天ショップです。');
+    if(!in_array($shopCode,['gourmandise','casmin','sanrio','fashion','sp-rendez-vous','cocobeaumo','jan'],true))throw new RuntimeException('対象外の楽天ショップです。');
     if($page<1||$page>20||($code!==''&&(!in_array($shopCode,['sanrio','fashion'],true)||!preg_match('/^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/D',$code))))throw new RuntimeException('楽天の商品指定が不正です。');
     $settings=lw_validate_settings($settings);
     $base=sys_get_temp_dir().'/sph-rakuten-'.hash('sha256',__DIR__.'|resolve-v2|'.json_encode($settings));
@@ -491,7 +491,7 @@ function lw_gour_search(string $keyword,array $settings,string $shopCode='gourma
         ftruncate($lock,0);rewind($lock);fwrite($lock,(string)microtime(true));fflush($lock);
         $params=['applicationId'=>$settings['applicationId'],'affiliateId'=>$settings['affiliateId'],'shopCode'=>$shopCode,'availability'=>0,'hits'=>30,'formatVersion'=>2,'elements'=>'count,pageCount,itemCode,itemName,itemUrl,itemCaption,itemPrice,availability,mediumImageUrls,affiliateUrl'];
         if($keyword!=='')$params['keyword']=$keyword;
-        if($shopCode==='fashion')unset($params['shopCode']);
+        if(in_array($shopCode,['fashion','jan'],true))unset($params['shopCode']);
         if(in_array($shopCode,['sanrio','fashion'],true)){$params['page']=$page;$params['sort']='-updateTimestamp';if($code!=='')$params['itemCode']=$code;}
         $url='https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'.http_build_query($params);
         $ch=curl_init($url);$body='';
@@ -660,8 +660,158 @@ function lw_fashion_data(array $data,array $settings,int $page,string $expectedU
     return ['items'=>array_values($items),'nextPage'=>$items&&$pages!==false&&$page<min(20,$pages)?$page+1:null,'page'=>$page,'order'=>'API更新順（発売順ではありません）'];
 }
 
-function lw_official_sources(): array {
+function lw_retailer_sources(): array {
     return [
+        'takara'=>['name'=>'タカラトミー','list'=>'https://takaratomymall.jp/shop/c/cSanrioCh/','detail'=>'~^https://takaratomymall\.jp/shop/g/g[0-9]{13}/$~D'],
+        'smallplanet'=>['name'=>'スモール・プラネット','list'=>'https://www.smallplanet-online.com/view/search?search_keyword=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA&sort=order','detail'=>'~^https://www\.smallplanet-online\.com/view/item/[0-9]{12}$~D'],
+        'rement'=>['name'=>'リーメント','list'=>'https://www.re-ment.co.jp/product/brand.php?c=sanrio','detail'=>'~^https://www\.re-ment\.co\.jp/product/r[0-9]{4,8}$~D'],
+        'shobido'=>['name'=>'粧美堂','list'=>'https://www.sho-bionlinestore.jp/c/character/sanrio?sort=latest','detail'=>'~^https://www\.sho-bionlinestore\.jp/c/character/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+){0,3}/(?i:[a-z]{1,5}[0-9]{4,8}(?:[-_][a-z0-9]+)?)$~D'],
+    ];
+}
+function lw_retailer_url(string $base,string $value): string {
+    if(str_starts_with($value,'../'))$value=substr($value,2);
+    if(str_starts_with($value,'//'))return 'https:'.$value;
+    return str_starts_with($value,'/')?'https://'.parse_url($base,PHP_URL_HOST).$value:$value;
+}
+function lw_retailer_doc(string $html,string $source): DOMXPath {
+    if($source==='takara'&&preg_match('/charset\s*=\s*Shift_JIS/i',substr($html,0,5000))){
+        $html=mb_convert_encoding($html,'UTF-8','SJIS-win');
+        $html=preg_replace('/charset(\s*=\s*[\x22\x27]?)Shift_JIS/i','charset${1}UTF-8',$html);
+    }
+    return lw_doc($html);
+}
+function lw_retailer_list(string $html,string $source): array {
+    $x=lw_retailer_doc($html,$source);$base=lw_retailer_sources()[$source]['list'];$items=[];
+    $paths=[
+        'takara'=>'//a[contains(concat(" ",normalize-space(@class)," ")," tt_product2-6 ") and starts-with(@href,"/shop/g/")]',
+        'smallplanet'=>'//div[contains(concat(" ",normalize-space(@class)," ")," item-list-image ")]/a[img]',
+        'rement'=>'//a[starts-with(@href,"../product/r")][p[@class="name"]]',
+        'shobido'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
+    ];
+    foreach($x->query($paths[$source]) as $a){
+        $url=lw_retailer_url($base,$a->getAttribute('href'));
+        if(!preg_match(lw_retailer_sources()[$source]['detail'],$url))continue;
+        $imageScope=$source==='shobido'?$a->parentNode->parentNode->parentNode->parentNode:$a;
+        $image=$x->query('.//img[@data-original or @data-src or @src]',$imageScope);
+        $thumbnail='';$name='';
+        foreach($image as $node){
+            $name=$name?:trim($node->getAttribute('alt'));
+            $raw=$node->getAttribute('data-original')?:$node->getAttribute('data-src')?:$node->getAttribute('src');
+            $thumbnail=lw_official_image(lw_retailer_url($base,$raw));if($thumbnail)break;
+        }
+        $title=$source==='rement'?lw_text($x->query('./p[@class="name"]',$a)->item(0)):($source==='shobido'?lw_text($a):$name);
+        if($title===''||!$thumbnail)continue;
+        if(in_array($source,['smallplanet','takara'],true)&&!preg_match('/サンリオ|さんりお|キティ|クロミ|マイメロ|シナモ|ポムポムプリン|ポチャッコ|ハンギョドン|タキシードサム|ウサハナ|はなまるおばけ|シュガーバニーズ|けろけろけろっぴ|ぐでたま|リトルツインスターズ/u',$title))continue;
+        $item=lw_official_item($source,$url,$title,'',$thumbnail);
+        if($source==='takara'&&preg_match('~/g(4[59][0-9]{11})/$~D',$url,$m))$item['jan']=$m[1];
+        $items[$url]=$item;if(count($items)>=24)break;
+    }
+    if(!$items)throw new RuntimeException('公式の商品一覧から写真付きの候補を取得できませんでした。');
+    return ['items'=>array_values($items),'nextPage'=>null];
+}
+function lw_retailer_detail(string $html,string $url,string $source): array {
+    $x=lw_retailer_doc($html,$source);
+    $title=lw_meta($x,'property','og:title');
+    if($source==='smallplanet')$title=lw_text($x->query('//h1[@class="item-name"]')->item(0))?:$title;
+    if($source==='rement')$title=lw_text($x->query('//h4')->item(0));
+    if($source==='shobido')$title=lw_meta($x,'property','og:description')?preg_split('/。/u',lw_meta($x,'property','og:description'),2)[0]:$title;
+    if(!$title)throw new RuntimeException('公式の商品名を確認できませんでした。');
+    $thumbnail=lw_official_image(lw_meta($x,'property','og:image'));
+    $images=$thumbnail?[$thumbnail]:[];
+    if($source==='smallplanet'){
+        foreach($x->query('//img[@class="item-image"]') as $node){
+            $image=lw_official_image($node->getAttribute('src'));if($image)$images[]=$image;
+        }
+        $thumbnail=$images[0]??'';
+    }
+    $facts=['商品名'=>$title];$ids=[];
+    if($source==='takara'&&preg_match('~/g(4[59][0-9]{11})/$~D',$url,$m))$ids[]=$m[1];
+    foreach($x->query('//script[@type="application/ld+json"]') as $node){
+        preg_match_all('/"(?:gtin13|gtin)"\s*:\s*"?([0-9]{13})(?![0-9])/', $node->textContent,$m);
+        array_push($ids,...$m[1]);
+    }
+    if(!$ids&&$source==='smallplanet'){
+        $text=lw_text($x->query('//body')->item(0));
+        if(preg_match('/(?:JAN(?:コード)?|バーコード)[：:\s]*([0-9]{13})(?![0-9])/u',$text,$m))$ids[]=$m[1];
+    }
+    $ids=array_values(array_unique($ids));$jan=count($ids)===1?$ids[0]:'';
+    if($jan)$facts['JAN']=$jan;
+    if($source==='shobido'&&count($ids)>1)$facts['JAN（柄別）']=implode(' / ',$ids);
+    $details=$source==='rement'?lw_meta($x,'property','og:description'):($source==='takara'?lw_text($x->query('//tr[th[contains(.,"発売日")]]')->item(0)):'');
+    if(preg_match('/発売日[：:\s]*(20[0-9]{2}年\s*[0-9]{1,2}月\s*[0-9]{1,2}日)/u',$details,$m))$facts['発売時期']=$m[1];
+    $item=lw_official_item($source,$url,$title,'',$thumbnail);
+    $item['jan']=$jan;
+    $item['manufacturerInfo']=['url'=>$url,'facts'=>$facts,'text'=>implode("\n",$facts),'checkedAt'=>gmdate('c')];
+    $item['productInfo']=['jan'=>$jan,'images'=>array_values(array_unique($images)),'checkedAt'=>gmdate('c')];
+    return $item;
+}
+
+function lw_retailer_rakuten_match(array $data,string $jan,string $shop): ?array {
+    foreach($data['items']??[] as $row){
+        $item=$row['item']??$row['Item']??$row;if(!is_array($item))continue;
+        $product=lw_product((string)($item['itemUrl']??''));
+        if(!$product||$product['store']!=='楽天'||($shop!==''&&!str_starts_with($product['id'],'rakuten:'.$shop.':'))||($item['itemCode']??'')!==substr($product['id'],8))continue;
+        $name=(string)($item['itemName']??'');
+        if(preg_match('/中古|訳あり|ばら売り|[0-9０-９]+\s*(?:個|点|箱|本)セット|まとめ買い/u',$name))continue;
+        $pageCode=basename(rtrim($product['url'],'/'));
+        $caption=html_entity_decode(strip_tags((string)($item['itemCaption']??'')),ENT_QUOTES|ENT_HTML5,'UTF-8');
+        preg_match_all('/(?:JAN(?:コード)?|バーコード)[：:\s]*([0-9]{13})(?![0-9])/iu',$caption,$ids);
+        if($pageCode!==$jan&&array_values(array_unique($ids[1]))!==[$jan])continue;
+        return $item;
+    }
+    return null;
+}
+function lw_retailer_amazon(string $jan): ?array {
+    $file=__DIR__.'/amazon-creators.php';if(!is_file($file))return null;
+    if(!defined('SPH_AMAZON_TEST'))define('SPH_AMAZON_TEST',true);
+    require_once $file;
+    $settings=am_read(am_dir().'/settings.php');
+    if(!am_public($settings)['configured'])return null;
+    $lock=fopen(am_dir().'/search.lock.php','c+');
+    if(!$lock)return null;
+    try{
+        chmod(am_dir().'/search.lock.php',0600);
+        if(!flock($lock,LOCK_EX|LOCK_NB)||(int)stream_get_contents($lock)>time()-5)return null;
+        rewind($lock);ftruncate($lock,0);fwrite($lock,(string)time());fflush($lock);
+        $result=am_search($settings,$jan,null,1,true);
+        $matches=[];
+        foreach($result['items'] as $row){
+            $asin=am_asin($row['url']);
+            if(!$asin||($row['eans']??[])!==[$jan]||preg_match('/中古|訳あり|[0-9０-９]+\s*(?:個|点|箱|本)セット|まとめ買い/u',$row['title']))continue;
+            $matches[$asin]=$row['url'];
+        }
+        if(count($matches)!==1)return null;
+        return ['id'=>'asin:'.array_key_first($matches),'url'=>reset($matches),'store'=>'Amazon','kind'=>'product'];
+    }finally{fclose($lock);}
+}
+function lw_retailer_enriched(string $html,string $url,string $source): array {
+    $item=lw_retailer_detail($html,$url,$source);$jan=$item['jan'];
+    if(!$jan)return $item;
+    $settings=lw_settings();
+    $shop=['takara'=>'','smallplanet'=>'sp-rendez-vous','rement'=>'','shobido'=>'cocobeaumo'][$source];
+    $item['retailerStatus']='同じJANの商品リンクを確認できませんでした。検索から確認できます。';
+    if($settings){
+        try{
+            $match=lw_retailer_rakuten_match(lw_gour_search($jan,$settings,$shop?:'jan'),$jan,$shop);
+            if($match){
+                $product=lw_product($match['itemUrl']);$item['products'][]=$product;
+                $item['productInfo']+=['title'=>$match['itemName'],'url'=>$product['url'],'productId'=>$product['id'],'itemCode'=>$match['itemCode']];
+                try{$item['matchedAffiliate']=lw_affiliate_result(['items'=>[$match]],$match['itemCode'],$settings['affiliateId']);}catch(RuntimeException $e){}
+            }
+        }catch(Throwable $e){$item['retryRetailer']=true;}
+    }
+    try{if($amazon=lw_retailer_amazon($jan))$item['products'][]=$amazon;}
+    catch(Throwable $e){$item['retryRetailer']=true;}
+    $item['productIds']=array_column($item['products'],'id');
+    $item['bothRetailers']=count($item['products'])===2;
+    if($item['products']){
+        $item['retailerStatus']=implode('・',array_column($item['products'],'store')).'の同一JANを確認しました。販売状況はリンク先で確認してください。';
+    }
+    return $item;
+}
+
+function lw_official_sources(): array {
+    return lw_retailer_sources()+[
         'nakajima'=>['name'=>'ナカジママーケット','list'=>'https://nakajima-market.com/view/news/list?page=1','detail'=>'~^https://nakajima-market\.com/view/news/[0-9]{14}$~D'],
         'takarajima'=>['name'=>'宝島チャンネル','list'=>'https://store.tkj.jp/shop/shopbrand.html?search=%E3%82%B5%E3%83%B3%E3%83%AA%E3%82%AA','detail'=>'~^https://store\.tkj\.jp/shopdetail/[0-9]{12}/$~D'],
     ];
@@ -673,12 +823,14 @@ function lw_official_source(string $url): string {
     return '';
 }
 function lw_official_image(string $url): string {
+    if(preg_match('~^https://(?:takaratomymall\.jp/img/goods/[A-Z0-9]/[0-9]{13}_[a-z0-9]+|www\.re-ment\.co\.jp/data/photo/product/t2?/[0-9]+|makeshop-multi-images\.akamaized\.net/smpweb/(?:itemimages/[0-9]{12}_[a-z0-9_-]+|shopimages/[0-9]{2}/[0-9]{2}/[0-9]+_[0-9]{12})|cocobeaumo\.itembox\.cloud/product/[0-9]{3}/[0-9]{12}/[0-9]{12}-[0-9]+)\.(?:jpe?g|png|webp)(?:\?[a-z0-9_=&-]+)?$~Di',$url))return $url;
     return preg_match('~^https://makeshop-multi-images\.akamaized\.net/(?:tkjstore|nakabc01)/itemimages/[0-9]+_[a-zA-Z0-9_-]+\.(?:jpe?g|png|webp)$~Di',$url)?$url:'';
 }
 function lw_official_item(string $source,string $url,string $title,string $date='',string $thumbnail=''): array {
     return ['source'=>lw_official_sources()[$source]['name'],'url'=>$url,'title'=>$title,'date'=>$date,'thumbnail'=>$thumbnail,'products'=>[],'productIds'=>[],'needsReview'=>true];
 }
 function lw_official_list(string $html,string $source): array {
+    if(isset(lw_retailer_sources()[$source]))return lw_retailer_list($html,$source);
     $x=lw_doc($html);$items=[];
     if($source==='nakajima'){
         $links=$x->query('//dl[@class="information-list"]/dd/a');
@@ -705,6 +857,7 @@ function lw_official_list(string $html,string $source): array {
     return ['items'=>array_values($items),'nextPage'=>null];
 }
 function lw_official_detail(string $html,string $url,string $source): array {
+    if(isset(lw_retailer_sources()[$source]))return lw_retailer_enriched($html,$url,$source);
     $x=lw_doc($html);
     $title=lw_meta($x,'property','og:title');
     if($title==='')throw new RuntimeException('公式の商品情報を確認できませんでした。');

@@ -124,6 +124,55 @@ jobs:
           bye
           LFTP
 
+      - name: Verify the four new product sources
+        if: contains(github.event.head_commit.message, '[verify-retailer-sources]')
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          verify_tmp=$(mktemp -d)
+          trap 'rm -rf "$verify_tmp"' EXIT
+          lftp -u "$LOLIPOP_FTP_USER","$LOLIPOP_FTP_PASSWORD" "$LOLIPOP_FTP_HOST" <<LFTP
+          set cmd:fail-exit yes
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate yes
+          cd "$LOLIPOP_TREND_DIR"
+          get config.php -o "$verify_tmp/config.php"
+          bye
+          LFTP
+          php -r '
+          $config=require $argv[1];
+          $base="https://fan-info.zombie.jp/sanrio-fan/sanrio-sync/lovely-watch.php";
+          $headers=["Authorization: Bearer ".$config["sync_key"],"Origin: https://zero830711-svg.github.io"];
+          $request=static function(array $parameters)use($base,$headers):array{
+            $curl=curl_init($base."?".http_build_query($parameters));
+            curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>60,CURLOPT_HTTPHEADER=>$headers]);
+            $raw=curl_exec($curl);$status=curl_getinfo($curl,CURLINFO_HTTP_CODE);
+            return [$status,$raw];
+          };
+          $failed=false;
+          foreach(["takara","smallplanet","rement","shobido"] as $source){
+            [$status,$raw]=$request(["action"=>"list","source"=>$source]);
+            $data=json_decode((string)$raw,true);
+            if($status!==200||empty($data["items"][0]["thumbnail"])){
+              $failed=true;echo "$source list failed (HTTP $status)\n";continue;
+            }
+            $first=$data["items"][0];
+            [$detailStatus,$detailRaw]=$request(["action"=>"detail","url"=>$first["url"]]);
+            $detail=json_decode((string)$detailRaw,true);
+            if($detailStatus!==200||empty($detail["item"]["productInfo"]["images"])){
+              $failed=true;echo "$source detail failed (HTTP $detailStatus)\n";continue;
+            }
+            [$imageStatus,$image]=$request(["action"=>"image","url"=>$first["url"],"index"=>0]);
+            if($imageStatus!==200||!$image||!@getimagesizefromstring($image)){
+              $failed=true;echo "$source image failed (HTTP $imageStatus)\n";continue;
+            }
+            echo "$source: ".count($data["items"])." candidates, detail and image verified\n";
+          }
+          exit($failed?1:0);
+          ' "$verify_tmp/config.php"
+
       - name: Verify seven new news sources
         if: contains(github.event.head_commit.message, '[verify-seven]')
         shell: bash

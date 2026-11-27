@@ -92,3 +92,11 @@ try{
  foreach(glob($storageTest.'/persistent/*')?:[] as $f)unlink($f);@unlink($storageTest.'/persistent/.htaccess');@rmdir($storageTest.'/persistent');
  foreach(glob($storageTest.'/old/*')?:[] as $f)unlink($f);@rmdir($storageTest.'/old');@unlink($storageTest.'/bad.php');@rmdir($storageTest);
 }
+
+$eanSearch=['searchResult'=>['items'=>[[
+    'itemInfo'=>['title'=>['displayValue'=>'サンリオ玩具'],'externalIds'=>['eans'=>['displayValues'=>['4904810959199']]]],
+    'detailPageURL'=>'https://www.amazon.co.jp/dp/B0FFGJ8P3Q',
+]]]];
+if((am_results($eanSearch,true)[0]['eans']??[])!==['4904810959199']||isset(am_results($eanSearch)[0]['eans'])){
+    throw new RuntimeException('EANs must only be returned for explicit JAN lookups');
+}
