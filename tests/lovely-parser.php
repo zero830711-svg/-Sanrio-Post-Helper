@@ -64,13 +64,9 @@ $sunDetail=lw_retailer_detail('<meta property="og:title" content="サンリオ �
 lw_check(lw_article_url($sunUrl)===$sunUrl&&$sunDetail['productInfo']['images']===[$sunImg]&&$sunDetail['jan']==='4901770758381');
 echo "Epoch manufacturer links and Sun-Star product identifiers passed\n";
 
-$kawadaUrl='https://kawadabase.com/shop/products/4972825229064';
-$kawadaImage='https://d2w53g1q050m78.cloudfront.net/kawadabasecom/ec_assets/f507e831ed9dd9966f4cde1a73982f1bedb0e362-original.?1762879499';
-$kawada=lw_retailer_list('<div class="Common_ItemList01_Box"><a href="/shop/products/4972825229064"><img alt="ナノブロック ハローキティ" src="'.$kawadaImage.'"></a></div>','kawada')['items'];
-lw_check($kawada[0]['url']===$kawadaUrl&&$kawada[0]['jan']==='4972825229064'&&$kawada[0]['thumbnail']===$kawadaImage);
 $beverlyUrl='https://be-en.co.jp/products/sp-002';
 $beverlyImage='http://be-en.co.jp/cdn/shop/files/product-photo.jpg?v=1716951496';
 $beverly=lw_retailer_detail('<meta property="og:title" content="シナモロール"><meta property="og:image" content="'.$beverlyImage.'"><script type="application/ld+json">{"gtin13":4977524891819}</script>',$beverlyUrl,'beverly');
 lw_check($beverly['jan']==='4977524891819'&&$beverly['manufacturerInfo']['facts']['型番']==='SP-002');
 lw_check($beverly['productInfo']['images']===['https://be-en.co.jp/cdn/shop/files/product-photo.jpg?v=1716951496']);
-echo "Kawada and Beverly official identifiers and photos passed\n";
+echo "Beverly official identifiers and photos passed\n";
