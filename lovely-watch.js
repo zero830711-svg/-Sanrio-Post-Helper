@@ -264,7 +264,8 @@ const lovelyWatch = (()=>{
   }
   const manufacturerSources={takara:'タカラトミー',smallplanet:'スモール・プラネット',rement:'リーメント',shobido:'粧美堂',epoch:'エポック社',sunstar:'サンスター文具',kawada:'カワダ',beverly:'ビバリー',gakken:'学研ステイフル',bandai_toys:'バンダイ（玩具・コスメ）'};
   const sourceNames={lovely:'ブログ',hatakeyama:'畑山商事',gourmandise:'グルマンディーズ',skater:'スケーター',nakajima:'ナカジママーケット',takarajima:'宝島チャンネル',...manufacturerSources,sanrio:'サンリオ公式 楽天市場店',fashion:'楽天ファッション',news:'公式ニュース',overseas:'海外公式'};
-  const discoverySources=Object.keys(sourceNames).filter(key=>!['fashion','news','overseas','smallplanet'].includes(key));
+  const retiredSources=['smallplanet','kawada'];
+  const discoverySources=Object.keys(sourceNames).filter(key=>!['fashion','news','overseas',...retiredSources].includes(key));
   const sourceOf=item=>item?.domesticNews?'news':item?.overseas?'overseas':Object.keys(sourceNames).find(key=>sourceNames[key]===item?.source)||'lovely';
   const sourceName=source=>sourceNames[source]||source;
   const fromManufacturer=item=>Object.hasOwn(manufacturerSources,sourceOf(item));
@@ -277,7 +278,7 @@ const lovelyWatch = (()=>{
     const errors=[],partial=[],warnings=[],observedAt=discoveryBatchAt||new Date().toISOString();
     await Promise.all(Object.entries(pages).map(async([source,page])=>{
       try{
-        const data=await request('list','',null,page,source);warnings.push(...(data.warnings||[]));const items=(data.items||[]).filter(item=>sourceOf(item)!=='smallplanet');domesticCandidates.ingest(items);const merged=new Map((replace&&!data.partial?rows.filter(item=>sourceOf(item)!==source):rows).map(item=>[item.url,item]));
+        const data=await request('list','',null,page,source);warnings.push(...(data.warnings||[]));const items=(data.items||[]).filter(item=>!retiredSources.includes(sourceOf(item)));domesticCandidates.ingest(items);const merged=new Map((replace&&!data.partial?rows.filter(item=>sourceOf(item)!==source):rows).map(item=>[item.url,item]));
         const saved=state();saved.firstSeen=saved.firstSeen||{};
         saved.sourceChecks=saved.sourceChecks||{};
         const previous=saved.sourceChecks[source]||{},recent=new Set(replace?[]:previous.recentUrls||[]);

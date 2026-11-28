@@ -702,7 +702,7 @@ function lw_retailer_sources(): array {
         'shobido'=>['name'=>'粧美堂','list'=>'https://www.sho-bionlinestore.jp/c/character/sanrio?sort=latest','detail'=>'~^https://www\.sho-bionlinestore\.jp/c/character/[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+){0,3}/(?i:[a-z]{1,5}[0-9]{4,8}(?:[-_][a-z0-9]+)?)$~D'],
         'epoch'=>['name'=>'エポック社','list'=>'https://epoch.jp/ty/whip/catalog.php','detail'=>'~^https://epoch\.jp/ty/whip/item/w[0-9]{2,4}\.php$~D'],
         'sunstar'=>['name'=>'サンスター文具','list'=>'https://shop.sun-star-st.jp/c/character/sanrio?sort=latest','detail'=>'~^https://shop\.sun-star-st\.jp/c/character/sanrio(?:/[a-z0-9_-]+){0,3}/s[0-9]{5,9}(?:-[a-z0-9]+)?$~Di'],
-        'kawada'=>['name'=>'カワダ','list'=>'https://kawadabase.com/shop/product_categories/sanrio','detail'=>'~^https://kawadabase\.com/shop/products/4972825[0-9]{6}$~D'],
+        'kawada'=>['name'=>'カワダ','detail'=>'~^https://kawadabase\.com/shop/products/4972825[0-9]{6}$~D'],
         'gakken'=>['name'=>'学研ステイフル','list'=>'https://www.gakkensf.co.jp/product/a11457/','detail'=>'~^https://www\.gakkensf\.co\.jp/product/[a-z]?[0-9]{5}/$~D'],
         'bandai_toys'=>['name'=>'バンダイ（玩具・コスメ）','list'=>'https://toy.bandai.co.jp/ja/series/sanrio/item/','detail'=>'~^https://toy\.bandai\.co\.jp/ja/series/sanrio/item/01_[0-9]{1,8}/$~D'],
         'beverly'=>['name'=>'ビバリー','list'=>'https://be-en.co.jp/collections/sanrio-characters','detail'=>'~^https://be-en\.co\.jp/products/[a-z0-9][a-z0-9_-]{1,80}$~D'],
@@ -742,7 +742,6 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false,i
         'shobido'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
         'sunstar'=>'//*[contains(concat(" ",normalize-space(@class)," ")," fs-c-productListItem__productName ")]/a[@href]',
         'epoch'=>'//div[@class="item_box"]/div[@class="itemname"]/a[starts-with(@href,"item/w")]',
-        'kawada'=>'//div[contains(concat(" ",normalize-space(@class)," ")," Common_ItemList01_Box ")]/a[.//img]',
         'bandai_toys'=>'//ul[contains(@class,"productLists")]/li/a[.//img]',
         'beverly'=>'//*[@id="product-grid"]//a[starts-with(@href,"/products/")][.//img]',
     ];
@@ -782,7 +781,6 @@ function lw_retailer_list(string $html,string $source,bool $mallFallback=false,i
         if($source==='takara'&&!preg_match('/サンリオ|さんりお|キティ|クロミ|マイメロ|シナモ|ポムポムプリン|ポチャッコ|ハンギョドン|タキシードサム|ウサハナ|はなまるおばけ|シュガーバニーズ|けろけろけろっぴ|ぐでたま|リトルツインスターズ/u',$title))continue;
         $item=lw_official_item($source,$url,$title,'',$thumbnail);
         if($source==='takara'&&preg_match('~/(?:g)?(4[59][0-9]{11})(?:/|\.html)$~D',$url,$m))$item['jan']=$m[1];
-        if($source==='kawada')$item['jan']=basename($url);
         if($source==='beverly'){
             $summary=lw_text($a->parentNode);
             if(preg_match('/JANコード\s*(4977524[0-9]{6})(?![0-9])/u',$summary,$m))$item['jan']=$m[1];
