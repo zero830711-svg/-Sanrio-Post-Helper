@@ -1,0 +1,20 @@
+name: Publish AREAX Sanrio wish tree guide
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-areax-wish-tree-20261128.yml]
+permissions:
+  contents: read
+concurrency:
+  group: sanrio-wordpress-rest
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
+      SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 blog/editorial/areax-wish-tree/publish.py
