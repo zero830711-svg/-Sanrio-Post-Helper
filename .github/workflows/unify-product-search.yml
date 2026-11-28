@@ -27,7 +27,7 @@ jobs:
       SANRIO_WP_USER: ${{ secrets.SANRIO_WP_USER }}
       SANRIO_WP_APP_PASSWORD: ${{ secrets.SANRIO_WP_APP_PASSWORD }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Test live catalog indexing and guide preservation
         run: |
           python3 -S -c "import runpy; runpy.run_path('scripts/unify-product-search.py')"

@@ -15,7 +15,7 @@ jobs:
       LOLIPOP_FTP_PASSWORD: ${{ secrets.LOLIPOP_FTP_PASSWORD }}
       LOLIPOP_TREND_DIR: ${{ secrets.LOLIPOP_TREND_DIR }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install --yes lftp
       - name: Check real API results without exposing credentials
         shell: bash
